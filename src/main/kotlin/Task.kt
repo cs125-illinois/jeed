@@ -9,6 +9,7 @@ class Task(
         val sources: Map<String, String>
 ) {
     constructor(snippet: String): this(true, mapOf("" to snippet))
+    constructor(sources: Map<String, String>): this (false, sources)
 
     init {
         if (sources.keys.isEmpty()) {
@@ -31,7 +32,7 @@ class Task(
     var scriptEvaluator: ScriptEvaluator? = null
 }
 data class TaskError(val error: Throwable) {
-    private val stackTrace: String
+    val stackTrace: String
     init {
         val stringWriter = StringWriter()
         val printWriter = PrintWriter(stringWriter)

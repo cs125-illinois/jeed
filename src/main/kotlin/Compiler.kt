@@ -1,24 +1,39 @@
 package edu.illinois.cs.cs125.janini
 
-import mu.KotlinLogging
 import org.codehaus.commons.compiler.jdk.ScriptEvaluator
+
+import mu.KotlinLogging
+import org.codehaus.commons.compiler.jdk.SimpleCompiler
+import org.codehaus.janino.util.resource.MapResourceFinder
+
 private val logger = KotlinLogging.logger {}
 
-fun compile(task: Task): Task {
-    if (task.compiled != null) {
+fun Task.compile(): Task {
+    if (compiled != null) {
         throw IllegalStateException("Task has already been compiled")
     }
     try {
-        if (task.snippet) {
+        if (snippet) {
             val scriptEvaluator = ScriptEvaluator()
-            scriptEvaluator.cook(task.sources.values.toTypedArray()[0])
-            task.scriptEvaluator = scriptEvaluator
+            scriptEvaluator.cook(sources.values.toTypedArray()[0])
+            this.scriptEvaluator = scriptEvaluator
+        } else {
+            val simpleCompiler = SimpleCompiler()
+            simpleCompiler.compile(sources)
         }
-        task.compiled = true
+        compiled = true
     } catch (e: Exception) {
         logger.trace(e) { "compilation failed" }
-        task.compilerError = TaskError(e)
-        task.compiled = false
+        compilerError = TaskError(e)
+        compiled = false
     }
-    return task
+    return this
+}
+
+fun Map<String, String>.toMapResourceFinder(): MapResourceFinder {
+    val sourceFinder = MapResourceFinder()
+    this.forEach { (path, source) ->
+        sourceFinder.addResource(path, source)
+    }
+    return sourceFinder
 }
