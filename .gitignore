@@ -1,0 +1,15 @@
+!gradle-wrapper.jar
+/.gradle
+/out/
+/build/
+/test-output/
+*.class
+*.swp
+*.swo
+.idea/workspace.xml
+.idea/tasks.xml
+.idea/.name
+.idea/modules/test-output/
+.idea/libraries/
+.idea/checkstyle-idea.xml
+/.kotlintest
