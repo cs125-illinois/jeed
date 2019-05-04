@@ -87,7 +87,7 @@ public class Me {}
 """
         )).compile() should haveCompiled()
     }
-    "should compile sources using Java 10 features" {
+    "should compile sources that use Java 10 features" {
         Task(mapOf(
                 "Test" to
                         """
