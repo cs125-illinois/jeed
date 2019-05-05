@@ -1,6 +1,5 @@
 package edu.illinois.cs.cs125.janini
 
-import org.codehaus.commons.compiler.jdk.ScriptEvaluator
 import java.io.PrintWriter
 import java.io.StringWriter
 
@@ -12,25 +11,15 @@ class Task(
     constructor(sources: Map<String, String>): this (false, sources)
 
     init {
-        if (sources.keys.isEmpty()) {
-            throw IllegalArgumentException("Must provide at least one source")
-        }
+        require(sources.keys.isNotEmpty())
         if (snippet) {
-            if (sources.keys.size != 1) {
-                throw IllegalArgumentException("Snippets must provide exactly one source")
-            }
+            require(sources.keys.size == 1)
             val path = sources.keys.toTypedArray()[0]
-            if (path != "") {
-                throw IllegalArgumentException("Snippets should not provide a source path: $path")
-            }
+            require(path == "")
         }
     }
-
-    var compiled: Boolean? = null
-    var compilerError: TaskError? = null
-    @Transient
-    var scriptEvaluator: ScriptEvaluator? = null
 }
+
 data class TaskError(val error: Throwable) {
     val stackTrace: String
     init {

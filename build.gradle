@@ -19,9 +19,11 @@ test {
     useJUnitPlatform()
     testLogging.showStandardStreams = true
     systemProperties 'logback.configurationFile' : new File(projectDir,'src/test/resources/logback-test.xml').absolutePath
+    enableAssertions = true
 }
 dependencies {
     implementation "org.jetbrains.kotlin:kotlin-stdlib-jdk8"
+    implementation "org.jetbrains.kotlinx:kotlinx-coroutines-core:1.2.1"
     implementation "org.codehaus.janino:janino:3.0.12"
     implementation project(":commons-compiler-jdk")
     implementation "org.slf4j:slf4j-api:1.7.26"

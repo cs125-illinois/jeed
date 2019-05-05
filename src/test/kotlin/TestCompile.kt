@@ -1,43 +1,23 @@
 import io.kotlintest.specs.StringSpec
 import io.kotlintest.*
 
-import edu.illinois.cs.cs125.janini.Task
-import edu.illinois.cs.cs125.janini.compile
-import java.lang.IllegalStateException
+import edu.illinois.cs.cs125.janini.*
 
-fun haveCompiled() = object : Matcher<Task> {
-    override fun test(value: Task): Result {
-        return if (value.compiled == null) {
-            Result(
-                    false,
-                    "Compilation should have been attempted",
-                    ""
-            )
-        } else {
-            Result(
-                    value.compiled == true,
-                    "Source should have compiled: ${value.compilerError?.stackTrace}",
-                    "Source should not have compiled"
-            )
-        }
+fun haveCompiled() = object : Matcher<CompilationResult> {
+    override fun test(value: CompilationResult): Result {
+        return Result(
+                value.succeeded,
+                "Source should have compiled: ${value.error}",
+                "Source should not have compiled"
+        )
     }
 }
-class TestCompiler : StringSpec({
+class TestCompile : StringSpec({
     "should compile simple snippets" {
         Task("int i = 1;").compile() should haveCompiled()
     }
     "should not compile broken simple snippets" {
         Task("int i = 1").compile() shouldNot haveCompiled()
-    }
-    "should not recompile successful simple snippets" {
-        shouldThrow<IllegalStateException> {
-            Task("int i = 1;").compile().compile()
-        }
-    }
-    "should not recompile broken simple snippets" {
-        shouldThrow<IllegalStateException> {
-            Task("int i = 1").compile().compile()
-        }
     }
 
     "should compile multiple sources" {
