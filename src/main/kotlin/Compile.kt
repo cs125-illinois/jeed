@@ -7,29 +7,29 @@ import org.codehaus.commons.compiler.jdk.SimpleCompiler
 import mu.KotlinLogging
 private val logger = KotlinLogging.logger {}
 
-data class CompilationResult(
-        val task: Task,
+data class CompiledSource(
+        val source: Source,
         val succeeded: Boolean,
         val error: TaskError?,
         @Transient val classLoader: ClassLoader? = null,
         @Transient val scriptEvaluator: ScriptEvaluator? = null
 )
 
-fun Task.compile(): CompilationResult {
+fun Source.compile(): CompiledSource {
     try {
         if (snippet) {
             val localScriptEvaluator = ScriptEvaluator()
             localScriptEvaluator.cook(sources.values.toTypedArray()[0])
             assert(localScriptEvaluator != null)
-            return CompilationResult(this,true, null, null, localScriptEvaluator)
+            return CompiledSource(this,true, null, null, localScriptEvaluator)
         } else {
             val simpleCompiler = SimpleCompiler()
             simpleCompiler.compile(sources)
             assert(simpleCompiler.classLoader != null)
-            return CompilationResult(this,true, null, simpleCompiler.classLoader)
+            return CompiledSource(this,true, null, simpleCompiler.classLoader)
         }
     } catch (e: Exception) {
         logger.trace(e) { "compilation failed" }
-        return CompilationResult(this,false, TaskError(e))
+        return CompiledSource(this,false, TaskError(e))
     }
 }

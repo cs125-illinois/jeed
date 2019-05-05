@@ -3,7 +3,7 @@ package edu.illinois.cs.cs125.janini
 import java.io.PrintWriter
 import java.io.StringWriter
 
-class Task(
+class Source(
         val snippet: Boolean,
         val sources: Map<String, String>
 ) {
