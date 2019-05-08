@@ -1,6 +1,7 @@
 apply plugin: "java"
 apply plugin: "kotlin"
 apply plugin: "com.github.ben-manes.versions"
+apply plugin: "antlr"
 
 repositories {
     jcenter()
@@ -24,13 +25,24 @@ test {
 dependencies {
     implementation "org.jetbrains.kotlin:kotlin-stdlib-jdk8"
     implementation "org.jetbrains.kotlinx:kotlinx-coroutines-core:1.2.1"
+
     implementation "org.codehaus.janino:janino:3.0.12"
     implementation project(":commons-compiler-jdk")
+
+    implementation "com.github.javaparser:javaparser-symbol-solver-core:3.14.0"
+    antlr "org.antlr:antlr4:4.7.2"
+
     implementation "org.slf4j:slf4j-api:1.7.26"
     implementation "ch.qos.logback:logback-classic:1.2.3"
     implementation "io.github.microutils:kotlin-logging:1.6.26"
+
     testImplementation "io.kotlintest:kotlintest-runner-junit5:3.3.2"
 }
+generateGrammarSource {
+    outputDirectory = file("src/main/java/edu/illinois/cs/cs125/janini/antlr")
+    arguments += ["-visitor", "-package", "edu.illinois.cs.cs125.janini.antlr", "-Xexact-output-dir"]
+}
+compileKotlin.dependsOn generateGrammarSource
 dependencyUpdates.resolutionStrategy {
     componentSelection { rules ->
         rules.all { ComponentSelection selection ->
