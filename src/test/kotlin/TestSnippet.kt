@@ -15,8 +15,7 @@ int testing() {
     int j = 0;
     return 10;
 }
-class AnotherTest {
-}
+class AnotherTest { }
 int i = 0;
 i++;""")
   }
