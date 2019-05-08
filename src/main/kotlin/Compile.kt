@@ -16,20 +16,19 @@ data class CompiledSource(
 )
 
 fun Source.compile(): CompiledSource {
-    try {
+    return try {
         if (snippet) {
             val localScriptEvaluator = ScriptEvaluator()
             localScriptEvaluator.cook(sources.values.toTypedArray()[0])
-            assert(localScriptEvaluator != null)
-            return CompiledSource(this,true, null, null, localScriptEvaluator)
+            CompiledSource(this,true, null, null, localScriptEvaluator)
         } else {
             val simpleCompiler = SimpleCompiler()
             simpleCompiler.compile(sources)
             assert(simpleCompiler.classLoader != null)
-            return CompiledSource(this,true, null, simpleCompiler.classLoader)
+            CompiledSource(this,true, null, simpleCompiler.classLoader)
         }
     } catch (e: Exception) {
         logger.trace(e) { "compilation failed" }
-        return CompiledSource(this,false, TaskError(e))
+        CompiledSource(this,false, TaskError(e))
     }
 }

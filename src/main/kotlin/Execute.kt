@@ -57,7 +57,7 @@ fun CompiledSource.execute(
         val klass = classLoader?.loadClass(executionParameters.className)
                 ?: throw ExecutionException("Could not load ${executionParameters.className}")
         klass.declaredMethods.find { method ->
-            val fullName = "${method.name}" + method.parameterTypes.joinToString(prefix = "(", separator = ", ", postfix = ")") { parameter ->
+            val fullName = method.name + method.parameterTypes.joinToString(prefix = "(", separator = ", ", postfix = ")") { parameter ->
                 parameter.name
             }
             fullName == executionParameters.method && Modifier.isStatic(method.modifiers) && Modifier.isPublic(method.modifiers)
