@@ -42,36 +42,21 @@ fun CompiledSource.execute(
         executionParameters: ExecutionParameters = ExecutionParameters()
 ): ExecutionResult {
     check(succeeded)
+    check(classLoader != null)
 
-    if (source.snippet) {
-        check(scriptEvaluator != null)
-        check(executionParameters.className == null)
-        check(executionParameters.method == null)
-    } else {
-        check(classLoader != null)
-        check(executionParameters.className != null)
-        check(executionParameters.method != null)
-    }
+    check(executionParameters.className != null)
+    check(executionParameters.method != null)
 
-    val method = if (!source.snippet) {
-        val klass = classLoader?.loadClass(executionParameters.className)
-                ?: throw ExecutionException("Could not load ${executionParameters.className}")
-        klass.declaredMethods.find { method ->
-            val fullName = method.name + method.parameterTypes.joinToString(prefix = "(", separator = ", ", postfix = ")") { parameter ->
-                parameter.name
-            }
-            fullName == executionParameters.method && Modifier.isStatic(method.modifiers) && Modifier.isPublic(method.modifiers)
-        } ?: throw ExecutionException("Cannot locate public static method with signature ${executionParameters.method} in ${executionParameters.className}")
-    } else {
-        null
-    }
-    val futureTask = FutureTask {
-        if (source.snippet) {
-            scriptEvaluator?.evaluate(arrayOf<Any>())
-        } else {
-            method?.invoke(null)
+    val klass = classLoader.loadClass(executionParameters.className)
+            ?: throw ExecutionException("Could not load ${executionParameters.className}")
+    val method = klass.declaredMethods.find { method ->
+        val fullName = method.name + method.parameterTypes.joinToString(prefix = "(", separator = ", ", postfix = ")") { parameter ->
+            parameter.name
         }
-    }
+        fullName == executionParameters.method && Modifier.isStatic(method.modifiers) && Modifier.isPublic(method.modifiers)
+    } ?: throw ExecutionException("Cannot locate public static method with signature ${executionParameters.method} in ${executionParameters.className}")
+
+    val futureTask = FutureTask { method.invoke(null) }
     val thread = Thread(futureTask)
 
     outputLock.withLock {

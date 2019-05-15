@@ -7,20 +7,22 @@ fun haveCompiled() = object : Matcher<CompiledSource> {
     override fun test(value: CompiledSource): Result {
         return Result(
                 value.succeeded,
-                "Source should have compiled: ${value.error}",
+                "Source should have compiled",
                 "Source should not have compiled"
         )
     }
 }
 class TestCompile : StringSpec({
+    /*
     "should compile simple snippets" {
         Source("int i = 1;").compile() should haveCompiled()
     }
     "should not compile broken simple snippets" {
         Source("int i = 1").compile() shouldNot haveCompiled()
     }
+    */
 
-    "should compile multiple sources" {
+    "f:should compile multiple sources" {
         Source(mapOf(
                 "Test" to "public class Test {}",
                 "Me" to "public class Me {}"

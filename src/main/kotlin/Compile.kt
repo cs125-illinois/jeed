@@ -1,34 +1,173 @@
 package edu.illinois.cs.cs125.janini
 
 
-import org.codehaus.commons.compiler.jdk.ScriptEvaluator
-import org.codehaus.commons.compiler.jdk.SimpleCompiler
-
 import mu.KotlinLogging
-private val logger = KotlinLogging.logger {}
+import org.codehaus.commons.compiler.jdk.ClassLoaders
+import java.io.*
+import java.net.URI
+import java.net.URL
+import java.nio.charset.Charset
+import java.security.AccessController
+import java.security.PrivilegedAction
+import java.util.*
+import javax.lang.model.element.Modifier
+import javax.lang.model.element.NestingKind
+import javax.tools.*
 
-data class CompiledSource(
-        val source: Source,
-        val succeeded: Boolean,
-        val error: TaskError?,
-        @Transient val classLoader: ClassLoader? = null,
-        @Transient val scriptEvaluator: ScriptEvaluator? = null
-)
+@Suppress("UNUSED")
+private val logger = KotlinLogging.logger {}
+private val compiler = ToolProvider.getSystemJavaCompiler()
+        ?: throw Exception("compiler not found: you are probably running a JRE, not a JDK")
+private val globalClassLoader = Thread.currentThread().contextClassLoader
+
+@Suppress("UNUSED")
+class CompiledSource(val source: Source, results: Results, fileManager: FileManager) {
+    val succeeded = !results.diagnostics.any {
+        it.kind == Diagnostic.Kind.ERROR
+    }
+    val classLoader = if (succeeded) {
+        AccessController.doPrivileged(PrivilegedAction<ClassLoader> {
+            fileManager.getClassLoader()
+        })
+    } else null
+}
+
+private class Unit(val entry: Map.Entry<String, String>) : SimpleJavaFileObject(URI(entry.key), JavaFileObject.Kind.SOURCE) {
+    override fun isNameCompatible(simpleName: String?, kind: JavaFileObject.Kind?): Boolean {
+        return true
+    }
+    override fun openReader(ignoreEncodingErrors: Boolean): Reader {
+        return StringReader(entry.value)
+    }
+    override fun getCharContent(ignoreEncodingErrors: Boolean): CharSequence {
+        return entry.value
+    }
+    override fun toString(): String {
+        return entry.key
+    }
+}
+
+private class Listing(val entry: Map.Entry<String, URL>) : JavaFileObject {
+    override fun toUri(): URI {
+        return entry.value.toURI()
+    }
+    override fun getName(): String {
+        return entry.key
+    }
+    override fun openInputStream(): InputStream {
+        return entry.value.openStream()
+    }
+    override fun getKind(): JavaFileObject.Kind {
+        return JavaFileObject.Kind.CLASS
+    }
+    override fun toString(): String {
+        return "${entry.key} from ${this.javaClass.simpleName}"
+    }
+
+    override fun openOutputStream(): OutputStream { throw UnsupportedOperationException() }
+    override fun openReader(ignoreEncodingErrors: Boolean): Reader { throw UnsupportedOperationException() }
+    override fun getCharContent(ignoreEncodingErrors: Boolean): CharSequence { throw UnsupportedOperationException() }
+    override fun openWriter(): Writer { throw UnsupportedOperationException() }
+    override fun getLastModified(): Long { throw UnsupportedOperationException() }
+    override fun delete(): Boolean { throw UnsupportedOperationException() }
+    override fun isNameCompatible(simpleName: String?, kind: JavaFileObject.Kind?): Boolean { throw UnsupportedOperationException() }
+    override fun getNestingKind(): NestingKind { throw UnsupportedOperationException() }
+    override fun getAccessLevel(): Modifier { throw UnsupportedOperationException() }
+}
+
+
+class Results : DiagnosticListener<JavaFileObject> {
+    val diagnostics = mutableListOf<Diagnostic<out JavaFileObject>>()
+    override fun report(diagnostic: Diagnostic<out JavaFileObject>) {
+        diagnostics.add(diagnostic)
+    }
+}
+
+class FileManager(results: Results) : ForwardingJavaFileManager<JavaFileManager>(
+        ToolProvider.getSystemJavaCompiler().getStandardFileManager(results, Locale.US, Charset.forName("UTF-8"))
+) {
+    private class ByteSource(name: String, kind: JavaFileObject.Kind) : SimpleJavaFileObject(
+            URI.create("bytearray:///${name.replace('.', '/')}${kind.extension}"),
+            JavaFileObject.Kind.CLASS
+    ) {
+        private val buffer = ByteArrayOutputStream()
+
+        override fun openInputStream(): InputStream {
+            return ByteArrayInputStream(buffer.toByteArray())
+        }
+        override fun openOutputStream(): OutputStream {
+            return buffer
+        }
+    }
+
+    private val classFiles: MutableMap<String, JavaFileObject> = mutableMapOf()
+    override fun getJavaFileForOutput(location: JavaFileManager.Location?, className: String, kind: JavaFileObject.Kind?, sibling: FileObject?): JavaFileObject {
+        return when {
+            location != StandardLocation.CLASS_OUTPUT -> super.getJavaFileForOutput(location, className, kind, sibling)
+            kind != JavaFileObject.Kind.CLASS -> throw UnsupportedOperationException()
+            else -> {
+                val simpleJavaFileObject = ByteSource(className, kind)
+                classFiles[className] = simpleJavaFileObject
+                return simpleJavaFileObject
+            }
+        }
+    }
+    override fun getJavaFileForInput(location: JavaFileManager.Location?, className: String, kind: JavaFileObject.Kind): JavaFileObject? {
+        return if (location != StandardLocation.CLASS_OUTPUT) {
+            super.getJavaFileForInput(location, className, kind)
+        } else {
+            classFiles[className]
+        }
+    }
+    override fun list(location: JavaFileManager.Location?, packageName: String, kinds: MutableSet<JavaFileObject.Kind>, recurse: Boolean): MutableIterable<JavaFileObject> {
+        return if (!(kinds.contains(JavaFileObject.Kind.CLASS))) {
+            super.list(location, packageName, kinds, recurse)
+        } else {
+            ClassLoaders.getSubresources(
+                    globalClassLoader,
+                    if (packageName.isEmpty()) "" else packageName.replace('.', '/') + '/',
+                    false,
+                    recurse
+            ).filter {
+                it.key.endsWith(".class")
+            }.map {
+                Listing(it)
+            }.toMutableList()
+        }
+    }
+    override fun inferBinaryName(location: JavaFileManager.Location?, file: JavaFileObject): String {
+        return file.name.substring(0, file.name.lastIndexOf('.')).replace('/', '.')
+    }
+
+    fun getClassLoader(): ClassLoader {
+        return object : ClassLoader(globalClassLoader) {
+            override fun findClass(name: String): Class<*> {
+                @Suppress("UNREACHABLE_CODE")
+                return try {
+                    val classFile: JavaFileObject? = getJavaFileForInput(
+                            StandardLocation.CLASS_OUTPUT,
+                            name,
+                            JavaFileObject.Kind.CLASS
+                    )
+                    val byteArray = classFile!!.openInputStream().readAllBytes()
+                    return defineClass(name, byteArray, 0, byteArray.size)
+                } catch (e: Exception) {
+                    throw ClassNotFoundException(name)
+                }
+
+            }
+        }
+    }
+}
 
 fun Source.compile(): CompiledSource {
-    return try {
-        if (snippet) {
-            val localScriptEvaluator = ScriptEvaluator()
-            localScriptEvaluator.cook(sources.values.toTypedArray()[0])
-            CompiledSource(this,true, null, null, localScriptEvaluator)
-        } else {
-            val simpleCompiler = SimpleCompiler()
-            simpleCompiler.compile(sources)
-            assert(simpleCompiler.classLoader != null)
-            CompiledSource(this,true, null, simpleCompiler.classLoader)
-        }
-    } catch (e: Exception) {
-        logger.trace(e) { "compilation failed" }
-        CompiledSource(this,false, TaskError(e))
-    }
+    val units = sources.entries.map { Unit(it) }
+    val results = Results()
+    val fileManager = FileManager(results)
+
+    compiler.getTask(null, fileManager, results, listOf("-g:none"), null, units).call()
+    fileManager.close()
+
+    // TODO : Log on failure
+    return CompiledSource(this, results, fileManager)
 }
