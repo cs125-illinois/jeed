@@ -1,2 +1,0 @@
-include ":commons-compiler-jdk"
-project(":commons-compiler-jdk").projectDir = file("../janino/commons-compiler-jdk")

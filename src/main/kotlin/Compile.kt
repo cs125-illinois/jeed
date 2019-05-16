@@ -2,23 +2,20 @@ package edu.illinois.cs.cs125.janini
 
 
 import mu.KotlinLogging
-import org.codehaus.commons.compiler.jdk.ClassLoaders
 import java.io.*
 import java.net.URI
-import java.net.URL
 import java.nio.charset.Charset
 import java.security.AccessController
 import java.security.PrivilegedAction
 import java.util.*
-import javax.lang.model.element.Modifier
-import javax.lang.model.element.NestingKind
 import javax.tools.*
 
 @Suppress("UNUSED")
 private val logger = KotlinLogging.logger {}
+
 private val compiler = ToolProvider.getSystemJavaCompiler()
         ?: throw Exception("compiler not found: you are probably running a JRE, not a JDK")
-private val globalClassLoader = Thread.currentThread().contextClassLoader
+private val globalClassLoader = ClassLoader.getSystemClassLoader()
 
 @Suppress("UNUSED")
 class CompiledSource(val source: Source, results: Results, fileManager: FileManager) {
@@ -46,35 +43,6 @@ private class Unit(val entry: Map.Entry<String, String>) : SimpleJavaFileObject(
         return entry.key
     }
 }
-
-private class Listing(val entry: Map.Entry<String, URL>) : JavaFileObject {
-    override fun toUri(): URI {
-        return entry.value.toURI()
-    }
-    override fun getName(): String {
-        return entry.key
-    }
-    override fun openInputStream(): InputStream {
-        return entry.value.openStream()
-    }
-    override fun getKind(): JavaFileObject.Kind {
-        return JavaFileObject.Kind.CLASS
-    }
-    override fun toString(): String {
-        return "${entry.key} from ${this.javaClass.simpleName}"
-    }
-
-    override fun openOutputStream(): OutputStream { throw UnsupportedOperationException() }
-    override fun openReader(ignoreEncodingErrors: Boolean): Reader { throw UnsupportedOperationException() }
-    override fun getCharContent(ignoreEncodingErrors: Boolean): CharSequence { throw UnsupportedOperationException() }
-    override fun openWriter(): Writer { throw UnsupportedOperationException() }
-    override fun getLastModified(): Long { throw UnsupportedOperationException() }
-    override fun delete(): Boolean { throw UnsupportedOperationException() }
-    override fun isNameCompatible(simpleName: String?, kind: JavaFileObject.Kind?): Boolean { throw UnsupportedOperationException() }
-    override fun getNestingKind(): NestingKind { throw UnsupportedOperationException() }
-    override fun getAccessLevel(): Modifier { throw UnsupportedOperationException() }
-}
-
 
 class Results : DiagnosticListener<JavaFileObject> {
     val diagnostics = mutableListOf<Diagnostic<out JavaFileObject>>()
@@ -123,16 +91,10 @@ class FileManager(results: Results) : ForwardingJavaFileManager<JavaFileManager>
         return if (!(kinds.contains(JavaFileObject.Kind.CLASS))) {
             super.list(location, packageName, kinds, recurse)
         } else {
-            ClassLoaders.getSubresources(
-                    globalClassLoader,
+            getSubresources(
                     if (packageName.isEmpty()) "" else packageName.replace('.', '/') + '/',
-                    false,
                     recurse
-            ).filter {
-                it.key.endsWith(".class")
-            }.map {
-                Listing(it)
-            }.toMutableList()
+            )
         }
     }
     override fun inferBinaryName(location: JavaFileManager.Location?, file: JavaFileObject): String {
@@ -159,6 +121,7 @@ class FileManager(results: Results) : ForwardingJavaFileManager<JavaFileManager>
         }
     }
 }
+
 
 fun Source.compile(): CompiledSource {
     val units = sources.entries.map { Unit(it) }

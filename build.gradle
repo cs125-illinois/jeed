@@ -16,6 +16,14 @@ buildscript {
         classpath "com.github.ben-manes:gradle-versions-plugin:0.21.0"
     }
 }
+compileKotlin {
+    sourceCompatibility = JavaVersion.VERSION_1_8
+    targetCompatibility = JavaVersion.VERSION_1_8
+
+    kotlinOptions {
+        jvmTarget = "1.8"
+    }
+}
 test {
     useJUnitPlatform()
     testLogging.showStandardStreams = true
@@ -25,10 +33,7 @@ test {
 dependencies {
     implementation "org.jetbrains.kotlin:kotlin-stdlib-jdk8"
     implementation "org.jetbrains.kotlinx:kotlinx-coroutines-core:1.2.1"
-
-    implementation "org.codehaus.janino:janino:3.0.12"
-    implementation project(":commons-compiler-jdk")
-
+    
     implementation "com.github.javaparser:javaparser-symbol-solver-core:3.14.0"
     antlr "org.antlr:antlr4:4.7.2"
 

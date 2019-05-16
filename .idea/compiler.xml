@@ -2,6 +2,8 @@
 <project version="4">
   <component name="CompilerConfiguration">
     <bytecodeTargetLevel>
+      <module name="janini.commons-compiler-jdk.main" target="1.6" />
+      <module name="janini.commons-compiler-jdk.test" target="1.6" />
       <module name="janini.generated" target="1.10" />
     </bytecodeTargetLevel>
   </component>
