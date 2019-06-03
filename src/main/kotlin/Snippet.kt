@@ -1,9 +1,12 @@
 package edu.illinois.cs.cs125.janini
 
 import edu.illinois.cs.cs125.janini.antlr.*
-import org.antlr.v4.runtime.BailErrorStrategy
-import org.antlr.v4.runtime.CharStreams
-import org.antlr.v4.runtime.CommonTokenStream
+import mu.KotlinLogging
+import org.antlr.v4.runtime.*
+import org.antlr.v4.runtime.misc.ParseCancellationException
+
+@Suppress("UNUSED")
+private val logger = KotlinLogging.logger {}
 
 fun generateName(prefix: String, existingNames: Set<String>) : String {
     if (!existingNames.contains(prefix)) {
@@ -19,15 +22,46 @@ fun generateName(prefix: String, existingNames: Set<String>) : String {
     throw IllegalStateException("couldn't generate $prefix class name")
 }
 
-fun sourceFromSnippet(snippet: String, indent: Int = 4): Map<String, String> {
-    require(snippet.isNotEmpty())
+val errorListener = object : BaseErrorListener() {
+    override fun syntaxError(recognizer: Recognizer<*, *>?, offendingSymbol: Any?, line: Int, charPositionInLine: Int, msg: String?, e: RecognitionException?) {
+        throw ParseCancellationException("line $line:$charPositionInLine $msg")
+    }
+}
 
-    val charStream = CharStreams.fromString("{\n$snippet\n}")
+class Snippet(
+        sources: Map<String, String>,
+        @Suppress("UNUSED") val originalSource: String,
+        val remappedLineMapping: Map<Int, RemappedLine>
+) : Source(sources) {
+    fun originalSourceFromMap(): String {
+        assert(sources.keys.size == 1)
+        val remappedSource = sources[sources.keys.first()]!!.lines()
+        return remappedLineMapping.values.sortedBy { it.sourceLineNumber }.map {
+            remappedSource[it.rewrittenLineNumber].substring(it.addedIntentation)
+        }.joinToString(separator = "\n")
+    }
+}
+
+data class RemappedLine(
+        val sourceLineNumber: Int,
+        val rewrittenLineNumber: Int,
+        val addedIntentation: Int = 0
+)
+
+fun Source.Companion.fromSnippet(originalSource: String, indent: Int = 4): Source {
+    require(originalSource.isNotEmpty())
+
+    val charStream = CharStreams.fromString("{\n$originalSource\n}")
     val snippetLexer = SnippetLexer(charStream)
+    snippetLexer.removeErrorListeners()
+    snippetLexer.addErrorListener(errorListener)
+
     val tokenStream = CommonTokenStream(snippetLexer)
+
     val snippetParser = SnippetParser(tokenStream)
     snippetParser.removeErrorListeners()
-    snippetParser.errorHandler = BailErrorStrategy()
+    snippetParser.addErrorListener(errorListener)
+
     val parseTree = snippetParser.block()
 
     val contentMapping = mutableMapOf<Int, String>()
@@ -41,12 +75,14 @@ fun sourceFromSnippet(snippet: String, indent: Int = 4): Map<String, String> {
                 contentMapping[lineNumber] = type
             }
         }
+
         override fun visitClassDeclaration(context: SnippetParser.ClassDeclarationContext) {
             markAs(context.start.line, context.stop.line, "class")
             val className = context.IDENTIFIER().text
             check(!classNames.contains(className))
             classNames.add(className)
         }
+
         override fun visitMethodDeclaration(context: SnippetParser.MethodDeclarationContext) {
             markAs(context.start.line, context.stop.line, "method")
             contentMapping[context.start.line - 2] = "method:start"
@@ -59,40 +95,77 @@ fun sourceFromSnippet(snippet: String, indent: Int = 4): Map<String, String> {
     val snippetClassName = generateName("Main", classNames)
     val snippetMainMethodName = generateName("main", methodNames)
 
+    var currentOutputLineNumber = 0
+    val remappedLineMapping = hashMapOf<Int, RemappedLine>()
+
     val classDeclarations = mutableListOf<String>()
-    snippet.lines().forEachIndexed { lineNumber, line ->
+    originalSource.lines().forEachIndexed { lineNumber, line ->
         if (contentMapping[lineNumber] == "class") {
             classDeclarations.add(line)
+            assert(!remappedLineMapping.containsKey(currentOutputLineNumber))
+            remappedLineMapping[currentOutputLineNumber] = RemappedLine(lineNumber, currentOutputLineNumber)
+            currentOutputLineNumber++
         }
     }
+
+    // Adding public class $snippetClassName
+    currentOutputLineNumber++
 
     val methodDeclarations = mutableListOf<String>()
-    snippet.lines().forEachIndexed { lineNumber, line ->
-        if (contentMapping[lineNumber] == "method:start") {
-            // Placing the visibility modifier on the preceding line preserves the line number mapping for
-            // error handling. Adding extra indentation to the following line allows checkstyles indentation checks
-            // to proceed normally.
-            methodDeclarations.add(" ".repeat(indent) + "private static")
-            methodDeclarations.add(" ".repeat(indent * 2) + line)
-        } else if (contentMapping[lineNumber] == "method") {
-            methodDeclarations.add(" ".repeat(indent) + line)
+    originalSource.lines().forEachIndexed { lineNumber, line ->
+        if (contentMapping[lineNumber]?.startsWith(("method")) == true) {
+            val indentToUse = if ((contentMapping[lineNumber] == "method.start") && !line.contains("""\bstatic\b""".toRegex())) {
+                methodDeclarations.add(" ".repeat(indent) + "static")
+                currentOutputLineNumber++
+                // Adding indentation preserves checkstyle processing
+                indent * 2
+            } else {
+                indent
+            }
+            methodDeclarations.add(" ".repeat(indentToUse) + line)
+            assert(!remappedLineMapping.containsKey(currentOutputLineNumber))
+            remappedLineMapping[currentOutputLineNumber] = RemappedLine(lineNumber, currentOutputLineNumber, indentToUse)
+            currentOutputLineNumber++
         }
     }
+
+    // Adding public static void $snippetMainMethodName()
+    currentOutputLineNumber++
 
     val looseCode = mutableListOf<String>()
-    snippet.lines().forEachIndexed { lineNumber, line ->
+    originalSource.lines().forEachIndexed { lineNumber, line ->
         if (!contentMapping.containsKey(lineNumber)) {
-           looseCode.add(" ".repeat(indent * 2) + line)
+            looseCode.add(" ".repeat(indent * 2) + line)
+            assert(!remappedLineMapping.containsKey(currentOutputLineNumber))
+            remappedLineMapping[currentOutputLineNumber] = RemappedLine(lineNumber, currentOutputLineNumber, indent * 2)
+            currentOutputLineNumber++
         }
     }
 
-    val source = """
-${classDeclarations.joinToString(separator = "\n")}
-public class $snippetClassName {
-${methodDeclarations.joinToString(separator = "\n")}
-${" ".repeat(indent)}public static void $snippetMainMethodName() {
-${looseCode.joinToString(separator = "\n")}
-${" ".repeat(indent)}}
-}"""
-    return hashMapOf(snippetClassName to source)
+    assert(originalSource.lines().size == remappedLineMapping.keys.size)
+
+    var rewrittenSource = ""
+    if (classDeclarations.size > 0) {
+        rewrittenSource += classDeclarations.joinToString(separator = "\n", postfix = "\n")
+    }
+    rewrittenSource += "public class $snippetClassName {\n"
+    if (methodDeclarations.size > 0) {
+        rewrittenSource += methodDeclarations.joinToString(separator = "\n", postfix = "\n")
+    }
+    rewrittenSource += """${" ".repeat(indent)}public static void $snippetMainMethodName() {""" + "\n"
+    if (looseCode.size > 0) {
+        rewrittenSource += looseCode.joinToString(separator = "\n", postfix = "\n")
+    }
+    rewrittenSource += """${" ".repeat(indent)}}""" + "\n}"
+
+    // Add final two braces
+    currentOutputLineNumber += 2
+    assert(currentOutputLineNumber == rewrittenSource.lines().size)
+
+    logger.debug("\n" + rewrittenSource)
+    val snippet = Snippet(hashMapOf(snippetClassName to rewrittenSource), originalSource, remappedLineMapping)
+
+    logger.debug("\n" + snippet.originalSourceFromMap())
+
+    return snippet
 }

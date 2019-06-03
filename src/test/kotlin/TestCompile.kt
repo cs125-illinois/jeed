@@ -3,21 +3,28 @@ import io.kotlintest.*
 
 import edu.illinois.cs.cs125.janini.*
 
-fun haveCompiled() = object : Matcher<CompiledSource> {
-    override fun test(value: CompiledSource): Result {
-        return Result(
-                value.succeeded,
-                "Source should have compiled",
-                "Source should not have compiled"
-        )
-    }
-}
 class TestCompile : StringSpec({
     "should compile simple snippets" {
-        Source("int i = 1;").compile() should haveCompiled()
+        Source.fromSnippet("int i = 1;").compile() should haveCompiled()
     }
     "should not compile broken simple snippets" {
-        Source("int i = a;").compile() shouldNot haveCompiled()
+        Source.fromSnippet("int i = a;").compile() shouldNot haveCompiled()
+    }
+    "should compile snippets that include method definitions" {
+        Source.fromSnippet("""
+int i = 0;
+private static int main() {
+    return 0;
+}""".trim()).compile() should haveCompiled()
+    }
+    "should compile snippets that include class definitions" {
+        Source.fromSnippet("""
+int i = 0;
+public class Foo {
+    int i;
+}
+Foo foo = new Foo();
+""".trim()).compile() should haveCompiled()
     }
     "should compile multiple sources" {
         Source(mapOf(
@@ -43,12 +50,12 @@ class TestCompile : StringSpec({
 """
 package test;
 public class Test {}
-""",
+""".trim(),
                 "me/Me" to
 """
 package me;
 public class Me {}
-"""
+""".trim()
         )).compile() should haveCompiled()
     }
     "should compile sources in multiple packages with dependencies in wrong order" {
@@ -58,12 +65,12 @@ public class Me {}
 package test;
 import me.Me;
 public class Test extends Me {}
-""",
+""".trim(),
                 "me/Me" to
                         """
 package me;
 public class Me {}
-"""
+""".trim()
         )).compile() should haveCompiled()
     }
     "should compile sources that use Java 10 features" {
@@ -75,7 +82,17 @@ public class Test {
         var i = 0;
     }
 }
-"""
+""".trim()
         )).compile() should haveCompiled()
     }
 })
+
+fun haveCompiled() = object : Matcher<CompiledSource> {
+    override fun test(value: CompiledSource): Result {
+        return Result(
+                value.succeeded,
+                "Source should have compiled",
+                "Source should not have compiled"
+        )
+    }
+}

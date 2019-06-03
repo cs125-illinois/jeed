@@ -5,13 +5,70 @@ import io.kotlintest.*
 
 class TestExecute : StringSpec({
     "should execute snippets" {
-        val executionResult = Source(
+        val executionResult = Source.fromSnippet(
 """int i = 0;
 i++;
-""").compile().execute()
+""".trim()).compile().execute()
         executionResult should haveCompleted()
         executionResult shouldNot haveTimedOut()
         executionResult should haveOutput()
+    }
+    "should execute snippets that include class definitions" {
+        val executionResult = Source.fromSnippet(
+                """
+public class Foo {
+    int i = 0;
+}
+int i = 0;
+i++;
+Foo foo = new Foo();
+foo.i = 4;
+System.out.println("Done");
+""".trim()).compile().execute()
+        executionResult should haveCompleted()
+        executionResult shouldNot haveTimedOut()
+        executionResult should haveOutput("Done")
+    }
+    "should execute snippets that include multiple class definitions" {
+        val executionResult = Source.fromSnippet(
+                """
+public class Bar {
+}
+public class Foo {
+    int i = 0;
+}
+int i = 0;
+i++;
+Foo foo = new Foo();
+foo.i = 4;
+Bar bar = new Bar();
+System.out.println("Done");
+""".trim()).compile().execute()
+        executionResult should haveCompleted()
+        executionResult shouldNot haveTimedOut()
+        executionResult should haveOutput("Done")
+    }
+    "should execute the right class in snippets that include multiple class definitions" {
+        val executionResult = Source.fromSnippet(
+                """
+public class Bar {
+    public static void main() {
+        System.out.println("Alternate");
+    }
+}
+public class Foo {
+    int i = 0;
+}
+int i = 0;
+i++;
+Foo foo = new Foo();
+foo.i = 4;
+Bar bar = new Bar();
+System.out.println("Done");
+""".trim()).compile().execute(ExecutionParameters(className = "Bar"))
+        executionResult should haveCompleted()
+        executionResult shouldNot haveTimedOut()
+        executionResult should haveOutput("Alternate")
     }
     "should execute sources" {
         val executionResult = Source(mapOf(
@@ -23,16 +80,16 @@ public class Main {
         System.out.println("Here");
     }
 }
-""")).compile().execute()
+""".trim())).compile().execute()
         executionResult should haveCompleted()
         executionResult shouldNot haveTimedOut()
         executionResult should haveStdout("Here")
     }
 
     "should capture stdout" {
-        val executionResult = Source(
+        val executionResult = Source.fromSnippet(
 """System.out.println("Here");
-""").compile().execute()
+""".trim()).compile().execute()
         executionResult should haveCompleted()
         executionResult shouldNot haveTimedOut()
         executionResult should haveStdout("Here")
@@ -40,19 +97,19 @@ public class Main {
     }
 
     "should capture stderr" {
-        val executionResult = Source(
+        val executionResult = Source.fromSnippet(
 """System.err.println("Here");
-""").compile().execute()
+""".trim()).compile().execute()
         executionResult should haveCompleted()
         executionResult shouldNot haveTimedOut()
         executionResult should haveStdout("")
         executionResult should haveStderr("Here")
     }
     "should capture stderr and stdout" {
-        val executionResult = Source(
+        val executionResult = Source.fromSnippet(
                 """System.out.println("Here");
 System.err.println("There");
-""").compile().execute()
+""".trim()).compile().execute()
         executionResult should haveCompleted()
         executionResult shouldNot haveTimedOut()
         executionResult should haveStdout("Here")
@@ -61,12 +118,12 @@ System.err.println("There");
     }
 
     "should timeout correctly on snippet" {
-        val executionResult = Source(
+        val executionResult = Source.fromSnippet(
 """
 int i = 0;
 while (true) {
     i++;
-}""").compile().execute()
+}""".trim()).compile().execute()
         executionResult shouldNot haveCompleted()
         executionResult should haveTimedOut()
         executionResult should haveOutput()
@@ -81,20 +138,20 @@ public class Main {
             i++;
         }
     }
-}""")).compile().execute()
+}""".trim())).compile().execute()
         executionResult shouldNot haveCompleted()
         executionResult should haveTimedOut()
         executionResult should haveOutput()
     }
 
     "should return output after timeout" {
-        val executionResult = Source(
+        val executionResult = Source.fromSnippet(
                 """
 System.out.println("Here");
 int i = 0;
 while (true) {
     i++;
-}""").compile().execute()
+}""".trim()).compile().execute()
         executionResult shouldNot haveCompleted()
         executionResult should haveTimedOut()
         executionResult should haveOutput("Here")

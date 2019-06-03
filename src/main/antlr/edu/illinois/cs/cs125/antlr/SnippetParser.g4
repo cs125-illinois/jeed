@@ -367,7 +367,7 @@ blockStatement
     : localVariableDeclaration ';'
     | statement
     | localTypeDeclaration
-    | methodDeclaration
+    | modifier* methodDeclaration
     ;
 
 localVariableDeclaration

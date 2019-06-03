@@ -3,14 +3,23 @@ package edu.illinois.cs.cs125.janini
 import java.io.PrintWriter
 import java.io.StringWriter
 
-class Source(
+open class Source(
         val sources: Map<String, String>
 ) {
-    constructor(source: String): this(sourceFromSnippet(source))
     init {
         require(sources.keys.isNotEmpty())
     }
+    open fun mapLocation(input: SourceLocation): SourceLocation {
+        return input
+    }
+    companion object
 }
+
+data class SourceLocation(
+        val source: String?,
+        val line: Int,
+        val char: Int
+)
 
 data class TaskError(val error: Throwable) {
     val stackTrace: String
