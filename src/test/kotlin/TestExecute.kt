@@ -4,7 +4,7 @@ import io.kotlintest.specs.StringSpec
 import io.kotlintest.*
 
 class TestExecute : StringSpec({
-    /*"should execute snippets" {
+    "should execute snippets" {
         val executionResult = Source(
 """int i = 0;
 i++;
@@ -13,24 +13,22 @@ i++;
         executionResult shouldNot haveTimedOut()
         executionResult should haveOutput()
     }
-    */
     "should execute sources" {
         val executionResult = Source(mapOf(
                 "Test" to
                         """
-public class Test {
+public class Main {
     public static void main() {
         var i = 0;
         System.out.println("Here");
     }
 }
-""")).compile().execute(ExecutionParameters("Test", "main()"))
+""")).compile().execute()
         executionResult should haveCompleted()
         executionResult shouldNot haveTimedOut()
         executionResult should haveStdout("Here")
     }
 
-    /*
     "should capture stdout" {
         val executionResult = Source(
 """System.out.println("Here");
@@ -73,23 +71,22 @@ while (true) {
         executionResult should haveTimedOut()
         executionResult should haveOutput()
     }
-    */
     "should timeout correctly on sources" {
         val executionResult = Source(mapOf("Foo" to
 """
-public class Foo {
-    public static void blah() {
+public class Main {
+    public static void main() {
         int i = 0;
         while (true) {
             i++;
         }
     }
-}""")).compile().execute(ExecutionParameters("Foo", "blah()"))
+}""")).compile().execute()
         executionResult shouldNot haveCompleted()
         executionResult should haveTimedOut()
         executionResult should haveOutput()
     }
-    /*
+
     "should return output after timeout" {
         val executionResult = Source(
                 """
@@ -102,7 +99,6 @@ while (true) {
         executionResult should haveTimedOut()
         executionResult should haveOutput("Here")
     }
-    */
 })
 
 fun haveCompleted() = object : Matcher<ExecutionResult> {

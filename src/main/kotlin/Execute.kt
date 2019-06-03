@@ -11,8 +11,8 @@ import java.util.concurrent.*
 import java.util.concurrent.locks.ReentrantLock
 
 data class ExecutionParameters(
-        val className: String? = null,
-        val method: String? = null,
+        val className: String = "Main",
+        val method: String = "main()",
         val timeout: Long = 100L
 )
 class ExecutionResult(
@@ -43,9 +43,6 @@ fun CompiledSource.execute(
 ): ExecutionResult {
     check(succeeded)
     check(classLoader != null)
-
-    check(executionParameters.className != null)
-    check(executionParameters.method != null)
 
     val klass = classLoader.loadClass(executionParameters.className)
             ?: throw ExecutionException("Could not load ${executionParameters.className}")

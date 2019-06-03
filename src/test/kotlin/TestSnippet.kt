@@ -3,6 +3,7 @@ import io.kotlintest.*
 
 import edu.illinois.cs.cs125.janini.*
 
+/*
 class TestSnippet : StringSpec({
   "should parse snippets" {
       Snippet("""class Test {
@@ -36,3 +37,4 @@ i++;
 }""")
     }
 })
+*/

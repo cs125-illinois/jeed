@@ -13,16 +13,13 @@ fun haveCompiled() = object : Matcher<CompiledSource> {
     }
 }
 class TestCompile : StringSpec({
-    /*
     "should compile simple snippets" {
         Source("int i = 1;").compile() should haveCompiled()
     }
     "should not compile broken simple snippets" {
-        Source("int i = 1").compile() shouldNot haveCompiled()
+        Source("int i = a;").compile() shouldNot haveCompiled()
     }
-    */
-
-    "f:should compile multiple sources" {
+    "should compile multiple sources" {
         Source(mapOf(
                 "Test" to "public class Test {}",
                 "Me" to "public class Me {}"

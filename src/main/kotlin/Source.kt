@@ -6,6 +6,7 @@ import java.io.StringWriter
 class Source(
         val sources: Map<String, String>
 ) {
+    constructor(source: String): this(sourceFromSnippet(source))
     init {
         require(sources.keys.isNotEmpty())
     }
