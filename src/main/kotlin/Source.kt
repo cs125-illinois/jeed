@@ -17,15 +17,13 @@ open class Source(
 
 data class SourceLocation(
         val source: String?,
-        val line: Int,
-        val char: Int
+        val line: Long,
+        val column: Long
 )
-data class SourceError(
+abstract class SourceError(
         val location: SourceLocation,
         val message: String?
-) {
-    constructor(source: String?, line: Int, char: Int, message: String?) : this(SourceLocation(source, line, char), message)
-}
+)
 abstract class JeepError(val errors: List<SourceError>) : Exception()
 
 data class TaskError(val error: Throwable) {

@@ -1,5 +1,6 @@
 package edu.illinois.cs.cs125.jeed
 
+import mu.KotlinLogging
 import java.io.OutputStream
 import java.io.PrintStream
 import java.lang.StringBuilder
@@ -10,7 +11,10 @@ import kotlin.concurrent.withLock
 import java.util.concurrent.*
 import java.util.concurrent.locks.ReentrantLock
 
-data class ExecutionParameters(
+@Suppress("UNUSED")
+private val logger = KotlinLogging.logger {}
+
+data class ExecutionArguments(
         val className: String = "Main",
         val method: String = "main()",
         val timeout: Long = 100L
@@ -39,19 +43,16 @@ class ExecutionException(message: String) : Exception(message)
 val outputLock = ReentrantLock()
 
 fun CompiledSource.execute(
-        executionParameters: ExecutionParameters = ExecutionParameters()
+        executionArguments: ExecutionArguments = ExecutionArguments()
 ): ExecutionResult {
-    check(succeeded)
-    check(classLoader != null)
-
-    val klass = classLoader.loadClass(executionParameters.className)
-            ?: throw ExecutionException("Could not load ${executionParameters.className}")
+    val klass = classLoader.loadClass(executionArguments.className)
+            ?: throw ExecutionException("Could not load ${executionArguments.className}")
     val method = klass.declaredMethods.find { method ->
         val fullName = method.name + method.parameterTypes.joinToString(prefix = "(", separator = ", ", postfix = ")") { parameter ->
             parameter.name
         }
-        fullName == executionParameters.method && Modifier.isStatic(method.modifiers) && Modifier.isPublic(method.modifiers)
-    } ?: throw ExecutionException("Cannot locate public static method with signature ${executionParameters.method} in ${executionParameters.className}")
+        fullName == executionArguments.method && Modifier.isStatic(method.modifiers) && Modifier.isPublic(method.modifiers)
+    } ?: throw ExecutionException("Cannot locate public static method with signature ${executionArguments.method} in ${executionArguments.className}")
 
     val futureTask = FutureTask { method.invoke(null) }
     val thread = Thread(futureTask)
@@ -68,7 +69,7 @@ fun CompiledSource.execute(
 
         val completed = try {
             thread.start()
-            futureTask.get(executionParameters.timeout, TimeUnit.MILLISECONDS)
+            futureTask.get(executionArguments.timeout, TimeUnit.MILLISECONDS)
             true
         } catch (e: TimeoutException) {
             futureTask.cancel(true)

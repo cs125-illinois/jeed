@@ -12,21 +12,16 @@ import javax.tools.*
 @Suppress("UNUSED")
 private val logger = KotlinLogging.logger {}
 
+data class CompilationArguments(
+        val wError: Boolean = false
+)
+
 private val compiler = ToolProvider.getSystemJavaCompiler()
         ?: throw Exception("compiler not found: you are probably running a JRE, not a JDK")
 private val globalClassLoader = ClassLoader.getSystemClassLoader()
 
 @Suppress("UNUSED")
-class CompiledSource(val source: Source, results: Results, fileManager: FileManager) {
-    val succeeded = !results.diagnostics.any {
-        it.kind == Diagnostic.Kind.ERROR
-    }
-    val classLoader = if (succeeded) {
-        AccessController.doPrivileged(PrivilegedAction<ClassLoader> {
-            fileManager.getClassLoader()
-        })
-    } else null
-}
+class CompiledSource(val source: Source, val messages: List<CompilationError>, val classLoader: ClassLoader)
 
 private class Unit(val entry: Map.Entry<String, String>) : SimpleJavaFileObject(URI(entry.key), JavaFileObject.Kind.SOURCE) {
     override fun isNameCompatible(simpleName: String?, kind: JavaFileObject.Kind?): Boolean {
@@ -121,15 +116,47 @@ class FileManager(results: Results) : ForwardingJavaFileManager<JavaFileManager>
     }
 }
 
+class CompilationError(
+        val kind: String,
+        location: SourceLocation,
+        message: String
+) : SourceError(location, message)
+class CompilationFailed(errors: List<CompilationError>) : JeepError(errors)
 
-fun Source.compile(): CompiledSource {
+fun Source.compile(
+        compilationArguments: CompilationArguments = CompilationArguments()
+): CompiledSource {
     val units = sources.entries.map { Unit(it) }
     val results = Results()
     val fileManager = FileManager(results)
 
     compiler.getTask(null, fileManager, results, listOf("-g:none"), null, units).call()
+
     fileManager.close()
 
-    // TODO : Log on failure
-    return CompiledSource(this, results, fileManager)
+    val messages = results.diagnostics.map {
+        val originalLocation = SourceLocation(it.source.name, it.lineNumber, it.columnNumber)
+        val remappedLocation = this.mapLocation(originalLocation)
+        CompilationError(it.kind.toString(), remappedLocation, it.getMessage(Locale.US))
+    }
+
+    val errors = messages.filter {
+        it.kind == Diagnostic.Kind.ERROR.toString()
+    }
+    if (errors.isNotEmpty()) {
+        throw CompilationFailed(errors)
+    }
+
+    val warnings = messages.filter {
+        it.kind != Diagnostic.Kind.WARNING.toString()
+    }
+    if (compilationArguments.wError && warnings.isNotEmpty()) {
+        throw CompilationFailed(errors)
+    }
+
+    val classLoader = AccessController.doPrivileged(PrivilegedAction<ClassLoader> {
+        fileManager.getClassLoader()
+    })
+
+    return CompiledSource(this, messages, classLoader)
 }

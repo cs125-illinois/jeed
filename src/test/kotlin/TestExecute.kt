@@ -65,7 +65,7 @@ Foo foo = new Foo();
 foo.i = 4;
 Bar bar = new Bar();
 System.out.println("Done");
-""".trim()).compile().execute(ExecutionParameters(className = "Bar"))
+""".trim()).compile().execute(ExecutionArguments(className = "Bar"))
         executionResult should haveCompleted()
         executionResult shouldNot haveTimedOut()
         executionResult should haveOutput("Alternate")

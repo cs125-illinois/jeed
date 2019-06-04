@@ -70,7 +70,7 @@ int i = 0;
 i++;
 public class Test {}
 int adder(int first, int second) {
-  return first + second;
+    return first + second;
 }
         """.trim()
         val source = Source.fromSnippet(snippet)
@@ -81,11 +81,10 @@ int adder(int first, int second) {
     }
 })
 
-fun haveParseErrorOnLine(line: Int) = object : Matcher<SnippetParsingFailed> {
+fun haveParseErrorOnLine(line: Long) = object : Matcher<SnippetParsingFailed> {
     override fun test(value: SnippetParsingFailed): Result {
         return Result(value.errors.any { it.location.line == line },
                 "should have parse error on line $line",
                 "should not have parse error on line $line")
     }
 }
-
