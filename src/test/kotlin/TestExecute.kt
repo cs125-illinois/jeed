@@ -85,7 +85,6 @@ public class Main {
         executionResult shouldNot haveTimedOut()
         executionResult should haveStdout("Here")
     }
-
     "should capture stdout" {
         val executionResult = Source.fromSnippet(
 """System.out.println("Here");
@@ -95,7 +94,6 @@ public class Main {
         executionResult should haveStdout("Here")
         executionResult should haveStderr("")
     }
-
     "should capture stderr" {
         val executionResult = Source.fromSnippet(
 """System.err.println("Here");
@@ -116,7 +114,6 @@ System.err.println("There");
         executionResult should haveStderr("There")
         executionResult should haveOutput("Here\nThere")
     }
-
     "should timeout correctly on snippet" {
         val executionResult = Source.fromSnippet(
 """
@@ -143,7 +140,6 @@ public class Main {
         executionResult should haveTimedOut()
         executionResult should haveOutput()
     }
-
     "should return output after timeout" {
         val executionResult = Source.fromSnippet(
                 """
@@ -186,7 +182,6 @@ fun haveOutput(output: String = "") = object : Matcher<ExecutionResult> {
         )
     }
 }
-
 fun haveStdout(output: String) = object : Matcher<ExecutionResult> {
     override fun test(value: ExecutionResult): Result {
         val actualOutput = value.stdout().trim()

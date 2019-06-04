@@ -3,7 +3,6 @@ package edu.illinois.cs.cs125.jeed
 import edu.illinois.cs.cs125.jeed.antlr.*
 import mu.KotlinLogging
 import org.antlr.v4.runtime.*
-import org.antlr.v4.runtime.misc.ParseCancellationException
 
 @Suppress("UNUSED")
 private val logger = KotlinLogging.logger {}
@@ -22,23 +21,45 @@ fun generateName(prefix: String, existingNames: Set<String>) : String {
     throw IllegalStateException("couldn't generate $prefix class name")
 }
 
-val errorListener = object : BaseErrorListener() {
-    override fun syntaxError(recognizer: Recognizer<*, *>?, offendingSymbol: Any?, line: Int, charPositionInLine: Int, msg: String?, e: RecognitionException?) {
-        throw ParseCancellationException("line $line:$charPositionInLine $msg")
+data class SnippetParseError(val msg: String, val location: SourceLocation)
+class SnippetParseErrors(val errors: List<SnippetParseError>) : Exception()
+
+class SnippetErrorListener : BaseErrorListener() {
+    private val errors = mutableListOf<SnippetParseError>()
+    override fun syntaxError(recognizer: Recognizer<*, *>?, offendingSymbol: Any?, line: Int, charPositionInLine: Int, msg: String, e: RecognitionException?) {
+        // Decrement line number by 1 to account for added braces
+        errors.add(SnippetParseError(msg, SourceLocation(null, line - 1, charPositionInLine)))
+    }
+    fun check() {
+        if (errors.size > 0) {
+            throw SnippetParseErrors(errors)
+        }
     }
 }
 
 class Snippet(
         sources: Map<String, String>,
         @Suppress("UNUSED") val originalSource: String,
-        val remappedLineMapping: Map<Int, RemappedLine>
+        val rewrittenSource: String,
+        private val wrappedClassName: String,
+        private val remappedLineMapping: Map<Int, RemappedLine>
 ) : Source(sources) {
     fun originalSourceFromMap(): String {
-        assert(sources.keys.size == 1)
-        val remappedSource = sources[sources.keys.first()]!!.lines()
-        return remappedLineMapping.values.sortedBy { it.sourceLineNumber }.map {
-            remappedSource[it.rewrittenLineNumber].substring(it.addedIntentation)
-        }.joinToString(separator = "\n")
+        val lines = rewrittenSource.lines()
+        return remappedLineMapping.values.sortedBy { it.sourceLineNumber }.joinToString(separator = "\n") {
+            lines[it.rewrittenLineNumber].substring(it.addedIntentation)
+        }
+    }
+
+    override fun mapLocation(input: SourceLocation): SourceLocation {
+        assert(input.source.equals(wrappedClassName))
+        val remappedLineInfo = remappedLineMapping[input.line]
+        check(remappedLineInfo != null)
+        return SourceLocation(
+                input.source,
+                remappedLineInfo.sourceLineNumber,
+                input.char - remappedLineInfo.addedIntentation
+        )
     }
 }
 
@@ -48,13 +69,16 @@ data class RemappedLine(
         val addedIntentation: Int = 0
 )
 
-fun Source.Companion.fromSnippet(originalSource: String, indent: Int = 4): Source {
+@Throws(SnippetParseErrors::class)
+fun Source.Companion.fromSnippet(originalSource: String, indent: Int = 4): Snippet {
     require(originalSource.isNotEmpty())
 
+    val errorListener = SnippetErrorListener()
     val charStream = CharStreams.fromString("{\n$originalSource\n}")
     val snippetLexer = SnippetLexer(charStream)
     snippetLexer.removeErrorListeners()
     snippetLexer.addErrorListener(errorListener)
+    errorListener.check()
 
     val tokenStream = CommonTokenStream(snippetLexer)
 
@@ -63,6 +87,7 @@ fun Source.Companion.fromSnippet(originalSource: String, indent: Int = 4): Sourc
     snippetParser.addErrorListener(errorListener)
 
     val parseTree = snippetParser.block()
+    errorListener.check()
 
     val contentMapping = mutableMapOf<Int, String>()
     val classNames = mutableSetOf<String>()
@@ -163,7 +188,13 @@ fun Source.Companion.fromSnippet(originalSource: String, indent: Int = 4): Sourc
     assert(currentOutputLineNumber == rewrittenSource.lines().size)
 
     logger.debug("\n" + rewrittenSource)
-    val snippet = Snippet(hashMapOf(snippetClassName to rewrittenSource), originalSource, remappedLineMapping)
+    val snippet = Snippet(
+            hashMapOf(snippetClassName to rewrittenSource),
+            originalSource,
+            rewrittenSource,
+            snippetClassName,
+            remappedLineMapping
+    )
 
     logger.debug("\n" + snippet.originalSourceFromMap())
 
