@@ -85,6 +85,28 @@ public class Main {
         executionResult shouldNot haveTimedOut()
         executionResult should haveStdout("Here")
     }
+    "f:should execute multiple sources with dependencies" {
+        val executionResult = Source(mapOf(
+                "Test" to
+                        """
+public class Main {
+    public static void main() {
+        var i = 0;
+        Foo.foo();
+    }
+}
+""".trim(),
+                "Foo" to """
+public class Foo {
+    public static void foo() {
+        System.out.println("Foo");
+    }
+}
+""".trim())).compile().execute()
+        executionResult should haveCompleted()
+        executionResult shouldNot haveTimedOut()
+        executionResult should haveStdout("Foo")
+    }
     "should capture stdout" {
         val executionResult = Source.fromSnippet(
 """System.out.println("Here");
