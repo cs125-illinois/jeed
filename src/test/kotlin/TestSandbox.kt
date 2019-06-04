@@ -4,14 +4,9 @@ import io.kotlintest.specs.StringSpec
 import io.kotlintest.*
 
 class TestSandbox : StringSpec({
-    "it should prevent snippets from reading files" {
+    "f:it should prevent snippets from exiting" {
         val executionResult = Source.fromSnippet("""
-import java.io.*;
-
-File folder = new File(System.getProperty("user.dir"));
-System.out.println(folder.listFiles().length > 0);
+System.exit(-1);
         """.trim()).compile().execute()
-
-        executionResult should haveOutput("true")
     }
 })
