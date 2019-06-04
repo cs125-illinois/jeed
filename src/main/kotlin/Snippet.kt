@@ -21,18 +21,17 @@ fun generateName(prefix: String, existingNames: Set<String>) : String {
     throw IllegalStateException("couldn't generate $prefix class name")
 }
 
-data class SnippetParseError(val msg: String, val location: SourceLocation)
-class SnippetParseErrors(val errors: List<SnippetParseError>) : Exception()
+class SnippetParsingFailed(errors: List<SourceError>) : JeepError(errors)
 
 class SnippetErrorListener : BaseErrorListener() {
-    private val errors = mutableListOf<SnippetParseError>()
+    private val errors = mutableListOf<SourceError>()
     override fun syntaxError(recognizer: Recognizer<*, *>?, offendingSymbol: Any?, line: Int, charPositionInLine: Int, msg: String, e: RecognitionException?) {
         // Decrement line number by 1 to account for added braces
-        errors.add(SnippetParseError(msg, SourceLocation(null, line - 1, charPositionInLine)))
+        errors.add(SourceError(null, line - 1, charPositionInLine, msg))
     }
     fun check() {
         if (errors.size > 0) {
-            throw SnippetParseErrors(errors)
+            throw SnippetParsingFailed(errors)
         }
     }
 }
@@ -69,7 +68,7 @@ data class RemappedLine(
         val addedIntentation: Int = 0
 )
 
-@Throws(SnippetParseErrors::class)
+@Throws(SnippetParsingFailed::class)
 fun Source.Companion.fromSnippet(originalSource: String, indent: Int = 4): Snippet {
     require(originalSource.isNotEmpty())
 

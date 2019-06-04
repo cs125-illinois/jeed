@@ -20,6 +20,13 @@ data class SourceLocation(
         val line: Int,
         val char: Int
 )
+data class SourceError(
+        val location: SourceLocation,
+        val message: String?
+) {
+    constructor(source: String?, line: Int, char: Int, message: String?) : this(SourceLocation(source, line, char), message)
+}
+abstract class JeepError(val errors: List<SourceError>) : Exception()
 
 data class TaskError(val error: Throwable) {
     val stackTrace: String

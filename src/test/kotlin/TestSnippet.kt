@@ -2,7 +2,6 @@ import edu.illinois.cs.cs125.jeed.*
 
 import io.kotlintest.specs.StringSpec
 import io.kotlintest.*
-import io.kotlintest.matchers.collections.shouldHaveAtLeastSize
 import io.kotlintest.matchers.collections.shouldHaveSize
 
 class TestSnippet : StringSpec({
@@ -22,8 +21,8 @@ class AnotherTest { }
 int i = 0;
 i++;""".trim())
   }
-    "should identify all parse errors in broken snippets" {
-        var exception = shouldThrow<SnippetParseErrors> {
+    "should identify a parse errors in a broken snippet" {
+        val exception = shouldThrow<SnippetParsingFailed> {
             Source.fromSnippet("""
 class Test {
     int me = 0;
@@ -42,7 +41,9 @@ i++
         exception.errors shouldHaveSize 1
         exception should haveParseErrorOnLine(13)
 
-        exception = shouldThrow<SnippetParseErrors> {
+    }
+    "should identify multiple parse errors in a broken snippet" {
+        val exception = shouldThrow<SnippetParsingFailed> {
             Source.fromSnippet("""
 class;
 class Test {
@@ -63,7 +64,7 @@ i++
         exception should haveParseErrorOnLine(1)
         exception should haveParseErrorOnLine(14)
     }
-    "f:should reconstruct original sources" {
+    "should be able to reconstruct original sources using source map" {
         val snippet = """
 int i = 0;
 i++;
@@ -80,8 +81,8 @@ int adder(int first, int second) {
     }
 })
 
-fun haveParseErrorOnLine(line: Int) = object : Matcher<SnippetParseErrors> {
-    override fun test(value: SnippetParseErrors): Result {
+fun haveParseErrorOnLine(line: Int) = object : Matcher<SnippetParsingFailed> {
+    override fun test(value: SnippetParsingFailed): Result {
         return Result(value.errors.any { it.location.line == line },
                 "should have parse error on line $line",
                 "should not have parse error on line $line")
