@@ -368,6 +368,7 @@ blockStatement
     | statement
     | localTypeDeclaration
     | modifier* methodDeclaration
+    | importDeclaration
     ;
 
 localVariableDeclaration

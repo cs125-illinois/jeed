@@ -13,7 +13,8 @@ import javax.tools.*
 private val logger = KotlinLogging.logger {}
 
 data class CompilationArguments(
-        val wError: Boolean = false
+        val wError: Boolean = false,
+        val Xlint: String = "all"
 )
 
 private val compiler = ToolProvider.getSystemJavaCompiler()
@@ -21,7 +22,7 @@ private val compiler = ToolProvider.getSystemJavaCompiler()
 private val globalClassLoader = ClassLoader.getSystemClassLoader()
 
 @Suppress("UNUSED")
-class CompiledSource(val source: Source, val messages: List<CompilationError>, val classLoader: ClassLoader)
+class CompiledSource(val source: Source, val messages: List<CompilationMessage>, val classLoader: ClassLoader)
 
 private class Unit(val entry: Map.Entry<String, String>) : SimpleJavaFileObject(URI(entry.key), JavaFileObject.Kind.SOURCE) {
     override fun isNameCompatible(simpleName: String?, kind: JavaFileObject.Kind?): Boolean {
@@ -116,8 +117,12 @@ class FileManager(results: Results) : ForwardingJavaFileManager<JavaFileManager>
     }
 }
 
-class CompilationError(
+class CompilationMessage(
         val kind: String,
+        location: SourceLocation,
+        message: String
+) : SourceError(location, message)
+class CompilationError(
         location: SourceLocation,
         message: String
 ) : SourceError(location, message)
@@ -130,30 +135,29 @@ fun Source.compile(
     val results = Results()
     val fileManager = FileManager(results)
 
-    compiler.getTask(null, fileManager, results, listOf("-g:none"), null, units).call()
+    val options = mutableSetOf<String>()
+    options.add("-Xlint:${compilationArguments.Xlint}")
+
+    compiler.getTask(null, fileManager, results, options.toList(), null, units).call()
 
     fileManager.close()
 
-    val messages = results.diagnostics.map {
+    val errors = results.diagnostics.filter {
+        it.kind == Diagnostic.Kind.ERROR || (it.kind == Diagnostic.Kind.WARNING && compilationArguments.wError)
+    }.map {
         val originalLocation = SourceLocation(it.source.name, it.lineNumber, it.columnNumber)
         val remappedLocation = this.mapLocation(originalLocation)
-        CompilationError(it.kind.toString(), remappedLocation, it.getMessage(Locale.US))
-    }
-
-    val errors = messages.filter {
-        it.kind == Diagnostic.Kind.ERROR.toString()
+        CompilationError(remappedLocation, it.getMessage(Locale.US))
     }
     if (errors.isNotEmpty()) {
         throw CompilationFailed(errors)
     }
 
-    val warnings = messages.filter {
-        it.kind != Diagnostic.Kind.WARNING.toString()
+    val messages = results.diagnostics.map {
+        val originalLocation = SourceLocation(it.source.name, it.lineNumber, it.columnNumber)
+        val remappedLocation = this.mapLocation(originalLocation)
+        CompilationMessage(it.kind.toString(), remappedLocation, it.getMessage(Locale.US))
     }
-    if (compilationArguments.wError && warnings.isNotEmpty()) {
-        throw CompilationFailed(errors)
-    }
-
     val classLoader = AccessController.doPrivileged(PrivilegedAction<ClassLoader> {
         fileManager.getClassLoader()
     })

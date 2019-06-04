@@ -17,6 +17,7 @@ int testing() {
     int j = 0;
     return 10;
 }
+import java.util.List;
 class AnotherTest { }
 int i = 0;
 i++;""".trim())

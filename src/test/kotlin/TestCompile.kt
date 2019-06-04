@@ -2,16 +2,11 @@ import edu.illinois.cs.cs125.jeed.*
 
 import io.kotlintest.specs.StringSpec
 import io.kotlintest.*
+import io.kotlintest.matchers.collections.shouldHaveSize
 
 class TestCompile : StringSpec({
     "should compile simple snippets" {
         Source.fromSnippet("int i = 1;").compile()
-    }
-    "should not compile broken simple snippets" {
-        val exception = shouldThrow<CompilationFailed> {
-            Source.fromSnippet("int i = a;").compile()
-        }
-        exception should haveCompilationErrorOnLine(1)
     }
     "should compile snippets that include method definitions" {
         Source.fromSnippet("""
@@ -88,13 +83,67 @@ public class Test {
 """.trim()
         )).compile()
     }
+    "should identify compilation errors in simple snippets" {
+        val exception = shouldThrow<CompilationFailed> {
+            Source.fromSnippet("int i = a;").compile()
+        }
+        exception should haveCompilationErrorAt(line=1)
+    }
+    "should identify multiple compilation errors in simple snippets" {
+        val exception = shouldThrow<CompilationFailed> {
+            Source.fromSnippet("""
+int i = a;
+Foo f = new Foo();
+""".trim()).compile()
+        }
+        exception should haveCompilationErrorAt(line=1)
+        exception should haveCompilationErrorAt(line=2)
+    }
+    "should identify warnings in snippets" {
+        val compiledSource = Source.fromSnippet("""
+import java.util.List;
+import java.util.ArrayList;
+List test = new ArrayList();
+""".trim()).compile()
+
+        compiledSource.messages shouldHaveSize 2
+        compiledSource should haveCompilationMessageAt(line=3)
+    }
+    "should not identify warnings in snippets when warnings are disabled" {
+        val compiledSource = Source.fromSnippet("""
+import java.util.List;
+import java.util.ArrayList;
+List test = new ArrayList();
+""".trim()).compile(CompilationArguments(Xlint = "none"))
+
+        compiledSource.messages shouldHaveSize 0
+    }
+    "should fail when warnings are treated as errors" {
+        val exception = shouldThrow<CompilationFailed> {
+            Source.fromSnippet("""
+import java.util.List;
+import java.util.ArrayList;
+List test = new ArrayList();
+""".trim()).compile(CompilationArguments(wError = true))
+        }
+
+        exception should haveCompilationErrorAt(line=3)
+    }
 })
 
-fun haveCompilationErrorOnLine(line: Long) = object : Matcher<CompilationFailed> {
+fun haveCompilationErrorAt(source: String? = null, line: Long) = object : Matcher<CompilationFailed> {
     override fun test(value: CompilationFailed): Result {
-        return Result(value.errors.any { it.location.line == line },
+        return Result(value.errors.any { it.location.source == source && it.location.line == line },
                 "should have compilation error on line $line",
                 "should not compilation error on line $line")
+    }
+}
+
+fun haveCompilationMessageAt(source: String? = null, line: Long) = object : Matcher<CompiledSource> {
+    override fun test(value: CompiledSource): Result {
+        return Result(value.messages.any { it.location.source == source && it.location.line == line },
+                "should have compilation message on line $line",
+                "should not compilation message on line $line")
     }
 }
 

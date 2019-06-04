@@ -58,7 +58,7 @@ class Snippet(
         val remappedLineInfo = remappedLineMapping[input.line.toInt()]
         check(remappedLineInfo != null)
         return SourceLocation(
-                input.source,
+                null,
                 remappedLineInfo.sourceLineNumber.toLong(),
                 input.column - remappedLineInfo.addedIntentation
         )
@@ -80,9 +80,9 @@ fun Source.Companion.fromSnippet(originalSource: String, indent: Int = 4): Snipp
     val snippetLexer = SnippetLexer(charStream)
     snippetLexer.removeErrorListeners()
     snippetLexer.addErrorListener(errorListener)
-    errorListener.check()
 
     val tokenStream = CommonTokenStream(snippetLexer)
+    errorListener.check()
 
     val snippetParser = SnippetParser(tokenStream)
     snippetParser.removeErrorListeners()
@@ -106,7 +106,6 @@ fun Source.Companion.fromSnippet(originalSource: String, indent: Int = 4): Snipp
         override fun visitClassDeclaration(context: SnippetParser.ClassDeclarationContext) {
             markAs(context.start.line, context.stop.line, "class")
             val className = context.IDENTIFIER().text
-            check(!classNames.contains(className))
             classNames.add(className)
         }
 
@@ -114,8 +113,11 @@ fun Source.Companion.fromSnippet(originalSource: String, indent: Int = 4): Snipp
             markAs(context.start.line, context.stop.line, "method")
             contentMapping[context.start.line - 1] = "method:start"
             val methodName = context.IDENTIFIER().text
-            check(!methodNames.contains(methodName))
             methodNames.add(methodName)
+        }
+
+        override fun visitImportDeclaration(context: SnippetParser.ImportDeclarationContext) {
+            markAs(context.start.line, context.stop.line, "import")
         }
     }.visit(parseTree)
 
@@ -124,6 +126,17 @@ fun Source.Companion.fromSnippet(originalSource: String, indent: Int = 4): Snipp
 
     var currentOutputLineNumber = 1
     val remappedLineMapping = hashMapOf<Int, RemappedLine>()
+
+    val importStatements = mutableListOf<String>()
+    originalSource.lines().forEachIndexed { i, line ->
+        val lineNumber = i + 1
+        if (contentMapping[lineNumber] == "import") {
+            importStatements.add(line)
+            assert(!remappedLineMapping.containsKey(currentOutputLineNumber))
+            remappedLineMapping[currentOutputLineNumber] = RemappedLine(lineNumber, currentOutputLineNumber)
+            currentOutputLineNumber++
+        }
+    }
 
     val classDeclarations = mutableListOf<String>()
     originalSource.lines().forEachIndexed { i, line ->
@@ -175,6 +188,9 @@ fun Source.Companion.fromSnippet(originalSource: String, indent: Int = 4): Snipp
     assert(originalSource.lines().size == remappedLineMapping.keys.size)
 
     var rewrittenSource = ""
+    if (importStatements.size > 0) {
+        rewrittenSource += importStatements.joinToString(separator = "\n", postfix = "\n")
+    }
     if (classDeclarations.size > 0) {
         rewrittenSource += classDeclarations.joinToString(separator = "\n", postfix = "\n")
     }
