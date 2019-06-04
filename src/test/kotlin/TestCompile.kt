@@ -109,7 +109,7 @@ List test = new ArrayList();
         compiledSource.messages shouldHaveSize 2
         compiledSource should haveCompilationMessageAt(line=3)
     }
-    "should not identify warnings in snippets when warnings are disabled" {
+    "f:should not identify warnings in snippets when warnings are disabled" {
         val compiledSource = Source.fromSnippet("""
 import java.util.List;
 import java.util.ArrayList;

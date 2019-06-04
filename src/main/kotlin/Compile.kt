@@ -99,7 +99,6 @@ class FileManager(results: Results) : ForwardingJavaFileManager<JavaFileManager>
     fun getClassLoader(): ClassLoader {
         return object : ClassLoader(globalClassLoader) {
             override fun findClass(name: String): Class<*> {
-                @Suppress("UNREACHABLE_CODE")
                 return try {
                     val classFile: JavaFileObject? = getJavaFileForInput(
                             StandardLocation.CLASS_OUTPUT,
@@ -111,7 +110,6 @@ class FileManager(results: Results) : ForwardingJavaFileManager<JavaFileManager>
                 } catch (e: Exception) {
                     throw ClassNotFoundException(name)
                 }
-
             }
         }
     }

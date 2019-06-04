@@ -5,6 +5,7 @@ import java.io.OutputStream
 import java.io.PrintStream
 import java.lang.StringBuilder
 import java.lang.reflect.Modifier
+import java.security.Permissions
 import java.time.Duration
 import java.time.Instant
 import kotlin.concurrent.withLock
@@ -14,10 +15,19 @@ import java.util.concurrent.locks.ReentrantLock
 @Suppress("UNUSED")
 private val logger = KotlinLogging.logger {}
 
+data class ExecutionPermission(
+        val type: String,
+        val name: String
+)
+fun List<ExecutionPermission>.toPermission(): Permissions {
+    val permissions = Permissions()
+    return permissions
+}
 data class ExecutionArguments(
         val className: String = "Main",
         val method: String = "main()",
-        val timeout: Long = 100L
+        val timeout: Long = 100L,
+        val permissions: List<ExecutionPermission> = listOf()
 )
 class ExecutionResult(
         val completed: Boolean,
@@ -45,6 +55,8 @@ val outputLock = ReentrantLock()
 fun CompiledSource.execute(
         executionArguments: ExecutionArguments = ExecutionArguments()
 ): ExecutionResult {
+    Sandbox.confine(this.classLoader, executionArguments.permissions.toPermission())
+
     val klass = classLoader.loadClass(executionArguments.className)
             ?: throw ExecutionException("Could not load ${executionArguments.className}")
     val method = klass.declaredMethods.find { method ->
