@@ -1,5 +1,4 @@
-package edu.illinois.cs.cs125.janini
-
+package edu.illinois.cs.cs125.jeed
 
 import mu.KotlinLogging
 import java.io.*

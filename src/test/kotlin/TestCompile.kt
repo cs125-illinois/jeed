@@ -1,7 +1,7 @@
+import edu.illinois.cs.cs125.jeed.*
+
 import io.kotlintest.specs.StringSpec
 import io.kotlintest.*
-
-import edu.illinois.cs.cs125.janini.*
 
 class TestCompile : StringSpec({
     "should compile simple snippets" {

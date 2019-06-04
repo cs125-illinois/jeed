@@ -1,4 +1,4 @@
-package edu.illinois.cs.cs125.janini
+package edu.illinois.cs.cs125.jeed
 
 import java.io.OutputStream
 import java.io.PrintStream

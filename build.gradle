@@ -33,7 +33,7 @@ test {
 dependencies {
     implementation "org.jetbrains.kotlin:kotlin-stdlib-jdk8"
     implementation "org.jetbrains.kotlinx:kotlinx-coroutines-core:1.2.1"
-    
+
     implementation "com.github.javaparser:javaparser-symbol-solver-core:3.14.0"
     antlr "org.antlr:antlr4:4.7.2"
 
@@ -44,8 +44,8 @@ dependencies {
     testImplementation "io.kotlintest:kotlintest-runner-junit5:3.3.2"
 }
 generateGrammarSource {
-    outputDirectory = file("src/main/java/edu/illinois/cs/cs125/janini/antlr")
-    arguments += ["-visitor", "-package", "edu.illinois.cs.cs125.janini.antlr", "-Xexact-output-dir"]
+    outputDirectory = file("src/main/java/edu/illinois/cs/cs125/jeed/antlr")
+    arguments += ["-visitor", "-package", "edu.illinois.cs.cs125.jeed.antlr", "-Xexact-output-dir"]
 }
 compileKotlin.dependsOn generateGrammarSource
 dependencyUpdates.resolutionStrategy {

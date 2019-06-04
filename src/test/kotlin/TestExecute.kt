@@ -1,4 +1,4 @@
-import edu.illinois.cs.cs125.janini.*
+import edu.illinois.cs.cs125.jeed.*
 
 import io.kotlintest.specs.StringSpec
 import io.kotlintest.*

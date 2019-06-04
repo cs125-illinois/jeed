@@ -1,6 +1,6 @@
-package edu.illinois.cs.cs125.janini
+package edu.illinois.cs.cs125.jeed
 
-import edu.illinois.cs.cs125.janini.antlr.*
+import edu.illinois.cs.cs125.jeed.antlr.*
 import mu.KotlinLogging
 import org.antlr.v4.runtime.*
 import org.antlr.v4.runtime.misc.ParseCancellationException
