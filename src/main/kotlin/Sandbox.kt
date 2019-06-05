@@ -29,56 +29,53 @@ class Sandbox {
         private val confinedClassLoaders: MutableMap<ClassLoader, AccessControlContext> =
                 Collections.synchronizedMap(WeakHashMap<ClassLoader, AccessControlContext>())
 
-        init {
-            val previousSecurityManager = System.getSecurityManager()
-            System.setSecurityManager(object : SecurityManager() {
-
-                private var inReadCheck = false
-                override fun checkRead(file: String) {
-                    if (inReadCheck) {
+        val systemSecurityManager: SecurityManager? = System.getSecurityManager()
+        val ourSecurityManager = object : SecurityManager() {
+            private var inReadCheck = false
+            override fun checkRead(file: String) {
+                if (inReadCheck) {
+                    return
+                }
+                try {
+                    inReadCheck = true
+                    if (confinedClassLoaders.keys.isEmpty() ||
+                            !classContext.toList().subList(1, classContext.size).any { klass ->
+                                confinedClassLoaders.containsKey(klass.classLoader)
+                            }) {
                         return
                     }
-                    try {
-                        inReadCheck = true
-                        if (confinedClassLoaders.keys.isEmpty() ||
-                                !classContext.toList().subList(1, classContext.size).any {
-                                    klass -> confinedClassLoaders.containsKey(klass.classLoader)
-                                }) {
-                            return
-                        }
-                        if (!file.endsWith(".class")) {
-                            loggedRequests.addIf(currentKey, PermissionRequest(FilePermission(file, "read"), false))
-                            throw SecurityException()
-                        }
-                    } finally {
-                        inReadCheck = false
+                    if (!file.endsWith(".class")) {
+                        loggedRequests.addIf(currentKey, PermissionRequest(FilePermission(file, "read"), false))
+                        throw SecurityException()
                     }
+                } finally {
+                    inReadCheck = false
                 }
+            }
 
-                private var inPermissionCheck = false
-                override fun checkPermission(permission: Permission) {
-                    if (inPermissionCheck) {
+            private var inPermissionCheck = false
+            override fun checkPermission(permission: Permission) {
+                if (inPermissionCheck) {
+                    return
+                }
+                try {
+                    inPermissionCheck = true
+                    systemSecurityManager?.checkPermission(permission)
+                    if (confinedClassLoaders.keys.isEmpty()) {
                         return
                     }
-                    try {
-                        inPermissionCheck = true
-                        previousSecurityManager?.checkPermission(permission)
-                        if (confinedClassLoaders.keys.isEmpty()) {
-                            return
-                        }
-                        classContext.toList().subList(1, classContext.size).reversed().forEach { klass ->
-                            val accessControlContext = confinedClassLoaders[klass.classLoader] ?: return@forEach
-                            accessControlContext.checkPermission(permission)
-                        }
-                        loggedRequests.addIf(currentKey, PermissionRequest(permission, true))
-                    } catch (e: SecurityException) {
-                        loggedRequests.addIf(currentKey, PermissionRequest(permission, false))
-                        throw e
-                    } finally {
-                        inPermissionCheck = false
+                    classContext.toList().subList(1, classContext.size).reversed().forEach { klass ->
+                        val accessControlContext = confinedClassLoaders[klass.classLoader] ?: return@forEach
+                        accessControlContext.checkPermission(permission)
                     }
+                    loggedRequests.addIf(currentKey, PermissionRequest(permission, true))
+                } catch (e: SecurityException) {
+                    loggedRequests.addIf(currentKey, PermissionRequest(permission, false))
+                    throw e
+                } finally {
+                    inPermissionCheck = false
                 }
-            })
+            }
         }
 
         private var currentKey: Long? = null
@@ -90,6 +87,7 @@ class Sandbox {
             currentKey = Random.nextLong()
             loggedRequests = mutableListOf()
             confinedClassLoaders[classLoader] = AccessControlContext(arrayOf(ProtectionDomain(null, permissions)))
+            System.setSecurityManager(ourSecurityManager)
             return currentKey ?: error("currentKey changed before we exited")
         }
 
@@ -99,6 +97,7 @@ class Sandbox {
             currentKey = null
             check(confinedClassLoaders.containsKey(classLoader))
             confinedClassLoaders.remove(classLoader)
+            System.setSecurityManager(systemSecurityManager)
             return loggedRequests
         }
     }

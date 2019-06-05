@@ -40,7 +40,7 @@ System.out.println(System.getProperty("file.separator"));
         executionResult should haveCompleted()
         executionResult.permissionDenied shouldBe false
     }
-    "f:it should allow permissions to be changed between runs" {
+    "it should allow permissions to be changed between runs" {
         val compiledSource = Source.fromSnippet("""
 System.out.println(System.getProperty("file.separator"));
         """.trim()).compile()
