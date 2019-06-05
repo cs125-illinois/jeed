@@ -2,6 +2,7 @@ apply plugin: "java"
 apply plugin: "kotlin"
 apply plugin: "com.github.ben-manes.versions"
 apply plugin: "antlr"
+apply plugin: 'kotlin-kapt'
 
 repositories {
     jcenter()
@@ -19,11 +20,20 @@ buildscript {
 compileKotlin {
     sourceCompatibility = JavaVersion.VERSION_1_8
     targetCompatibility = JavaVersion.VERSION_1_8
+    
+    kotlinOptions {
+        jvmTarget = "1.8"
+    }
+}
+compileTestKotlin {
+    sourceCompatibility = JavaVersion.VERSION_1_8
+    targetCompatibility = JavaVersion.VERSION_1_8
 
     kotlinOptions {
         jvmTarget = "1.8"
     }
 }
+
 test {
     useJUnitPlatform()
     testLogging.showStandardStreams = true
@@ -40,6 +50,9 @@ dependencies {
     implementation "org.slf4j:slf4j-api:1.7.26"
     implementation "ch.qos.logback:logback-classic:1.2.3"
     implementation "io.github.microutils:kotlin-logging:1.6.26"
+
+    implementation 'com.squareup.moshi:moshi:1.8.0'
+    kapt 'com.squareup.moshi:moshi-kotlin-codegen:1.8.0'
 
     testImplementation "io.kotlintest:kotlintest-runner-junit5:3.3.2"
 }

@@ -27,14 +27,18 @@ data class ExecutionArguments(
         val className: String = "Main",
         val method: String = "main()",
         val timeout: Long = 100L,
-        val permissions: List<ExecutionPermission> = listOf()
+        val permissions: List<ExecutionPermission> = listOf(),
+        val captureOutput: Boolean = true
 )
 class ExecutionResult(
         val completed: Boolean,
         val timedOut: Boolean,
+        val failed: Boolean,
+        val error: Throwable? = null,
         val permissionDenied: Boolean,
-        val stdoutLines: List<OutputLine> = arrayListOf(),
-        val stderrLines: List<OutputLine> = arrayListOf()
+        val stdoutLines: List<OutputLine> = mutableListOf(),
+        val stderrLines: List<OutputLine> = mutableListOf(),
+        val permissionRequests: List<PermissionRequest> = mutableListOf()
         ) {
     fun stdout(): String {
         return stdoutLines.joinToString(separator = "\n") { it.line }
@@ -65,20 +69,30 @@ fun CompiledSource.execute(
         fullName == executionArguments.method && Modifier.isStatic(method.modifiers) && Modifier.isPublic(method.modifiers)
     } ?: throw ExecutionException("Cannot locate public static method with signature ${executionArguments.method} in ${executionArguments.className}")
 
-    val futureTask = FutureTask { method.invoke(null) }
+    // We need to load this before we begin execution since the code won't be able to once it's in the sandbox
+    classLoader.loadClass(OutputLine::class.qualifiedName)
+
+    val futureTask = FutureTask {
+        method.invoke(null)
+    }
     val thread = Thread(futureTask)
 
     outputLock.withLock {
         var timedOut = false
         var permissionDenied: Boolean
+        val permissionRequests: List<PermissionRequest>
+
         val stdoutStream = ConsoleOutputStream()
         val stderrStream = ConsoleOutputStream()
-
         val originalStdout = System.out
         val originalStderr = System.err
-        System.setOut(PrintStream(stdoutStream))
-        System.setErr(PrintStream(stderrStream))
 
+        if (executionArguments.captureOutput) {
+            System.setOut(PrintStream(stdoutStream))
+            System.setErr(PrintStream(stderrStream))
+        }
+
+        var error: Throwable? = null
         val completed = try {
             Sandbox.confine(classLoader, executionArguments.permissions.toPermission())
             Sandbox.log()
@@ -92,21 +106,27 @@ fun CompiledSource.execute(
             timedOut = true
             false
         } catch (e: Throwable) {
+            error = e
             false
         } finally {
-            val permissionRequests = Sandbox.retrieve()
+            permissionRequests = Sandbox.retrieve()
             permissionDenied = permissionRequests.any { !it.granted }
 
-            System.out.flush()
-            System.err.flush()
-            System.setOut(originalStdout)
-            System.setErr(originalStderr)
+            if (executionArguments.captureOutput) {
+                System.out.flush()
+                System.err.flush()
+                System.setOut(originalStdout)
+                System.setErr(originalStderr)
+            }
         }
 
         return ExecutionResult(
-                completed = completed && !permissionDenied,
+                completed = completed && error == null,
                 timedOut = timedOut,
+                failed = error == null,
+                error = error,
                 permissionDenied = permissionDenied,
+                permissionRequests = permissionRequests,
                 stdoutLines = stdoutStream.lines,
                 stderrLines = stderrStream.lines
         )

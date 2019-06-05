@@ -19,7 +19,6 @@ data class CompilationArguments(
 
 private val compiler = ToolProvider.getSystemJavaCompiler()
         ?: throw Exception("compiler not found: you are probably running a JRE, not a JDK")
-private val globalClassLoader = ClassLoader.getSystemClassLoader()
 
 @Suppress("UNUSED")
 class CompiledSource(val source: Source, val messages: List<CompilationMessage>, val classLoader: ClassLoader)
@@ -97,11 +96,11 @@ class FileManager(results: Results) : ForwardingJavaFileManager<JavaFileManager>
     }
 
     fun getClassLoader(): ClassLoader {
-        return object : ClassLoader(globalClassLoader) {
+        return object : ClassLoader() {
             override fun findClass(name: String): Class<*> {
                 @Suppress("UNREACHABLE_CODE")
                 return try {
-                    val classFile: JavaFileObject? = getJavaFileForInput(
+                    val classFile = getJavaFileForInput(
                             StandardLocation.CLASS_OUTPUT,
                             name,
                             JavaFileObject.Kind.CLASS

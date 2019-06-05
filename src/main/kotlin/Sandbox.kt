@@ -10,6 +10,11 @@ import java.util.*
 @Suppress("UNUSED")
 private val logger = KotlinLogging.logger {}
 
+data class PermissionRequest(
+        val permission: Permission,
+        val granted: Boolean
+)
+
 class Sandbox {
     companion object {
         private val confinedClassLoaders: MutableMap<ClassLoader, AccessControlContext> =
@@ -29,11 +34,8 @@ class Sandbox {
                         if (confinedClassLoaders.keys.isEmpty()) {
                             return
                         }
-                        classContext.toList().subList(1, classContext.size).forEach {
-                            if (it == javaClass) {
-                                return
-                            }
-                            val accessControlContext = confinedClassLoaders[it.classLoader] ?: return@forEach
+                        classContext.toList().subList(1, classContext.size).reversed().forEachIndexed { i, klass ->
+                            val accessControlContext = confinedClassLoaders[klass.classLoader] ?: return@forEachIndexed
                             accessControlContext.checkPermission(permission)
                         }
                         if (logging) {
@@ -55,10 +57,6 @@ class Sandbox {
             confinedClassLoaders[classLoader] = AccessControlContext(arrayOf(ProtectionDomain(null, permissions)))
         }
 
-        data class PermissionRequest(
-                val permission: Permission,
-                val granted: Boolean
-        )
         private var logging: Boolean = false
         private var loggedRequests: MutableList<PermissionRequest> = mutableListOf()
 
