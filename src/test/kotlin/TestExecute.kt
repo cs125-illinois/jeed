@@ -27,10 +27,9 @@ foo.i = 4;
 System.out.println("Done");
 """.trim()).compile().execute(ExecutionArguments())
 
-        println(executionResult.permissionRequests.filter { !it.granted })
         executionResult should haveCompleted()
         executionResult shouldNot haveTimedOut()
-        // executionResult should haveOutput("Done")
+        executionResult should haveOutput("Done")
     }
     "should execute snippets that include multiple class definitions" {
         val executionResult = Source.fromSnippet(

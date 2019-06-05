@@ -1,6 +1,7 @@
 package edu.illinois.cs.cs125.jeed
 
 import mu.KotlinLogging
+import java.io.FilePermission
 import java.security.AccessControlContext
 import java.security.Permission
 import java.security.Permissions
@@ -20,34 +21,59 @@ class Sandbox {
         private val confinedClassLoaders: MutableMap<ClassLoader, AccessControlContext> =
                 Collections.synchronizedMap(WeakHashMap<ClassLoader, AccessControlContext>())
 
-        private var inCheck = false
         init {
             val previousSecurityManager = System.getSecurityManager()
             System.setSecurityManager(object : SecurityManager() {
-                override fun checkPermission(permission: Permission) {
-                    if (inCheck) {
+
+                private var inReadCheck = false
+                override fun checkRead(file: String) {
+                    if (inReadCheck) {
                         return
                     }
                     try {
-                        inCheck = true
+                        inReadCheck = true
+                        if (confinedClassLoaders.keys.isEmpty() ||
+                                !classContext.toList().subList(1, classContext.size).any {
+                                    klass -> confinedClassLoaders.containsKey(klass.classLoader)
+                                }) {
+                            return
+                        }
+                        if (!file.endsWith(".class")) {
+                            if (logging) {
+                                loggedRequests.add(PermissionRequest(FilePermission(file, "read"), false))
+                            }
+                            throw SecurityException()
+                        }
+                    } finally {
+                        inReadCheck = false
+                    }
+                }
+
+                private var inPermissionCheck = false
+                override fun checkPermission(permission: Permission) {
+                    if (inPermissionCheck) {
+                        return
+                    }
+                    try {
+                        inPermissionCheck = true
                         previousSecurityManager?.checkPermission(permission)
                         if (confinedClassLoaders.keys.isEmpty()) {
                             return
                         }
-                        classContext.toList().subList(1, classContext.size).reversed().forEachIndexed { i, klass ->
-                            val accessControlContext = confinedClassLoaders[klass.classLoader] ?: return@forEachIndexed
+                        classContext.toList().subList(1, classContext.size).reversed().forEach { klass ->
+                            val accessControlContext = confinedClassLoaders[klass.classLoader] ?: return@forEach
                             accessControlContext.checkPermission(permission)
                         }
                         if (logging) {
                             loggedRequests.add(PermissionRequest(permission, true))
                         }
-                    } catch (e: Exception) {
+                    } catch (e: SecurityException) {
                         if (logging) {
                             loggedRequests.add(PermissionRequest(permission, false))
                         }
                         throw e
                     } finally {
-                        inCheck = false
+                        inPermissionCheck = false
                     }
                 }
             })

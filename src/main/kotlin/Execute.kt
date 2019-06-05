@@ -5,6 +5,7 @@ import java.io.OutputStream
 import java.io.PrintStream
 import java.lang.StringBuilder
 import java.lang.reflect.Modifier
+import java.security.Permission
 import java.security.Permissions
 import java.time.Duration
 import java.time.Instant
@@ -15,19 +16,16 @@ import java.util.concurrent.locks.ReentrantLock
 @Suppress("UNUSED")
 private val logger = KotlinLogging.logger {}
 
-data class ExecutionPermission(
-        val type: String,
-        val name: String
-)
-fun List<ExecutionPermission>.toPermission(): Permissions {
+fun List<Permission>.toPermission(): Permissions {
     val permissions = Permissions()
+    this.forEach { permissions.add(it) }
     return permissions
 }
 data class ExecutionArguments(
         val className: String = "Main",
         val method: String = "main()",
         val timeout: Long = 100L,
-        val permissions: List<ExecutionPermission> = listOf(),
+        val permissions: List<Permission> = listOf(),
         val captureOutput: Boolean = true
 )
 class ExecutionResult(
@@ -79,7 +77,7 @@ fun CompiledSource.execute(
 
     outputLock.withLock {
         var timedOut = false
-        var permissionDenied: Boolean
+        val permissionDenied: Boolean
         val permissionRequests: List<PermissionRequest>
 
         val stdoutStream = ConsoleOutputStream()
@@ -121,7 +119,7 @@ fun CompiledSource.execute(
         }
 
         return ExecutionResult(
-                completed = completed && error == null,
+                completed = completed && error == null && !permissionDenied,
                 timedOut = timedOut,
                 failed = error == null,
                 error = error,

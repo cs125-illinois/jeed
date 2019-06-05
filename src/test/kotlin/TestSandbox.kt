@@ -18,7 +18,7 @@ System.exit(-1);
         val executionResult = Source.fromSnippet("""
 import java.io.*;
 System.out.println(new File("/").listFiles().length);
-        """.trim()).compile().execute()
+        """.trim()).compile().execute(ExecutionArguments(captureOutput = false))
 
         executionResult shouldNot haveCompleted()
         executionResult.permissionDenied shouldBe true
