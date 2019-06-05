@@ -8,5 +8,8 @@ class TestSandbox : StringSpec({
         val executionResult = Source.fromSnippet("""
 System.exit(-1);
         """.trim()).compile().execute()
+
+        executionResult shouldNot haveCompleted()
+        executionResult.permissionDenied shouldBe true
     }
 })

@@ -32,6 +32,7 @@ data class ExecutionArguments(
 class ExecutionResult(
         val completed: Boolean,
         val timedOut: Boolean,
+        val permissionDenied: Boolean,
         val stdoutLines: List<OutputLine> = arrayListOf(),
         val stderrLines: List<OutputLine> = arrayListOf()
         ) {
@@ -55,8 +56,6 @@ val outputLock = ReentrantLock()
 fun CompiledSource.execute(
         executionArguments: ExecutionArguments = ExecutionArguments()
 ): ExecutionResult {
-    Sandbox.confine(this.classLoader, executionArguments.permissions.toPermission())
-
     val klass = classLoader.loadClass(executionArguments.className)
             ?: throw ExecutionException("Could not load ${executionArguments.className}")
     val method = klass.declaredMethods.find { method ->
@@ -71,6 +70,7 @@ fun CompiledSource.execute(
 
     outputLock.withLock {
         var timedOut = false
+        var permissionDenied: Boolean
         val stdoutStream = ConsoleOutputStream()
         val stderrStream = ConsoleOutputStream()
 
@@ -80,6 +80,8 @@ fun CompiledSource.execute(
         System.setErr(PrintStream(stderrStream))
 
         val completed = try {
+            Sandbox.confine(classLoader, executionArguments.permissions.toPermission())
+            Sandbox.log()
             thread.start()
             futureTask.get(executionArguments.timeout, TimeUnit.MILLISECONDS)
             true
@@ -92,14 +94,19 @@ fun CompiledSource.execute(
         } catch (e: Throwable) {
             false
         } finally {
+            val permissionRequests = Sandbox.retrieve()
+            permissionDenied = permissionRequests.any { !it.granted }
+
             System.out.flush()
             System.err.flush()
             System.setOut(originalStdout)
             System.setErr(originalStderr)
         }
+
         return ExecutionResult(
-                completed = completed,
+                completed = completed && !permissionDenied,
                 timedOut = timedOut,
+                permissionDenied = permissionDenied,
                 stdoutLines = stdoutStream.lines,
                 stderrLines = stderrStream.lines
         )
