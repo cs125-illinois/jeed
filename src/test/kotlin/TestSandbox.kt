@@ -1,9 +1,7 @@
-import com.squareup.moshi.Moshi
 import edu.illinois.cs.cs125.jeed.*
 
 import io.kotlintest.specs.StringSpec
 import io.kotlintest.*
-import java.security.Permission
 
 class TestSandbox : StringSpec({
     "it should prevent snippets from exiting" {

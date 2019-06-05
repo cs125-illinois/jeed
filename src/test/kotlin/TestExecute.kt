@@ -2,7 +2,6 @@ import edu.illinois.cs.cs125.jeed.*
 
 import io.kotlintest.specs.StringSpec
 import io.kotlintest.*
-import io.kotlintest.extensions.system.captureStandardOut
 
 class TestExecute : StringSpec({
     "should execute snippets" {

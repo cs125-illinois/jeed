@@ -21,10 +21,10 @@ data class SourceLocation(
         val column: Long
 ) {
     override fun toString(): String {
-        if (source != null) {
-            return "$source $line:$column"
+        return if (source != null) {
+            "$source $line:$column"
         } else {
-            return "(Input) $line:$column"
+            "(Input) $line:$column"
         }
     }
 }
