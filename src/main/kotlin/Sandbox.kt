@@ -7,6 +7,9 @@ import java.security.Permission
 import java.security.Permissions
 import java.security.ProtectionDomain
 import java.util.*
+import kotlin.random.Random
+
+// import java.util.*
 
 @Suppress("UNUSED")
 private val logger = KotlinLogging.logger {}
@@ -15,6 +18,11 @@ data class PermissionRequest(
         val permission: Permission,
         val granted: Boolean
 )
+fun MutableList<PermissionRequest>.addIf(currentKey: Long?, request: PermissionRequest) {
+    if (currentKey != null) {
+        this.add(request)
+    }
+}
 
 class Sandbox {
     companion object {
@@ -39,9 +47,7 @@ class Sandbox {
                             return
                         }
                         if (!file.endsWith(".class")) {
-                            if (logging) {
-                                loggedRequests.add(PermissionRequest(FilePermission(file, "read"), false))
-                            }
+                            loggedRequests.addIf(currentKey, PermissionRequest(FilePermission(file, "read"), false))
                             throw SecurityException()
                         }
                     } finally {
@@ -64,13 +70,9 @@ class Sandbox {
                             val accessControlContext = confinedClassLoaders[klass.classLoader] ?: return@forEach
                             accessControlContext.checkPermission(permission)
                         }
-                        if (logging) {
-                            loggedRequests.add(PermissionRequest(permission, true))
-                        }
+                        loggedRequests.addIf(currentKey, PermissionRequest(permission, true))
                     } catch (e: SecurityException) {
-                        if (logging) {
-                            loggedRequests.add(PermissionRequest(permission, false))
-                        }
+                        loggedRequests.addIf(currentKey, PermissionRequest(permission, false))
                         throw e
                     } finally {
                         inPermissionCheck = false
@@ -79,21 +81,24 @@ class Sandbox {
             })
         }
 
-        fun confine(classLoader: ClassLoader, permissions: Permissions) {
-            confinedClassLoaders[classLoader] = AccessControlContext(arrayOf(ProtectionDomain(null, permissions)))
-        }
-
-        private var logging: Boolean = false
+        private var currentKey: Long? = null
         private var loggedRequests: MutableList<PermissionRequest> = mutableListOf()
 
-        fun log() {
-            check(!logging)
-            logging = true
+        @Synchronized
+        fun confine(classLoader: ClassLoader, permissions: Permissions): Long {
+            check(currentKey == null)
+            currentKey = Random.nextLong()
             loggedRequests = mutableListOf()
+            confinedClassLoaders[classLoader] = AccessControlContext(arrayOf(ProtectionDomain(null, permissions)))
+            return currentKey ?: error("currentKey changed before we exited")
         }
-        fun retrieve(): List<PermissionRequest> {
-            check(logging)
-            logging = false
+
+        @Synchronized
+        fun release(key: Long?, classLoader: ClassLoader): List<PermissionRequest> {
+            check(currentKey != null && key == currentKey)
+            currentKey = null
+            check(confinedClassLoaders.containsKey(classLoader))
+            confinedClassLoaders.remove(classLoader)
             return loggedRequests
         }
     }

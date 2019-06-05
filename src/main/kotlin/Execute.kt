@@ -91,9 +91,9 @@ fun CompiledSource.execute(
         }
 
         var error: Throwable? = null
+        var key: Long? = null
         val completed = try {
-            Sandbox.confine(classLoader, executionArguments.permissions.toPermission())
-            Sandbox.log()
+            key = Sandbox.confine(classLoader, executionArguments.permissions.toPermission())
             thread.start()
             futureTask.get(executionArguments.timeout, TimeUnit.MILLISECONDS)
             true
@@ -107,7 +107,7 @@ fun CompiledSource.execute(
             error = e
             false
         } finally {
-            permissionRequests = Sandbox.retrieve()
+            permissionRequests = Sandbox.release(key, classLoader)
             permissionDenied = permissionRequests.any { !it.granted }
 
             if (executionArguments.captureOutput) {
