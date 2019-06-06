@@ -21,6 +21,7 @@ class CheckstyleError(
         message: String
 ) : SourceError(location, message)
 
+data class CheckstyleResults(val errors: Map<String, List<CheckstyleError>>)
 class ConfiguredChecker(configurationString: String) {
     val checker: Checker
     init {
@@ -35,12 +36,10 @@ class ConfiguredChecker(configurationString: String) {
         checker.setModuleClassLoader(checkerClass.classLoader)
         checker.configure(configuration)
     }
-    fun check(sources: Source): List<CheckstyleError> {
-        return sources.sources.map { source ->
-            this.checker.processString(source.key, source.value).map { error ->
-                CheckstyleError(error.severity, sources.mapLocation(error.location), error.message ?: "")
-            }
-        }.flatten()
+    fun check(sources: Map<String, String>): Map<String, List<CheckstyleError>> {
+        return sources.mapValues { source ->
+            this.checker.processString(source.key, source.value)
+        }
     }
 }
 
@@ -80,6 +79,10 @@ val defaultChecker = run {
     ConfiguredChecker(object : Any() {}::class.java.getResource("/checkstyle/default.xml").readText())
 }
 
-fun Source.checkstyle(): List<CheckstyleError> {
-    return defaultChecker.check(this)
+fun Source.checkstyle(names: Set<String> = this.sources.keys.toSet()): CheckstyleResults {
+    return CheckstyleResults(defaultChecker.check(this.sources.filter { names.contains(it.key) }).mapValues {
+        it.value.map { error ->
+            CheckstyleError(error.severity, this.mapLocation(error.location), error.message ?: "")
+        }
+    })
 }

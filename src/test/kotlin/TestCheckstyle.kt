@@ -2,15 +2,14 @@ import edu.illinois.cs.cs125.jeed.*
 
 import io.kotlintest.specs.StringSpec
 import io.kotlintest.*
-import io.kotlintest.matchers.collections.shouldHaveSize
 
 class TestCheckstyle : StringSpec({
     "it should check strings without errors" {
-        val checkstyleErrors = Source.fromSnippet("""
+        val checkstyleResult = Source.fromSnippet("""
 int i = 0;
 """.trim()).checkstyle()
 
-        checkstyleErrors shouldHaveSize 0
+        checkstyleResult shouldNot haveCheckstyleErrors()
     }
     "it should identify checkstyle errors in strings" {
         val checkstyleErrors = Source.fromSnippet("""
@@ -18,8 +17,8 @@ int i = 0;
 int y =1;
 """.trim()).checkstyle()
 
-        checkstyleErrors shouldHaveSize 1
-        checkstyleErrors.filter { it.location.line == 2 } shouldHaveSize 1
+        checkstyleErrors should haveCheckstyleErrors()
+        checkstyleErrors should haveCheckstyleErrorAt(line=2)
     }
     "it should identify checkstyle errors in snippet methods" {
         val checkstyleErrors = Source.fromSnippet("""
@@ -31,8 +30,8 @@ int add(int a, int b) {
 add(i, y);
 """.trim()).checkstyle()
 
-        checkstyleErrors shouldHaveSize 1
-        checkstyleErrors.filter { it.location.line == 4 } shouldHaveSize 1
+        checkstyleErrors should haveCheckstyleErrors()
+        checkstyleErrors should haveCheckstyleErrorAt(line=4)
     }
     "it should identify checkstyle errors in snippet static methods" {
         val checkstyleErrors = Source.fromSnippet("""
@@ -44,8 +43,8 @@ static int add(int a, int b) {
 add(i, y);
 """.trim()).checkstyle()
 
-        checkstyleErrors shouldHaveSize 1
-        checkstyleErrors.filter { it.location.line == 4 } shouldHaveSize 1
+        checkstyleErrors should haveCheckstyleErrors()
+        checkstyleErrors should haveCheckstyleErrorAt(line=4)
     }
     "it should identify checkstyle errors in snippet methods with modifiers" {
         val checkstyleErrors = Source.fromSnippet("""
@@ -57,7 +56,22 @@ public int add(int a, int b) {
 add(i, y);
 """.trim()).checkstyle()
 
-        checkstyleErrors shouldHaveSize 1
-        checkstyleErrors.filter { it.location.line == 4 } shouldHaveSize 1
+        checkstyleErrors should haveCheckstyleErrors()
+        checkstyleErrors should haveCheckstyleErrorAt(line=4)
     }
 })
+
+fun haveCheckstyleErrors() = object : Matcher<CheckstyleResults> {
+    override fun test(value: CheckstyleResults): Result {
+        return Result(value.errors.values.flatten().isNotEmpty(),
+                "should have checkstyle errors",
+                "should have checkstyle errors")
+    }
+}
+fun haveCheckstyleErrorAt(source: String? = null, line: Int) = object : Matcher<CheckstyleResults> {
+    override fun test(value: CheckstyleResults): Result {
+        return Result(value.errors.values.flatten().any { it.location.source == source && it.location.line == line },
+                "should have checkstyle error on line $line",
+                "should not have checkstyle error on line $line")
+    }
+}

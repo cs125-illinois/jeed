@@ -135,7 +135,7 @@ fun haveCompilationErrorAt(source: String? = null, line: Int) = object : Matcher
     override fun test(value: CompilationFailed): Result {
         return Result(value.errors.any { it.location.source == source && it.location.line == line },
                 "should have compilation error on line $line",
-                "should not compilation error on line $line")
+                "should not have compilation error on line $line")
     }
 }
 
@@ -143,7 +143,7 @@ fun haveCompilationMessageAt(source: String? = null, line: Int) = object : Match
     override fun test(value: CompiledSource): Result {
         return Result(value.messages.any { it.location.source == source && it.location.line == line },
                 "should have compilation message on line $line",
-                "should not compilation message on line $line")
+                "should not have compilation message on line $line")
     }
 }
 

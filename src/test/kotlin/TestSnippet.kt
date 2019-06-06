@@ -80,6 +80,23 @@ int adder(int first, int second) {
         source.rewrittenSource shouldNotBe(snippet)
         source.originalSourceFromMap() shouldBe(snippet)
     }
+    "should not allow return statements in loose code" {
+        shouldThrow<SnippetValidationFailed> {
+            Source.fromSnippet("""
+return;
+        """.trim())
+        }
+    }
+    "should not allow return statements in loose code even under if statements" {
+        shouldThrow<SnippetValidationFailed> {
+            Source.fromSnippet("""
+int i = 0;
+if (i > 2) {
+    return;
+}
+        """.trim())
+        }
+    }
 })
 
 fun haveParseErrorOnLine(line: Int) = object : Matcher<SnippetParsingFailed> {

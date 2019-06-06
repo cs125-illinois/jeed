@@ -55,13 +55,18 @@ class Snippet(
 
     override fun mapLocation(input: SourceLocation): SourceLocation {
         assert(input.source.equals(wrappedClassName))
-        val remappedLineInfo = remappedLineMapping[input.line]
-        check(remappedLineInfo != null)
-        return SourceLocation(
-                null,
-                remappedLineInfo.sourceLineNumber,
-                input.column - remappedLineInfo.addedIntentation
-        )
+        return mapLocation(input, remappedLineMapping)
+    }
+    companion object {
+        fun mapLocation(input: SourceLocation, remappedLineMapping: Map<Int, RemappedLine>): SourceLocation {
+            val remappedLineInfo = remappedLineMapping[input.line]
+            check(remappedLineInfo != null)
+            return SourceLocation(
+                    null,
+                    remappedLineInfo.sourceLineNumber,
+                    input.column - remappedLineInfo.addedIntentation
+            )
+        }
     }
 }
 
@@ -71,7 +76,7 @@ data class RemappedLine(
         val addedIntentation: Int = 0
 )
 
-@Throws(SnippetParsingFailed::class)
+@Throws(SnippetParsingFailed::class, SnippetValidationFailed::class)
 fun Source.Companion.fromSnippet(originalSource: String, indent: Int = 4): Snippet {
     require(originalSource.isNotEmpty())
 
@@ -172,6 +177,7 @@ fun Source.Companion.fromSnippet(originalSource: String, indent: Int = 4): Snipp
     }
 
     // Adding public static void $snippetMainMethodName()
+    val looseCodeStart = currentOutputLineNumber
     currentOutputLineNumber++
 
     val looseCode = mutableListOf<String>()
@@ -184,6 +190,8 @@ fun Source.Companion.fromSnippet(originalSource: String, indent: Int = 4): Snipp
             currentOutputLineNumber++
         }
     }
+
+    checkLooseCode(looseCode.joinToString(separator = "\n"), looseCodeStart, remappedLineMapping)
 
     assert(originalSource.lines().size == remappedLineMapping.keys.size)
 
@@ -215,4 +223,27 @@ fun Source.Companion.fromSnippet(originalSource: String, indent: Int = 4): Snipp
             snippetClassName,
             remappedLineMapping
     )
+}
+
+class SnippetValidationError(location: SourceLocation, message: String?) : SourceError(location, message)
+class SnippetValidationFailed(errors: List<SnippetValidationError>) : JeepError(errors)
+
+private fun checkLooseCode(looseCode: String, looseCodeStart: Int, remappedLineMapping: Map<Int, RemappedLine>) {
+    val charStream = CharStreams.fromString(looseCode)
+    val javaLexer = JavaLexer(charStream)
+    javaLexer.removeErrorListeners()
+    val tokenStream = CommonTokenStream(javaLexer)
+    tokenStream.fill()
+
+    val validationErrors = tokenStream.tokens.filter {
+        it.type == JavaLexer.RETURN
+    }.map {
+        SnippetValidationError(
+                Snippet.mapLocation(SourceLocation(source=null, line=it.line + looseCodeStart, column=it.charPositionInLine), remappedLineMapping),
+                "return statements not allowed at top level in snippets"
+        )
+    }
+    if (validationErrors.isNotEmpty()) {
+        throw SnippetValidationFailed(validationErrors)
+    }
 }
