@@ -30,32 +30,19 @@
 
 -->
 
-<!--
-  Configuration customized for CS125.
-  * Semi-permanent customizations marked with CS125.
-  * Per-project customizations (if any) marked with Quiz-Starter.
- -->
+<!-- Configuration customized for Jeed. Changes marked with "Jeed".  -->
 
 <module name="Checker">
-  <!--
-        If you set the basedir property below, then all reported file
-        names will be relative to the specified directory. See
-        http://checkstyle.sourceforge.net/5.x/config.html#Checker
-
-        <property name="basedir" value="${basedir}"/>
-    -->
-
-  <property name="fileExtensions" value="java, properties, xml"/>
+  <property name="fileExtensions" value="java"/>
 
   <!-- Checks that a package-info.java file exists for each package.     -->
   <!-- See http://checkstyle.sf.net/config_javadoc.html#JavadocPackage -->
-
-  <!-- CS125: We don't create a package. -->
+  <!-- Jeed: we don't create a package. -->
   <!-- <module name="JavadocPackage"/> -->
 
   <!-- Checks whether files end with a new line.                        -->
   <!-- See http://checkstyle.sf.net/config_misc.html#NewlineAtEndOfFile -->
-  <!-- Quiz-Starter: We can disable this for our environment
+  <!-- Jeed: we don't need to check this.
   <module name="NewlineAtEndOfFile">
     <property name="lineSeparator" value="lf_cr_crlf"/>
   </module>
@@ -63,7 +50,9 @@
 
   <!-- Checks that property files contain the same keys.         -->
   <!-- See http://checkstyle.sf.net/config_misc.html#Translation -->
+  <!-- Jeed: we don't check these files at all.
   <module name="Translation"/>
+  -->
 
   <!-- Checks for Size Violations.                    -->
   <!-- See http://checkstyle.sf.net/config_sizes.html -->
@@ -76,7 +65,7 @@
   <!-- Miscellaneous other checks.                   -->
   <!-- See http://checkstyle.sf.net/config_misc.html -->
 
-  <!-- Quiz-Starter: we're going to be lenient about this.
+  <!-- Jeed: we're going to be lenient about trailing space.
   <module name="RegexpSingleline">
     <property name="format" value="\s+$"/>
     <property name="minimum" value="0"/>
@@ -89,8 +78,7 @@
 
     <!-- Checks for Javadoc comments.                     -->
     <!-- See http://checkstyle.sf.net/config_javadoc.html -->
-    <!-- Quiz-Starter: we don't need to require Javadoc
-         comments on most quiz questions.
+    <!-- Jeed: we don't require Javadoc comments by default.
     <module name="JavadocMethod"/>
     <module name="JavadocType"/>
     <module name="JavadocVariable"/>
@@ -120,7 +108,7 @@
 
     <!-- Checks for Size Violations.                    -->
     <!-- See http://checkstyle.sf.net/config_sizes.html -->
-    <!-- CS125: 80 characters is too few on modern monitors. Google uses 100, so so do we. -->
+    <!-- Jeed: 80 characters is too few on modern monitors. Google's style guide uses 100, and so do we. -->
     <module name="LineLength">
       <property name="max" value="100"/>
     </module>
@@ -147,12 +135,10 @@
 
     <!-- Checks for blocks. You know, those {}'s         -->
     <!-- See http://checkstyle.sf.net/config_blocks.html -->
-    <!-- Janini: we need nested blocks for inline functions
     <module name="AvoidNestedBlocks"/>
-    -->
     <module name="EmptyBlock"/>
     <module name="LeftCurly"/>
-    <!-- Quiz-Starter: allow empty for loops for list problems. -->
+    <!-- Jeed: allow empty for loops for list problems. -->
     <module name="NeedBraces">
       <property name="allowEmptyLoopBody" value="true"/>
     </module>
@@ -161,7 +147,7 @@
     <!-- Checks for common coding problems               -->
     <!-- See http://checkstyle.sf.net/config_coding.html -->
     <module name="AvoidInlineConditionals"/>
-    <!-- Quiz-Starter: allow empty statements for loop list walking.
+    <!-- Jeed: allow empty statements for loop list walking.
     <module name="EmptyStatement"/>
     -->
     <module name="EqualsHashCode"/>
@@ -169,31 +155,31 @@
     <module name="IllegalInstantiation"/>
     <module name="InnerAssignment"/>
 
-    <!-- Quiz-Starter: We can disable this for our environment
+    <!-- Jeed: disabled by default.
     <module name="MagicNumber"/>
     -->
     <module name="MissingSwitchDefault"/>
-    <!-- CS125: I don't like these defaults. if (test == true) is clear. -->
+    <!-- Jeed: I don't like these defaults. if (test == true) is clear. -->
     <!-- <module name="SimplifyBooleanExpression"/> -->
     <!-- <module name="SimplifyBooleanReturn"/> -->
 
     <!-- Checks for class design                         -->
     <!-- See http://checkstyle.sf.net/config_design.html -->
-    <!-- Quiz-Starter: No need for this warning.
+    <!-- Jeed: No need for this warning.
     <module name="DesignForExtension"/>
     -->
     <module name="FinalClass"/>
     <!-- CS125: Our utility classes must have public main methods. -->
     <!-- <module name="HideUtilityClassConstructor"/> -->
     <module name="InterfaceIsType"/>
-    <!-- Quiz-Starter: we don't need to require non-public fields
+    <!-- Jeed: allow public fields by default, although this might be worth disabling on a per-question basis.
     <module name="VisibilityModifier"/>
     -->
 
     <!-- Miscellaneous other checks.                   -->
     <!-- See http://checkstyle.sf.net/config_misc.html -->
     <module name="ArrayTypeStyle"/>
-    <!-- Quiz-Starter: Disabling by default.
+    <!-- Jeed: Disabling by default, since throwing final everywhere is fairly annoying.
     <module name="FinalParameters"/>
     -->
     <module name="TodoComment"/>

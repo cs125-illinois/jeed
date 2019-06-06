@@ -143,7 +143,7 @@ fun Source.compile(
     val errors = results.diagnostics.filter {
         it.kind == Diagnostic.Kind.ERROR || (it.kind == Diagnostic.Kind.WARNING && compilationArguments.wError)
     }.map {
-        val originalLocation = SourceLocation(it.source.name, it.lineNumber, it.columnNumber)
+        val originalLocation = SourceLocation(it.source.name, it.lineNumber.toInt(), it.columnNumber.toInt())
         val remappedLocation = this.mapLocation(originalLocation)
         CompilationError(remappedLocation, it.getMessage(Locale.US))
     }
@@ -152,7 +152,7 @@ fun Source.compile(
     }
 
     val messages = results.diagnostics.map {
-        val originalLocation = SourceLocation(it.source.name, it.lineNumber, it.columnNumber)
+        val originalLocation = SourceLocation(it.source.name, it.lineNumber.toInt(), it.columnNumber.toInt())
         val remappedLocation = this.mapLocation(originalLocation)
         CompilationMessage(it.kind.toString(), remappedLocation, it.getMessage(Locale.US))
     }

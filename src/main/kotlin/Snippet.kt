@@ -21,14 +21,14 @@ fun generateName(prefix: String, existingNames: Set<String>) : String {
     throw IllegalStateException("couldn't generate $prefix class name")
 }
 
-class SnippetParseError(source: String?, line: Long, column: Long, message: String?) : SourceError(SourceLocation(source, line, column), message)
+class SnippetParseError(source: String?, line: Int, column: Int, message: String?) : SourceError(SourceLocation(source, line, column), message)
 class SnippetParsingFailed(errors: List<SnippetParseError>) : JeepError(errors)
 
 class SnippetErrorListener : BaseErrorListener() {
     private val errors = mutableListOf<SnippetParseError>()
     override fun syntaxError(recognizer: Recognizer<*, *>?, offendingSymbol: Any?, line: Int, charPositionInLine: Int, msg: String, e: RecognitionException?) {
         // Decrement line number by 1 to account for added braces
-        errors.add(SnippetParseError(null, line.toLong() - 1, charPositionInLine.toLong(), msg))
+        errors.add(SnippetParseError(null, line - 1, charPositionInLine, msg))
     }
     fun check() {
         if (errors.size > 0) {
@@ -55,11 +55,11 @@ class Snippet(
 
     override fun mapLocation(input: SourceLocation): SourceLocation {
         assert(input.source.equals(wrappedClassName))
-        val remappedLineInfo = remappedLineMapping[input.line.toInt()]
+        val remappedLineInfo = remappedLineMapping[input.line]
         check(remappedLineInfo != null)
         return SourceLocation(
                 null,
-                remappedLineInfo.sourceLineNumber.toLong(),
+                remappedLineInfo.sourceLineNumber,
                 input.column - remappedLineInfo.addedIntentation
         )
     }

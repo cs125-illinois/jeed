@@ -17,8 +17,8 @@ open class Source(
 
 data class SourceLocation(
         val source: String?,
-        val line: Long,
-        val column: Long
+        val line: Int,
+        val column: Int
 ) {
     override fun toString(): String {
         return if (source != null) {
@@ -37,6 +37,13 @@ abstract class SourceError(
     }
 }
 abstract class JeepError(val errors: List<SourceError>) : Exception()
+
+fun Exception.getStackTraceAsString(): String {
+    val stringWriter = StringWriter()
+    val printWriter = PrintWriter(stringWriter)
+    this.printStackTrace(printWriter)
+    return stringWriter.toString()
+}
 
 data class TaskError(val error: Throwable) {
     val stackTrace: String

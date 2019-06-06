@@ -4,17 +4,26 @@ import com.puppycrawl.tools.checkstyle.Checker
 import com.puppycrawl.tools.checkstyle.ConfigurationLoader
 import com.puppycrawl.tools.checkstyle.PackageObjectFactory
 import com.puppycrawl.tools.checkstyle.PropertiesExpander
+import com.puppycrawl.tools.checkstyle.api.FileSetCheck
+import com.puppycrawl.tools.checkstyle.api.FileText
+import com.puppycrawl.tools.checkstyle.api.SeverityLevel
 import mu.KotlinLogging
 import org.xml.sax.InputSource
 import java.io.ByteArrayInputStream
+import java.io.File
 
 @Suppress("UNUSED")
 private val logger = KotlinLogging.logger {}
 
+class CheckstyleError(
+        val severity: String,
+        location: SourceLocation,
+        message: String
+) : SourceError(location, message)
+
 class ConfiguredChecker(configurationString: String) {
     val checker: Checker
     init {
-
         val configuration = ConfigurationLoader.loadConfiguration(
                 InputSource(ByteArrayInputStream(configurationString.toByteArray(Charsets.UTF_8))),
                 PropertiesExpander(System.getProperties()),
@@ -26,14 +35,51 @@ class ConfiguredChecker(configurationString: String) {
         checker.setModuleClassLoader(checkerClass.classLoader)
         checker.configure(configuration)
     }
-    fun check(source: Source) {
-
+    fun check(sources: Source): List<CheckstyleError> {
+        return sources.sources.map { source ->
+            this.checker.processString(source.key, source.value).map { error ->
+                CheckstyleError(error.severity, sources.mapLocation(error.location), error.message ?: "")
+            }
+        }.flatten()
     }
 }
+
+fun Checker.processString(name: String, source: String): List<CheckstyleError> {
+    val file = File(if (name.endsWith(".java")) name else "$name.java")
+    val contents = FileText(file, source.lines())
+
+    val field = this::class.java.getDeclaredField("fileSetChecks")
+    field.isAccessible = true
+    val anyChecks = field.get(this) as List<*>
+    val checks = anyChecks.filterIsInstance<FileSetCheck>()
+    assert(anyChecks.size == checks.size)
+    assert(checks.isNotEmpty())
+
+    val results: MutableSet<CheckstyleError> = mutableSetOf()
+    try {
+        checks.map {
+            it.process(file, contents)
+        }.flatten().forEach {
+            results.add(CheckstyleError(
+                    it.severityLevel.toString(),
+                    SourceLocation(name, it.lineNo, it.columnNo),
+                    it.message
+            ))
+        }
+    } catch (e: Exception) {
+        results.add(CheckstyleError(
+                SeverityLevel.ERROR.toString(),
+                SourceLocation(name, 1, 1),
+                e.getStackTraceAsString()
+        ))
+    }
+    return results.toList()
+}
+
 val defaultChecker = run {
     ConfiguredChecker(object : Any() {}::class.java.getResource("/checkstyle/default.xml").readText())
 }
 
-fun Source.checkstyle() {
-    defaultChecker.check(this)
+fun Source.checkstyle(): List<CheckstyleError> {
+    return defaultChecker.check(this)
 }
