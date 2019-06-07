@@ -28,6 +28,12 @@ data class SourceLocation(
         }
     }
 }
+data class Location(val line: Int, val column: Int)
+data class SourceRange(
+        val source: String?,
+        val start: Location,
+        val end: Location
+)
 abstract class SourceError(
         val location: SourceLocation,
         val message: String?

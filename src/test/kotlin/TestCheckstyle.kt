@@ -20,7 +20,7 @@ int y =1;
         checkstyleErrors should haveCheckstyleErrors()
         checkstyleErrors should haveCheckstyleErrorAt(line=2)
     }
-    "it should identify checkstyle errors in snippet methods" {
+    "it should identify checkstyle errors in snippet results" {
         val checkstyleErrors = Source.fromSnippet("""
 int i = 0;
 int y = 1;
@@ -33,7 +33,7 @@ add(i, y);
         checkstyleErrors should haveCheckstyleErrors()
         checkstyleErrors should haveCheckstyleErrorAt(line=4)
     }
-    "it should identify checkstyle errors in snippet static methods" {
+    "it should identify checkstyle errors in snippet static results" {
         val checkstyleErrors = Source.fromSnippet("""
 int i = 0;
 int y = 1;
@@ -46,7 +46,7 @@ add(i, y);
         checkstyleErrors should haveCheckstyleErrors()
         checkstyleErrors should haveCheckstyleErrorAt(line=4)
     }
-    "it should identify checkstyle errors in snippet methods with modifiers" {
+    "it should identify checkstyle errors in snippet results with modifiers" {
         val checkstyleErrors = Source.fromSnippet("""
 int i = 0;
 int y = 1;

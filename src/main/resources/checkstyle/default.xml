@@ -169,7 +169,7 @@
     <module name="DesignForExtension"/>
     -->
     <module name="FinalClass"/>
-    <!-- CS125: Our utility classes must have public main methods. -->
+    <!-- CS125: Our utility classes must have public main results. -->
     <!-- <module name="HideUtilityClassConstructor"/> -->
     <module name="InterfaceIsType"/>
     <!-- Jeed: allow public fields by default, although this might be worth disabling on a per-question basis.
