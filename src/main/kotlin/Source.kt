@@ -8,9 +8,16 @@ open class Source(
 ) {
     init {
         require(sources.keys.isNotEmpty())
+        checkSources()
     }
     open fun mapLocation(input: SourceLocation): SourceLocation {
         return input
+    }
+    open fun mapLocation(source: String, input: Location): Location {
+        return input
+    }
+    open fun checkSources() {
+        require(sources.keys.all { it.isNotEmpty() })
     }
     companion object
 }
@@ -42,7 +49,8 @@ open class LocatedClass(
         val methods: MutableMap<String, LocatedMethod> = mutableMapOf()
 )
 open class LocatedMethod(
-        val name: String, val range: SourceRange,
+        val name: String,
+        val range: SourceRange,
         var classes: MutableMap<String, LocatedClass> = mutableMapOf()
 )
 

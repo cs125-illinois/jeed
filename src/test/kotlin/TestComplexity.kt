@@ -1,4 +1,3 @@
-import com.tylerthrailkill.helpers.prettyprint.pp
 import edu.illinois.cs.cs125.jeed.*
 
 import io.kotlintest.specs.StringSpec
@@ -11,6 +10,7 @@ int add(int i, int j) {
     return i + j;
 }
 int i = 0;
-""".trim()).complexity()
+""".trim()).complexity().lookup(".")
+        println(complexityResult.complexity)
     }
 })

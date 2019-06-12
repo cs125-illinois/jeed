@@ -7,7 +7,7 @@ import org.antlr.v4.runtime.*
 @Suppress("UNUSED")
 private val logger = KotlinLogging.logger {}
 
-val SNIPPET_SOURCE = ""
+const val SNIPPET_SOURCE = ""
 
 fun generateName(prefix: String, existingNames: Set<String>) : String {
     if (!existingNames.contains(prefix)) {
@@ -41,30 +41,45 @@ class SnippetErrorListener : BaseErrorListener() {
 
 class Snippet(
         sources: Map<String, String>,
-        @Suppress("UNUSED") val originalSource: String,
+        val originalSource: String,
         val rewrittenSource: String,
-        private val wrappedClassName: String,
+        val snippetRange: SourceRange,
+        val wrappedClassName: String,
+        val looseCodeMethodName: String,
         private val remappedLineMapping: Map<Int, RemappedLine>
 ) : Source(sources) {
     fun originalSourceFromMap(): String {
         val lines = rewrittenSource.lines()
         return remappedLineMapping.values.sortedBy { it.sourceLineNumber }.joinToString(separator = "\n") {
             val currentLine = lines[it.rewrittenLineNumber - 1]
-            assert(it.addedIntentation <= currentLine.length) { "${it.addedIntentation} v. ${currentLine.length}" }
-            currentLine.substring(it.addedIntentation)
+            assert(it.addedIndentation <= currentLine.length) { "${it.addedIndentation} v. ${currentLine.length}" }
+            currentLine.substring(it.addedIndentation)
         }
     }
 
+    override fun checkSources() {
+        require(sources.keys.size == 1)
+        require(sources.keys.contains(""))
+    }
+
     override fun mapLocation(input: SourceLocation): SourceLocation {
-        assert(input.source == wrappedClassName)
+        return mapLocation(input, remappedLineMapping)
+    }
+    override fun mapLocation(source: String, input: Location): Location {
+        check(source == SNIPPET_SOURCE)
         return mapLocation(input, remappedLineMapping)
     }
     companion object {
         fun mapLocation(input: SourceLocation, remappedLineMapping: Map<Int, RemappedLine>): SourceLocation {
+            check(input.source == SNIPPET_SOURCE)
             val remappedLineInfo = remappedLineMapping[input.line]
             check(remappedLineInfo != null)
-            return SourceLocation(SNIPPET_SOURCE, remappedLineInfo.sourceLineNumber, input.column - remappedLineInfo.addedIntentation
-            )
+            return SourceLocation(SNIPPET_SOURCE, remappedLineInfo.sourceLineNumber, input.column - remappedLineInfo.addedIndentation)
+        }
+        fun mapLocation(input: Location, remappedLineMapping: Map<Int, RemappedLine>): Location {
+            val remappedLineInfo = remappedLineMapping[input.line]
+            check(remappedLineInfo != null)
+            return Location(remappedLineInfo.sourceLineNumber, input.column - remappedLineInfo.addedIndentation)
         }
     }
 }
@@ -72,7 +87,7 @@ class Snippet(
 data class RemappedLine(
         val sourceLineNumber: Int,
         val rewrittenLineNumber: Int,
-        val addedIntentation: Int = 0
+        val addedIndentation: Int = 0
 )
 
 @Throws(SnippetParsingFailed::class, SnippetValidationFailed::class)
@@ -95,6 +110,7 @@ fun Source.Companion.fromSnippet(originalSource: String, indent: Int = 4): Snipp
     val parseTree = snippetParser.block()
     errorListener.check()
 
+    lateinit var snippetRange: SourceRange
     val contentMapping = mutableMapOf<Int, String>()
     val classNames = mutableSetOf<String>()
     val methodNames = mutableSetOf<String>()
@@ -122,6 +138,17 @@ fun Source.Companion.fromSnippet(originalSource: String, indent: Int = 4): Snipp
 
         override fun visitImportDeclaration(context: SnippetParser.ImportDeclarationContext) {
             markAs(context.start.line, context.stop.line, "import")
+        }
+
+        override fun visitBlock(ctx: SnippetParser.BlockContext) {
+            snippetRange = SourceRange(
+                    SNIPPET_SOURCE,
+                    Location(ctx.start.line, ctx.start.charPositionInLine),
+                    Location(ctx.stop.line, ctx.stop.charPositionInLine)
+            )
+            ctx.children.forEach {
+                super.visit(it)
+            }
         }
     }.visit(parseTree)
 
@@ -216,10 +243,12 @@ fun Source.Companion.fromSnippet(originalSource: String, indent: Int = 4): Snipp
     assert(currentOutputLineNumber == rewrittenSource.lines().size)
 
     return Snippet(
-            hashMapOf(snippetClassName to rewrittenSource),
+            hashMapOf(SNIPPET_SOURCE to rewrittenSource),
             originalSource,
             rewrittenSource,
+            snippetRange,
             snippetClassName,
+            "$snippetMainMethodName()",
             remappedLineMapping
     )
 }

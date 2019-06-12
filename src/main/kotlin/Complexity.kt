@@ -12,6 +12,7 @@ val complexityExpressionBOPs = listOf(JavaLexer.AND, JavaLexer.OR, JavaLexer.QUE
 
 interface ComplexityValue {
     var complexity: Int
+    fun lookup(name: String): ComplexityValue
 }
 
 class ClassComplexity(
@@ -19,22 +20,54 @@ class ClassComplexity(
         methods: MutableMap<String, MethodComplexity> = mutableMapOf(),
         classes: MutableMap<String, ClassComplexity> = mutableMapOf(),
         override var complexity: Int = 0
-) : LocatedClass(name, range, classes as MutableMap<String, LocatedClass>, methods as MutableMap<String, LocatedMethod>), ComplexityValue
+) : LocatedClass(name, range, classes as MutableMap<String, LocatedClass>, methods as MutableMap<String, LocatedMethod>), ComplexityValue {
+    override fun lookup(name: String): ComplexityValue {
+        check(name.isNotEmpty())
+        return try {
+            if (name[0].isUpperCase()) {
+                classes[name] as ComplexityValue
+            } else {
+                methods[name] as ComplexityValue
+            }
+        } catch (e: Exception) {
+            if (name[0].isUpperCase()) {
+                error("class $name not found")
+            } else {
+                error("method $name not found")
+            }
+        }
+    }
+}
 
 class MethodComplexity(
         name: String, range: SourceRange,
         classes: MutableMap<String, ClassComplexity> = mutableMapOf(),
         override var complexity: Int = 1
-) : LocatedMethod(name, range, classes as MutableMap<String, LocatedClass>), ComplexityValue
+) : LocatedMethod(name, range, classes as MutableMap<String, LocatedClass>), ComplexityValue {
+    override fun lookup(name: String): ComplexityValue {
+        check(name.isNotEmpty())
+        check(name[0].isUpperCase()) { "methods cannot contain other methods" }
+        return try {
+            classes[name] as ComplexityValue
+        } catch (e: Exception) {
+            error("class $name not found")
+        }
+    }
+}
 
-class ComplexityResult(entry: Map.Entry<String, String>) : JavaParserBaseListener() {
-    private val source = entry.key
+class ComplexityResult(val source: Source, entry: Map.Entry<String, String>) : JavaParserBaseListener() {
+    private val name = entry.key
     private val contents = entry.value
 
     private var complexityStack: MutableList<ComplexityValue> = mutableListOf()
     var results: MutableMap<String, ClassComplexity> = mutableMapOf()
 
-    private fun enterClassOrInterface(locatedClass: ClassComplexity) {
+    private fun enterClassOrInterface(classOrInterfaceName: String, start: Location, end: Location) {
+        val locatedClass = if (source is Snippet && classOrInterfaceName == source.wrappedClassName) {
+            ClassComplexity("", source.snippetRange)
+        } else {
+            ClassComplexity(classOrInterfaceName, SourceRange(name, source.mapLocation(name, start), source.mapLocation(name, end)))
+        }
         if (complexityStack.isNotEmpty()) {
             when (val currentComplexity = complexityStack[0]) {
                 is ClassComplexity -> {
@@ -63,29 +96,13 @@ class ComplexityResult(entry: Map.Entry<String, String>) : JavaParserBaseListene
     }
 
     override fun enterClassDeclaration(ctx: JavaParser.ClassDeclarationContext) {
-        enterClassOrInterface(
-                ClassComplexity(ctx.children[1].text,
-                        SourceRange(source,
-                                Location(ctx.start.line, ctx.start.charPositionInLine),
-                                Location(ctx.stop.line, ctx.stop.charPositionInLine
-                                )
-                        )
-                )
-        )
+        enterClassOrInterface(ctx.children[1].text, Location(ctx.start.line, ctx.start.charPositionInLine), Location(ctx.stop.line, ctx.stop.charPositionInLine))
     }
     override fun exitClassDeclaration(ctx: JavaParser.ClassDeclarationContext) {
         exitClassOrInterface()
     }
     override fun enterInterfaceDeclaration(ctx: JavaParser.InterfaceDeclarationContext) {
-        enterClassOrInterface(
-                ClassComplexity(ctx.children[1].text,
-                    SourceRange(source,
-                            Location(ctx.start.line, ctx.start.charPositionInLine),
-                            Location(ctx.stop.line, ctx.stop.charPositionInLine
-                            )
-                    )
-                )
-        )
+        enterClassOrInterface(ctx.children[1].text, Location(ctx.start.line, ctx.start.charPositionInLine), Location(ctx.stop.line, ctx.stop.charPositionInLine))
     }
     override fun exitInterfaceDeclaration(ctx: JavaParser.InterfaceDeclarationContext?) {
         exitClassOrInterface()
@@ -96,7 +113,7 @@ class ComplexityResult(entry: Map.Entry<String, String>) : JavaParserBaseListene
     private var currentMethodReturnType: String? = null
     private var currentMethodParameters: MutableList<String>? = null
 
-    private fun enterMethodOrConstructor(name: String, start: Location, end: Location, returnType: String) {
+    private fun enterMethodOrConstructor(methodOrConstructorName: String, start: Location, end: Location, returnType: String) {
         assert(complexityStack.isNotEmpty())
         assert(complexityStack[0] is ClassComplexity)
 
@@ -104,8 +121,8 @@ class ComplexityResult(entry: Map.Entry<String, String>) : JavaParserBaseListene
         assert(currentMethodLocation == null)
         assert(currentMethodReturnType == null)
         assert(currentMethodParameters == null)
-        currentMethodName = name
-        currentMethodLocation = SourceRange(source, start, end)
+        currentMethodName = methodOrConstructorName
+        currentMethodLocation = SourceRange(name, start, end)
         currentMethodReturnType = returnType
         currentMethodParameters = mutableListOf()
     }
@@ -175,7 +192,17 @@ class ComplexityResult(entry: Map.Entry<String, String>) : JavaParserBaseListene
         assert(currentMethodParameters != null)
 
         val fullName = "$currentMethodName(${currentMethodParameters?.joinToString(separator = ", ")})"
-        val methodComplexity = MethodComplexity(fullName, currentMethodLocation!!)
+        val methodComplexity = if (source is Snippet && source.looseCodeMethodName == fullName) {
+            MethodComplexity("", source.snippetRange)
+        } else {
+            MethodComplexity(
+                    fullName,
+                    SourceRange(name,
+                            source.mapLocation(name, currentMethodLocation!!.start),
+                            source.mapLocation(name, currentMethodLocation!!.end)
+                    )
+            )
+        }
         val currentComplexity = complexityStack[0] as ClassComplexity
         assert(!currentComplexity.methods.containsKey(methodComplexity.name))
         currentComplexity.methods[methodComplexity.name] = methodComplexity
@@ -256,13 +283,44 @@ class ComplexityResult(entry: Map.Entry<String, String>) : JavaParserBaseListene
     }
 }
 
-data class ComplexityResults(val results: Map<String, Map<String, ClassComplexity>>)
+class ComplexityResults(@Transient val source: Source, val results: Map<String, Map<String, ClassComplexity>>) {
+    fun lookup(path: String): ComplexityValue {
+        return try {
+            val components = path.split(".").toMutableList()
+
+            val resultSource = if (source is Snippet) {
+                results[""]
+            } else {
+                results[components.removeAt(0)]
+            } ?: error("")
+
+            var currentComplexity = if (source is Snippet) {
+                val rootComplexity = resultSource[""] ?: error("")
+                if (path.isEmpty()) {
+                    return rootComplexity
+                } else if (path.equals(".")) {
+                    return rootComplexity.methods[""] as ComplexityValue
+                }
+                rootComplexity
+            } else {
+                resultSource[components.removeAt(0)]
+            } as ComplexityValue
+
+            for (component in components) {
+                currentComplexity = currentComplexity.lookup(component)
+            }
+            currentComplexity
+        } catch (e: Exception) {
+            error("lookup failed: $e")
+        }
+    }
+}
 
 @Throws(JavaParsingFailed::class)
 fun Source.complexity(names: Set<String> = this.sources.keys.toSet()): ComplexityResults {
-    return ComplexityResults(this.sources.filter {
+    return ComplexityResults(this, this.sources.filter {
         names.contains(it.key)
     }.mapValues {
-        ComplexityResult(it).results
+        ComplexityResult(this, it).results
     })
 }
