@@ -1,8 +1,5 @@
 !gradle-wrapper.jar
 /.gradle
-/out/
-/build/
-/test-output/
 *.class
 *.swp
 *.swo
@@ -12,4 +9,7 @@
 .idea/modules/test-output/
 .idea/libraries/
 .idea/checkstyle-idea.xml
-/.kotlintest
+.kotlintest/
+out/
+build/
+test-output/
