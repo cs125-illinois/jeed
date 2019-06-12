@@ -47,7 +47,7 @@ class Snippet(
         val wrappedClassName: String,
         val looseCodeMethodName: String,
         private val remappedLineMapping: Map<Int, RemappedLine>
-) : Source(sources) {
+) : Source(sources, { sources.keys.size == 1 && sources.keys.first() == "" }) {
     fun originalSourceFromMap(): String {
         val lines = rewrittenSource.lines()
         return remappedLineMapping.values.sortedBy { it.sourceLineNumber }.joinToString(separator = "\n") {
@@ -55,11 +55,6 @@ class Snippet(
             assert(it.addedIndentation <= currentLine.length) { "${it.addedIndentation} v. ${currentLine.length}" }
             currentLine.substring(it.addedIndentation)
         }
-    }
-
-    override fun checkSources() {
-        require(sources.keys.size == 1)
-        require(sources.keys.contains(""))
     }
 
     override fun mapLocation(input: SourceLocation): SourceLocation {

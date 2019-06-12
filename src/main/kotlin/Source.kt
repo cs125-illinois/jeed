@@ -4,20 +4,19 @@ import java.io.PrintWriter
 import java.io.StringWriter
 
 open class Source(
-        val sources: Map<String, String>
+        val sources: Map<String, String>, checkSources: (Map<String, String>)->Boolean = { source ->
+            source.keys.all { name -> name.isNotBlank() && name.split("/").last()[0].isUpperCase() }
+        }
 ) {
     init {
         require(sources.keys.isNotEmpty())
-        checkSources()
+        require(checkSources(sources)) { "problem validating sources: $sources" }
     }
     open fun mapLocation(input: SourceLocation): SourceLocation {
         return input
     }
     open fun mapLocation(source: String, input: Location): Location {
         return input
-    }
-    open fun checkSources() {
-        require(sources.keys.all { it.isNotEmpty() })
     }
     companion object
 }
