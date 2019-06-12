@@ -65,7 +65,7 @@ i++
         exception should haveParseErrorOnLine(1)
         exception should haveParseErrorOnLine(14)
     }
-    "should be able to reconstruct original sources using source map" {
+    "should be able to reconstruct original sources using entry map" {
         val snippet = """
 int i = 0;
 i++;

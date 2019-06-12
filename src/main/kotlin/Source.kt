@@ -16,15 +16,15 @@ open class Source(
 }
 
 data class SourceLocation(
-        val source: String?,
+        val source: String,
         val line: Int,
         val column: Int
 ) {
     override fun toString(): String {
-        return if (source != null) {
-            "$source $line:$column"
+        return if (source != SNIPPET_SOURCE) {
+            "$source ($line:$column)"
         } else {
-            "(Input) $line:$column"
+            "($line:$column)"
         }
     }
 }
@@ -34,6 +34,18 @@ data class SourceRange(
         val start: Location,
         val end: Location
 )
+
+open class LocatedClass(
+        val name: String,
+        val range: SourceRange,
+        val classes: MutableMap<String, LocatedClass> = mutableMapOf(),
+        val methods: MutableMap<String, LocatedMethod> = mutableMapOf()
+)
+open class LocatedMethod(
+        val name: String, val range: SourceRange,
+        var classes: MutableMap<String, LocatedClass> = mutableMapOf()
+)
+
 abstract class SourceError(
         val location: SourceLocation,
         val message: String?

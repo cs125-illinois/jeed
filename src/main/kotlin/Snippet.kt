@@ -7,6 +7,8 @@ import org.antlr.v4.runtime.*
 @Suppress("UNUSED")
 private val logger = KotlinLogging.logger {}
 
+val SNIPPET_SOURCE = ""
+
 fun generateName(prefix: String, existingNames: Set<String>) : String {
     if (!existingNames.contains(prefix)) {
         return prefix
@@ -21,14 +23,14 @@ fun generateName(prefix: String, existingNames: Set<String>) : String {
     throw IllegalStateException("couldn't generate $prefix class name")
 }
 
-class SnippetParseError(source: String?, line: Int, column: Int, message: String?) : SourceError(SourceLocation(source, line, column), message)
+class SnippetParseError(line: Int, column: Int, message: String?) : SourceError(SourceLocation(SNIPPET_SOURCE, line, column), message)
 class SnippetParsingFailed(errors: List<SnippetParseError>) : JeepError(errors)
 
 class SnippetErrorListener : BaseErrorListener() {
     private val errors = mutableListOf<SnippetParseError>()
     override fun syntaxError(recognizer: Recognizer<*, *>?, offendingSymbol: Any?, line: Int, charPositionInLine: Int, msg: String, e: RecognitionException?) {
         // Decrement line number by 1 to account for added braces
-        errors.add(SnippetParseError(null, line - 1, charPositionInLine, msg))
+        errors.add(SnippetParseError( line - 1, charPositionInLine, msg))
     }
     fun check() {
         if (errors.size > 0) {
@@ -54,17 +56,14 @@ class Snippet(
     }
 
     override fun mapLocation(input: SourceLocation): SourceLocation {
-        assert(input.source.equals(wrappedClassName))
+        assert(input.source == wrappedClassName)
         return mapLocation(input, remappedLineMapping)
     }
     companion object {
         fun mapLocation(input: SourceLocation, remappedLineMapping: Map<Int, RemappedLine>): SourceLocation {
             val remappedLineInfo = remappedLineMapping[input.line]
             check(remappedLineInfo != null)
-            return SourceLocation(
-                    null,
-                    remappedLineInfo.sourceLineNumber,
-                    input.column - remappedLineInfo.addedIntentation
+            return SourceLocation(SNIPPET_SOURCE, remappedLineInfo.sourceLineNumber, input.column - remappedLineInfo.addedIntentation
             )
         }
     }
@@ -239,7 +238,7 @@ private fun checkLooseCode(looseCode: String, looseCodeStart: Int, remappedLineM
         it.type == JavaLexer.RETURN
     }.map {
         SnippetValidationError(
-                Snippet.mapLocation(SourceLocation(source=null, line=it.line + looseCodeStart, column=it.charPositionInLine), remappedLineMapping),
+                Snippet.mapLocation(SourceLocation(SNIPPET_SOURCE, it.line + looseCodeStart, it.charPositionInLine), remappedLineMapping),
                 "return statements not allowed at top level in snippets"
         )
     }

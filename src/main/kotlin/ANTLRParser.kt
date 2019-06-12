@@ -1,17 +1,16 @@
 package edu.illinois.cs.cs125.jeed
 
-import antlr.ParseTree
 import edu.illinois.cs.cs125.jeed.antlr.JavaLexer
 import edu.illinois.cs.cs125.jeed.antlr.JavaParser
 import org.antlr.v4.runtime.*
 
-class JavaParseError(source: String?, line: Int, column: Int, message: String?) : SourceError(SourceLocation(source, line, column), message)
+class JavaParseError(source: String, line: Int, column: Int, message: String?) : SourceError(SourceLocation(source, line, column), message)
 class JavaParsingFailed(errors: List<JavaParseError>) : JeepError(errors)
 
-class JavaErrorListener : BaseErrorListener() {
+class JavaErrorListener(val source: String) : BaseErrorListener() {
     private val errors = mutableListOf<JavaParseError>()
     override fun syntaxError(recognizer: Recognizer<*, *>?, offendingSymbol: Any?, line: Int, charPositionInLine: Int, msg: String, e: RecognitionException?) {
-        errors.add(JavaParseError(null, line, charPositionInLine, msg))
+        errors.add(JavaParseError(source, line, charPositionInLine, msg))
     }
     fun check() {
         if (errors.size > 0) {
@@ -36,7 +35,7 @@ fun parse(source: String, errorListener: JavaErrorListener): JavaParser {
     return javaParser
 }
 fun parseCompilationUnit(source: String): JavaParser.CompilationUnitContext {
-    val errorListener = JavaErrorListener()
+    val errorListener = JavaErrorListener(source)
     val toReturn = parse(source, errorListener).compilationUnit()
     errorListener.check()
     return toReturn

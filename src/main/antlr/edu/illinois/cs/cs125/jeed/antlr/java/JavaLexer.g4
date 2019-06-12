@@ -4,10 +4,10 @@
  Copyright (c) 2017 Ivan Kochurkin (upgrade to Java 8)
  All rights reserved.
 
- Redistribution and use in source and binary forms, with or without
+ Redistribution and use in entry and binary forms, with or without
  modification, are permitted provided that the following conditions
  are met:
- 1. Redistributions of source code must retain the above copyright
+ 1. Redistributions of entry code must retain the above copyright
     notice, this list of conditions and the following disclaimer.
  2. Redistributions in binary form must reproduce the above copyright
     notice, this list of conditions and the following disclaimer in the
@@ -88,7 +88,7 @@ DECIMAL_LITERAL:    ('0' | [1-9] (Digits? | '_'+ Digits)) [lL]?;
 HEX_LITERAL:        '0' [xX] [0-9a-fA-F] ([0-9a-fA-F_]* [0-9a-fA-F])? [lL]?;
 OCT_LITERAL:        '0' '_'* [0-7] ([0-7_]* [0-7])? [lL]?;
 BINARY_LITERAL:     '0' [bB] [01] ([01_]* [01])? [lL]?;
-                    
+
 FLOAT_LITERAL:      (Digits '.' Digits? | '.' Digits) ExponentPart? [fFdD]?
              |       Digits (ExponentPart [fFdD]? | [fFdD])
              ;
