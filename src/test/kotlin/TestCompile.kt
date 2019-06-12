@@ -131,7 +131,7 @@ List test = new ArrayList();
     }
 })
 
-fun haveCompilationErrorAt(source: String? = null, line: Int) = object : Matcher<CompilationFailed> {
+fun haveCompilationErrorAt(source: String = SNIPPET_SOURCE, line: Int) = object : Matcher<CompilationFailed> {
     override fun test(value: CompilationFailed): Result {
         return Result(value.errors.any { it.location.source == source && it.location.line == line },
                 "should have compilation error on line $line",
@@ -139,7 +139,7 @@ fun haveCompilationErrorAt(source: String? = null, line: Int) = object : Matcher
     }
 }
 
-fun haveCompilationMessageAt(source: String? = null, line: Int) = object : Matcher<CompiledSource> {
+fun haveCompilationMessageAt(source: String = SNIPPET_SOURCE, line: Int) = object : Matcher<CompiledSource> {
     override fun test(value: CompiledSource): Result {
         return Result(value.messages.any { it.location.source == source && it.location.line == line },
                 "should have compilation message on line $line",
