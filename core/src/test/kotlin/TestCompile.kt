@@ -156,7 +156,7 @@ Me me = new Me();
         compiledSource.classLoader.loadedClasses shouldContainExactlyInAnyOrder listOf("Test", "Me", "Main")
         compiledSource.classLoader.bytecodeForClass("Test").size shouldBeGreaterThan 0
     }
-    "f:custom classloader should provide bytecode when requested even if the class hasn't been loaded" {
+    "custom classloader should provide bytecode when requested even if the class hasn't been loaded" {
         val compiledSource = Source.fromSnippet("""
 class Test {}
 class Me {}

@@ -103,31 +103,40 @@ fun CompiledSource.execute(
         error = e
         false
     } finally {
-        while (true) {
-            val threadGroupThreads = Array<Thread?>(32) { null }
-            threadGroup.enumerate(threadGroupThreads, true)
-            val remainingThreads = threadGroupThreads.toList().filter { it != null }
-            if (remainingThreads.isEmpty()) {
-                break
-            } else {
-                remainingThreads.forEach { @Suppress("DEPRECATION") it?.stop() }
-                Thread.sleep(10)
-            }
-        }
-        threadGroup.destroy()
-        assert(threadGroup.isDestroyed)
-
         permissionRequests = Sandbox.release(key, classLoader)
         permissionDenied = permissionRequests.filter {
             !executionArguments.ignoredPermissions.contains(it.permission)
         }.any {
             !it.granted
         }
+
         if (executionArguments.captureOutput) {
             val output = OutputInterceptor.release(threadGroup)
             stdoutLines = output[Console.STDOUT] ?: error("output should have STDOUT")
             stderrLines = output[Console.STDERR] ?: error("output should have STDERR")
         }
+
+        val activeThreadCount = threadGroup.activeCount()
+        assert(activeThreadCount <= executionArguments.maxExtraThreadCount + 1)
+        assert(threadGroup.activeGroupCount() == 0)
+
+        if (activeThreadCount > 0) {
+            for (unused in 0..32) {
+                val threadGroupThreads = Array<Thread?>(activeThreadCount) { null }
+                threadGroup.enumerate(threadGroupThreads, true)
+                val runningThreads = threadGroupThreads.toList().filter { it != null }
+                if (runningThreads.isEmpty()) {
+                    break
+                }
+                for (runningThread in runningThreads) {
+                    @Suppress("DEPRECATION")
+                    runningThread?.stop()
+                }
+                Thread.sleep(100L)
+            }
+        }
+        threadGroup.destroy()
+        assert(threadGroup.isDestroyed)
     }
     return ExecutionResult(
             completed = completed && error == null && !permissionDenied,
