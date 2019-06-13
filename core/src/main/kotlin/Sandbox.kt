@@ -18,11 +18,6 @@ data class PermissionRequest(
         val permission: Permission,
         val granted: Boolean
 )
-fun MutableList<PermissionRequest>.addIf(currentKey: Long?, request: PermissionRequest) {
-    if (currentKey != null) {
-        this.add(request)
-    }
-}
 
 class Sandbox {
     companion object {
@@ -38,14 +33,20 @@ class Sandbox {
                 }
                 try {
                     inReadCheck = true
-                    if (confinedClassLoaders.keys.isEmpty() ||
-                            !classContext.toList().subList(1, classContext.size).any { klass ->
-                                confinedClassLoaders.containsKey(klass.classLoader)
-                            }) {
+                    if (confinedClassLoaders.keys.isEmpty()) {
                         return
                     }
+                    val filteredClassLoaders = classContext.toList().subList(1, classContext.size).reversed().filter { klass ->
+                        confinedClassLoaders.containsKey(klass.classLoader)
+                    }.map {klass ->
+                        klass.classLoader
+                    }.distinct()
+                    if (filteredClassLoaders.isEmpty()) {
+                        return
+                    }
+                    val confinedClassLoader = filteredClassLoaders[0]
                     if (!file.endsWith(".class")) {
-                        loggedRequests.addIf(currentKey, PermissionRequest(FilePermission(file, "read"), false))
+                        loggedRequests[confinedClassLoader]!!.add(PermissionRequest(FilePermission(file, "read"), false))
                         throw SecurityException()
                     }
                 } finally {
@@ -58,19 +59,27 @@ class Sandbox {
                 if (inPermissionCheck) {
                     return
                 }
+                var confinedClassLoader: ClassLoader? = null
                 try {
                     inPermissionCheck = true
                     systemSecurityManager?.checkPermission(permission)
                     if (confinedClassLoaders.keys.isEmpty()) {
                         return
                     }
-                    classContext.toList().subList(1, classContext.size).reversed().forEach { klass ->
-                        val accessControlContext = confinedClassLoaders[klass.classLoader] ?: return@forEach
-                        accessControlContext.checkPermission(permission)
+                    val filteredClassLoaders = classContext.toList().subList(1, classContext.size).reversed().filter { klass ->
+                        confinedClassLoaders.containsKey(klass.classLoader)
+                    }.map {klass ->
+                        klass.classLoader
+                    }.distinct()
+                    if (filteredClassLoaders.isEmpty()) {
+                        return
                     }
-                    loggedRequests.addIf(currentKey, PermissionRequest(permission, true))
+                    assert(filteredClassLoaders.size == 1)
+                    confinedClassLoader = filteredClassLoaders[0]
+                    confinedClassLoaders[confinedClassLoader]!!.checkPermission(permission)
+                    loggedRequests[confinedClassLoader]!!.add(PermissionRequest(permission, true))
                 } catch (e: SecurityException) {
-                    loggedRequests.addIf(currentKey, PermissionRequest(permission, false))
+                    loggedRequests[confinedClassLoader]!!.add(PermissionRequest(permission, false))
                     throw e
                 } finally {
                     inPermissionCheck = false
@@ -78,27 +87,27 @@ class Sandbox {
             }
         }
 
-        private var currentKey: Long? = null
-        private var loggedRequests: MutableList<PermissionRequest> = mutableListOf()
+        private val classLoaderKeys: MutableMap<ClassLoader, Long> = mutableMapOf()
+        private var loggedRequests: MutableMap<ClassLoader, MutableList<PermissionRequest>> = mutableMapOf()
 
         @Synchronized
         fun confine(classLoader: ClassLoader, permissions: Permissions): Long {
-            check(currentKey == null)
-            currentKey = Random.nextLong()
-            loggedRequests = mutableListOf()
+            check(!classLoaderKeys.contains(classLoader))
+            classLoaderKeys[classLoader] = Random.nextLong()
+            loggedRequests[classLoader] = mutableListOf()
             confinedClassLoaders[classLoader] = AccessControlContext(arrayOf(ProtectionDomain(null, permissions)))
             System.setSecurityManager(ourSecurityManager)
-            return currentKey ?: error("currentKey changed before we exited")
+            return classLoaderKeys[classLoader] ?: error("currentKey changed before we exited")
         }
 
         @Synchronized
         fun release(key: Long?, classLoader: ClassLoader): List<PermissionRequest> {
-            check(currentKey != null && key == currentKey)
-            currentKey = null
+            check(key != null && classLoaderKeys[classLoader] == key)
+            classLoaderKeys.remove(classLoader)
             check(confinedClassLoaders.containsKey(classLoader))
             confinedClassLoaders.remove(classLoader)
             System.setSecurityManager(systemSecurityManager)
-            return loggedRequests
+            return loggedRequests[classLoader] ?: error("should have logged requests for this class loader")
         }
     }
 }

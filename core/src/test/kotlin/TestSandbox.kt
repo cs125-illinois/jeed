@@ -55,4 +55,21 @@ System.out.println(System.getProperty("file.separator"));
         successfulExecution should haveCompleted()
         successfulExecution.permissionDenied shouldBe false
     }
+    "it should prevent snippets from waiting on spinning threads" {
+        val executionResult = Source.fromSnippet("""
+public class Example implements Runnable {
+    public void run() {
+        for (int i = 0; i < 32; i++) {
+            for (int j = 0; j < 1024 * 1024; j++);
+            System.out.println(i);
+        }
+    }
+}
+Thread thread = new Thread(new Example());
+thread.start();
+        """.trim()).compile().execute()
+
+        executionResult should haveCompleted()
+        // TODO: Figure out how to test this case
+    }
 })

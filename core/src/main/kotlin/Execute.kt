@@ -62,7 +62,8 @@ fun CompiledSource.execute(
             parameter.name
         }
         fullName == executionArguments.method && Modifier.isStatic(method.modifiers) && Modifier.isPublic(method.modifiers)
-    } ?: throw ExecutionException("Cannot locate public static method with signature ${executionArguments.method} in ${executionArguments.className}")
+    }
+            ?: throw ExecutionException("Cannot locate public static method with signature ${executionArguments.method} in ${executionArguments.className}")
 
     // We need to load this before we begin execution since the code won't be able to once it's in the sandbox
     classLoader.loadClass(OutputLine::class.qualifiedName)
@@ -101,6 +102,18 @@ fun CompiledSource.execute(
         error = e
         false
     } finally {
+        while (true) {
+            val threadGroupThreads = Array<Thread?>(32) { null }
+            threadGroup.enumerate(threadGroupThreads, true)
+            val remainingThreads = threadGroupThreads.toList().filter { it != null }
+            if (remainingThreads.isEmpty()) {
+                break
+            } else {
+                remainingThreads.forEach { @Suppress("DEPRECATION") it?.stop() }
+                Thread.sleep(10)
+            }
+        }
+
         permissionRequests = Sandbox.release(key, classLoader)
         permissionDenied = permissionRequests.filter {
             !executionArguments.ignoredPermissions.contains(it.permission)

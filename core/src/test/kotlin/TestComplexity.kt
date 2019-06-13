@@ -12,6 +12,5 @@ int add(int i, int j) {
 int i = 0;
 """.trim()).complexity()
         complexityResult.lookup("").complexity shouldBe 2
-        println("Here")
     }
 })
