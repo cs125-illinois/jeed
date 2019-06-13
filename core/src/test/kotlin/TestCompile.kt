@@ -2,7 +2,9 @@ package edu.illinois.cs.cs125.jeed.core
 
 import io.kotlintest.specs.StringSpec
 import io.kotlintest.*
+import io.kotlintest.matchers.collections.shouldContainExactlyInAnyOrder
 import io.kotlintest.matchers.collections.shouldHaveSize
+import io.kotlintest.matchers.numerics.shouldBeGreaterThan
 
 class TestCompile : StringSpec({
     "should compile simple snippets" {
@@ -139,6 +141,20 @@ List test = new ArrayList();
         }
 
         exception should haveCompilationErrorAt(line=3)
+    }
+    "f:custom classloader should enumerate classes correctly after execution" {
+        val compiledSource = Source.fromSnippet("""
+class Test {}
+class Me {}
+Test test = new Test();
+Me me = new Me();
+        """.trim()).compile()
+
+        compiledSource.classLoader.loadedClasses shouldHaveSize 0
+        compiledSource.execute()
+        compiledSource.classLoader.loadedClasses shouldHaveSize 3
+        compiledSource.classLoader.loadedClasses shouldContainExactlyInAnyOrder listOf("Test", "Me", "Main")
+        compiledSource.classLoader.bytecodeForClass("Test").size shouldBeGreaterThan 0
     }
 })
 

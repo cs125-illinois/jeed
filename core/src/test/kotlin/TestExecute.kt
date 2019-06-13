@@ -191,7 +191,7 @@ System.out.println(list.get(0));
         executionResult should haveCompleted()
         executionResult should haveOutput("8")
     }
-    "f:should execute sources that use inner classes" {
+    "should execute sources that use inner classes" {
         val executionResult = Source(mapOf(
                 "Main" to
                         """

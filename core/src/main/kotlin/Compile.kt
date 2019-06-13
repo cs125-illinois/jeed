@@ -1,6 +1,7 @@
 package edu.illinois.cs.cs125.jeed.core
 
 import mu.KotlinLogging
+import sun.misc.Unsafe
 import java.io.*
 import java.net.URI
 import java.nio.charset.Charset
@@ -21,7 +22,7 @@ private val compiler = ToolProvider.getSystemJavaCompiler()
         ?: throw Exception("compiler not found: you are probably running a JRE, not a JDK")
 
 @Suppress("UNUSED")
-class CompiledSource(val source: Source, val messages: List<CompilationMessage>, val classLoader: ClassLoader)
+class CompiledSource(val source: Source, val messages: List<CompilationMessage>, val classLoader: JeedClassLoader)
 
 private class Unit(val entry: Map.Entry<String, String>) : SimpleJavaFileObject(URI(entry.key), JavaFileObject.Kind.SOURCE) {
     override fun isNameCompatible(simpleName: String?, kind: JavaFileObject.Kind?): Boolean {
@@ -94,23 +95,35 @@ class FileManager(results: Results) : ForwardingJavaFileManager<JavaFileManager>
     override fun inferBinaryName(location: JavaFileManager.Location?, file: JavaFileObject): String {
         return file.name.substring(0, file.name.lastIndexOf('.')).replace('/', '.')
     }
+}
 
-    fun getClassLoader(): ClassLoader {
-        return object : ClassLoader() {
-            override fun findClass(name: String): Class<*> {
-                @Suppress("UNREACHABLE_CODE")
-                return try {
-                    val classFile = getJavaFileForInput(
-                            StandardLocation.CLASS_OUTPUT,
-                            name,
-                            JavaFileObject.Kind.CLASS
-                    )
-                    val byteArray = classFile!!.openInputStream().readAllBytes()
-                    return defineClass(name, byteArray, 0, byteArray.size)
-                } catch (e: Exception) {
-                    throw ClassNotFoundException(name)
-                }
-            }
+class JeedClassLoader(val fileManager: FileManager): ClassLoader() {
+
+    private val loadedByteCode: MutableMap<String, ByteArray> = mutableMapOf()
+    fun bytecodeForClass(name: String): ByteArray {
+        return loadedByteCode.getOrElse(name) {
+            findClass(name)
+            loadedByteCode[name] ?: error("should have loaded byte code")
+        }
+    }
+    val loadedClasses: List<String>
+        get() {
+            return loadedByteCode.keys.toList()
+        }
+
+    override fun findClass(name: String): Class<*> {
+        @Suppress("UNREACHABLE_CODE")
+        return try {
+            val classFile = fileManager.getJavaFileForInput(
+                    StandardLocation.CLASS_OUTPUT,
+                    name,
+                    JavaFileObject.Kind.CLASS
+            )
+            val byteArray = classFile!!.openInputStream().readAllBytes()
+            loadedByteCode[name] = byteArray
+            return defineClass(name, byteArray, 0, byteArray.size)
+        } catch (e: Exception) {
+            throw ClassNotFoundException(name)
         }
     }
 }
@@ -156,8 +169,8 @@ fun Source.compile(
         val remappedLocation = this.mapLocation(originalLocation)
         CompilationMessage(it.kind.toString(), remappedLocation, it.getMessage(Locale.US))
     }
-    val classLoader = AccessController.doPrivileged(PrivilegedAction<ClassLoader> {
-        fileManager.getClassLoader()
+    val classLoader = AccessController.doPrivileged(PrivilegedAction<JeedClassLoader> {
+        JeedClassLoader(fileManager)
     })
 
     return CompiledSource(this, messages, classLoader)
