@@ -3,7 +3,8 @@ package edu.illinois.cs.cs125.jeed.core
 import io.kotlintest.specs.StringSpec
 import io.kotlintest.*
 import io.kotlintest.matchers.collections.shouldHaveSize
-import kotlinx.coroutines.coroutineScope
+import kotlinx.coroutines.async
+import kotlinx.coroutines.runBlocking
 
 class TestExecute : StringSpec({
     "should execute snippets" {
@@ -27,7 +28,6 @@ Foo foo = new Foo();
 foo.i = 4;
 System.out.println("Done");
 """.trim()).compile().execute(ExecutionArguments())
-
         executionResult should haveCompleted()
         executionResult shouldNot haveTimedOut()
         executionResult should haveOutput("Done")
@@ -191,15 +191,19 @@ System.out.println(list.get(0));
         executionResult should haveCompleted()
         executionResult should haveOutput("8")
     }
-    "should execute in parallel properly" {
-        coroutineScope {
-            (0..8).map {value ->
-                val result = Source.fromSnippet(
-                        """
+    "f:should execute in parallel properly" {
+        runBlocking {
+            (0..8).map { value ->
+                async {
+                    Source.fromSnippet(
+                            """
 for (int i = 0; i < 32; i++) {
     for (long j = 0; j < 8 * 1024 * 1024; j++);
     System.out.println($value);
 }""".trim()).compile().execute(ExecutionArguments(timeout = 1000L))
+                }
+            }.mapIndexed { value, task ->
+                val result = task.await()
                 result should haveCompleted()
                 result.stdoutLines shouldHaveSize 32
                 result.stdoutLines.all { it.line.trim() == value.toString() } shouldBe true
