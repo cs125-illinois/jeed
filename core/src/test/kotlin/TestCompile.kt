@@ -142,7 +142,7 @@ List test = new ArrayList();
 
         exception should haveCompilationErrorAt(line=3)
     }
-    "f:custom classloader should enumerate classes correctly after execution" {
+    "custom classloader should enumerate and load classes correctly after execution" {
         val compiledSource = Source.fromSnippet("""
 class Test {}
 class Me {}
@@ -155,6 +155,22 @@ Me me = new Me();
         compiledSource.classLoader.loadedClasses shouldHaveSize 3
         compiledSource.classLoader.loadedClasses shouldContainExactlyInAnyOrder listOf("Test", "Me", "Main")
         compiledSource.classLoader.bytecodeForClass("Test").size shouldBeGreaterThan 0
+    }
+    "f:custom classloader should provide bytecode when requested even if the class hasn't been loaded" {
+        val compiledSource = Source.fromSnippet("""
+class Test {}
+class Me {}
+Test test = new Test();
+        """.trim()).compile()
+
+        compiledSource.classLoader.loadedClasses shouldHaveSize 0
+        compiledSource.classLoader.bytecodeForClass("Test").size shouldBeGreaterThan 0
+        compiledSource.classLoader.loadedClasses shouldHaveSize 1
+        compiledSource.execute()
+        compiledSource.classLoader.loadedClasses shouldHaveSize 2
+        compiledSource.classLoader.loadedClasses shouldContainExactlyInAnyOrder listOf("Test", "Main")
+        compiledSource.classLoader.bytecodeForClass("Me").size shouldBeGreaterThan 0
+        compiledSource.classLoader.loadedClasses shouldHaveSize 3
     }
 })
 
