@@ -24,8 +24,9 @@ data class ExecutionArguments(
         val method: String = "main()",
         val timeout: Long = 100L,
         val permissions: List<Permission> = listOf(),
-        val ignoredPermissions: List<Permission> = listOf(RuntimePermission("modifyThreadGroup")),
-        val captureOutput: Boolean = true
+        val captureOutput: Boolean = true,
+        val maxExtraThreadCount: Int = 0,
+        val ignoredPermissions: List<Permission> = listOf(RuntimePermission("modifyThreadGroup"))
 )
 class ExecutionResult(
         val completed: Boolean,
@@ -88,7 +89,7 @@ fun CompiledSource.execute(
     var stderrLines: List<OutputLine> = listOf()
 
     val completed = try {
-        key = Sandbox.confine(classLoader, executionArguments.permissions.toPermission())
+        key = Sandbox.confine(classLoader, executionArguments.permissions.toPermission(), executionArguments.maxExtraThreadCount)
         thread.start()
         futureTask.get(executionArguments.timeout, TimeUnit.MILLISECONDS)
         true
@@ -113,6 +114,8 @@ fun CompiledSource.execute(
                 Thread.sleep(10)
             }
         }
+        threadGroup.destroy()
+        assert(threadGroup.isDestroyed)
 
         permissionRequests = Sandbox.release(key, classLoader)
         permissionDenied = permissionRequests.filter {
@@ -209,18 +212,24 @@ object OutputInterceptor {
             return defaultWrite(int, console)
         }
 
-        val threadGroups: MutableList<ThreadGroup> = mutableListOf()
         var currentGroup = Thread.currentThread().threadGroup
-        while (currentGroup != null) {
-            threadGroups.add(currentGroup)
-            currentGroup = try {
-                currentGroup.parent
-            } catch (e: SecurityException) {
-                null
-            }
-        }
 
-        val confinedGroups = confinedThreadGroups.keys.intersect(threadGroups)
+        // Optimistically check whether the current thread's group is confined before checking ancestors. This avoids
+        // unnecessary permission requests (and potential denials) associated with retrieving the parent thread group.
+        val confinedGroups = if (confinedThreadGroups.containsKey(currentGroup)) {
+            listOf(currentGroup)
+        } else {
+            val threadGroups: MutableList<ThreadGroup> = mutableListOf()
+            while (currentGroup != null) {
+                threadGroups.add(currentGroup)
+                currentGroup = try {
+                    currentGroup.parent
+                } catch (e: SecurityException) {
+                    null
+                }
+            }
+            confinedThreadGroups.keys.intersect(threadGroups)
+        }
         if (confinedGroups.isEmpty()) {
             return defaultWrite(int, console)
         }

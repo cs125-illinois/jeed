@@ -2,6 +2,8 @@ package edu.illinois.cs.cs125.jeed.core
 
 import io.kotlintest.specs.StringSpec
 import io.kotlintest.*
+import io.kotlintest.matchers.collections.shouldContain
+import io.kotlintest.matchers.collections.shouldHaveSize
 import java.util.*
 
 class TestSandbox : StringSpec({
@@ -55,21 +57,77 @@ System.out.println(System.getProperty("file.separator"));
         successfulExecution should haveCompleted()
         successfulExecution.permissionDenied shouldBe false
     }
-    "it should prevent snippets from waiting on spinning threads" {
+    "it should prevent snippets from starting threads by default" {
         val executionResult = Source.fromSnippet("""
 public class Example implements Runnable {
     public void run() {
-        for (int i = 0; i < 32; i++) {
-            for (int j = 0; j < 1024 * 1024; j++);
-            System.out.println(i);
-        }
     }
 }
 Thread thread = new Thread(new Example());
 thread.start();
-        """.trim()).compile().execute()
+System.out.println("Started");
+        """.trim()).compile().execute(ExecutionArguments())
 
-        executionResult should haveCompleted()
-        // TODO: Figure out how to test this case
+        executionResult shouldNot haveCompleted()
+    }
+    "it should allow snippets to start threads when configured" {
+        val compiledSource = Source.fromSnippet("""
+public class Example implements Runnable {
+    public void run() {
+        System.out.println("Ended");
+    }
+}
+Thread thread = new Thread(new Example());
+System.out.println("Started");
+thread.start();
+try {
+    thread.join();
+} catch (Exception e) { }
+        """.trim()).compile()
+        val failedExecutionResult = compiledSource.execute()
+        failedExecutionResult shouldNot haveCompleted()
+
+        val successfulExecutionResult = compiledSource.execute(ExecutionArguments(maxExtraThreadCount = 1))
+        successfulExecutionResult should haveCompleted()
+        successfulExecutionResult should haveOutput("Started\nEnded")
+    }
+    "it should shut down a runaway thread" {
+        val executionResult = Source.fromSnippet("""
+public class Example implements Runnable {
+    public void run() {
+        for (long j = 0; j < 512 * 1024 * 1024; j++);
+        System.out.println("Ended");
+    }
+}
+Thread thread = new Thread(new Example());
+System.out.println("Started");
+thread.start();
+try {
+    thread.join();
+} catch (Exception e) { }
+        """.trim()).compile().execute(ExecutionArguments(maxExtraThreadCount = 1))
+
+        executionResult shouldNot haveCompleted()
+        executionResult should haveTimedOut()
+        executionResult should haveOutput("Started")
+    }
+    "it should shut down thread bombs" {
+        val executionResult = Source.fromSnippet("""
+public class Example implements Runnable {
+    public void run() {
+        for (long j = 0; j < 512 * 1024 * 1024; j++);
+        System.out.println("Ended");
+    }
+}
+for (long i = 0;; i++) {
+    Thread thread = new Thread(new Example());
+    System.out.println(i);
+    thread.start();
+}
+        """.trim()).compile().execute(ExecutionArguments(maxExtraThreadCount = 16))
+
+        executionResult shouldNot haveCompleted()
+        executionResult.stdoutLines shouldHaveSize 16
+        executionResult.stdoutLines.map { it.line } shouldContain "15"
     }
 })

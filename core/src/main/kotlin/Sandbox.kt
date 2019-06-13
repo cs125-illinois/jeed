@@ -21,11 +21,34 @@ data class PermissionRequest(
 
 class Sandbox {
     companion object {
-        private val confinedClassLoaders: MutableMap<ClassLoader, AccessControlContext> =
-                Collections.synchronizedMap(WeakHashMap<ClassLoader, AccessControlContext>())
+        private data class ConfinedClassLoader(
+                val key: Long,
+                val accessControlContext: AccessControlContext,
+                val maxExtraThreadCount: Int,
+                val loggedRequests: MutableList<PermissionRequest> = mutableListOf()
+        )
+        private val confinedClassLoaders: MutableMap<ClassLoader, ConfinedClassLoader> =
+                Collections.synchronizedMap(WeakHashMap<ClassLoader, ConfinedClassLoader>())
+
+        private fun getConfinedClassLoader(classContext: Array<out Class<*>>): ConfinedClassLoader? {
+            if (confinedClassLoaders.keys.isEmpty()) {
+                return null
+            }
+            val filteredConfinedClassLoaders = classContext.toList().subList(1, classContext.size).reversed().filter { klass ->
+                confinedClassLoaders.containsKey(klass.classLoader)
+            }.map {klass ->
+                confinedClassLoaders[klass.classLoader]
+            }.distinct()
+            if (filteredConfinedClassLoaders.isEmpty()) {
+                return null
+            }
+            assert(filteredConfinedClassLoaders.size == 1)
+            return filteredConfinedClassLoaders[0]
+        }
 
         val systemSecurityManager: SecurityManager? = System.getSecurityManager()
         val ourSecurityManager = object : SecurityManager() {
+
             private var inReadCheck = false
             override fun checkRead(file: String) {
                 if (inReadCheck) {
@@ -33,24 +56,22 @@ class Sandbox {
                 }
                 try {
                     inReadCheck = true
-                    if (confinedClassLoaders.keys.isEmpty()) {
-                        return
-                    }
-                    val filteredClassLoaders = classContext.toList().subList(1, classContext.size).reversed().filter { klass ->
-                        confinedClassLoaders.containsKey(klass.classLoader)
-                    }.map {klass ->
-                        klass.classLoader
-                    }.distinct()
-                    if (filteredClassLoaders.isEmpty()) {
-                        return
-                    }
-                    val confinedClassLoader = filteredClassLoaders[0]
+                    val confinedClassLoader = getConfinedClassLoader(classContext) ?: return
                     if (!file.endsWith(".class")) {
-                        loggedRequests[confinedClassLoader]!!.add(PermissionRequest(FilePermission(file, "read"), false))
+                        confinedClassLoader.loggedRequests.add(PermissionRequest(FilePermission(file, "read"), false))
                         throw SecurityException()
                     }
                 } finally {
                     inReadCheck = false
+                }
+            }
+
+            override fun getThreadGroup(): ThreadGroup {
+                val confinedClassLoader = getConfinedClassLoader(classContext) ?: return super.getThreadGroup()
+                if (Thread.currentThread().threadGroup.activeCount() + 1 > confinedClassLoader.maxExtraThreadCount + 1) {
+                    throw SecurityException()
+                } else {
+                    return super.getThreadGroup()
                 }
             }
 
@@ -59,27 +80,15 @@ class Sandbox {
                 if (inPermissionCheck) {
                     return
                 }
-                var confinedClassLoader: ClassLoader? = null
+                var confinedClassLoader: ConfinedClassLoader? = null
                 try {
                     inPermissionCheck = true
                     systemSecurityManager?.checkPermission(permission)
-                    if (confinedClassLoaders.keys.isEmpty()) {
-                        return
-                    }
-                    val filteredClassLoaders = classContext.toList().subList(1, classContext.size).reversed().filter { klass ->
-                        confinedClassLoaders.containsKey(klass.classLoader)
-                    }.map {klass ->
-                        klass.classLoader
-                    }.distinct()
-                    if (filteredClassLoaders.isEmpty()) {
-                        return
-                    }
-                    assert(filteredClassLoaders.size == 1)
-                    confinedClassLoader = filteredClassLoaders[0]
-                    confinedClassLoaders[confinedClassLoader]!!.checkPermission(permission)
-                    loggedRequests[confinedClassLoader]!!.add(PermissionRequest(permission, true))
+                    confinedClassLoader = getConfinedClassLoader(classContext) ?: return
+                    confinedClassLoader.accessControlContext.checkPermission(permission)
+                    confinedClassLoader.loggedRequests.add(PermissionRequest(permission, true))
                 } catch (e: SecurityException) {
-                    loggedRequests[confinedClassLoader]!!.add(PermissionRequest(permission, false))
+                    confinedClassLoader?.loggedRequests?.add(PermissionRequest(permission, false))
                     throw e
                 } finally {
                     inPermissionCheck = false
@@ -87,27 +96,30 @@ class Sandbox {
             }
         }
 
-        private val classLoaderKeys: MutableMap<ClassLoader, Long> = mutableMapOf()
-        private var loggedRequests: MutableMap<ClassLoader, MutableList<PermissionRequest>> = mutableMapOf()
 
         @Synchronized
-        fun confine(classLoader: ClassLoader, permissions: Permissions): Long {
-            check(!classLoaderKeys.contains(classLoader))
-            classLoaderKeys[classLoader] = Random.nextLong()
-            loggedRequests[classLoader] = mutableListOf()
-            confinedClassLoaders[classLoader] = AccessControlContext(arrayOf(ProtectionDomain(null, permissions)))
-            System.setSecurityManager(ourSecurityManager)
-            return classLoaderKeys[classLoader] ?: error("currentKey changed before we exited")
+        fun confine(classLoader: ClassLoader, permissions: Permissions, maxThreadCount: Int = 1): Long {
+            check(!confinedClassLoaders.containsKey(classLoader))
+            val key = Random.nextLong()
+            confinedClassLoaders[classLoader] = ConfinedClassLoader(
+                    key,
+                    AccessControlContext(arrayOf(ProtectionDomain(null, permissions))),
+                    maxThreadCount
+            )
+            if (confinedClassLoaders.keys.size == 1) {
+                System.setSecurityManager(ourSecurityManager)
+            }
+            return key
         }
 
         @Synchronized
         fun release(key: Long?, classLoader: ClassLoader): List<PermissionRequest> {
-            check(key != null && classLoaderKeys[classLoader] == key)
-            classLoaderKeys.remove(classLoader)
-            check(confinedClassLoaders.containsKey(classLoader))
-            confinedClassLoaders.remove(classLoader)
-            System.setSecurityManager(systemSecurityManager)
-            return loggedRequests[classLoader] ?: error("should have logged requests for this class loader")
+            val confinedClassLoader = confinedClassLoaders.remove(classLoader) ?: error("couldn't lookup class loader")
+            check(key != null && key == confinedClassLoader.key)
+            if (confinedClassLoaders.keys.isEmpty()) {
+                System.setSecurityManager(systemSecurityManager)
+            }
+            return confinedClassLoader.loggedRequests
         }
     }
 }
