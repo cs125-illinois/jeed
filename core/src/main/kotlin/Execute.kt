@@ -122,19 +122,6 @@ class SourceExecutor(
             error = e
             false
         } finally {
-            permissionRequests = Sandbox.release(key, classLoader)
-            permissionDenied = permissionRequests.filter {
-                !executionArguments.ignoredPermissions.contains(it.permission)
-            }.any {
-                !it.granted
-            }
-
-            if (executionArguments.captureOutput) {
-                val output = OutputInterceptor.release(threadGroup)
-                stdoutLines = output[Console.STDOUT] ?: error("output should have STDOUT")
-                stderrLines = output[Console.STDERR] ?: error("output should have STDERR")
-            }
-
             val activeThreadCount = threadGroup.activeCount()
             assert(activeThreadCount <= executionArguments.maxExtraThreadCount + 1)
             assert(threadGroup.activeGroupCount() == 0)
@@ -156,6 +143,19 @@ class SourceExecutor(
             }
             threadGroup.destroy()
             assert(threadGroup.isDestroyed)
+
+            permissionRequests = Sandbox.release(key, classLoader)
+            permissionDenied = permissionRequests.filter {
+                !executionArguments.ignoredPermissions.contains(it.permission)
+            }.any {
+                !it.granted
+            }
+
+            if (executionArguments.captureOutput) {
+                val output = OutputInterceptor.release(threadGroup)
+                stdoutLines = output[Console.STDOUT] ?: error("output should have STDOUT")
+                stderrLines = output[Console.STDERR] ?: error("output should have STDERR")
+            }
         }
         val executionResult = ExecutionResult(
                 completed = completed && error == null && !permissionDenied,
