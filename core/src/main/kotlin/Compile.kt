@@ -1,7 +1,6 @@
 package edu.illinois.cs.cs125.jeed.core
 
 import mu.KotlinLogging
-import sun.misc.Unsafe
 import java.io.*
 import java.net.URI
 import java.nio.charset.Charset

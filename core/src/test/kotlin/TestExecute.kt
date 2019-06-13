@@ -3,8 +3,15 @@ package edu.illinois.cs.cs125.jeed.core
 import io.kotlintest.specs.StringSpec
 import io.kotlintest.*
 import io.kotlintest.matchers.collections.shouldHaveSize
+import io.kotlintest.matchers.doubles.shouldBeLessThan
+import io.kotlintest.matchers.floats.shouldBeLessThan
+import io.kotlintest.matchers.numerics.shouldBeLessThan
 import kotlinx.coroutines.async
-import kotlinx.coroutines.runBlocking
+import java.time.Duration
+import java.time.Instant
+import java.util.concurrent.ForkJoinPool
+import java.util.stream.Collectors
+import kotlin.system.measureTimeMillis
 
 class TestExecute : StringSpec({
     "should execute snippets" {
@@ -213,18 +220,89 @@ public class Main {
         executionResult should haveCompleted()
         executionResult should haveStdout("Inner")
     }
-    "should execute in parallel properly" {
-        (0..8).toList().parallelStream().forEach { value ->
-            val result = Source.fromSnippet(
-                            """
+    "should execute correctly in parallel using streams" {
+        (0..8).toList().parallelStream().map { value ->
+            val result = Source.fromSnippet("""
 for (int i = 0; i < 32; i++) {
-    for (long j = 0; j < 8 * 1024 * 1024; j++);
+    for (long j = 0; j < 1024 * 1024; j++);
     System.out.println($value);
-}""".trim()).compile().execute(ExecutionArguments(timeout = 4000L))
+}
+""".trim()).compile().executeBlocking(ExecutionArguments(timeout = 1000L))
             result should haveCompleted()
             result.stdoutLines shouldHaveSize 32
             result.stdoutLines.all { it.line.trim() == value.toString() } shouldBe true
         }
+    }
+    "should execute correctly in parallel using coroutines" {
+        (0..8).toList().map { value ->
+            async {
+                Pair(Source.fromSnippet("""
+for (int i = 0; i < 32; i++) {
+    for (long j = 0; j < 1024 * 1024; j++);
+    System.out.println($value);
+}
+""".trim()).compile().execute(ExecutionArguments(timeout = 1000L)), value)
+            }
+        }.map { it ->
+            val (result, value) = it.await()
+            result should haveCompleted()
+            result.stdoutLines shouldHaveSize 32
+            result.stdoutLines.all { it.line.trim() == value.toString() } shouldBe true
+        }
+    }
+    "should execute efficiently in parallel using streams" {
+        val compiledSources = (0..8).toList().map {
+            async {
+                Source.fromSnippet("""
+for (int i = 0; i < 32; i++) {
+    for (long j = 0; j < 1024 * 1024 * 1024; j++);
+}
+""".trim()).compile()
+            }
+        }.map { it.await() }
+
+        lateinit var results: List<ExecutionResult>
+        val totalTime = measureTimeMillis {
+            results = compiledSources.parallelStream().map {
+                it.executeBlocking(ExecutionArguments(timeout = 1000L))
+            }.collect(Collectors.toList()).toList()
+        }
+
+        val individualTimeSum = results.map { result ->
+            result shouldNot haveCompleted()
+            result should haveTimedOut()
+            result.runTimeMillis
+        }.sum()
+
+        totalTime.toDouble() shouldBeLessThan individualTimeSum * 0.8
+    }
+    "should execute efficiently in parallel using coroutines" {
+        val compiledSources = (0..8).toList().map {
+            async {
+                Source.fromSnippet("""
+for (int i = 0; i < 32; i++) {
+    for (long j = 0; j < 1024 * 1024 * 1024; j++);
+}
+""".trim()).compile()
+            }
+        }.map { it.await() }
+
+        lateinit var results: List<ExecutionResult>
+        val totalTime = measureTimeMillis {
+            results = compiledSources.map {
+                async {
+                    it.execute(ExecutionArguments(timeout = 1000L))
+                }
+            }.map { it.await() }
+        }
+
+        val individualTimeSum = results.map { result ->
+            result shouldNot haveCompleted()
+            result should haveTimedOut()
+            result.runTimeMillis
+        }.sum()
+
+        totalTime.toDouble() shouldBeLessThan individualTimeSum * 0.8
     }
 })
 
@@ -248,7 +326,7 @@ fun haveTimedOut() = object : Matcher<ExecutionResult> {
 }
 fun haveOutput(output: String = "") = object : Matcher<ExecutionResult> {
     override fun test(value: ExecutionResult): Result {
-        val actualOutput = value.output().trim()
+        val actualOutput = value.output.trim()
         return Result(
                 actualOutput == output,
                 "Expected output $output, found $actualOutput",
@@ -258,7 +336,7 @@ fun haveOutput(output: String = "") = object : Matcher<ExecutionResult> {
 }
 fun haveStdout(output: String) = object : Matcher<ExecutionResult> {
     override fun test(value: ExecutionResult): Result {
-        val actualOutput = value.stdout().trim()
+        val actualOutput = value.stdout.trim()
         return Result(
                 actualOutput == output,
                 "Expected stdout $output, found $actualOutput",
@@ -268,7 +346,7 @@ fun haveStdout(output: String) = object : Matcher<ExecutionResult> {
 }
 fun haveStderr(output: String) = object : Matcher<ExecutionResult> {
     override fun test(value: ExecutionResult): Result {
-        val actualOutput = value.stderr().trim()
+        val actualOutput = value.stderr.trim()
         return Result(
                 actualOutput == output,
                 "Expected stderr $output, found $actualOutput",
