@@ -13,7 +13,8 @@ class TestCompile : StringSpec({
 int i = 0;
 private static int main() {
     return 0;
-}""".trim()).compile()
+}
+        """.trim()).compile()
     }
     "should compile snippets that include class definitions" {
         Source.fromSnippet("""
@@ -22,7 +23,7 @@ public class Foo {
     int i;
 }
 Foo foo = new Foo();
-""".trim()).compile()
+        """.trim()).compile()
     }
     "should compile multiple sources" {
         Source(mapOf(
@@ -44,43 +45,53 @@ Foo foo = new Foo();
     }
     "should compile sources in multiple packages" {
         Source(mapOf(
-                "test/Test" to
-"""
+                "test/Test" to """
 package test;
 public class Test {}
-""".trim(),
-                "me/Me" to
-"""
+                """.trim(),
+                "me/Me" to """
 package me;
 public class Me {}
-""".trim()
+                """.trim()
         )).compile()
     }
     "should compile sources in multiple packages with dependencies in wrong order" {
         Source(mapOf(
-                "test/Test" to
-                        """
+                "test/Test" to """
 package test;
 import me.Me;
 public class Test extends Me {}
-""".trim(),
-                "me/Me" to
-                        """
+                """.trim(),
+                "me/Me" to """
 package me;
 public class Me {}
-""".trim()
+                """.trim()
         )).compile()
     }
     "should compile sources that use Java 10 features" {
         Source(mapOf(
-                "Test" to
-                        """
+                "Test" to """
 public class Test {
     public static void main() {
         var i = 0;
     }
 }
-""".trim()
+                """.trim()
+        )).compile()
+    }
+    "should compile sources that use inner classes" {
+        Source(mapOf(
+                "Test" to """
+public class Test {
+    class Inner { }
+    Test() {
+        Inner inner = new Inner();
+    }
+    public static void main() {
+        Test test = new Test();
+    }
+}
+                """.trim()
         )).compile()
     }
     "should identify compilation errors in simple snippets" {
@@ -94,7 +105,7 @@ public class Test {
             Source.fromSnippet("""
 int i = a;
 Foo f = new Foo();
-""".trim()).compile()
+            """.trim()).compile()
         }
         exception should haveCompilationErrorAt(line=1)
         exception should haveCompilationErrorAt(line=2)
@@ -104,7 +115,7 @@ Foo f = new Foo();
 import java.util.List;
 import java.util.ArrayList;
 List test = new ArrayList();
-""".trim()).compile()
+        """.trim()).compile()
 
         compiledSource.messages shouldHaveSize 2
         compiledSource should haveCompilationMessageAt(line=3)
@@ -114,7 +125,7 @@ List test = new ArrayList();
 import java.util.List;
 import java.util.ArrayList;
 List test = new ArrayList();
-""".trim()).compile(CompilationArguments(Xlint = "none"))
+        """.trim()).compile(CompilationArguments(Xlint = "none"))
 
         compiledSource.messages shouldHaveSize 0
     }
@@ -124,7 +135,7 @@ List test = new ArrayList();
 import java.util.List;
 import java.util.ArrayList;
 List test = new ArrayList();
-""".trim()).compile(CompilationArguments(wError = true))
+            """.trim()).compile(CompilationArguments(wError = true))
         }
 
         exception should haveCompilationErrorAt(line=3)

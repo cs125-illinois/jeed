@@ -191,6 +191,28 @@ System.out.println(list.get(0));
         executionResult should haveCompleted()
         executionResult should haveOutput("8")
     }
+    "f:should execute sources that use inner classes" {
+        val executionResult = Source(mapOf(
+                "Main" to
+                        """
+public class Main {
+    class Inner {
+        Inner() {
+            System.out.println("Inner");
+        }
+    }
+    Main() {
+        Inner inner = new Inner();
+    }
+    public static void main() {
+        Main main = new Main();
+    }
+}
+""".trim()
+        )).compile().execute()
+        executionResult should haveCompleted()
+        executionResult should haveStdout("Inner")
+    }
     "should execute in parallel properly" {
         (0..8).toList().parallelStream().forEach { value ->
             val result = Source.fromSnippet(
