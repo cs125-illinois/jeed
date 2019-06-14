@@ -2,10 +2,8 @@ package edu.illinois.cs.cs125.jeed.core
 
 import mu.KotlinLogging
 import java.io.FilePermission
-import java.security.AccessControlContext
-import java.security.Permission
-import java.security.Permissions
-import java.security.ProtectionDomain
+import java.lang.reflect.ReflectPermission
+import java.security.*
 import java.util.*
 import kotlin.random.Random
 
@@ -14,112 +12,109 @@ import kotlin.random.Random
 @Suppress("UNUSED")
 private val logger = KotlinLogging.logger {}
 
-data class PermissionRequest(
-        val permission: Permission,
-        val granted: Boolean
+data class PermissionRequest(val permission: Permission, val granted: Boolean)
+private val systemSecurityManager: SecurityManager? = System.getSecurityManager()
+
+val blacklistedPermissions = listOf(
+        // Suggestions from here: https://github.com/pro-grade/pro-grade/issues/31.
+        RuntimePermission("createClassLoader"),
+        RuntimePermission("accessClassInPackage.sun"),
+        RuntimePermission("setSecurityManager"),
+        ReflectPermission("suppressAccessChecks"),
+        SecurityPermission("setPolicy"),
+        SecurityPermission("setProperty.package.access"),
+        // Other additions from here: https://docs.oracle.com/javase/7/docs/technotes/guides/security/permissions.html
+        SecurityPermission("createAccessControlContext"),
+        SecurityPermission("getDomainCombiner"),
+        RuntimePermission("createSecurityManager"),
+        RuntimePermission("exitVM"),
+        RuntimePermission("shutdownHooks"),
+        RuntimePermission("setIO"),
+        // These are particularly important to prevent untrusted code from escaping the sandbox which is based on thread groups
+        RuntimePermission("modifyThread"),
+        RuntimePermission("modifyThreadGroup")
 )
 
-class Sandbox {
-    companion object {
-        private data class ConfinedClassLoader(
-                val key: Long,
-                val accessControlContext: AccessControlContext,
-                val maxExtraThreadCount: Int,
-                val loggedRequests: MutableList<PermissionRequest> = mutableListOf()
+class SandboxConfigurationError(message: String) : Exception(message)
+
+object Sandbox : SecurityManager() {
+    private data class ConfinedThreadGroup(
+            val key: Long,
+            val accessControlContext: AccessControlContext,
+            val maxExtraThreadCount: Int,
+            val loggedRequests: MutableList<PermissionRequest> = mutableListOf()
+    )
+    private val confinedThreadGroups: MutableMap<ThreadGroup, ConfinedThreadGroup> =
+            Collections.synchronizedMap(WeakHashMap<ThreadGroup, ConfinedThreadGroup>())
+
+    private var inReadCheck = false
+    override fun checkRead(file: String) {
+        if (inReadCheck) {
+            return
+        }
+        try {
+            inReadCheck = true
+            val confinedThreadGroup = confinedThreadGroups[Thread.currentThread().threadGroup] ?: return
+            if (!file.endsWith(".class")) {
+                confinedThreadGroup.loggedRequests.add(PermissionRequest(FilePermission(file, "read"), false))
+                throw SecurityException()
+            }
+        } finally {
+            inReadCheck = false
+        }
+    }
+
+    override fun getThreadGroup(): ThreadGroup {
+        val confinedThreadGroup = confinedThreadGroups[Thread.currentThread().threadGroup] ?: return super.getThreadGroup()
+        if (Thread.currentThread().threadGroup.activeCount() + 1 > confinedThreadGroup.maxExtraThreadCount + 1) {
+            throw SecurityException()
+        } else {
+            return super.getThreadGroup()
+        }
+    }
+
+    private var inPermissionCheck = false
+    override fun checkPermission(permission: Permission) {
+        if (inPermissionCheck) {
+            return
+        }
+        val confinedThreadGroup = confinedThreadGroups[Thread.currentThread().threadGroup] ?: return
+        try {
+            inPermissionCheck = true
+            systemSecurityManager?.checkPermission(permission)
+            confinedThreadGroup.accessControlContext.checkPermission(permission)
+            confinedThreadGroup.loggedRequests.add(PermissionRequest(permission, true))
+        } catch (e: SecurityException) {
+            confinedThreadGroup.loggedRequests.add(PermissionRequest(permission, false))
+            throw e
+        } finally {
+            inPermissionCheck = false
+        }
+    }
+
+    @Synchronized
+    fun confine(threadGroup: ThreadGroup, permissions: Permissions, maxThreadCount: Int = 1): Long {
+        check(!confinedThreadGroups.containsKey(threadGroup)) { "thread group is already confined" }
+        permissions.elements().toList().intersect(blacklistedPermissions).isEmpty() || throw SandboxConfigurationError("attempt to allow unsafe permissions")
+        val key = Random.nextLong()
+        confinedThreadGroups[threadGroup] = ConfinedThreadGroup(
+                key,
+                AccessControlContext(arrayOf(ProtectionDomain(null, permissions))),
+                maxThreadCount
         )
-        private val confinedClassLoaders: MutableMap<ClassLoader, ConfinedClassLoader> =
-                Collections.synchronizedMap(WeakHashMap<ClassLoader, ConfinedClassLoader>())
-
-        private fun getConfinedClassLoader(classContext: Array<out Class<*>>): ConfinedClassLoader? {
-            if (confinedClassLoaders.keys.isEmpty()) {
-                return null
-            }
-            val filteredConfinedClassLoaders = classContext.toList().subList(1, classContext.size).reversed().filter { klass ->
-                confinedClassLoaders.containsKey(klass.classLoader)
-            }.map {klass ->
-                confinedClassLoaders[klass.classLoader]
-            }.distinct()
-            if (filteredConfinedClassLoaders.isEmpty()) {
-                return null
-            }
-            assert(filteredConfinedClassLoaders.size == 1)
-            return filteredConfinedClassLoaders[0]
+        if (confinedThreadGroups.keys.size == 1) {
+            System.setSecurityManager(this)
         }
+        return key
+    }
 
-        val systemSecurityManager: SecurityManager? = System.getSecurityManager()
-        val ourSecurityManager = object : SecurityManager() {
-
-            private var inReadCheck = false
-            override fun checkRead(file: String) {
-                if (inReadCheck) {
-                    return
-                }
-                try {
-                    inReadCheck = true
-                    val confinedClassLoader = getConfinedClassLoader(classContext) ?: return
-                    if (!file.endsWith(".class")) {
-                        confinedClassLoader.loggedRequests.add(PermissionRequest(FilePermission(file, "read"), false))
-                        throw SecurityException()
-                    }
-                } finally {
-                    inReadCheck = false
-                }
-            }
-
-            override fun getThreadGroup(): ThreadGroup {
-                val confinedClassLoader = getConfinedClassLoader(classContext) ?: return super.getThreadGroup()
-                if (Thread.currentThread().threadGroup.activeCount() + 1 > confinedClassLoader.maxExtraThreadCount + 1) {
-                    throw SecurityException()
-                } else {
-                    return super.getThreadGroup()
-                }
-            }
-
-            private var inPermissionCheck = false
-            override fun checkPermission(permission: Permission) {
-                if (inPermissionCheck) {
-                    return
-                }
-                var confinedClassLoader: ConfinedClassLoader? = null
-                try {
-                    inPermissionCheck = true
-                    systemSecurityManager?.checkPermission(permission)
-                    confinedClassLoader = getConfinedClassLoader(classContext) ?: return
-                    confinedClassLoader.accessControlContext.checkPermission(permission)
-                    confinedClassLoader.loggedRequests.add(PermissionRequest(permission, true))
-                } catch (e: SecurityException) {
-                    confinedClassLoader?.loggedRequests?.add(PermissionRequest(permission, false))
-                    throw e
-                } finally {
-                    inPermissionCheck = false
-                }
-            }
+    @Synchronized
+    fun release(key: Long?, threadGroup: ThreadGroup): List<PermissionRequest> {
+        val confinedThreadGroup = confinedThreadGroups.remove(threadGroup) ?: error("thread group is not confined")
+        check(key != null && key == confinedThreadGroup.key) { "invalid key" }
+        if (confinedThreadGroups.keys.isEmpty()) {
+            System.setSecurityManager(systemSecurityManager)
         }
-
-
-        @Synchronized
-        fun confine(classLoader: ClassLoader, permissions: Permissions, maxThreadCount: Int = 1): Long {
-            check(!confinedClassLoaders.containsKey(classLoader))
-            val key = Random.nextLong()
-            confinedClassLoaders[classLoader] = ConfinedClassLoader(
-                    key,
-                    AccessControlContext(arrayOf(ProtectionDomain(null, permissions))),
-                    maxThreadCount
-            )
-            if (confinedClassLoaders.keys.size == 1) {
-                System.setSecurityManager(ourSecurityManager)
-            }
-            return key
-        }
-
-        @Synchronized
-        fun release(key: Long?, classLoader: ClassLoader): List<PermissionRequest> {
-            val confinedClassLoader = confinedClassLoaders.remove(classLoader) ?: error("couldn't lookup class loader")
-            check(key != null && key == confinedClassLoader.key)
-            if (confinedClassLoaders.keys.isEmpty()) {
-                System.setSecurityManager(systemSecurityManager)
-            }
-            return confinedClassLoader.loggedRequests
-        }
+        return confinedThreadGroup.loggedRequests
     }
 }

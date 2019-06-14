@@ -70,58 +70,51 @@ val threadPool = Executors.newFixedThreadPool(8) ?: error("thread pool should be
 class SourceExecutor(
         val executionArguments: ExecutionArguments,
         val classLoader: ClassLoader,
-        val resultChannel: Channel<ExecutionResult>? = null
-) : Callable<ExecutionResult> {
-    override fun call(): ExecutionResult {
-        val started = Instant.now()
+        val resultChannel: Channel<Any>
+) : Callable<Any> {
+    override fun call() {
+        try {
+            val started = Instant.now()
 
-        val klass = classLoader.loadClass(executionArguments.className)
-                ?: throw ExecutionException("Could not load ${executionArguments.className}")
-        val method = klass.declaredMethods.find { method ->
-            val fullName = method.name + method.parameterTypes.joinToString(prefix = "(", separator = ", ", postfix = ")") { parameter ->
-                parameter.name
+            val klass = classLoader.loadClass(executionArguments.className)
+                    ?: throw ExecutionException("Could not load ${executionArguments.className}")
+            val method = klass.declaredMethods.find { method ->
+                val fullName = method.name + method.parameterTypes.joinToString(prefix = "(", separator = ", ", postfix = ")") { parameter ->
+                    parameter.name
+                }
+                fullName == executionArguments.method && Modifier.isStatic(method.modifiers) && Modifier.isPublic(method.modifiers)
             }
-            fullName == executionArguments.method && Modifier.isStatic(method.modifiers) && Modifier.isPublic(method.modifiers)
-        }
-                ?: throw ExecutionException("Cannot locate public static method with signature ${executionArguments.method} in ${executionArguments.className}")
+                    ?: throw ExecutionException("Cannot locate public static method with signature ${executionArguments.method} in ${executionArguments.className}")
 
-        // We need to load this before we begin execution since the code won't be able to once it's in the sandbox
-        classLoader.loadClass(OutputLine::class.qualifiedName)
+            // We need to load this before we begin execution since the code won't be able to once it's in the sandbox
+            classLoader.loadClass(OutputLine::class.qualifiedName)
 
-        val futureTask = FutureTask {
-            method.invoke(null)
-        }
-        val threadGroup = ThreadGroup("execute")
-        val thread = Thread(threadGroup, futureTask)
+            val futureTask = FutureTask {
+                method.invoke(null)
+            }
+            val threadGroup = ThreadGroup("execute")
+            val thread = Thread(threadGroup, futureTask)
+            val key = Sandbox.confine(threadGroup, executionArguments.permissions.toPermission(), executionArguments.maxExtraThreadCount)
 
-        var timedOut = false
-        val permissionDenied: Boolean
-        val permissionRequests: List<PermissionRequest>
+            if (executionArguments.captureOutput) {
+                OutputInterceptor.intercept(threadGroup)
+            }
 
-        if (executionArguments.captureOutput) {
-            OutputInterceptor.intercept(threadGroup)
-        }
+            var timedOut = false
+            val (completed, error: Throwable?) = try {
+                thread.start()
+                futureTask.get(executionArguments.timeout, TimeUnit.MILLISECONDS)
+                Pair(true, null)
+            } catch (e: TimeoutException) {
+                futureTask.cancel(true)
+                @Suppress("DEPRECATION")
+                thread.stop()
+                timedOut = true
+                Pair(false, null)
+            } catch (e: Throwable) {
+                Pair(false, e)
+            }
 
-        var error: Throwable? = null
-        var key: Long? = null
-        var stdoutLines: List<OutputLine> = listOf()
-        var stderrLines: List<OutputLine> = listOf()
-
-        val completed = try {
-            key = Sandbox.confine(classLoader, executionArguments.permissions.toPermission(), executionArguments.maxExtraThreadCount)
-            thread.start()
-            futureTask.get(executionArguments.timeout, TimeUnit.MILLISECONDS)
-            true
-        } catch (e: TimeoutException) {
-            futureTask.cancel(true)
-            @Suppress("DEPRECATION")
-            thread.stop()
-            timedOut = true
-            false
-        } catch (e: Throwable) {
-            error = e
-            false
-        } finally {
             val activeThreadCount = threadGroup.activeCount()
             assert(activeThreadCount <= executionArguments.maxExtraThreadCount + 1)
             assert(threadGroup.activeGroupCount() == 0)
@@ -144,38 +137,44 @@ class SourceExecutor(
             threadGroup.destroy()
             assert(threadGroup.isDestroyed)
 
-            permissionRequests = Sandbox.release(key, classLoader)
-            permissionDenied = permissionRequests.filter {
+            val permissionRequests = Sandbox.release(key, threadGroup)
+            val permissionDenied = permissionRequests.filter {
                 !executionArguments.ignoredPermissions.contains(it.permission)
             }.any {
                 !it.granted
             }
 
-            if (executionArguments.captureOutput) {
+            val (stdoutLines, stderrLines) = if (executionArguments.captureOutput) {
                 val output = OutputInterceptor.release(threadGroup)
-                stdoutLines = output[Console.STDOUT] ?: error("output should have STDOUT")
-                stderrLines = output[Console.STDERR] ?: error("output should have STDERR")
+                Pair(output[Console.STDOUT] ?: error("output should have STDOUT"), output[Console.STDERR]
+                        ?: error("output should have STDERR"))
+            } else {
+                Pair(emptyList(), emptyList())
             }
-        }
-        val executionResult = ExecutionResult(
-                completed = completed && error == null && !permissionDenied,
-                timedOut = timedOut,
-                failed = error == null,
-                error = error,
-                permissionDenied = permissionDenied,
-                permissionRequests = permissionRequests,
-                stdoutLines = stdoutLines,
-                stderrLines = stderrLines,
-                started = started,
-                ended = Instant.now()
-        )
-        if (resultChannel != null) {
+
+            val executionResult = ExecutionResult(
+                    completed = completed && error == null && !permissionDenied,
+                    timedOut = timedOut,
+                    failed = error == null,
+                    error = error,
+                    permissionDenied = permissionDenied,
+                    permissionRequests = permissionRequests,
+                    stdoutLines = stdoutLines,
+                    stderrLines = stderrLines,
+                    started = started,
+                    ended = Instant.now()
+            )
             runBlocking {
                 resultChannel.send(executionResult)
-                resultChannel.close()
             }
+        } catch (e: Throwable) {
+            runBlocking {
+                resultChannel.send(e)
+            }
+        } finally {
+            resultChannel.close()
         }
-        return executionResult
+
     }
 }
 
@@ -183,19 +182,15 @@ suspend fun CompiledSource.execute(
         executionArguments: ExecutionArguments = ExecutionArguments()
 ): ExecutionResult {
     return coroutineScope {
-        val resultChannel = Channel<ExecutionResult>()
+        val resultChannel = Channel<Any>()
         val sourceExecutor = SourceExecutor(executionArguments, classLoader, resultChannel)
         threadPool.submit(sourceExecutor)
-        resultChannel.receive()
+        when (val result = resultChannel.receive()) {
+            is ExecutionResult -> result
+            is Throwable -> throw(result)
+            else -> error("received unexpected type on result channel")
+        }
     }
-}
-
-fun CompiledSource.executeBlocking(
-        executionArguments: ExecutionArguments = ExecutionArguments()
-): ExecutionResult {
-    val sourceExecutor = SourceExecutor(executionArguments, classLoader)
-    val task = threadPool.submit(sourceExecutor)
-    return task.get()
 }
 
 data class OutputLine (

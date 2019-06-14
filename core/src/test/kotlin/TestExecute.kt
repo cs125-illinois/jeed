@@ -4,12 +4,8 @@ import io.kotlintest.specs.StringSpec
 import io.kotlintest.*
 import io.kotlintest.matchers.collections.shouldHaveSize
 import io.kotlintest.matchers.doubles.shouldBeLessThan
-import io.kotlintest.matchers.floats.shouldBeLessThan
-import io.kotlintest.matchers.numerics.shouldBeLessThan
 import kotlinx.coroutines.async
-import java.time.Duration
-import java.time.Instant
-import java.util.concurrent.ForkJoinPool
+import kotlinx.coroutines.runBlocking
 import java.util.stream.Collectors
 import kotlin.system.measureTimeMillis
 
@@ -222,12 +218,15 @@ public class Main {
     }
     "should execute correctly in parallel using streams" {
         (0..8).toList().parallelStream().map { value ->
-            val result = Source.fromSnippet("""
+            val result = runBlocking {
+                Source.fromSnippet("""
 for (int i = 0; i < 32; i++) {
     for (long j = 0; j < 1024 * 1024; j++);
     System.out.println($value);
 }
-""".trim()).compile().executeBlocking(ExecutionArguments(timeout = 1000L))
+""".trim()).compile().execute(ExecutionArguments(timeout = 1000L))
+
+            }
             result should haveCompleted()
             result.stdoutLines shouldHaveSize 32
             result.stdoutLines.all { it.line.trim() == value.toString() } shouldBe true
@@ -264,7 +263,9 @@ for (int i = 0; i < 32; i++) {
         lateinit var results: List<ExecutionResult>
         val totalTime = measureTimeMillis {
             results = compiledSources.parallelStream().map {
-                it.executeBlocking(ExecutionArguments(timeout = 1000L))
+                runBlocking {
+                    it.execute(ExecutionArguments(timeout = 1000L))
+                }
             }.collect(Collectors.toList()).toList()
         }
 

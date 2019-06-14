@@ -124,10 +124,17 @@ for (long i = 0;; i++) {
     System.out.println(i);
     thread.start();
 }
-        """.trim()).compile().execute(ExecutionArguments(maxExtraThreadCount = 16))
+        """.trim()).compile().execute(ExecutionArguments(maxExtraThreadCount = 16, timeout=1000L))
 
         executionResult shouldNot haveCompleted()
         executionResult.stdoutLines shouldHaveSize 16
         executionResult.stdoutLines.map { it.line } shouldContain "15"
+    }
+    "it should not allow unsafe permissions to be provided" {
+        shouldThrow<SandboxConfigurationError> {
+            Source.fromSnippet("""
+System.exit(-1);
+            """.trim()).compile().execute(ExecutionArguments(permissions = listOf(RuntimePermission("exitVM"))))
+        }
     }
 })
