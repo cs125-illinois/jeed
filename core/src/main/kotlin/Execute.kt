@@ -131,26 +131,24 @@ class SourceExecutor(
             val executionEnded = Instant.now()
             Sandbox.shutdown(key, threadGroup)
 
-            val activeThreadCount = threadGroup.activeCount()
-            println(activeThreadCount)
-            println(executionArguments.maxExtraThreadCount)
-            assert(activeThreadCount <= executionArguments.maxExtraThreadCount + 1)
             assert(threadGroup.activeGroupCount() == 0)
-
+            val activeThreadCount = threadGroup.activeCount()
             if (activeThreadCount > 0) {
                 while (true) {
-                    try {
-                        val threadGroupThreads = Array<Thread?>(activeThreadCount) { null }
-                        threadGroup.enumerate(threadGroupThreads, true)
-                        val runningThreads = threadGroupThreads.toList().filter { it != null }
-                        if (runningThreads.isEmpty()) {
-                            break
+                    val threadGroupThreads = Array<Thread?>(activeThreadCount) { null }
+                    threadGroup.enumerate(threadGroupThreads, true)
+                    val runningThreads = threadGroupThreads.toList().filterNotNull()
+                    if (runningThreads.isEmpty()) {
+                        break
+                    }
+                    for (runningThread in runningThreads) {
+                        if (!runningThread.isInterrupted) {
+                            try { runningThread.interrupt() } catch (e: Throwable) { }
                         }
-                        for (runningThread in runningThreads) {
-                            @Suppress("DEPRECATION")
-                            runningThread?.stop()
-                        }
-                    } catch (e: Throwable) { }
+                        @Suppress("DEPRECATION")
+                        try { runningThread.stop() } catch (e: Throwable) { }
+                    }
+                    Thread.sleep(10L)
                 }
             }
             threadGroup.destroy()

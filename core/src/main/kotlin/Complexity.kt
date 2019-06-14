@@ -15,6 +15,7 @@ interface ComplexityValue {
     fun lookup(name: String): ComplexityValue
 }
 
+@Suppress("UNCHECKED_CAST")
 class ClassComplexity(
         name: String, range: SourceRange,
         methods: MutableMap<String, MethodComplexity> = mutableMapOf(),
@@ -39,6 +40,7 @@ class ClassComplexity(
     }
 }
 
+@Suppress("UNCHECKED_CAST")
 class MethodComplexity(
         name: String, range: SourceRange,
         classes: MutableMap<String, ClassComplexity> = mutableMapOf(),
@@ -298,7 +300,7 @@ class ComplexityResults(@Transient val source: Source, val results: Map<String, 
                 val rootComplexity = resultSource[""] ?: error("")
                 if (path.isEmpty()) {
                     return rootComplexity
-                } else if (path.equals(".")) {
+                } else if (path == ".") {
                     return rootComplexity.methods[""] as ComplexityValue
                 }
                 rootComplexity

@@ -137,7 +137,7 @@ System.exit(-1);
             """.trim()).compile().execute(ExecutionArguments(permissions = listOf(RuntimePermission("exitVM"))))
         }
     }
-    "f:it should shut down nasty thread bombs" {
+    "!it should shut down nasty thread bombs" {
         val executionResult = Source.fromSnippet("""
 public class Example implements Runnable {
     public void run() {
@@ -156,6 +156,7 @@ try {
     Thread.sleep(Long.MAX_VALUE);
 } catch (Exception e) { }
         """.trim()).compile().execute(ExecutionArguments(maxExtraThreadCount = 256, timeout = 1000L))
-        executionResult should haveCompleted()
+        executionResult shouldNot haveCompleted()
+        executionResult should haveTimedOut()
     }
 })

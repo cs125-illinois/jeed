@@ -75,7 +75,7 @@ object Sandbox : SecurityManager() {
         if (confinedThreadGroup.shuttingDown) {
             sleepForever()
         }
-        if (Thread.currentThread().threadGroup.activeCount() + 1 > confinedThreadGroup.maxExtraThreadCount + 1) {
+        if (Thread.currentThread().threadGroup.activeCount() >= confinedThreadGroup.maxExtraThreadCount + 1) {
             throw SecurityException()
         } else {
             return super.getThreadGroup()
