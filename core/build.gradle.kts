@@ -1,12 +1,9 @@
-import org.jetbrains.kotlin.gradle.tasks.KotlinCompile
-
 plugins {
-    maven
-    val kotlinVersion = "1.3.31"
-    kotlin("jvm") version kotlinVersion
+    kotlin("jvm")
+    kotlin("kapt")
     antlr
     java
-    kotlin("kapt") version kotlinVersion
+    maven
 }
 tasks.test {
     useJUnitPlatform()
@@ -34,15 +31,4 @@ dependencies {
 tasks.generateGrammarSource {
     outputDirectory = File(projectDir, "src/main/java/edu/illinois/cs/cs125/jeed/core/antlr")
     arguments.addAll(listOf("-visitor", "-package", "edu.illinois.cs.cs125.jeed.core.antlr", "-Xexact-output-dir"))
-}
-tasks.compileKotlin {
-    dependsOn(tasks.generateGrammarSource)
-}
-tasks.withType<KotlinCompile> {
-    val javaVersion = JavaVersion.VERSION_1_8.toString()
-    sourceCompatibility = javaVersion
-    targetCompatibility = javaVersion
-    kotlinOptions {
-        jvmTarget = javaVersion
-    }
 }
