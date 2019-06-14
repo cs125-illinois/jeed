@@ -1,12 +1,15 @@
 import org.jetbrains.kotlin.gradle.tasks.KotlinCompile
 
-repositories {
-    jcenter()
-}
 plugins {
     kotlin("jvm") version "1.3.31" apply false
     kotlin("kapt") version "1.3.31" apply false
     id("com.github.ben-manes.versions") version "0.21.0"
+}
+allprojects {
+    repositories {
+        jcenter()
+        maven(url="https://jitpack.io")
+    }
 }
 subprojects {
     tasks.withType<Test> {

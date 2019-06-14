@@ -137,4 +137,25 @@ System.exit(-1);
             """.trim()).compile().execute(ExecutionArguments(permissions = listOf(RuntimePermission("exitVM"))))
         }
     }
+    "f:it should shut down nasty thread bombs" {
+        val executionResult = Source.fromSnippet("""
+public class Example implements Runnable {
+    public void run() {
+        while (true) {
+            try {
+                Thread thread = new Thread(new Example());
+                thread.start();
+            } catch (Throwable e) {}
+        }
+    }
+}
+Thread thread = new Thread(new Example());
+thread.start();
+// Give time for things to get NASTY
+try {
+    Thread.sleep(Long.MAX_VALUE);
+} catch (Exception e) { }
+        """.trim()).compile().execute(ExecutionArguments(maxExtraThreadCount = 256, timeout = 1000L))
+        executionResult should haveCompleted()
+    }
 })

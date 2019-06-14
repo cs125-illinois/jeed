@@ -42,11 +42,15 @@ object Sandbox : SecurityManager() {
             val key: Long,
             val accessControlContext: AccessControlContext,
             val maxExtraThreadCount: Int,
-            val loggedRequests: MutableList<PermissionRequest> = mutableListOf()
+            val loggedRequests: MutableList<PermissionRequest> = mutableListOf(),
+            var shuttingDown: Boolean = false
     )
     private val confinedThreadGroups: MutableMap<ThreadGroup, ConfinedThreadGroup> =
             Collections.synchronizedMap(WeakHashMap<ThreadGroup, ConfinedThreadGroup>())
 
+    fun sleepForever() {
+        while (true) { Thread.sleep(Long.MAX_VALUE) }
+    }
     private var inReadCheck = false
     override fun checkRead(file: String) {
         if (inReadCheck) {
@@ -55,6 +59,9 @@ object Sandbox : SecurityManager() {
         try {
             inReadCheck = true
             val confinedThreadGroup = confinedThreadGroups[Thread.currentThread().threadGroup] ?: return
+            if (confinedThreadGroup.shuttingDown) {
+                sleepForever()
+            }
             if (!file.endsWith(".class")) {
                 confinedThreadGroup.loggedRequests.add(PermissionRequest(FilePermission(file, "read"), false))
                 throw SecurityException()
@@ -63,16 +70,17 @@ object Sandbox : SecurityManager() {
             inReadCheck = false
         }
     }
-
     override fun getThreadGroup(): ThreadGroup {
         val confinedThreadGroup = confinedThreadGroups[Thread.currentThread().threadGroup] ?: return super.getThreadGroup()
+        if (confinedThreadGroup.shuttingDown) {
+            sleepForever()
+        }
         if (Thread.currentThread().threadGroup.activeCount() + 1 > confinedThreadGroup.maxExtraThreadCount + 1) {
             throw SecurityException()
         } else {
             return super.getThreadGroup()
         }
     }
-
     private var inPermissionCheck = false
     override fun checkPermission(permission: Permission) {
         if (inPermissionCheck) {
@@ -81,6 +89,9 @@ object Sandbox : SecurityManager() {
         val confinedThreadGroup = confinedThreadGroups[Thread.currentThread().threadGroup] ?: return
         try {
             inPermissionCheck = true
+            if (confinedThreadGroup.shuttingDown) {
+                sleepForever()
+            }
             systemSecurityManager?.checkPermission(permission)
             confinedThreadGroup.accessControlContext.checkPermission(permission)
             confinedThreadGroup.loggedRequests.add(PermissionRequest(permission, true))
@@ -107,11 +118,16 @@ object Sandbox : SecurityManager() {
         }
         return key
     }
-
     @Synchronized
-    fun release(key: Long?, threadGroup: ThreadGroup): List<PermissionRequest> {
+    fun shutdown(key: Long, threadGroup: ThreadGroup) {
+        val confinedThreadGroup = confinedThreadGroups[threadGroup] ?: error("thread group is not confined")
+        check(key == confinedThreadGroup.key) { "invalid key" }
+        confinedThreadGroup.shuttingDown = true
+    }
+    @Synchronized
+    fun release(key: Long, threadGroup: ThreadGroup): List<PermissionRequest> {
         val confinedThreadGroup = confinedThreadGroups.remove(threadGroup) ?: error("thread group is not confined")
-        check(key != null && key == confinedThreadGroup.key) { "invalid key" }
+        check(key == confinedThreadGroup.key) { "invalid key" }
         if (confinedThreadGroups.keys.isEmpty()) {
             System.setSecurityManager(systemSecurityManager)
         }

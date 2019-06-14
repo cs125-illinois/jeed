@@ -129,24 +129,28 @@ class SourceExecutor(
                 e
             }
             val executionEnded = Instant.now()
+            Sandbox.shutdown(key, threadGroup)
 
             val activeThreadCount = threadGroup.activeCount()
+            println(activeThreadCount)
+            println(executionArguments.maxExtraThreadCount)
             assert(activeThreadCount <= executionArguments.maxExtraThreadCount + 1)
             assert(threadGroup.activeGroupCount() == 0)
 
             if (activeThreadCount > 0) {
-                for (unused in 0..32) {
-                    val threadGroupThreads = Array<Thread?>(activeThreadCount) { null }
-                    threadGroup.enumerate(threadGroupThreads, true)
-                    val runningThreads = threadGroupThreads.toList().filter { it != null }
-                    if (runningThreads.isEmpty()) {
-                        break
-                    }
-                    for (runningThread in runningThreads) {
-                        @Suppress("DEPRECATION")
-                        runningThread?.stop()
-                    }
-                    Thread.sleep(100L)
+                while (true) {
+                    try {
+                        val threadGroupThreads = Array<Thread?>(activeThreadCount) { null }
+                        threadGroup.enumerate(threadGroupThreads, true)
+                        val runningThreads = threadGroupThreads.toList().filter { it != null }
+                        if (runningThreads.isEmpty()) {
+                            break
+                        }
+                        for (runningThread in runningThreads) {
+                            @Suppress("DEPRECATION")
+                            runningThread?.stop()
+                        }
+                    } catch (e: Throwable) { }
                 }
             }
             threadGroup.destroy()
