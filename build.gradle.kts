@@ -1,8 +1,4 @@
-import org.jetbrains.kotlin.gradle.tasks.KotlinCompile
-
 plugins {
-    kotlin("jvm") version "1.3.31" apply false
-    kotlin("kapt") version "1.3.31" apply false
     id("com.github.ben-manes.versions") version "0.21.0"
 }
 allprojects {
@@ -14,14 +10,6 @@ allprojects {
 subprojects {
     tasks.withType<Test> {
         enableAssertions = true
-    }
-    tasks.withType<KotlinCompile> {
-        val javaVersion = JavaVersion.VERSION_1_8.toString()
-        sourceCompatibility = javaVersion
-        targetCompatibility = javaVersion
-        kotlinOptions {
-            jvmTarget = javaVersion
-        }
     }
 }
 tasks.dependencyUpdates {

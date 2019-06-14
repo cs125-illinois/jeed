@@ -1,8 +1,11 @@
+import org.jetbrains.kotlin.gradle.tasks.KotlinCompile
+
 plugins {
-    kotlin("jvm")
+    val kotlinVersion = "1.3.31"
+    kotlin("jvm") version kotlinVersion
     antlr
     java
-    kotlin("kapt")
+    kotlin("kapt") version kotlinVersion
 }
 tasks.test {
     useJUnitPlatform()
@@ -33,4 +36,12 @@ tasks.generateGrammarSource {
 }
 tasks.compileKotlin {
     dependsOn(tasks.generateGrammarSource)
+}
+tasks.withType<KotlinCompile> {
+    val javaVersion = JavaVersion.VERSION_1_8.toString()
+    sourceCompatibility = javaVersion
+    targetCompatibility = javaVersion
+    kotlinOptions {
+        jvmTarget = javaVersion
+    }
 }

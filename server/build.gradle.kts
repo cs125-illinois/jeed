@@ -1,10 +1,7 @@
 import org.jetbrains.kotlin.gradle.tasks.KotlinCompile
 
-repositories {
-    jcenter()
-}
 plugins {
-    kotlin("jvm")
+    kotlin("jvm") version "1.3.31"
 }
 tasks.test {
     useJUnitPlatform()
@@ -17,4 +14,12 @@ dependencies {
     api(project(":core"))
 
     testImplementation("io.kotlintest:kotlintest-runner-junit5:3.3.2")
+}
+tasks.withType<KotlinCompile> {
+    val javaVersion = JavaVersion.VERSION_1_8.toString()
+    sourceCompatibility = javaVersion
+    targetCompatibility = javaVersion
+    kotlinOptions {
+        jvmTarget = javaVersion
+    }
 }
