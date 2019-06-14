@@ -1,6 +1,7 @@
 import org.jetbrains.kotlin.gradle.tasks.KotlinCompile
 
 plugins {
+    maven
     val kotlinVersion = "1.3.31"
     kotlin("jvm") version kotlinVersion
     antlr
