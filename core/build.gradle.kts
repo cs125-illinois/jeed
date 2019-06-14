@@ -32,3 +32,6 @@ tasks.generateGrammarSource {
     outputDirectory = File(projectDir, "src/main/java/edu/illinois/cs/cs125/jeed/core/antlr")
     arguments.addAll(listOf("-visitor", "-package", "edu.illinois.cs.cs125.jeed.core.antlr", "-Xexact-output-dir"))
 }
+tasks.compileKotlin {
+    dependsOn(tasks.generateGrammarSource)
+}
