@@ -1,5 +1,6 @@
 repositories {
     jcenter()
+    maven(url="https://jitpack.io")
 }
 plugins {
     kotlin("jvm")
