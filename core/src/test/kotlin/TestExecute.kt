@@ -225,7 +225,6 @@ for (int i = 0; i < 32; i++) {
     System.out.println($value);
 }
 """.trim()).compile().execute(ExecutionArguments(timeout = 1000L))
-
             }
             result should haveCompleted()
             result.stdoutLines shouldHaveSize 32
@@ -272,7 +271,7 @@ for (int i = 0; i < 32; i++) {
         val individualTimeSum = results.map { result ->
             result shouldNot haveCompleted()
             result should haveTimedOut()
-            result.runTimeMillis
+            result.totalDuration.toMillis()
         }.sum()
 
         totalTime.toDouble() shouldBeLessThan individualTimeSum * 0.8
@@ -300,7 +299,7 @@ for (int i = 0; i < 32; i++) {
         val individualTimeSum = results.map { result ->
             result shouldNot haveCompleted()
             result should haveTimedOut()
-            result.runTimeMillis
+            result.totalDuration.toMillis()
         }.sum()
 
         totalTime.toDouble() shouldBeLessThan individualTimeSum * 0.8

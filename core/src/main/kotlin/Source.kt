@@ -2,6 +2,7 @@ package edu.illinois.cs.cs125.jeed.core
 
 import java.io.PrintWriter
 import java.io.StringWriter
+import java.time.Instant
 
 open class Source(
         val sources: Map<String, String>, checkSources: (Map<String, String>)->Boolean = { source ->
@@ -62,6 +63,7 @@ abstract class SourceError(
     }
 }
 abstract class JeepError(val errors: List<SourceError>) : Exception()
+data class Interval(val start: Instant, val end: Instant)
 
 fun Exception.getStackTraceAsString(): String {
     val stringWriter = StringWriter()

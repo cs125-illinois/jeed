@@ -12,6 +12,7 @@ import java.security.Permission
 import java.security.Permissions
 import java.time.Duration
 import java.time.Instant
+import java.util.*
 import java.util.concurrent.*
 
 @Suppress("UNUSED")
@@ -32,17 +33,33 @@ data class ExecutionArguments(
         val ignoredPermissions: List<Permission> = listOf(RuntimePermission("modifyThreadGroup"))
 )
 class ExecutionResult(
-        val completed: Boolean,
-        val timedOut: Boolean,
-        val failed: Boolean,
+        val arguments: ExecutionArguments,
         val error: Throwable? = null,
-        val permissionDenied: Boolean,
-        val stdoutLines: List<OutputLine> = mutableListOf(),
-        val stderrLines: List<OutputLine> = mutableListOf(),
+        val outputLines: List<OutputLine> = listOf(),
         val permissionRequests: List<PermissionRequest> = mutableListOf(),
-        val started: Instant,
-        val ended: Instant
-        ) {
+        val totalInterval: Interval,
+        val executionInterval: Interval
+) {
+    val completed: Boolean
+        get() { return error == null }
+    val timedOut: Boolean
+        get() { return error is TimeoutException }
+    val permissionDenied: Boolean
+        get() {
+            return permissionRequests.filter {
+                !arguments.ignoredPermissions.contains(it.permission)
+            }.any {
+                !it.granted
+            }
+        }
+    val stdoutLines: List<OutputLine>
+        get() {
+            return outputLines.filter { it.console == Console.STDOUT }
+        }
+    val stderrLines: List<OutputLine>
+        get() {
+            return outputLines.filter { it.console == Console.STDERR }
+        }
     val stdout: String
         get() {
             return stdoutLines.joinToString(separator = "\n") { it.line }
@@ -53,13 +70,11 @@ class ExecutionResult(
         }
     val output: String
         get() {
-            return stdoutLines.union(stderrLines)
-                    .sortedBy { it.timestamp }
-                    .joinToString(separator = "\n") { it.line }
+            return outputLines.sortedBy { it.timestamp }.joinToString(separator = "\n") { it.line }
         }
-    val runTimeMillis: Long
+    val totalDuration: Duration
         get() {
-            return Duration.between(started, ended).toMillis()
+            return Duration.between(totalInterval.start, totalInterval.end)
         }
 }
 
@@ -100,20 +115,20 @@ class SourceExecutor(
                 OutputInterceptor.intercept(threadGroup)
             }
 
-            var timedOut = false
-            val (completed, error: Throwable?) = try {
+            val executionStarted = Instant.now()
+            val error = try {
                 thread.start()
                 futureTask.get(executionArguments.timeout, TimeUnit.MILLISECONDS)
-                Pair(true, null)
+                null
             } catch (e: TimeoutException) {
                 futureTask.cancel(true)
                 @Suppress("DEPRECATION")
                 thread.stop()
-                timedOut = true
-                Pair(false, null)
+                e
             } catch (e: Throwable) {
-                Pair(false, e)
+                e
             }
+            val executionEnded = Instant.now()
 
             val activeThreadCount = threadGroup.activeCount()
             assert(activeThreadCount <= executionArguments.maxExtraThreadCount + 1)
@@ -138,31 +153,20 @@ class SourceExecutor(
             assert(threadGroup.isDestroyed)
 
             val permissionRequests = Sandbox.release(key, threadGroup)
-            val permissionDenied = permissionRequests.filter {
-                !executionArguments.ignoredPermissions.contains(it.permission)
-            }.any {
-                !it.granted
-            }
 
-            val (stdoutLines, stderrLines) = if (executionArguments.captureOutput) {
-                val output = OutputInterceptor.release(threadGroup)
-                Pair(output[Console.STDOUT] ?: error("output should have STDOUT"), output[Console.STDERR]
-                        ?: error("output should have STDERR"))
+            val outputLines = if (executionArguments.captureOutput) {
+                OutputInterceptor.release(threadGroup)
             } else {
-                Pair(emptyList(), emptyList())
+                emptyList()
             }
 
             val executionResult = ExecutionResult(
-                    completed = completed && error == null && !permissionDenied,
-                    timedOut = timedOut,
-                    failed = error == null,
-                    error = error,
-                    permissionDenied = permissionDenied,
-                    permissionRequests = permissionRequests,
-                    stdoutLines = stdoutLines,
-                    stderrLines = stderrLines,
-                    started = started,
-                    ended = Instant.now()
+                    executionArguments,
+                    error,
+                    outputLines,
+                    permissionRequests,
+                    Interval(started, Instant.now()),
+                    Interval(executionStarted, executionEnded)
             )
             runBlocking {
                 resultChannel.send(executionResult)
@@ -193,119 +197,58 @@ suspend fun CompiledSource.execute(
     }
 }
 
-data class OutputLine (
+enum class Console(val fd: Int) { STDOUT(1), STDERR(2) }
+class OutputLine (
+        val console: Console,
         val line: String,
         val timestamp: Instant,
-        val delta: Duration
+        val startedThread: Long
 )
-private class ConsoleOutputStream : OutputStream() {
-    val started: Instant = Instant.now()
-    val lines = mutableListOf<OutputLine>()
-
-    var currentLineStarted: Instant = Instant.now()
-    var currentLine = StringBuilder()
-
-    override fun write(int: Int) {
-        val char = int.toChar()
-        if (char == '\n') {
-            lines.add(OutputLine(
-                    currentLine.toString(),
-                    currentLineStarted,
-                    Duration.between(started, currentLineStarted
-                    )))
-            currentLine = StringBuilder()
-            currentLineStarted = Instant.now()
-        } else {
-            currentLine.append(char)
-        }
-    }
-}
-data class ThreadGroupConsoleOutput(
-        val started: Instant = Instant.now(),
-        val lines: MutableList<OutputLine> = mutableListOf(),
-        var currentLineStarted: Instant? = null,
-        var currentLine: StringBuilder = StringBuilder()
-)
-
-enum class Console(val fd: Int) {
-    STDIN(0), STDOUT(1), STDERR(2)
-}
-
 object OutputInterceptor {
+    private data class CurrentLine(
+            var started: Instant = Instant.now(),
+            val line: StringBuilder = StringBuilder(),
+            val startedThread: Long = Thread.currentThread().id
+    )
+    private data class ThreadGroupConsoleOutput(
+            val lines: MutableList<OutputLine> = mutableListOf(),
+            val currentLines: MutableMap<Console, CurrentLine> = mutableMapOf()
+    )
     val originalStdout = System.out ?: error("System.out should exist")
     val originalStderr = System.err ?: error("System.err should exist")
-    val confinedThreadGroups: MutableMap<ThreadGroup, Map<Console, ThreadGroupConsoleOutput>> = mutableMapOf()
+    private val confinedThreadGroups: MutableMap<ThreadGroup, ThreadGroupConsoleOutput> =
+            Collections.synchronizedMap(WeakHashMap<ThreadGroup, ThreadGroupConsoleOutput>())
 
     @Synchronized
     fun intercept(threadGroup: ThreadGroup) {
-        check(!confinedThreadGroups.containsKey(threadGroup))
-        confinedThreadGroups[threadGroup] = mapOf(Console.STDOUT to ThreadGroupConsoleOutput(), Console.STDERR to ThreadGroupConsoleOutput())
+        check(!confinedThreadGroups.containsKey(threadGroup)) { "thread group is already intercepted" }
+        confinedThreadGroups[threadGroup] = ThreadGroupConsoleOutput()
     }
     @Synchronized
-    fun release(threadGroup: ThreadGroup): Map<Console, List<OutputLine>> {
+    fun release(threadGroup: ThreadGroup): List<OutputLine> {
         val confinedThreadGroupConsoleOutput =
-                confinedThreadGroups.remove(threadGroup) ?: error("should contain this ThreadGroup")
-        return mapOf(
-                Console.STDOUT to confinedThreadGroupConsoleOutput[Console.STDOUT]?.lines!!.toList(),
-                Console.STDERR to confinedThreadGroupConsoleOutput[Console.STDERR]?.lines!!.toList()
-        )
+                confinedThreadGroups.remove(threadGroup) ?: error("thread group is not intercepted")
+        return confinedThreadGroupConsoleOutput.lines.toList()
     }
 
     fun defaultWrite(int: Int, console: Console) {
         when (console) {
             Console.STDOUT -> originalStdout.write(int)
             Console.STDERR -> originalStderr.write(int)
-            else -> error("can't write to STDIN")
         }
     }
     @Synchronized
     fun write(int: Int, console: Console) {
-        if (confinedThreadGroups.keys.isEmpty()) {
-            return defaultWrite(int, console)
-        }
-
-        var currentGroup = Thread.currentThread().threadGroup
-
-        // Optimistically check whether the current thread's group is confined before checking ancestors. This avoids
-        // unnecessary permission requests (and potential denials) associated with retrieving the parent thread group.
-        val confinedGroups = if (confinedThreadGroups.containsKey(currentGroup)) {
-            listOf(currentGroup)
-        } else {
-            val threadGroups: MutableList<ThreadGroup> = mutableListOf()
-            while (currentGroup != null) {
-                threadGroups.add(currentGroup)
-                currentGroup = try {
-                    currentGroup.parent
-                } catch (e: SecurityException) {
-                    null
-                }
-            }
-            confinedThreadGroups.keys.intersect(threadGroups)
-        }
-        if (confinedGroups.isEmpty()) {
-            return defaultWrite(int, console)
-        }
-
-        assert(confinedGroups.size == 1)
-        val confinedGroup = confinedGroups.first()
-        val confinedGroupConsoleOutput =
-                confinedThreadGroups[confinedGroup]?.get(console) ?: error("should contain this thread group")
+        val confinedGroupConsoleOutput = confinedThreadGroups[Thread.currentThread().threadGroup] ?: return defaultWrite(int, console)
 
         val char = int.toChar()
-        if (confinedGroupConsoleOutput.currentLineStarted == null) {
-            confinedGroupConsoleOutput.currentLineStarted = Instant.now()
-        }
+        val currentLine = confinedGroupConsoleOutput.currentLines.getOrPut(console, { CurrentLine() })
+
         if (char == '\n') {
-            val lastLineStarted = confinedGroupConsoleOutput.currentLineStarted ?: Instant.now()
-            confinedGroupConsoleOutput.lines.add(OutputLine(
-                    confinedGroupConsoleOutput.currentLine.toString(),
-                    lastLineStarted,
-                    Duration.between(confinedGroupConsoleOutput.started, lastLineStarted)
-            ))
-            confinedGroupConsoleOutput.currentLine = StringBuilder()
-            confinedGroupConsoleOutput.currentLineStarted = Instant.now()
+            confinedGroupConsoleOutput.lines.add(OutputLine(console, currentLine.line.toString(), currentLine.started, currentLine.startedThread))
+            confinedGroupConsoleOutput.currentLines.remove(console)
         } else {
-            confinedGroupConsoleOutput.currentLine.append(char)
+            currentLine.line.append(char)
         }
     }
     init {
