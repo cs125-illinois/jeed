@@ -11,70 +11,112 @@ import kotlin.system.measureTimeMillis
 
 class TestExecute : StringSpec({
     "should execute snippets" {
-        val executionResult = Source.fromSnippet(
+        val executeMainResult = Source.fromSnippet(
 """int i = 0;
 i++;
-""".trim()).compile().execute()
-        executionResult should haveCompleted()
-        executionResult shouldNot haveTimedOut()
-        executionResult should haveOutput()
+System.out.println(i);
+            """.trim()).compile().execute()
+        executeMainResult should haveCompleted()
+        executeMainResult should haveOutput("1")
     }
     "should execute snippets that include class definitions" {
-        val executionResult = Source.fromSnippet(
+        val executeMainResult = Source.fromSnippet(
                 """
 public class Foo {
     int i = 0;
 }
-int i = 0;
-i++;
 Foo foo = new Foo();
 foo.i = 4;
-System.out.println("Done");
-""".trim()).compile().execute(ExecutionArguments())
-        executionResult should haveCompleted()
-        executionResult shouldNot haveTimedOut()
-        executionResult should haveOutput("Done")
-    }
-    "should execute snippets that include multiple class definitions" {
-        val executionResult = Source.fromSnippet(
-                """
-public class Bar {
-}
-public class Foo {
-    int i = 0;
-}
-int i = 0;
-i++;
-Foo foo = new Foo();
-foo.i = 4;
-Bar bar = new Bar();
-System.out.println("Done");
-""".trim()).compile().execute()
-        executionResult should haveCompleted()
-        executionResult shouldNot haveTimedOut()
-        executionResult should haveOutput("Done")
+System.out.println(foo.i);
+            """.trim()).compile().execute(ExecutionArguments())
+        executeMainResult should haveCompleted()
+        executeMainResult should haveOutput("4")
     }
     "should execute the right class in snippets that include multiple class definitions" {
-        val executionResult = Source.fromSnippet(
+        val compiledSource = Source.fromSnippet(
                 """
 public class Bar {
     public static void main() {
-        System.out.println("Alternate");
+        System.out.println("Bar");
     }
 }
 public class Foo {
-    int i = 0;
+    public static void main() {
+        System.out.println("Foo");
+    }
 }
-int i = 0;
-i++;
-Foo foo = new Foo();
-foo.i = 4;
-Bar bar = new Bar();
-System.out.println("Done");
-""".trim()).compile().execute(ExecutionArguments(className = "Bar"))
-        executionResult should haveCompleted()
-        executionResult shouldNot haveTimedOut()
-        executionResult should haveOutput("Alternate")
+System.out.println("Main");
+            """.trim()).compile()
+
+        val executeBarResult = compiledSource.execute(ExecutionArguments(klass = "Bar"))
+        executeBarResult should haveCompleted()
+        executeBarResult should haveOutput("Bar")
+
+        val executeFooResult = compiledSource.execute(ExecutionArguments(klass = "Foo"))
+        executeFooResult should haveCompleted()
+        executeFooResult should haveOutput("Foo")
+
+        val executeMainResult = compiledSource.execute(ExecutionArguments(klass = "Main"))
+        executeMainResult should haveCompleted()
+        executeMainResult should haveOutput("Main")
+    }
+    "should execute the right method in snippets that include multiple method definitions" {
+        val compiledSource = Source.fromSnippet(
+                """
+public static void foo() {
+    System.out.println("foo");
+}
+public static void bar() {
+    System.out.println("bar");
+}
+System.out.println("main");
+""".trim()).compile()
+
+        val executeFooResult = compiledSource.execute(ExecutionArguments(method = "foo()"))
+        executeFooResult should haveCompleted()
+        executeFooResult should haveOutput("foo")
+
+        val executeBarResult = compiledSource.execute(ExecutionArguments(method = "bar()"))
+        executeBarResult should haveCompleted()
+        executeBarResult should haveOutput("bar")
+
+        val executeMainResult = compiledSource.execute(ExecutionArguments(method = "main()"))
+        executeMainResult should haveCompleted()
+        executeMainResult should haveOutput("main")
+    }
+    "should not execute private methods" {
+        val compiledSource = Source.fromSnippet(
+                """
+private static void foo() {
+    System.out.println("foo");
+}
+System.out.println("main");
+""".trim()).compile()
+
+        shouldThrow<ExecutionError> {
+            compiledSource.execute(ExecutionArguments(method = "foo()"))
+        }
+
+        val executeMainResult = compiledSource.execute(ExecutionArguments(method = "main()"))
+        executeMainResult should haveCompleted()
+        executeMainResult should haveOutput("main")
+    }
+    "should not execute methods that require arguments" {
+        val compiledSource = Source.fromSnippet(
+                """
+public static void foo(int i) {
+    System.out.println("foo");
+}
+System.out.println("main");
+""".trim()).compile()
+
+        shouldThrow<ExecutionError> {
+            compiledSource.execute(ExecutionArguments(method = "foo()"))
+        }
+
+        val executeMainResult = compiledSource.execute(ExecutionArguments(method = "main()"))
+        executeMainResult should haveCompleted()
+        executeMainResult should haveOutput("main")
     }
     "should execute sources" {
         val executionResult = Source(mapOf(

@@ -105,9 +105,13 @@ object Sandbox : SecurityManager() {
     }
 
     @Synchronized
-    fun confine(threadGroup: ThreadGroup, permissions: Permissions, maxExtraThreadCount: Int = 0): Long {
+    fun confine(threadGroup: ThreadGroup, permissionList: List<Permission>, maxExtraThreadCount: Int = 0): Long {
         check(!confinedThreadGroups.containsKey(threadGroup)) { "thread group is already confined" }
-        permissions.elements().toList().intersect(blacklistedPermissions).isEmpty() || throw SandboxConfigurationError("attempt to allow unsafe permissions")
+        permissionList.intersect(blacklistedPermissions).isEmpty() || throw SandboxConfigurationError("attempt to allow unsafe permissions")
+
+        val permissions = Permissions()
+        permissionList.forEach { permissions.add(it) }
+
         val key = Random.nextLong()
         confinedThreadGroups[threadGroup] = ConfinedThreadGroup(
                 key,

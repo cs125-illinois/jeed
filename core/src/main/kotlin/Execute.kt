@@ -7,11 +7,10 @@ import mu.KotlinLogging
 import java.io.OutputStream
 import java.io.PrintStream
 import java.lang.StringBuilder
+import java.lang.reflect.Method
 import java.lang.reflect.Modifier
 import java.lang.reflect.ReflectPermission
 import java.security.Permission
-import java.security.Permissions
-import java.security.SecurityPermission
 import java.time.Duration
 import java.time.Instant
 import java.util.*
@@ -20,103 +19,100 @@ import java.util.concurrent.*
 @Suppress("UNUSED")
 private val logger = KotlinLogging.logger {}
 
-fun List<Permission>.toPermission(): Permissions {
-    val permissions = Permissions()
-    this.forEach { permissions.add(it) }
-    return permissions
-}
-val whitelistedPermissions = listOf(
-        RuntimePermission("accessDeclaredMembers"),
-        ReflectPermission("suppressAccessChecks")
-)
 data class ExecutionArguments(
-        val className: String = "Main",
-        val method: String = "main()",
-        val timeout: Long = 100L,
-        val permissions: List<Permission> = whitelistedPermissions,
-        val captureOutput: Boolean = true,
-        val maxExtraThreadCount: Int = 0,
-        val ignoredPermissions: List<Permission> = listOf(RuntimePermission("modifyThreadGroup"))
-)
+        val klass: String = DEFAULT_KLASS,
+        val method: String = DEFAULT_METHOD,
+        val timeout: Long = DEFAULT_TIMEOUT,
+        val permissions: List<Permission> = DEFAULT_PERMISSIONS,
+        val maxExtraThreads: Int = DEFAULT_MAX_EXTRA_THREADS
+) {
+    companion object {
+        const val DEFAULT_KLASS = "Main"
+        const val DEFAULT_METHOD = "main()"
+        const val DEFAULT_TIMEOUT = 100L
+        val DEFAULT_PERMISSIONS = listOf(
+                RuntimePermission("accessDeclaredMembers"),
+                ReflectPermission("suppressAccessChecks")
+        )
+        const val DEFAULT_MAX_EXTRA_THREADS = 0
+    }
+}
+
 class ExecutionResult(
-        val arguments: ExecutionArguments,
         val error: Throwable? = null,
         val outputLines: List<OutputLine> = listOf(),
-        val permissionRequests: List<PermissionRequest> = mutableListOf(),
+        val permissionRequests: List<PermissionRequest> = listOf(),
         val totalInterval: Interval,
-        val executionInterval: Interval
+        val executionInterval: Interval,
+        val threadShutdownRetries: Int
 ) {
     val completed: Boolean
         get() { return error == null }
     val timedOut: Boolean
         get() { return error is TimeoutException }
     val permissionDenied: Boolean
-        get() {
-            return permissionRequests.filter {
-                !arguments.ignoredPermissions.contains(it.permission)
-            }.any {
-                !it.granted
-            }
-        }
+        get() { return permissionRequests.any { !it.granted } }
     val stdoutLines: List<OutputLine>
-        get() {
-            return outputLines.filter { it.console == Console.STDOUT }
-        }
+        get() { return outputLines.filter { it.console == OutputLine.Console.STDOUT } }
     val stderrLines: List<OutputLine>
-        get() {
-            return outputLines.filter { it.console == Console.STDERR }
-        }
+        get() { return outputLines.filter { it.console == OutputLine.Console.STDERR } }
     val stdout: String
-        get() {
-            return stdoutLines.joinToString(separator = "\n") { it.line }
-        }
+        get() { return stdoutLines.joinToString(separator = "\n") { it.line } }
     val stderr: String
-        get() {
-            return stderrLines.joinToString(separator = "\n") { it.line }
-        }
+        get() { return stderrLines.joinToString(separator = "\n") { it.line } }
     val output: String
-        get() {
-            return outputLines.sortedBy { it.timestamp }.joinToString(separator = "\n") { it.line }
-        }
+        get() { return outputLines.sortedBy { it.timestamp }.joinToString(separator = "\n") { it.line } }
     val totalDuration: Duration
-        get() {
-            return Duration.between(totalInterval.start, totalInterval.end)
-        }
+        get() { return Duration.between(totalInterval.start, totalInterval.end) }
 }
 
-class ExecutionException(message: String) : Exception(message)
+class ExecutionError(message: String) : Exception(message)
 
-val threadPool = Executors.newFixedThreadPool(8) ?: error("thread pool should be available")
+@Throws(ExecutionError::class, SandboxConfigurationError::class)
+suspend fun CompiledSource.execute(
+        executionArguments: ExecutionArguments = ExecutionArguments()
+): ExecutionResult {
 
-class SourceExecutor(
+    val klass = classLoader.loadClass(executionArguments.klass)
+            ?: throw ExecutionError("Could not load ${executionArguments.klass}")
+    val method = klass.declaredMethods.find { method ->
+        if (!Modifier.isStatic(method.modifiers)
+                || !Modifier.isPublic(method.modifiers)
+                || method.parameterTypes.isNotEmpty()) {
+            return@find false
+        }
+        method.getQualifiedName() == executionArguments.method
+    } ?: throw ExecutionError(
+            "Cannot locate public static no-argument method ${executionArguments.method} in ${executionArguments.klass}"
+    )
+
+    return coroutineScope {
+        val resultChannel = Channel<Any>()
+        val sourceExecutor = ExecutionEngine(executionArguments, method, resultChannel)
+        ExecutionEngine.threadPool.submit(sourceExecutor)
+        when (val result = resultChannel.receive()) {
+            is ExecutionResult -> result
+            is Throwable -> throw(result)
+            else -> error("received unexpected type on result channel")
+        }
+    }
+}
+
+class ExecutionEngine(
         val executionArguments: ExecutionArguments,
-        val classLoader: ClassLoader,
+        val method: Method,
         val resultChannel: Channel<Any>
 ) : Callable<Any> {
     override fun call() {
         try {
             val started = Instant.now()
 
-            val klass = classLoader.loadClass(executionArguments.className)
-                    ?: throw ExecutionException("Could not load ${executionArguments.className}")
-            val method = klass.declaredMethods.find { method ->
-                val fullName = method.name + method.parameterTypes.joinToString(prefix = "(", separator = ", ", postfix = ")") { parameter ->
-                    parameter.name
-                }
-                fullName == executionArguments.method && Modifier.isStatic(method.modifiers) && Modifier.isPublic(method.modifiers)
-            }
-                    ?: throw ExecutionException("Cannot locate public static method with signature ${executionArguments.method} in ${executionArguments.className}")
-
-            val futureTask = FutureTask {
-                method.invoke(null)
-            }
+            val futureTask = FutureTask { method.invoke(null) }
             val threadGroup = ThreadGroup("execute")
             val thread = Thread(threadGroup, futureTask)
-            val key = Sandbox.confine(threadGroup, executionArguments.permissions.toPermission(), executionArguments.maxExtraThreadCount)
 
-            if (executionArguments.captureOutput) {
-                OutputInterceptor.intercept(threadGroup)
-            }
+            val key = Sandbox.confine(threadGroup, executionArguments.permissions, executionArguments.maxExtraThreads)
+            OutputInterceptor.intercept(threadGroup)
 
             val executionStarted = Instant.now()
             val error = try {
@@ -132,18 +128,19 @@ class SourceExecutor(
                 e
             }
             val executionEnded = Instant.now()
-            Sandbox.shutdown(key, threadGroup)
 
+            // Kill off any remaining threads.
+            Sandbox.shutdown(key, threadGroup)
             assert(threadGroup.activeGroupCount() == 0)
-            val activeThreadCount = threadGroup.activeCount()
-            if (activeThreadCount > 0) {
-                while (true) {
-                    val threadGroupThreads = Array<Thread?>(activeThreadCount) { null }
+            val threadShutdownRetries = if (threadGroup.activeCount() == 0) {
+                0
+            } else {
+                (0..MAX_THREAD_SHUTDOWN_RETRIES).find {
+                    val threadGroupThreads = Array<Thread?>(threadGroup.activeCount()) { null }
                     threadGroup.enumerate(threadGroupThreads, true)
                     val runningThreads = threadGroupThreads.toList().filterNotNull()
-                    if (runningThreads.isEmpty()) {
-                        break
-                    }
+                    if (runningThreads.isEmpty()) { return@find true }
+
                     for (runningThread in runningThreads) {
                         if (!runningThread.isInterrupted) {
                             try { runningThread.interrupt() } catch (e: Throwable) { }
@@ -151,65 +148,48 @@ class SourceExecutor(
                         @Suppress("DEPRECATION")
                         try { runningThread.stop() } catch (e: Throwable) { }
                     }
-                    Thread.sleep(10L)
-                }
+                    // The delay here may need some tuning on certain platforms. Too fast and the threads we are trying
+                    // to kill don't have time to get stuck. Too slow and it takes forever.
+                    Thread.sleep(threadShutdownDelay)
+                    return@find false
+                } ?: error("couldn't shut down thread group after $MAX_THREAD_SHUTDOWN_RETRIES retries")
             }
             threadGroup.destroy()
             assert(threadGroup.isDestroyed)
 
             val permissionRequests = Sandbox.release(key, threadGroup)
-
-            val outputLines = if (executionArguments.captureOutput) {
-                OutputInterceptor.release(threadGroup)
-            } else {
-                emptyList()
-            }
+            val outputLines = OutputInterceptor.release(threadGroup)
 
             val executionResult = ExecutionResult(
-                    executionArguments,
                     error,
                     outputLines,
                     permissionRequests,
                     Interval(started, Instant.now()),
-                    Interval(executionStarted, executionEnded)
+                    Interval(executionStarted, executionEnded),
+                    threadShutdownRetries
             )
-            runBlocking {
-                resultChannel.send(executionResult)
-            }
+            runBlocking { resultChannel.send(executionResult) }
         } catch (e: Throwable) {
-            runBlocking {
-                resultChannel.send(e)
-            }
+            runBlocking { resultChannel.send(e) }
         } finally {
             resultChannel.close()
         }
 
     }
-}
-
-suspend fun CompiledSource.execute(
-        executionArguments: ExecutionArguments = ExecutionArguments()
-): ExecutionResult {
-    return coroutineScope {
-        val resultChannel = Channel<Any>()
-        val sourceExecutor = SourceExecutor(executionArguments, classLoader, resultChannel)
-        threadPool.submit(sourceExecutor)
-        when (val result = resultChannel.receive()) {
-            is ExecutionResult -> result
-            is Throwable -> throw(result)
-            else -> error("received unexpected type on result channel")
-        }
+    companion object {
+        const val MAX_THREAD_SHUTDOWN_RETRIES = 10240
+        const val DEFAULT_THREAD_SHUTDOWN_DELAY = 10L
+        var threadShutdownDelay = DEFAULT_THREAD_SHUTDOWN_DELAY
+        var threadPool = Executors.newFixedThreadPool(Runtime.getRuntime().availableProcessors())
+                ?: error("thread pool should be available")
     }
 }
 
-enum class Console(val fd: Int) { STDOUT(1), STDERR(2) }
-class OutputLine (
-        val console: Console,
-        val line: String,
-        val timestamp: Instant,
-        val startedThread: Long
-)
-object OutputInterceptor {
+
+data class OutputLine (val console: Console, val line: String, val timestamp: Instant, val thread: Long) {
+    enum class Console(val fd: Int) { STDOUT(1), STDERR(2) }
+}
+private object OutputInterceptor {
     private data class CurrentLine(
             var started: Instant = Instant.now(),
             val line: StringBuilder = StringBuilder(),
@@ -217,12 +197,26 @@ object OutputInterceptor {
     )
     private data class ThreadGroupConsoleOutput(
             val lines: MutableList<OutputLine> = mutableListOf(),
-            val currentLines: MutableMap<Console, CurrentLine> = mutableMapOf()
+            val currentLines: MutableMap<OutputLine.Console, CurrentLine> = mutableMapOf()
     )
-    val originalStdout = System.out ?: error("System.out should exist")
-    val originalStderr = System.err ?: error("System.err should exist")
+
+    private val originalStdout = System.out ?: error("System.out should exist")
+    private val originalStderr = System.err ?: error("System.err should exist")
     private val confinedThreadGroups: MutableMap<ThreadGroup, ThreadGroupConsoleOutput> =
             Collections.synchronizedMap(WeakHashMap<ThreadGroup, ThreadGroupConsoleOutput>())
+
+    init {
+        System.setOut(PrintStream(object : OutputStream() {
+            override fun write(int: Int) {
+                write(int, OutputLine.Console.STDOUT)
+            }
+        }))
+        System.setErr(PrintStream(object : OutputStream() {
+            override fun write(int: Int) {
+                write(int, OutputLine.Console.STDERR)
+            }
+        }))
+    }
 
     @Synchronized
     fun intercept(threadGroup: ThreadGroup) {
@@ -235,37 +229,29 @@ object OutputInterceptor {
                 confinedThreadGroups.remove(threadGroup) ?: error("thread group is not intercepted")
         return confinedThreadGroupConsoleOutput.lines.toList()
     }
-
-    fun defaultWrite(int: Int, console: Console) {
-        when (console) {
-            Console.STDOUT -> originalStdout.write(int)
-            Console.STDERR -> originalStderr.write(int)
-        }
-    }
     @Synchronized
-    fun write(int: Int, console: Console) {
+    fun write(int: Int, console: OutputLine.Console) {
         val confinedGroupConsoleOutput = confinedThreadGroups[Thread.currentThread().threadGroup] ?: return defaultWrite(int, console)
 
-        val char = int.toChar()
         val currentLine = confinedGroupConsoleOutput.currentLines.getOrPut(console, { CurrentLine() })
-
-        if (char == '\n') {
-            confinedGroupConsoleOutput.lines.add(OutputLine(console, currentLine.line.toString(), currentLine.started, currentLine.startedThread))
-            confinedGroupConsoleOutput.currentLines.remove(console)
-        } else {
-            currentLine.line.append(char)
+        when (val char = int.toChar()) {
+            '\n' -> {
+                confinedGroupConsoleOutput.lines.add(
+                        OutputLine(console, currentLine.line.toString(), currentLine.started, currentLine.startedThread)
+                )
+                confinedGroupConsoleOutput.currentLines.remove(console)
+            }
+            else -> {
+                currentLine.line.append(char)
+            }
         }
     }
-    init {
-        System.setOut(PrintStream(object : OutputStream() {
-            override fun write(int: Int) {
-                write(int, Console.STDOUT)
-            }
-        }))
-        System.setErr(PrintStream(object : OutputStream() {
-            override fun write(int: Int) {
-                write(int, Console.STDERR)
-            }
-        }))
+    fun defaultWrite(int: Int, console: OutputLine.Console) {
+        when (console) {
+            OutputLine.Console.STDOUT -> originalStdout.write(int)
+            OutputLine.Console.STDERR -> originalStderr.write(int)
+        }
     }
 }
+
+fun Method.getQualifiedName(): String { return "$name(${parameters.joinToString(separator = ", ")})" }
