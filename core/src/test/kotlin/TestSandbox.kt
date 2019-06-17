@@ -87,7 +87,7 @@ try {
         val failedExecutionResult = compiledSource.execute()
         failedExecutionResult shouldNot haveCompleted()
 
-        val successfulExecutionResult = compiledSource.execute(ExecutionArguments(maxExtraThreadCount = 1))
+        val successfulExecutionResult = compiledSource.execute(ExecutionArguments(maxExtraThreadCount=1))
         successfulExecutionResult should haveCompleted()
         successfulExecutionResult should haveOutput("Started\nEnded")
     }
@@ -105,13 +105,13 @@ thread.start();
 try {
     thread.join();
 } catch (Exception e) { }
-        """.trim()).compile().execute(ExecutionArguments(maxExtraThreadCount = 1))
+        """.trim()).compile().execute(ExecutionArguments(maxExtraThreadCount=1))
 
         executionResult shouldNot haveCompleted()
         executionResult should haveTimedOut()
         executionResult should haveOutput("Started")
     }
-    "it should shut down thread bombs" {
+    "f:it should shut down thread bombs" {
         val executionResult = Source.fromSnippet("""
 public class Example implements Runnable {
     public void run() {
@@ -120,11 +120,13 @@ public class Example implements Runnable {
     }
 }
 for (long i = 0;; i++) {
-    Thread thread = new Thread(new Example());
-    System.out.println(i);
-    thread.start();
+    try {
+        Thread thread = new Thread(new Example());
+        System.out.println(i);
+        thread.start();
+    } catch (Throwable e) { }
 }
-        """.trim()).compile().execute(ExecutionArguments(maxExtraThreadCount = 16, timeout=1000L))
+        """.trim()).compile().execute(ExecutionArguments(maxExtraThreadCount=16, timeout=1000L))
 
         executionResult shouldNot haveCompleted()
         executionResult.stdoutLines shouldHaveSize 16
@@ -134,8 +136,48 @@ for (long i = 0;; i++) {
         shouldThrow<SandboxConfigurationError> {
             Source.fromSnippet("""
 System.exit(-1);
-            """.trim()).compile().execute(ExecutionArguments(permissions = listOf(RuntimePermission("exitVM"))))
+            """.trim()).compile().execute(ExecutionArguments(permissions=listOf(RuntimePermission("exitVM"))))
         }
+    }
+    "it should allow Java streams with default permissions" {
+        val executionResult = Source.fromSnippet("""
+import java.util.List;
+import java.util.ArrayList;
+import java.util.Arrays;
+
+List<String> strings = new ArrayList<>(Arrays.asList(new String[] { "test", "me", "another" }));
+strings.stream()
+    .filter(string -> string.length() <= 4)
+    .map(String::toUpperCase)
+    .sorted()
+    .forEach(System.out::println);
+        """.trim()).compile().execute(ExecutionArguments())
+
+        executionResult should haveCompleted()
+        executionResult should haveOutput("ME\nTEST")
+    }
+    "it should allow generic methods with the default permissions" {
+        val executionResult = Source(mapOf(
+                "A" to """
+public class A implements Comparable<A> {
+    public int compareTo(A other) {
+        return 0;
+    }
+}
+                """.trim(),
+                "Main" to """
+public class Main {
+    public static <T extends Comparable<T>> int test(T[] values) {
+        return 8;
+    }
+    public static void main() {
+        System.out.println(test(new A[] { }));
+    }
+}
+                """.trim())).compile().execute(ExecutionArguments())
+
+        executionResult should haveCompleted()
+        executionResult should haveOutput("8")
     }
     "!it should shut down nasty thread bombs" {
         val executionResult = Source.fromSnippet("""
@@ -155,7 +197,8 @@ thread.start();
 try {
     Thread.sleep(Long.MAX_VALUE);
 } catch (Exception e) { }
-        """.trim()).compile().execute(ExecutionArguments(maxExtraThreadCount = 256, timeout = 1000L))
+        """.trim()).compile().execute(ExecutionArguments(maxExtraThreadCount=256, timeout=1000L))
+
         executionResult shouldNot haveCompleted()
         executionResult should haveTimedOut()
     }

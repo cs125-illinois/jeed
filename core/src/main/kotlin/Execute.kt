@@ -8,8 +8,10 @@ import java.io.OutputStream
 import java.io.PrintStream
 import java.lang.StringBuilder
 import java.lang.reflect.Modifier
+import java.lang.reflect.ReflectPermission
 import java.security.Permission
 import java.security.Permissions
+import java.security.SecurityPermission
 import java.time.Duration
 import java.time.Instant
 import java.util.*
@@ -23,11 +25,15 @@ fun List<Permission>.toPermission(): Permissions {
     this.forEach { permissions.add(it) }
     return permissions
 }
+val whitelistedPermissions = listOf(
+        RuntimePermission("accessDeclaredMembers"),
+        ReflectPermission("suppressAccessChecks")
+)
 data class ExecutionArguments(
         val className: String = "Main",
         val method: String = "main()",
         val timeout: Long = 100L,
-        val permissions: List<Permission> = listOf(),
+        val permissions: List<Permission> = whitelistedPermissions,
         val captureOutput: Boolean = true,
         val maxExtraThreadCount: Int = 0,
         val ignoredPermissions: List<Permission> = listOf(RuntimePermission("modifyThreadGroup"))
@@ -100,9 +106,6 @@ class SourceExecutor(
                 fullName == executionArguments.method && Modifier.isStatic(method.modifiers) && Modifier.isPublic(method.modifiers)
             }
                     ?: throw ExecutionException("Cannot locate public static method with signature ${executionArguments.method} in ${executionArguments.className}")
-
-            // We need to load this before we begin execution since the code won't be able to once it's in the sandbox
-            classLoader.loadClass(OutputLine::class.qualifiedName)
 
             val futureTask = FutureTask {
                 method.invoke(null)

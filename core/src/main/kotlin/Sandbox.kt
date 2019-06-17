@@ -20,7 +20,8 @@ val blacklistedPermissions = listOf(
         RuntimePermission("createClassLoader"),
         RuntimePermission("accessClassInPackage.sun"),
         RuntimePermission("setSecurityManager"),
-        ReflectPermission("suppressAccessChecks"),
+        // Required for Java Streams to work...
+        // ReflectPermission("suppressAccessChecks")
         SecurityPermission("setPolicy"),
         SecurityPermission("setProperty.package.access"),
         // Other additions from here: https://docs.oracle.com/javase/7/docs/technotes/guides/security/permissions.html
@@ -104,14 +105,14 @@ object Sandbox : SecurityManager() {
     }
 
     @Synchronized
-    fun confine(threadGroup: ThreadGroup, permissions: Permissions, maxThreadCount: Int = 1): Long {
+    fun confine(threadGroup: ThreadGroup, permissions: Permissions, maxExtraThreadCount: Int = 0): Long {
         check(!confinedThreadGroups.containsKey(threadGroup)) { "thread group is already confined" }
         permissions.elements().toList().intersect(blacklistedPermissions).isEmpty() || throw SandboxConfigurationError("attempt to allow unsafe permissions")
         val key = Random.nextLong()
         confinedThreadGroups[threadGroup] = ConfinedThreadGroup(
                 key,
                 AccessControlContext(arrayOf(ProtectionDomain(null, permissions))),
-                maxThreadCount
+                maxExtraThreadCount
         )
         if (confinedThreadGroups.keys.size == 1) {
             System.setSecurityManager(this)
