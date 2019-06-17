@@ -54,8 +54,8 @@
     <orderEntry type="library" name="Gradle: io.arrow-kt:arrow-annotations:0.8.2" level="project" />
     <orderEntry type="library" scope="RUNTIME" name="Gradle: io.mockk:mockk:1.9.1" level="project" />
     <orderEntry type="library" name="Gradle: org.jetbrains.kotlin:kotlin-stdlib:1.3.31" level="project" />
-    <orderEntry type="library" scope="RUNTIME" name="Gradle: io.mockk:mockk-dsl-jvm:1.9.1" level="project" />
     <orderEntry type="library" name="Gradle: org.antlr:antlr4:4.7.2" level="project" />
+    <orderEntry type="library" scope="RUNTIME" name="Gradle: io.mockk:mockk-dsl-jvm:1.9.1" level="project" />
     <orderEntry type="library" name="Gradle: org.jetbrains.kotlinx:kotlinx-coroutines-core-common:1.1.1" level="project" />
     <orderEntry type="library" scope="RUNTIME" name="Gradle: org.jetbrains.kotlin:kotlin-reflect:1.3.31" level="project" />
     <orderEntry type="library" scope="RUNTIME" name="Gradle: io.github.microutils:kotlin-logging:1.6.26" level="project" />

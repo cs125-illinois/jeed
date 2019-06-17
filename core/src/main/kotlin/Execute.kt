@@ -66,23 +66,23 @@ class ExecutionResult(
         get() { return Duration.between(totalInterval.start, totalInterval.end) }
 }
 
-class ExecutionError(message: String) : Exception(message)
+class MethodNotFoundException(message: String) : Exception(message)
 
-@Throws(ExecutionError::class, SandboxConfigurationError::class)
+@Throws(ClassNotFoundException::class, MethodNotFoundException:: class, SandboxConfigurationException::class)
 suspend fun CompiledSource.execute(
         executionArguments: ExecutionArguments = ExecutionArguments()
 ): ExecutionResult {
 
     val klass = classLoader.loadClass(executionArguments.klass)
-            ?: throw ExecutionError("Could not load ${executionArguments.klass}")
+
     val method = klass.declaredMethods.find { method ->
-        if (!Modifier.isStatic(method.modifiers)
-                || !Modifier.isPublic(method.modifiers)
-                || method.parameterTypes.isNotEmpty()) {
-            return@find false
-        }
-        method.getQualifiedName() == executionArguments.method
-    } ?: throw ExecutionError(
+    if (!Modifier.isStatic(method.modifiers)
+            || !Modifier.isPublic(method.modifiers)
+            || method.parameterTypes.isNotEmpty()) {
+        return@find false
+    }
+    method.getQualifiedName() == executionArguments.method
+    } ?: throw MethodNotFoundException(
             "Cannot locate public static no-argument method ${executionArguments.method} in ${executionArguments.klass}"
     )
 
@@ -227,19 +227,29 @@ private object OutputInterceptor {
     fun release(threadGroup: ThreadGroup): List<OutputLine> {
         val confinedThreadGroupConsoleOutput =
                 confinedThreadGroups.remove(threadGroup) ?: error("thread group is not intercepted")
+
+        for (console in OutputLine.Console.values()) {
+            val currentLine = confinedThreadGroupConsoleOutput.currentLines[console] ?: continue
+            if (currentLine.line.isNotEmpty()) {
+                confinedThreadGroupConsoleOutput.lines.add(
+                        OutputLine(console, currentLine.line.toString(), currentLine.started, currentLine.startedThread)
+                )
+            }
+        }
+
         return confinedThreadGroupConsoleOutput.lines.toList()
     }
     @Synchronized
     fun write(int: Int, console: OutputLine.Console) {
-        val confinedGroupConsoleOutput = confinedThreadGroups[Thread.currentThread().threadGroup] ?: return defaultWrite(int, console)
+        val confinedThreadGroupConsoleOutput = confinedThreadGroups[Thread.currentThread().threadGroup] ?: return defaultWrite(int, console)
 
-        val currentLine = confinedGroupConsoleOutput.currentLines.getOrPut(console, { CurrentLine() })
+        val currentLine = confinedThreadGroupConsoleOutput.currentLines.getOrPut(console, { CurrentLine() })
         when (val char = int.toChar()) {
             '\n' -> {
-                confinedGroupConsoleOutput.lines.add(
+                confinedThreadGroupConsoleOutput.lines.add(
                         OutputLine(console, currentLine.line.toString(), currentLine.started, currentLine.startedThread)
                 )
-                confinedGroupConsoleOutput.currentLines.remove(console)
+                confinedThreadGroupConsoleOutput.currentLines.remove(console)
             }
             else -> {
                 currentLine.line.append(char)

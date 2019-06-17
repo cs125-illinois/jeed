@@ -7,7 +7,6 @@ plugins {
 }
 tasks.test {
     useJUnitPlatform()
-    testLogging.showStandardStreams = true
     systemProperties["logback.configurationFile"] = File(projectDir, "src/test/resources/logback-test.xml").absolutePath
 }
 dependencies {

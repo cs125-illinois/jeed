@@ -2,7 +2,6 @@ package edu.illinois.cs.cs125.jeed.core
 
 import mu.KotlinLogging
 import java.io.FilePermission
-import java.lang.reflect.ReflectPermission
 import java.security.*
 import java.util.*
 import kotlin.random.Random
@@ -36,7 +35,7 @@ val blacklistedPermissions = listOf(
         RuntimePermission("modifyThreadGroup")
 )
 
-class SandboxConfigurationError(message: String) : Exception(message)
+class SandboxConfigurationException(message: String) : Exception(message)
 
 object Sandbox : SecurityManager() {
     private data class ConfinedThreadGroup(
@@ -107,7 +106,7 @@ object Sandbox : SecurityManager() {
     @Synchronized
     fun confine(threadGroup: ThreadGroup, permissionList: List<Permission>, maxExtraThreadCount: Int = 0): Long {
         check(!confinedThreadGroups.containsKey(threadGroup)) { "thread group is already confined" }
-        permissionList.intersect(blacklistedPermissions).isEmpty() || throw SandboxConfigurationError("attempt to allow unsafe permissions")
+        permissionList.intersect(blacklistedPermissions).isEmpty() || throw SandboxConfigurationException("attempt to allow unsafe permissions")
 
         val permissions = Permissions()
         permissionList.forEach { permissions.add(it) }

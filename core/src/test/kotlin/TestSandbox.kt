@@ -133,7 +133,7 @@ for (long i = 0;; i++) {
         executionResult.stdoutLines.map { it.line } shouldContain "15"
     }
     "it should not allow unsafe permissions to be provided" {
-        shouldThrow<SandboxConfigurationError> {
+        shouldThrow<SandboxConfigurationException> {
             Source.fromSnippet("""
 System.exit(-1);
             """.trim()).compile().execute(ExecutionArguments(permissions=listOf(RuntimePermission("exitVM"))))

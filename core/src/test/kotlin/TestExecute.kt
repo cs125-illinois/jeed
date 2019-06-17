@@ -11,8 +11,8 @@ import kotlin.system.measureTimeMillis
 
 class TestExecute : StringSpec({
     "should execute snippets" {
-        val executeMainResult = Source.fromSnippet(
-"""int i = 0;
+        val executeMainResult = Source.fromSnippet("""
+int i = 0;
 i++;
 System.out.println(i);
             """.trim()).compile().execute()
@@ -20,8 +20,7 @@ System.out.println(i);
         executeMainResult should haveOutput("1")
     }
     "should execute snippets that include class definitions" {
-        val executeMainResult = Source.fromSnippet(
-                """
+        val executeMainResult = Source.fromSnippet("""
 public class Foo {
     int i = 0;
 }
@@ -33,8 +32,7 @@ System.out.println(foo.i);
         executeMainResult should haveOutput("4")
     }
     "should execute the right class in snippets that include multiple class definitions" {
-        val compiledSource = Source.fromSnippet(
-                """
+        val compiledSource = Source.fromSnippet("""
 public class Bar {
     public static void main() {
         System.out.println("Bar");
@@ -59,10 +57,13 @@ System.out.println("Main");
         val executeMainResult = compiledSource.execute(ExecutionArguments(klass = "Main"))
         executeMainResult should haveCompleted()
         executeMainResult should haveOutput("Main")
+
+        shouldThrow<ClassNotFoundException> {
+            compiledSource.execute(ExecutionArguments(klass = "Baz"))
+        }
     }
     "should execute the right method in snippets that include multiple method definitions" {
-        val compiledSource = Source.fromSnippet(
-                """
+        val compiledSource = Source.fromSnippet("""
 public static void foo() {
     System.out.println("foo");
 }
@@ -70,7 +71,7 @@ public static void bar() {
     System.out.println("bar");
 }
 System.out.println("main");
-""".trim()).compile()
+            """.trim()).compile()
 
         val executeFooResult = compiledSource.execute(ExecutionArguments(method = "foo()"))
         executeFooResult should haveCompleted()
@@ -85,15 +86,30 @@ System.out.println("main");
         executeMainResult should haveOutput("main")
     }
     "should not execute private methods" {
-        val compiledSource = Source.fromSnippet(
-                """
+        val compiledSource = Source.fromSnippet("""
 private static void foo() {
     System.out.println("foo");
 }
 System.out.println("main");
-""".trim()).compile()
+            """.trim()).compile()
 
-        shouldThrow<ExecutionError> {
+        shouldThrow<MethodNotFoundException> {
+            compiledSource.execute(ExecutionArguments(method = "foo()"))
+        }
+
+        val executeMainResult = compiledSource.execute(ExecutionArguments(method = "main()"))
+        executeMainResult should haveCompleted()
+        executeMainResult should haveOutput("main")
+    }
+    "should not execute non-static methods" {
+        val compiledSource = Source.fromSnippet("""
+public void foo() {
+    System.out.println("foo");
+}
+System.out.println("main");
+            """.trim()).compile()
+
+        shouldThrow<MethodNotFoundException> {
             compiledSource.execute(ExecutionArguments(method = "foo()"))
         }
 
@@ -102,15 +118,14 @@ System.out.println("main");
         executeMainResult should haveOutput("main")
     }
     "should not execute methods that require arguments" {
-        val compiledSource = Source.fromSnippet(
-                """
+        val compiledSource = Source.fromSnippet("""
 public static void foo(int i) {
     System.out.println("foo");
 }
 System.out.println("main");
-""".trim()).compile()
+            """.trim()).compile()
 
-        shouldThrow<ExecutionError> {
+        shouldThrow<MethodNotFoundException> {
             compiledSource.execute(ExecutionArguments(method = "foo()"))
         }
 
@@ -120,64 +135,62 @@ System.out.println("main");
     }
     "should execute sources" {
         val executionResult = Source(mapOf(
-                "Test" to
-                        """
+                "Test" to """
 public class Main {
     public static void main() {
         var i = 0;
         System.out.println("Here");
     }
 }
-""".trim())).compile().execute()
+                """.trim())).compile().execute()
         executionResult should haveCompleted()
         executionResult shouldNot haveTimedOut()
         executionResult should haveStdout("Here")
     }
     "should execute multiple sources with dependencies" {
         val executionResult = Source(mapOf(
-                "Test" to
-                        """
+                "Test" to """
 public class Main {
     public static void main() {
         var i = 0;
         Foo.foo();
     }
 }
-""".trim(),
+                """.trim(),
                 "Foo" to """
 public class Foo {
     public static void foo() {
         System.out.println("Foo");
     }
 }
-""".trim())).compile().execute()
+                """.trim())).compile().execute()
         executionResult should haveCompleted()
         executionResult shouldNot haveTimedOut()
         executionResult should haveStdout("Foo")
     }
     "should capture stdout" {
-        val executionResult = Source.fromSnippet(
-"""System.out.println("Here");
-""".trim()).compile().execute()
+        val executionResult = Source.fromSnippet("""
+System.out.println("Here");
+            """.trim()).compile().execute()
         executionResult should haveCompleted()
         executionResult shouldNot haveTimedOut()
         executionResult should haveStdout("Here")
         executionResult should haveStderr("")
     }
     "should capture stderr" {
-        val executionResult = Source.fromSnippet(
-"""System.err.println("Here");
-""".trim()).compile().execute()
+        val executionResult = Source.fromSnippet("""
+System.err.println("Here");
+            """.trim()).compile().execute()
         executionResult should haveCompleted()
         executionResult shouldNot haveTimedOut()
         executionResult should haveStdout("")
         executionResult should haveStderr("Here")
     }
     "should capture stderr and stdout" {
-        val executionResult = Source.fromSnippet(
-                """System.out.println("Here");
+        val executionResult = Source.fromSnippet("""
+System.out.println("Here");
 System.err.println("There");
-""".trim()).compile().execute()
+            """.trim()).compile().execute()
         executionResult should haveCompleted()
         executionResult shouldNot haveTimedOut()
         executionResult should haveStdout("Here")
@@ -185,19 +198,19 @@ System.err.println("There");
         executionResult should haveOutput("Here\nThere")
     }
     "should timeout correctly on snippet" {
-        val executionResult = Source.fromSnippet(
-"""
+        val executionResult = Source.fromSnippet("""
 int i = 0;
 while (true) {
     i++;
-}""".trim()).compile().execute()
+}
+            """.trim()).compile().execute()
         executionResult shouldNot haveCompleted()
         executionResult should haveTimedOut()
         executionResult should haveOutput()
     }
     "should timeout correctly on sources" {
-        val executionResult = Source(mapOf("Foo" to
-"""
+        val executionResult = Source(mapOf(
+                "Foo" to """
 public class Main {
     public static void main() {
         int i = 0;
@@ -205,41 +218,40 @@ public class Main {
             i++;
         }
     }
-}""".trim())).compile().execute()
+}
+                """.trim())).compile().execute()
         executionResult shouldNot haveCompleted()
         executionResult should haveTimedOut()
         executionResult should haveOutput()
     }
     "should return output after timeout" {
-        val executionResult = Source.fromSnippet(
-                """
+        val executionResult = Source.fromSnippet("""
 System.out.println("Here");
 int i = 0;
 while (true) {
     i++;
-}""".trim()).compile().execute()
+}
+            """.trim()).compile().execute()
         executionResult shouldNot haveCompleted()
         executionResult should haveTimedOut()
         executionResult should haveOutput("Here")
     }
     "should import libraries properly" {
-        val executionResult = Source.fromSnippet(
-                """
+        val executionResult = Source.fromSnippet("""
 import java.util.List;
 import java.util.ArrayList;
 
 List<Integer> list = new ArrayList<>();
 list.add(8);
 System.out.println(list.get(0));
-""".trim()).compile().execute()
+            """.trim()).compile().execute()
 
         executionResult should haveCompleted()
         executionResult should haveOutput("8")
     }
     "should execute sources that use inner classes" {
         val executionResult = Source(mapOf(
-                "Main" to
-                        """
+                "Main" to """
 public class Main {
     class Inner {
         Inner() {
@@ -253,8 +265,7 @@ public class Main {
         Main main = new Main();
     }
 }
-""".trim()
-        )).compile().execute()
+                """.trim())).compile().execute()
         executionResult should haveCompleted()
         executionResult should haveStdout("Inner")
     }
@@ -266,7 +277,7 @@ for (int i = 0; i < 32; i++) {
     for (long j = 0; j < 1024 * 1024; j++);
     System.out.println($value);
 }
-""".trim()).compile().execute(ExecutionArguments(timeout = 1000L))
+                    """.trim()).compile().execute(ExecutionArguments(timeout = 1000L))
             }
             result should haveCompleted()
             result.stdoutLines shouldHaveSize 32
@@ -281,7 +292,7 @@ for (int i = 0; i < 32; i++) {
     for (long j = 0; j < 1024 * 1024; j++);
     System.out.println($value);
 }
-""".trim()).compile().execute(ExecutionArguments(timeout = 1000L)), value)
+                    """.trim()).compile().execute(ExecutionArguments(timeout = 1000L)), value)
             }
         }.map { it ->
             val (result, value) = it.await()
@@ -297,7 +308,7 @@ for (int i = 0; i < 32; i++) {
 for (int i = 0; i < 32; i++) {
     for (long j = 0; j < 1024 * 1024 * 1024; j++);
 }
-""".trim()).compile()
+                    """.trim()).compile()
             }
         }.map { it.await() }
 
@@ -325,7 +336,7 @@ for (int i = 0; i < 32; i++) {
 for (int i = 0; i < 32; i++) {
     for (long j = 0; j < 1024 * 1024 * 1024; j++);
 }
-""".trim()).compile()
+                    """.trim()).compile()
             }
         }.map { it.await() }
 
