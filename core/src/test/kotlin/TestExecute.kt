@@ -4,9 +4,13 @@ import io.kotlintest.specs.StringSpec
 import io.kotlintest.*
 import io.kotlintest.matchers.collections.shouldContain
 import io.kotlintest.matchers.collections.shouldHaveSize
+import io.kotlintest.matchers.collections.shouldNotContain
 import io.kotlintest.matchers.doubles.shouldBeLessThan
 import kotlinx.coroutines.async
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.runBlocking
+import java.io.ByteArrayOutputStream
+import java.io.PrintStream
 import java.util.*
 import java.util.stream.Collectors
 import kotlin.system.measureTimeMillis
@@ -199,6 +203,55 @@ System.err.println("There");
         executionResult should haveStderr("There")
         executionResult should haveOutput("Here\nThere")
     }
+    "should capture incomplete stderr and stdout lines" {
+        val executionResult = Source.fromSnippet("""
+System.out.print("Here");
+System.err.print("There");
+            """.trim()).compile().execute()
+        executionResult should haveCompleted()
+        executionResult shouldNot haveTimedOut()
+        executionResult should haveStdout("Here")
+        executionResult should haveStderr("There")
+        executionResult should haveOutput("Here\nThere")
+    }
+    "should not intermingle unrelated thread output" {
+
+        val combinedOutputStream = ByteArrayOutputStream()
+        val combinedPrintStream = PrintStream(combinedOutputStream)
+        val originalStdout = System.out
+        val originalStderr = System.err
+        System.setOut(combinedPrintStream)
+        System.setErr(combinedPrintStream)
+
+        (0..8).toList().map {
+            if (it % 2 == 0) {
+                async {
+                    Source.fromSnippet("""
+for (int i = 0; i < 32; i++) {
+    for (long j = 0; j < 1024 * 1024 * 1024; j++);
+}
+                        """.trim()).compile().execute(SourceExecutionArguments(timeout = 1000L))
+                }
+            } else {
+                async {
+                    for (j in 1..512) {
+                        System.out.println("Bad")
+                        System.err.println("Bad")
+                        delay(1L)
+                    }
+                }
+            }
+        }.map { it.await() }.filterIsInstance<ExecutionResult<out Any?>>().forEach {executionResult ->
+            executionResult should haveTimedOut()
+            executionResult.outputLines.map { it.line } shouldNotContain "Bad"
+            executionResult.stderrLines.map { it.line } shouldNotContain "Bad"
+        }
+        System.setOut(originalStdout)
+        System.setErr(originalStderr)
+
+        val unrelatedOutput = combinedOutputStream.toString()
+        unrelatedOutput.lines().filter { it == "Bad" }.size shouldBe 4 * 2 * 512
+    }
     "should timeout correctly on snippet" {
         val executionResult = Source.fromSnippet("""
 int i = 0;
@@ -359,7 +412,7 @@ for (int i = 0; i < 32; i++) {
 
         totalTime.toDouble() shouldBeLessThan individualTimeSum * 0.8
     }
-    "it should prevent snippets from exiting" {
+    "should prevent snippets from exiting" {
         val executionResult = Source.fromSnippet("""
 System.exit(-1);
         """.trim()).compile().execute()
@@ -367,7 +420,7 @@ System.exit(-1);
         executionResult shouldNot haveCompleted()
         executionResult.permissionDenied shouldBe true
     }
-    "it should prevent snippets from reading files" {
+    "should prevent snippets from reading files" {
         val executionResult = Source.fromSnippet("""
 import java.io.*;
 System.out.println(new File("/").listFiles().length);
@@ -376,7 +429,7 @@ System.out.println(new File("/").listFiles().length);
         executionResult shouldNot haveCompleted()
         executionResult.permissionDenied shouldBe true
     }
-    "it should prevent snippets from reading system properties" {
+    "should prevent snippets from reading system properties" {
         val executionResult = Source.fromSnippet("""
 System.out.println(System.getProperty("file.separator"));
         """.trim()).compile().execute()
@@ -384,7 +437,7 @@ System.out.println(System.getProperty("file.separator"));
         executionResult shouldNot haveCompleted()
         executionResult.permissionDenied shouldBe true
     }
-    "it should allow snippets to read system properties if allowed" {
+    "should allow snippets to read system properties if allowed" {
         val executionResult = Source.fromSnippet("""
 System.out.println(System.getProperty("file.separator"));
         """.trim()).compile().execute(
@@ -394,7 +447,7 @@ System.out.println(System.getProperty("file.separator"));
         executionResult should haveCompleted()
         executionResult.permissionDenied shouldBe false
     }
-    "it should allow permissions to be changed between runs" {
+    "should allow permissions to be changed between runs" {
         val compiledSource = Source.fromSnippet("""
 System.out.println(System.getProperty("file.separator"));
         """.trim()).compile()
@@ -409,7 +462,7 @@ System.out.println(System.getProperty("file.separator"));
         successfulExecution should haveCompleted()
         successfulExecution.permissionDenied shouldBe false
     }
-    "it should prevent snippets from starting threads by default" {
+    "should prevent snippets from starting threads by default" {
         val executionResult = Source.fromSnippet("""
 public class Example implements Runnable {
     public void run() {
@@ -422,7 +475,7 @@ System.out.println("Started");
 
         executionResult shouldNot haveCompleted()
     }
-    "it should allow snippets to start threads when configured" {
+    "should allow snippets to start threads when configured" {
         val compiledSource = Source.fromSnippet("""
 public class Example implements Runnable {
     public void run() {
@@ -443,7 +496,7 @@ try {
         successfulExecutionResult should haveCompleted()
         successfulExecutionResult should haveOutput("Started\nEnded")
     }
-    "it should shut down a runaway thread" {
+    "should shut down a runaway thread" {
         val executionResult = Source.fromSnippet("""
 public class Example implements Runnable {
     public void run() {
@@ -463,7 +516,7 @@ try {
         executionResult should haveTimedOut()
         executionResult should haveOutput("Started")
     }
-    "it should shut down thread bombs" {
+    "should shut down thread bombs" {
         val executionResult = Source.fromSnippet("""
 public class Example implements Runnable {
     public void run() {
@@ -484,14 +537,14 @@ for (long i = 0;; i++) {
         executionResult.stdoutLines shouldHaveSize 16
         executionResult.stdoutLines.map { it.line } shouldContain "15"
     }
-    "it should not allow unsafe permissions to be provided" {
+    "should not allow unsafe permissions to be provided" {
         shouldThrow<SandboxConfigurationException> {
             Source.fromSnippet("""
 System.exit(-1);
             """.trim()).compile().execute(SourceExecutionArguments(permissions=listOf(RuntimePermission("exitVM"))))
         }
     }
-    "it should allow Java streams with default permissions" {
+    "should allow Java streams with default permissions" {
         val executionResult = Source.fromSnippet("""
 import java.util.List;
 import java.util.ArrayList;
@@ -508,7 +561,7 @@ strings.stream()
         executionResult should haveCompleted()
         executionResult should haveOutput("ME\nTEST")
     }
-    "it should allow generic methods with the default permissions" {
+    "should allow generic methods with the default permissions" {
         val executionResult = Source(mapOf(
                 "A" to """
 public class A implements Comparable<A> {
@@ -531,7 +584,7 @@ public class Main {
         executionResult should haveCompleted()
         executionResult should haveOutput("8")
     }
-    "!it should shut down nasty thread bombs" {
+    "should shut down nasty thread bombs" {
         val executionResult = Source.fromSnippet("""
 public class Example implements Runnable {
     public void run() {

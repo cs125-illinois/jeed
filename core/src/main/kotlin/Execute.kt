@@ -162,16 +162,10 @@ class JeedExecutor<T>(
 
                     for (runningThread in runningThreads) {
                         if (!runningThread.isInterrupted) {
-                            try {
-                                runningThread.interrupt()
-                            } catch (e: Throwable) {
-                            }
+                            runningThread.interrupt()
                         }
                         @Suppress("DEPRECATION")
-                        try {
-                            runningThread.stop()
-                        } catch (e: Throwable) {
-                        }
+                        runningThread.stop()
                     }
                     // The delay here may need some tuning on certain platforms. Too fast and the threads we are trying
                     // to kill don't have time to get stuck. Too slow and it takes forever.
@@ -216,136 +210,138 @@ class JeedExecutor<T>(
                 result.returned ?: throw result.threw ?: error("incorrect executor result")
             }
         }
-    }
 
-    private object OutputInterceptor {
-        init {
-            System.setOut(PrintStream(object : OutputStream() {
-                override fun write(int: Int) {
-                    write(int, ExecutionResult.OutputLine.Console.STDOUT)
-                }
-            }))
-            System.setErr(PrintStream(object : OutputStream() {
-                override fun write(int: Int) {
-                    write(int, ExecutionResult.OutputLine.Console.STDERR)
-                }
-            }))
-        }
+        private object OutputInterceptor {
+            private var originalStdout = System.out ?: error("System.out should exist")
+            private var originalStderr = System.err ?: error("System.err should exist")
 
-        private data class CurrentLine(
-                var started: Instant = Instant.now(),
-                val line: StringBuilder = StringBuilder(),
-                val startedThread: Long = Thread.currentThread().id
-        )
+            private data class CurrentLine(
+                    var started: Instant = Instant.now(),
+                    val line: StringBuilder = StringBuilder(),
+                    val startedThread: Long = Thread.currentThread().id
+            )
 
-        private data class ThreadGroupConsoleOutput(
-                val lines: MutableList<ExecutionResult.OutputLine> = mutableListOf(),
-                val currentLines: MutableMap<ExecutionResult.OutputLine.Console, CurrentLine> = mutableMapOf()
-        )
+            private data class ThreadGroupConsoleOutput(
+                    val lines: MutableList<ExecutionResult.OutputLine> = mutableListOf(),
+                    val currentLines: MutableMap<ExecutionResult.OutputLine.Console, CurrentLine> = mutableMapOf()
+            )
 
-        private val originalStdout = System.out ?: error("System.out should exist")
-        private val originalStderr = System.err ?: error("System.err should exist")
-        private val confinedThreadGroups: MutableMap<ThreadGroup, ThreadGroupConsoleOutput> =
-                Collections.synchronizedMap(WeakHashMap<ThreadGroup, ThreadGroupConsoleOutput>())
+            private val confinedThreadGroups: MutableMap<ThreadGroup, ThreadGroupConsoleOutput> =
+                    Collections.synchronizedMap(WeakHashMap<ThreadGroup, ThreadGroupConsoleOutput>())
 
-        @Synchronized
-        fun intercept(threadGroup: ThreadGroup) {
-            check(!confinedThreadGroups.containsKey(threadGroup)) { "thread group is already intercepted" }
-            confinedThreadGroups[threadGroup] = ThreadGroupConsoleOutput()
-        }
-
-        @Synchronized
-        fun release(threadGroup: ThreadGroup): List<ExecutionResult.OutputLine> {
-            val confinedThreadGroupConsoleOutput =
-                    confinedThreadGroups.remove(threadGroup) ?: error("thread group is not intercepted")
-
-            for (console in ExecutionResult.OutputLine.Console.values()) {
-                val currentLine = confinedThreadGroupConsoleOutput.currentLines[console] ?: continue
-                if (currentLine.line.isNotEmpty()) {
-                    confinedThreadGroupConsoleOutput.lines.add(
-                            ExecutionResult.OutputLine(
-                                    console,
-                                    currentLine.line.toString(),
-                                    currentLine.started,
-                                    currentLine.startedThread
-                            )
-                    )
+            @Synchronized
+            fun intercept(threadGroup: ThreadGroup) {
+                check(!confinedThreadGroups.containsKey(threadGroup)) { "thread group is already intercepted" }
+                confinedThreadGroups[threadGroup] = ThreadGroupConsoleOutput()
+                if (confinedThreadGroups.keys.size == 1) {
+                    originalStdout = System.out ?: error("System.out should exist")
+                    originalStderr = System.err ?: error("System.err should exist")
+                    System.setOut(PrintStream(object : OutputStream() {
+                        override fun write(int: Int) {
+                            write(int, ExecutionResult.OutputLine.Console.STDOUT)
+                        }
+                    }))
+                    System.setErr(PrintStream(object : OutputStream() {
+                        override fun write(int: Int) {
+                            write(int, ExecutionResult.OutputLine.Console.STDERR)
+                        }
+                    }))
                 }
             }
 
-            return confinedThreadGroupConsoleOutput.lines.toList()
-        }
+            @Synchronized
+            fun release(threadGroup: ThreadGroup): List<ExecutionResult.OutputLine> {
+                val confinedThreadGroupConsoleOutput =
+                        confinedThreadGroups.remove(threadGroup) ?: error("thread group is not intercepted")
 
-        @Synchronized
-        fun write(int: Int, console: ExecutionResult.OutputLine.Console) {
-            val confinedThreadGroupConsoleOutput = confinedThreadGroups[Thread.currentThread().threadGroup]
-                    ?: return defaultWrite(int, console)
-
-            val currentLine = confinedThreadGroupConsoleOutput.currentLines.getOrPut(console, { CurrentLine() })
-            when (val char = int.toChar()) {
-                '\n' -> {
-                    confinedThreadGroupConsoleOutput.lines.add(
-                            ExecutionResult.OutputLine(console, currentLine.line.toString(), currentLine.started, currentLine.startedThread)
-                    )
-                    confinedThreadGroupConsoleOutput.currentLines.remove(console)
+                for (console in ExecutionResult.OutputLine.Console.values()) {
+                    val currentLine = confinedThreadGroupConsoleOutput.currentLines[console] ?: continue
+                    if (currentLine.line.isNotEmpty()) {
+                        confinedThreadGroupConsoleOutput.lines.add(
+                                ExecutionResult.OutputLine(
+                                        console,
+                                        currentLine.line.toString(),
+                                        currentLine.started,
+                                        currentLine.startedThread
+                                )
+                        )
+                    }
                 }
-                else -> {
-                    currentLine.line.append(char)
+                if (confinedThreadGroups.keys.size == 0) {
+                    System.setOut(originalStdout)
+                    System.setErr(originalStderr)
+                }
+                return confinedThreadGroupConsoleOutput.lines.toList()
+            }
+
+            @Synchronized
+            fun write(int: Int, console: ExecutionResult.OutputLine.Console) {
+                val confinedThreadGroupConsoleOutput = confinedThreadGroups[Thread.currentThread().threadGroup]
+                        ?: return defaultWrite(int, console)
+
+                val currentLine = confinedThreadGroupConsoleOutput.currentLines.getOrPut(console, { CurrentLine() })
+                when (val char = int.toChar()) {
+                    '\n' -> {
+                        confinedThreadGroupConsoleOutput.lines.add(
+                                ExecutionResult.OutputLine(console, currentLine.line.toString(), currentLine.started, currentLine.startedThread)
+                        )
+                        confinedThreadGroupConsoleOutput.currentLines.remove(console)
+                    }
+                    else -> {
+                        currentLine.line.append(char)
+                    }
+                }
+            }
+
+            fun defaultWrite(int: Int, console: ExecutionResult.OutputLine.Console) {
+                when (console) {
+                    ExecutionResult.OutputLine.Console.STDOUT -> originalStdout.write(int)
+                    ExecutionResult.OutputLine.Console.STDERR -> originalStderr.write(int)
                 }
             }
         }
 
-        fun defaultWrite(int: Int, console: ExecutionResult.OutputLine.Console) {
-            when (console) {
-                ExecutionResult.OutputLine.Console.STDOUT -> originalStdout.write(int)
-                ExecutionResult.OutputLine.Console.STDERR -> originalStderr.write(int)
+        private object Sandbox : SecurityManager() {
+            private val systemSecurityManager: SecurityManager? = System.getSecurityManager()
+            val blacklistedPermissions = listOf(
+                    // Suggestions from here: https://github.com/pro-grade/pro-grade/issues/31.
+                    RuntimePermission("createClassLoader"),
+                    RuntimePermission("accessClassInPackage.sun"),
+                    RuntimePermission("setSecurityManager"),
+                    // Required for Java Streams to work...
+                    // ReflectPermission("suppressAccessChecks")
+                    SecurityPermission("setPolicy"),
+                    SecurityPermission("setProperty.package.access"),
+                    // Other additions from here: https://docs.oracle.com/javase/7/docs/technotes/guides/security/permissions.html
+                    SecurityPermission("createAccessControlContext"),
+                    SecurityPermission("getDomainCombiner"),
+                    RuntimePermission("createSecurityManager"),
+                    RuntimePermission("exitVM"),
+                    RuntimePermission("shutdownHooks"),
+                    RuntimePermission("setIO"),
+                    // These are particularly important to prevent untrusted code from escaping the sandbox which is based on thread groups
+                    RuntimePermission("modifyThread"),
+                    RuntimePermission("modifyThreadGroup")
+            )
+
+            private data class ConfinedThreadGroup(
+                    val key: Long,
+                    val accessControlContext: AccessControlContext,
+                    val maxExtraThreadCount: Int,
+                    val loggedRequests: MutableList<ExecutionResult.PermissionRequest> = mutableListOf(),
+                    var shuttingDown: Boolean = false
+            )
+
+            private val confinedThreadGroups: MutableMap<ThreadGroup, ConfinedThreadGroup> =
+                    Collections.synchronizedMap(WeakHashMap<ThreadGroup, ConfinedThreadGroup>())
+
+            fun sleepForever() {
+                while (true) {
+                    Thread.sleep(Long.MAX_VALUE)
+                }
             }
-        }
-    }
 
-    private object Sandbox : SecurityManager() {
-        private val systemSecurityManager: SecurityManager? = System.getSecurityManager()
-        val blacklistedPermissions = listOf(
-                // Suggestions from here: https://github.com/pro-grade/pro-grade/issues/31.
-                RuntimePermission("createClassLoader"),
-                RuntimePermission("accessClassInPackage.sun"),
-                RuntimePermission("setSecurityManager"),
-                // Required for Java Streams to work...
-                // ReflectPermission("suppressAccessChecks")
-                SecurityPermission("setPolicy"),
-                SecurityPermission("setProperty.package.access"),
-                // Other additions from here: https://docs.oracle.com/javase/7/docs/technotes/guides/security/permissions.html
-                SecurityPermission("createAccessControlContext"),
-                SecurityPermission("getDomainCombiner"),
-                RuntimePermission("createSecurityManager"),
-                RuntimePermission("exitVM"),
-                RuntimePermission("shutdownHooks"),
-                RuntimePermission("setIO"),
-                // These are particularly important to prevent untrusted code from escaping the sandbox which is based on thread groups
-                RuntimePermission("modifyThread"),
-                RuntimePermission("modifyThreadGroup")
-        )
-
-        private data class ConfinedThreadGroup(
-                val key: Long,
-                val accessControlContext: AccessControlContext,
-                val maxExtraThreadCount: Int,
-                val loggedRequests: MutableList<ExecutionResult.PermissionRequest> = mutableListOf(),
-                var shuttingDown: Boolean = false
-        )
-        private val confinedThreadGroups: MutableMap<ThreadGroup, ConfinedThreadGroup> =
-                Collections.synchronizedMap(WeakHashMap<ThreadGroup, ConfinedThreadGroup>())
-
-        fun sleepForever() {
-            while (true) { Thread.sleep(Long.MAX_VALUE) }
-        }
-        private var inReadCheck = false
-        override fun checkRead(file: String) {
-            if (inReadCheck) {
-                return
-            }
-            try {
-                inReadCheck = true
+            override fun checkRead(file: String) {
                 val confinedThreadGroup = confinedThreadGroups[Thread.currentThread().threadGroup] ?: return
                 if (confinedThreadGroup.shuttingDown) {
                     sleepForever()
@@ -354,76 +350,73 @@ class JeedExecutor<T>(
                     confinedThreadGroup.loggedRequests.add(ExecutionResult.PermissionRequest(FilePermission(file, "read"), false))
                     throw SecurityException()
                 }
-            } finally {
-                inReadCheck = false
             }
-        }
-        override fun getThreadGroup(): ThreadGroup {
-            val confinedThreadGroup = confinedThreadGroups[Thread.currentThread().threadGroup] ?: return super.getThreadGroup()
-            if (confinedThreadGroup.shuttingDown) {
-                sleepForever()
-            }
-            if (Thread.currentThread().threadGroup.activeCount() >= confinedThreadGroup.maxExtraThreadCount + 1) {
-                throw SecurityException()
-            } else {
-                return super.getThreadGroup()
-            }
-        }
-        private var inPermissionCheck = false
-        override fun checkPermission(permission: Permission) {
-            if (inPermissionCheck) {
-                return
-            }
-            val confinedThreadGroup = confinedThreadGroups[Thread.currentThread().threadGroup] ?: return
-            try {
-                inPermissionCheck = true
+
+            override fun getThreadGroup(): ThreadGroup {
+                val confinedThreadGroup = confinedThreadGroups[Thread.currentThread().threadGroup]
+                        ?: return super.getThreadGroup()
                 if (confinedThreadGroup.shuttingDown) {
                     sleepForever()
                 }
-                systemSecurityManager?.checkPermission(permission)
-                confinedThreadGroup.accessControlContext.checkPermission(permission)
-                confinedThreadGroup.loggedRequests.add(ExecutionResult.PermissionRequest(permission, true))
-            } catch (e: SecurityException) {
-                confinedThreadGroup.loggedRequests.add(ExecutionResult.PermissionRequest(permission, false))
-                throw e
-            } finally {
-                inPermissionCheck = false
+                if (Thread.currentThread().threadGroup.activeCount() >= confinedThreadGroup.maxExtraThreadCount + 1) {
+                    throw SecurityException()
+                } else {
+                    return super.getThreadGroup()
+                }
             }
-        }
 
-        @Synchronized
-        fun confine(threadGroup: ThreadGroup, permissionList: List<Permission>, maxExtraThreadCount: Int = 0): Long {
-            check(!confinedThreadGroups.containsKey(threadGroup)) { "thread group is already confined" }
-            permissionList.intersect(blacklistedPermissions).isEmpty() || throw SandboxConfigurationException("attempt to allow unsafe permissions")
-
-            val permissions = Permissions()
-            permissionList.forEach { permissions.add(it) }
-
-            val key = Random.nextLong()
-            confinedThreadGroups[threadGroup] = ConfinedThreadGroup(
-                    key,
-                    AccessControlContext(arrayOf(ProtectionDomain(null, permissions))),
-                    maxExtraThreadCount
-            )
-            if (confinedThreadGroups.keys.size == 1) {
-                System.setSecurityManager(this)
+            override fun checkPermission(permission: Permission) {
+                val confinedThreadGroup = confinedThreadGroups[Thread.currentThread().threadGroup] ?: return
+                try {
+                    if (confinedThreadGroup.shuttingDown) {
+                        sleepForever()
+                    }
+                    systemSecurityManager?.checkPermission(permission)
+                    confinedThreadGroup.accessControlContext.checkPermission(permission)
+                    confinedThreadGroup.loggedRequests.add(ExecutionResult.PermissionRequest(permission, true))
+                } catch (e: SecurityException) {
+                    confinedThreadGroup.loggedRequests.add(ExecutionResult.PermissionRequest(permission, false))
+                    throw e
+                }
             }
-            return key
-        }
-        @Synchronized
-        fun shutdown(key: Long, threadGroup: ThreadGroup) {
-            val confinedThreadGroup = confinedThreadGroups[threadGroup] ?: error("thread group is not confined")
-            check(key == confinedThreadGroup.key) { "invalid key" }
-            confinedThreadGroup.shuttingDown = true
-        }
-        @Synchronized
-        fun release(key: Long, threadGroup: ThreadGroup): List<ExecutionResult.PermissionRequest> {
-            val confinedThreadGroup = confinedThreadGroups.remove(threadGroup) ?: error("thread group is not confined")
-            check(key == confinedThreadGroup.key) { "invalid key" }
-            if (confinedThreadGroups.keys.isEmpty()) {
-                System.setSecurityManager(systemSecurityManager)
+
+            @Synchronized
+            fun confine(threadGroup: ThreadGroup, permissionList: List<Permission>, maxExtraThreadCount: Int = 0): Long {
+                check(!confinedThreadGroups.containsKey(threadGroup)) { "thread group is already confined" }
+                permissionList.intersect(blacklistedPermissions).isEmpty() || throw SandboxConfigurationException("attempt to allow unsafe permissions")
+
+                val permissions = Permissions()
+                permissionList.forEach { permissions.add(it) }
+
+                val key = Random.nextLong()
+                confinedThreadGroups[threadGroup] = ConfinedThreadGroup(
+                        key,
+                        AccessControlContext(arrayOf(ProtectionDomain(null, permissions))),
+                        maxExtraThreadCount
+                )
+                if (confinedThreadGroups.keys.size == 1) {
+                    System.setSecurityManager(this)
+                }
+                return key
             }
-            return confinedThreadGroup.loggedRequests
+
+            @Synchronized
+            fun shutdown(key: Long, threadGroup: ThreadGroup) {
+                val confinedThreadGroup = confinedThreadGroups[threadGroup] ?: error("thread group is not confined")
+                check(key == confinedThreadGroup.key) { "invalid key" }
+                confinedThreadGroup.shuttingDown = true
+            }
+
+            @Synchronized
+            fun release(key: Long, threadGroup: ThreadGroup): List<ExecutionResult.PermissionRequest> {
+                val confinedThreadGroup = confinedThreadGroups.remove(threadGroup)
+                        ?: error("thread group is not confined")
+                check(key == confinedThreadGroup.key) { "invalid key" }
+                if (confinedThreadGroups.keys.isEmpty()) {
+                    System.setSecurityManager(systemSecurityManager)
+                }
+                return confinedThreadGroup.loggedRequests
+            }
         }
     }
 }
