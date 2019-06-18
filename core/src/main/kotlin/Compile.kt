@@ -2,26 +2,76 @@ package edu.illinois.cs.cs125.jeed.core
 
 import mu.KotlinLogging
 import java.io.*
+import java.lang.module.ModuleFinder
+import java.net.JarURLConnection
 import java.net.URI
+import java.net.URL
 import java.nio.charset.Charset
 import java.security.AccessController
 import java.security.PrivilegedAction
 import java.util.*
+import javax.lang.model.element.Modifier
+import javax.lang.model.element.NestingKind
 import javax.tools.*
 
 @Suppress("UNUSED")
 private val logger = KotlinLogging.logger {}
 
+private val systemCompiler = ToolProvider.getSystemJavaCompiler()
+        ?: error("systemCompiler not found: you are probably running a JRE, not a JDK")
+private val globalClassLoader = ClassLoader.getSystemClassLoader()
+
 data class CompilationArguments(
-        val wError: Boolean = false,
-        val Xlint: String = "all"
-)
+        val wError: Boolean = DEFAULT_WERROR,
+        val Xlint: String = DEFAULT_XLINT
+) {
+    companion object {
+        const val DEFAULT_WERROR = false
+        const val DEFAULT_XLINT = "all"
+    }
+}
 
-private val compiler = ToolProvider.getSystemJavaCompiler()
-        ?: throw Exception("compiler not found: you are probably running a JRE, not a JDK")
+class CompilationResult(val source: Source, val messages: List<CompilationMessage>, val classLoader: JeedClassLoader)
 
-@Suppress("UNUSED")
-class CompiledSource(val source: Source, val messages: List<CompilationMessage>, val classLoader: JeedClassLoader)
+class CompilationFailed(errors: List<CompilationError>) : JeepError(errors)
+
+@Throws(CompilationFailed::class)
+fun Source.compile(
+        compilationArguments: CompilationArguments = CompilationArguments()
+): CompilationResult {
+    val units = sources.entries.map { Unit(it) }
+    val results = Results()
+    val fileManager = FileManager(results)
+
+    val options = mutableSetOf<String>()
+    options.add("-Xlint:${compilationArguments.Xlint}")
+
+    systemCompiler.getTask(null, fileManager, results, options.toList(), null, units).call()
+
+    fileManager.close()
+
+    val errors = results.diagnostics.filter {
+        it.kind == Diagnostic.Kind.ERROR || (it.kind == Diagnostic.Kind.WARNING && compilationArguments.wError)
+    }.map {
+        val originalLocation = SourceLocation(it.source.name, it.lineNumber.toInt(), it.columnNumber.toInt())
+        val remappedLocation = this.mapLocation(originalLocation)
+        CompilationError(remappedLocation, it.getMessage(Locale.US))
+    }
+    if (errors.isNotEmpty()) {
+        throw CompilationFailed(errors)
+    }
+
+    val messages = results.diagnostics.map {
+        val originalLocation = SourceLocation(it.source.name, it.lineNumber.toInt(), it.columnNumber.toInt())
+        val remappedLocation = this.mapLocation(originalLocation)
+        CompilationMessage(it.kind.toString(), remappedLocation, it.getMessage(Locale.US))
+    }
+    val classLoader = AccessController.doPrivileged(PrivilegedAction<JeedClassLoader> {
+        JeedClassLoader(fileManager)
+    })
+
+    return CompilationResult(this, messages, classLoader)
+}
 
 private class Unit(val entry: Map.Entry<String, String>) : SimpleJavaFileObject(URI(entry.key), JavaFileObject.Kind.SOURCE) {
     override fun isNameCompatible(simpleName: String?, kind: JavaFileObject.Kind?): Boolean {
@@ -136,41 +186,109 @@ class CompilationError(
         location: SourceLocation,
         message: String
 ) : SourceError(location, message)
-class CompilationFailed(errors: List<CompilationError>) : JeepError(errors)
 
-fun Source.compile(
-        compilationArguments: CompilationArguments = CompilationArguments()
-): CompiledSource {
-    val units = sources.entries.map { Unit(it) }
-    val results = Results()
-    val fileManager = FileManager(results)
+private class Listing(val entry: Map.Entry<String, URL>) : JavaFileObject {
+    override fun toUri(): URI {
+        return entry.value.toURI()
+    }
+    override fun getName(): String {
+        return entry.key
+    }
+    override fun openInputStream(): InputStream {
+        return entry.value.openStream()
+    }
+    override fun getKind(): JavaFileObject.Kind {
+        return JavaFileObject.Kind.CLASS
+    }
+    override fun toString(): String {
+        return "${entry.key} from ${this.javaClass.simpleName}"
+    }
 
-    val options = mutableSetOf<String>()
-    options.add("-Xlint:${compilationArguments.Xlint}")
+    override fun openOutputStream(): OutputStream { throw UnsupportedOperationException() }
+    override fun openReader(ignoreEncodingErrors: Boolean): Reader { throw UnsupportedOperationException() }
+    override fun getCharContent(ignoreEncodingErrors: Boolean): CharSequence { throw UnsupportedOperationException() }
+    override fun openWriter(): Writer { throw UnsupportedOperationException() }
+    override fun getLastModified(): Long { throw UnsupportedOperationException() }
+    override fun delete(): Boolean { throw UnsupportedOperationException() }
+    override fun isNameCompatible(simpleName: String?, kind: JavaFileObject.Kind?): Boolean { throw UnsupportedOperationException() }
+    override fun getNestingKind(): NestingKind { throw UnsupportedOperationException() }
+    override fun getAccessLevel(): Modifier { throw UnsupportedOperationException() }
+}
 
-    compiler.getTask(null, fileManager, results, options.toList(), null, units).call()
+val getBootClasspathSubresourcesOf = run {
+    assert(globalClassLoader != null)
 
-    fileManager.close()
+    val resource = globalClassLoader.getResource("java/lang/Object.class")
+    val protocol = resource!!.protocol
+    assert(protocol.equals("jrt", true))
+    val bootClassPathSubresources = ModuleFinder.ofSystem().findAll()
 
-    val errors = results.diagnostics.filter {
-        it.kind == Diagnostic.Kind.ERROR || (it.kind == Diagnostic.Kind.WARNING && compilationArguments.wError)
+    fun(name: String, recurse: Boolean): Map<String, URL> {
+        val results = mutableMapOf<String, URL>()
+        bootClassPathSubresources.forEach { moduleReference ->
+            moduleReference.open().list().filter { resourceName ->
+                resourceName != "module-info.class"
+            }.filter { resourceName ->
+                resourceName.startsWith(name) && (recurse || resourceName.lastIndexOf('/') == name.length - 1)
+            }.forEach {resourceName ->
+                assert(!results.containsKey(resourceName))
+                results[resourceName] = URL("${moduleReference.location().get()}/$resourceName")
+            }
+        }
+        return results
+    }
+}
+
+fun getSubresources(name: String, recurse: Boolean): MutableIterable<JavaFileObject> {
+    val results = mutableMapOf<String, URL>()
+    globalClassLoader.getResources(name).toList().forEach { url ->
+        assert(url.protocol.toLowerCase() in listOf("jar", "file"))
+        if (url.protocol.equals("jar", true)) {
+            val jarURLConnection = url.openConnection() as JarURLConnection
+            jarURLConnection.useCaches = false
+            if (jarURLConnection.jarEntry.isDirectory) {
+                results[name] = url
+            } else {
+                results.putAll(jarURLConnection.jarFile.entries().toList().filter { jarEntry ->
+                    !jarEntry.isDirectory && jarEntry.name.startsWith(name) && (recurse || jarEntry.name.indexOf('/', name.length) == -1)
+                }.map {jarEntry ->
+                    jarEntry.name to URL("jar", null, "$url!/${ jarEntry.name })")
+                }.toMap())
+            }
+        } else if (url.protocol.equals("file", true)) {
+            val file = File(url.file)
+            if (file.isFile) {
+                results[name] = url
+            } else if (file.isDirectory) {
+                val namePrefix = if (name.isNotEmpty() && !name.endsWith('/')) {
+                    "$name/"
+                } else {
+                    name
+                }
+                results.putAll(getFileResources(file, namePrefix, recurse))
+            }
+        }
+    }
+
+    if (results.isEmpty()) {
+        results.putAll(getBootClasspathSubresourcesOf(name, recurse))
+    }
+    return results.filter {
+        it.key.endsWith(".class")
     }.map {
-        val originalLocation = SourceLocation(it.source.name, it.lineNumber.toInt(), it.columnNumber.toInt())
-        val remappedLocation = this.mapLocation(originalLocation)
-        CompilationError(remappedLocation, it.getMessage(Locale.US))
-    }
-    if (errors.isNotEmpty()) {
-        throw CompilationFailed(errors)
-    }
+        Listing(it)
+    }.toMutableList()
+}
 
-    val messages = results.diagnostics.map {
-        val originalLocation = SourceLocation(it.source.name, it.lineNumber.toInt(), it.columnNumber.toInt())
-        val remappedLocation = this.mapLocation(originalLocation)
-        CompilationMessage(it.kind.toString(), remappedLocation, it.getMessage(Locale.US))
+fun getFileResources(file: File, name: String, recurse: Boolean): Map<String, URL> {
+    val results = mutableMapOf<String, URL>()
+    file.listFiles().forEach {
+        val fileName = "$name${it.name}"
+        if (recurse) {
+            results.putAll(getFileResources(it, fileName, recurse))
+        } else if (file.isFile) {
+            results[fileName] = file.toURI().toURL()
+        }
     }
-    val classLoader = AccessController.doPrivileged(PrivilegedAction<JeedClassLoader> {
-        JeedClassLoader(fileManager)
-    })
-
-    return CompiledSource(this, messages, classLoader)
+    return results
 }

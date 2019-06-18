@@ -2,10 +2,12 @@ package edu.illinois.cs.cs125.jeed.core
 
 import io.kotlintest.specs.StringSpec
 import io.kotlintest.*
+import io.kotlintest.matchers.collections.shouldContain
 import io.kotlintest.matchers.collections.shouldHaveSize
 import io.kotlintest.matchers.doubles.shouldBeLessThan
 import kotlinx.coroutines.async
 import kotlinx.coroutines.runBlocking
+import java.util.*
 import java.util.stream.Collectors
 import kotlin.system.measureTimeMillis
 
@@ -27,7 +29,7 @@ public class Foo {
 Foo foo = new Foo();
 foo.i = 4;
 System.out.println(foo.i);
-            """.trim()).compile().execute(ExecutionArguments())
+            """.trim()).compile().execute()
         executeMainResult should haveCompleted()
         executeMainResult should haveOutput("4")
     }
@@ -46,20 +48,20 @@ public class Foo {
 System.out.println("Main");
             """.trim()).compile()
 
-        val executeBarResult = compiledSource.execute(ExecutionArguments(klass = "Bar"))
+        val executeBarResult = compiledSource.execute(SourceExecutionArguments(klass = "Bar"))
         executeBarResult should haveCompleted()
         executeBarResult should haveOutput("Bar")
 
-        val executeFooResult = compiledSource.execute(ExecutionArguments(klass = "Foo"))
+        val executeFooResult = compiledSource.execute(SourceExecutionArguments(klass = "Foo"))
         executeFooResult should haveCompleted()
         executeFooResult should haveOutput("Foo")
 
-        val executeMainResult = compiledSource.execute(ExecutionArguments(klass = "Main"))
+        val executeMainResult = compiledSource.execute(SourceExecutionArguments(klass = "Main"))
         executeMainResult should haveCompleted()
         executeMainResult should haveOutput("Main")
 
         shouldThrow<ClassNotFoundException> {
-            compiledSource.execute(ExecutionArguments(klass = "Baz"))
+            compiledSource.execute(SourceExecutionArguments(klass = "Baz"))
         }
     }
     "should execute the right method in snippets that include multiple method definitions" {
@@ -73,15 +75,15 @@ public static void bar() {
 System.out.println("main");
             """.trim()).compile()
 
-        val executeFooResult = compiledSource.execute(ExecutionArguments(method = "foo()"))
+        val executeFooResult = compiledSource.execute(SourceExecutionArguments(method = "foo()"))
         executeFooResult should haveCompleted()
         executeFooResult should haveOutput("foo")
 
-        val executeBarResult = compiledSource.execute(ExecutionArguments(method = "bar()"))
+        val executeBarResult = compiledSource.execute(SourceExecutionArguments(method = "bar()"))
         executeBarResult should haveCompleted()
         executeBarResult should haveOutput("bar")
 
-        val executeMainResult = compiledSource.execute(ExecutionArguments(method = "main()"))
+        val executeMainResult = compiledSource.execute(SourceExecutionArguments(method = "main()"))
         executeMainResult should haveCompleted()
         executeMainResult should haveOutput("main")
     }
@@ -94,10 +96,10 @@ System.out.println("main");
             """.trim()).compile()
 
         shouldThrow<MethodNotFoundException> {
-            compiledSource.execute(ExecutionArguments(method = "foo()"))
+            compiledSource.execute(SourceExecutionArguments(method = "foo()"))
         }
 
-        val executeMainResult = compiledSource.execute(ExecutionArguments(method = "main()"))
+        val executeMainResult = compiledSource.execute(SourceExecutionArguments(method = "main()"))
         executeMainResult should haveCompleted()
         executeMainResult should haveOutput("main")
     }
@@ -110,10 +112,10 @@ System.out.println("main");
             """.trim()).compile()
 
         shouldThrow<MethodNotFoundException> {
-            compiledSource.execute(ExecutionArguments(method = "foo()"))
+            compiledSource.execute(SourceExecutionArguments(method = "foo()"))
         }
 
-        val executeMainResult = compiledSource.execute(ExecutionArguments(method = "main()"))
+        val executeMainResult = compiledSource.execute(SourceExecutionArguments(method = "main()"))
         executeMainResult should haveCompleted()
         executeMainResult should haveOutput("main")
     }
@@ -126,10 +128,10 @@ System.out.println("main");
             """.trim()).compile()
 
         shouldThrow<MethodNotFoundException> {
-            compiledSource.execute(ExecutionArguments(method = "foo()"))
+            compiledSource.execute(SourceExecutionArguments(method = "foo()"))
         }
 
-        val executeMainResult = compiledSource.execute(ExecutionArguments(method = "main()"))
+        val executeMainResult = compiledSource.execute(SourceExecutionArguments(method = "main()"))
         executeMainResult should haveCompleted()
         executeMainResult should haveOutput("main")
     }
@@ -277,7 +279,7 @@ for (int i = 0; i < 32; i++) {
     for (long j = 0; j < 1024 * 1024; j++);
     System.out.println($value);
 }
-                    """.trim()).compile().execute(ExecutionArguments(timeout = 1000L))
+                    """.trim()).compile().execute(SourceExecutionArguments(timeout = 1000L))
             }
             result should haveCompleted()
             result.stdoutLines shouldHaveSize 32
@@ -292,7 +294,7 @@ for (int i = 0; i < 32; i++) {
     for (long j = 0; j < 1024 * 1024; j++);
     System.out.println($value);
 }
-                    """.trim()).compile().execute(ExecutionArguments(timeout = 1000L)), value)
+                    """.trim()).compile().execute(SourceExecutionArguments(timeout = 1000L)), value)
             }
         }.map { it ->
             val (result, value) = it.await()
@@ -312,11 +314,11 @@ for (int i = 0; i < 32; i++) {
             }
         }.map { it.await() }
 
-        lateinit var results: List<ExecutionResult>
+        lateinit var results: List<ExecutionResult<out Any?>>
         val totalTime = measureTimeMillis {
             results = compiledSources.parallelStream().map {
                 runBlocking {
-                    it.execute(ExecutionArguments(timeout = 1000L))
+                    it.execute(SourceExecutionArguments(timeout = 1000L))
                 }
             }.collect(Collectors.toList()).toList()
         }
@@ -340,11 +342,11 @@ for (int i = 0; i < 32; i++) {
             }
         }.map { it.await() }
 
-        lateinit var results: List<ExecutionResult>
+        lateinit var results: List<ExecutionResult<out Any?>>
         val totalTime = measureTimeMillis {
             results = compiledSources.map {
                 async {
-                    it.execute(ExecutionArguments(timeout = 1000L))
+                    it.execute(SourceExecutionArguments(timeout = 1000L))
                 }
             }.map { it.await() }
         }
@@ -357,10 +359,205 @@ for (int i = 0; i < 32; i++) {
 
         totalTime.toDouble() shouldBeLessThan individualTimeSum * 0.8
     }
+    "it should prevent snippets from exiting" {
+        val executionResult = Source.fromSnippet("""
+System.exit(-1);
+        """.trim()).compile().execute()
+
+        executionResult shouldNot haveCompleted()
+        executionResult.permissionDenied shouldBe true
+    }
+    "it should prevent snippets from reading files" {
+        val executionResult = Source.fromSnippet("""
+import java.io.*;
+System.out.println(new File("/").listFiles().length);
+        """.trim()).compile().execute()
+
+        executionResult shouldNot haveCompleted()
+        executionResult.permissionDenied shouldBe true
+    }
+    "it should prevent snippets from reading system properties" {
+        val executionResult = Source.fromSnippet("""
+System.out.println(System.getProperty("file.separator"));
+        """.trim()).compile().execute()
+
+        executionResult shouldNot haveCompleted()
+        executionResult.permissionDenied shouldBe true
+    }
+    "it should allow snippets to read system properties if allowed" {
+        val executionResult = Source.fromSnippet("""
+System.out.println(System.getProperty("file.separator"));
+        """.trim()).compile().execute(
+                SourceExecutionArguments(permissions=listOf(PropertyPermission("*", "read"))
+                ))
+
+        executionResult should haveCompleted()
+        executionResult.permissionDenied shouldBe false
+    }
+    "it should allow permissions to be changed between runs" {
+        val compiledSource = Source.fromSnippet("""
+System.out.println(System.getProperty("file.separator"));
+        """.trim()).compile()
+
+        val failedExecution = compiledSource.execute()
+        failedExecution shouldNot haveCompleted()
+        failedExecution.permissionDenied shouldBe true
+
+        val successfulExecution = compiledSource.execute(
+                SourceExecutionArguments(permissions=listOf(PropertyPermission("*", "read"))
+                ))
+        successfulExecution should haveCompleted()
+        successfulExecution.permissionDenied shouldBe false
+    }
+    "it should prevent snippets from starting threads by default" {
+        val executionResult = Source.fromSnippet("""
+public class Example implements Runnable {
+    public void run() {
+    }
+}
+Thread thread = new Thread(new Example());
+thread.start();
+System.out.println("Started");
+        """.trim()).compile().execute()
+
+        executionResult shouldNot haveCompleted()
+    }
+    "it should allow snippets to start threads when configured" {
+        val compiledSource = Source.fromSnippet("""
+public class Example implements Runnable {
+    public void run() {
+        System.out.println("Ended");
+    }
+}
+Thread thread = new Thread(new Example());
+System.out.println("Started");
+thread.start();
+try {
+    thread.join();
+} catch (Exception e) { }
+        """.trim()).compile()
+        val failedExecutionResult = compiledSource.execute()
+        failedExecutionResult shouldNot haveCompleted()
+
+        val successfulExecutionResult = compiledSource.execute(SourceExecutionArguments(maxExtraThreads=1))
+        successfulExecutionResult should haveCompleted()
+        successfulExecutionResult should haveOutput("Started\nEnded")
+    }
+    "it should shut down a runaway thread" {
+        val executionResult = Source.fromSnippet("""
+public class Example implements Runnable {
+    public void run() {
+        for (long j = 0; j < 512 * 1024 * 1024; j++);
+        System.out.println("Ended");
+    }
+}
+Thread thread = new Thread(new Example());
+System.out.println("Started");
+thread.start();
+try {
+    thread.join();
+} catch (Exception e) { }
+        """.trim()).compile().execute(SourceExecutionArguments(maxExtraThreads=1))
+
+        executionResult shouldNot haveCompleted()
+        executionResult should haveTimedOut()
+        executionResult should haveOutput("Started")
+    }
+    "it should shut down thread bombs" {
+        val executionResult = Source.fromSnippet("""
+public class Example implements Runnable {
+    public void run() {
+        for (long j = 0; j < 512 * 1024 * 1024; j++);
+        System.out.println("Ended");
+    }
+}
+for (long i = 0;; i++) {
+    try {
+        Thread thread = new Thread(new Example());
+        System.out.println(i);
+        thread.start();
+    } catch (Throwable e) { }
+}
+        """.trim()).compile().execute(SourceExecutionArguments(maxExtraThreads=16, timeout=1000L))
+
+        executionResult shouldNot haveCompleted()
+        executionResult.stdoutLines shouldHaveSize 16
+        executionResult.stdoutLines.map { it.line } shouldContain "15"
+    }
+    "it should not allow unsafe permissions to be provided" {
+        shouldThrow<SandboxConfigurationException> {
+            Source.fromSnippet("""
+System.exit(-1);
+            """.trim()).compile().execute(SourceExecutionArguments(permissions=listOf(RuntimePermission("exitVM"))))
+        }
+    }
+    "it should allow Java streams with default permissions" {
+        val executionResult = Source.fromSnippet("""
+import java.util.List;
+import java.util.ArrayList;
+import java.util.Arrays;
+
+List<String> strings = new ArrayList<>(Arrays.asList(new String[] { "test", "me", "another" }));
+strings.stream()
+    .filter(string -> string.length() <= 4)
+    .map(String::toUpperCase)
+    .sorted()
+    .forEach(System.out::println);
+        """.trim()).compile().execute()
+
+        executionResult should haveCompleted()
+        executionResult should haveOutput("ME\nTEST")
+    }
+    "it should allow generic methods with the default permissions" {
+        val executionResult = Source(mapOf(
+                "A" to """
+public class A implements Comparable<A> {
+    public int compareTo(A other) {
+        return 0;
+    }
+}
+                """.trim(),
+                "Main" to """
+public class Main {
+    public static <T extends Comparable<T>> int test(T[] values) {
+        return 8;
+    }
+    public static void main() {
+        System.out.println(test(new A[] { }));
+    }
+}
+                """.trim())).compile().execute()
+
+        executionResult should haveCompleted()
+        executionResult should haveOutput("8")
+    }
+    "!it should shut down nasty thread bombs" {
+        val executionResult = Source.fromSnippet("""
+public class Example implements Runnable {
+    public void run() {
+        while (true) {
+            try {
+                Thread thread = new Thread(new Example());
+                thread.start();
+            } catch (Throwable e) {}
+        }
+    }
+}
+Thread thread = new Thread(new Example());
+thread.start();
+// Give time for things to get NASTY
+try {
+    Thread.sleep(Long.MAX_VALUE);
+} catch (Exception e) { }
+        """.trim()).compile().execute(SourceExecutionArguments(maxExtraThreads=256, timeout=1000L))
+
+        executionResult shouldNot haveCompleted()
+        executionResult should haveTimedOut()
+    }
 })
 
-fun haveCompleted() = object : Matcher<ExecutionResult> {
-    override fun test(value: ExecutionResult): Result {
+fun haveCompleted() = object : Matcher<ExecutionResult<out Any?>> {
+    override fun test(value: ExecutionResult<out Any?>): Result {
         return Result(
                 value.completed,
                 "Code should have run",
@@ -368,17 +565,17 @@ fun haveCompleted() = object : Matcher<ExecutionResult> {
         )
     }
 }
-fun haveTimedOut() = object : Matcher<ExecutionResult> {
-    override fun test(value: ExecutionResult): Result {
+fun haveTimedOut() = object : Matcher<ExecutionResult<out Any?>> {
+    override fun test(value: ExecutionResult<out Any?>): Result {
         return Result(
-                value.timedOut,
+                value.timeout,
                 "Code should have timed out",
                 "Code should not have timed out"
         )
     }
 }
-fun haveOutput(output: String = "") = object : Matcher<ExecutionResult> {
-    override fun test(value: ExecutionResult): Result {
+fun haveOutput(output: String = "") = object : Matcher<ExecutionResult<out Any?>> {
+    override fun test(value: ExecutionResult<out Any?>): Result {
         val actualOutput = value.output.trim()
         return Result(
                 actualOutput == output,
@@ -387,8 +584,8 @@ fun haveOutput(output: String = "") = object : Matcher<ExecutionResult> {
         )
     }
 }
-fun haveStdout(output: String) = object : Matcher<ExecutionResult> {
-    override fun test(value: ExecutionResult): Result {
+fun haveStdout(output: String) = object : Matcher<ExecutionResult<out Any?>> {
+    override fun test(value: ExecutionResult<out Any?>): Result {
         val actualOutput = value.stdout.trim()
         return Result(
                 actualOutput == output,
@@ -397,8 +594,8 @@ fun haveStdout(output: String) = object : Matcher<ExecutionResult> {
         )
     }
 }
-fun haveStderr(output: String) = object : Matcher<ExecutionResult> {
-    override fun test(value: ExecutionResult): Result {
+fun haveStderr(output: String) = object : Matcher<ExecutionResult<out Any?>> {
+    override fun test(value: ExecutionResult<out Any?>): Result {
         val actualOutput = value.stderr.trim()
         return Result(
                 actualOutput == output,
