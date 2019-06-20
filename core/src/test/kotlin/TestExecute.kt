@@ -12,7 +12,6 @@ import kotlinx.coroutines.runBlocking
 import java.io.ByteArrayOutputStream
 import java.io.PrintStream
 import java.lang.IllegalArgumentException
-import java.lang.IllegalStateException
 import java.util.*
 import java.util.stream.Collectors
 import kotlin.system.measureTimeMillis
@@ -237,7 +236,7 @@ for (int i = 0; i < 32; i++) {
             } else {
                 async {
                     for (j in 1..512) {
-                        System.out.println("Bad")
+                        println("Bad")
                         System.err.println("Bad")
                         delay(1L)
                     }
@@ -519,12 +518,15 @@ try {
         successfulExecutionResult should haveCompleted()
         successfulExecutionResult should haveOutput("Started\nEnded")
     }
-    "should shut down a runaway thread" {
+    "f:should shut down a runaway thread" {
         val executionResult = Source.fromSnippet("""
 public class Example implements Runnable {
     public void run() {
-        for (long j = 0; j < 512 * 1024 * 1024; j++);
-        System.out.println("Ended");
+        while (true) {
+            try {
+                for (long i = 0; i < Long.MAX_VALUE; i++);
+            } catch (Throwable e) {}
+        }
     }
 }
 Thread thread = new Thread(new Example());
@@ -659,6 +661,28 @@ public class Example implements Runnable {
         while (true) {
             try {
                 System.exit(4);
+            } catch (Throwable e) {}
+        }
+    }
+}
+while (true) {
+    try {
+        Thread thread = new Thread(new Example());
+        thread.start();
+    } catch (Throwable e) { }
+}
+        """.trim()).compile().execute(SourceExecutionArguments(maxExtraThreads=256, timeout=1000L))
+
+        executionResult shouldNot haveCompleted()
+        executionResult should haveTimedOut()
+    }
+    "should shut down spin bombs" {
+        val executionResult = Source.fromSnippet("""
+public class Example implements Runnable {
+    public void run() {
+        while (true) {
+            try {
+                for (long i = 0; i < Long.MAX_VALUE; i++);
             } catch (Throwable e) {}
         }
     }

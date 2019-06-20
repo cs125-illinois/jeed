@@ -154,7 +154,7 @@ class JeedExecutor<T>(
             val threadShutdownRetries = if (threadGroup.activeCount() == 0) {
                 0
             } else {
-                (0..MAX_THREAD_SHUTDOWN_RETRIES).find {
+                (0..MAX_THREAD_SHUTDOWN_RETRIES).find { i ->
                     if (threadGroup.activeCount() == 0) {
                         return@find true
                     }
@@ -168,11 +168,11 @@ class JeedExecutor<T>(
                         if (!runningThread.isInterrupted) {
                             runningThread.interrupt()
                         }
-                        @Suppress("DEPRECATION")
-                        runningThread.stop()
+                        @Suppress("DEPRECATION") runningThread.stop()
                     }
                     // The delay here may need some tuning on certain platforms. Too fast and the threads we are trying
                     // to kill don't have time to get stuck. Too slow and it takes forever.
+                    println("$i: ${threadGroup.activeCount()}")
                     Thread.sleep(threadShutdownDelay)
                     return@find false
                 } ?: error("couldn't shut down thread group after $MAX_THREAD_SHUTDOWN_RETRIES retries")
