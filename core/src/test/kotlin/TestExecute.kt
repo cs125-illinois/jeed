@@ -6,6 +6,7 @@ import io.kotlintest.matchers.collections.shouldContain
 import io.kotlintest.matchers.collections.shouldHaveSize
 import io.kotlintest.matchers.collections.shouldNotContain
 import io.kotlintest.matchers.doubles.shouldBeLessThan
+import io.kotlintest.matchers.string.contain
 import kotlinx.coroutines.async
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.runBlocking
@@ -801,6 +802,7 @@ try {
         """.trim()).compile()
         }
     }
+
     "it should not allow snippets to read from the internet" {
         val executionResult = Source.fromSnippet("""
 
@@ -944,6 +946,56 @@ while (true) {
 }
             """.trim()).compile().execute(SourceExecutionArguments(maxExtraThreads=256, timeout=1000L))
     }
+
+    "should not allow access to the compiler" {
+        val result = Source.fromSnippet("""
+import java.lang.reflect.*;
+
+try {
+    Class<?> sourceClass = Class.forName("edu.illinois.cs.cs125.jeed.core.Source");
+    Field sourceCompanion = sourceClass.getField("Companion");
+    Class<?> snippetKtClass = Class.forName("edu.illinois.cs.cs125.jeed.core.SnippetKt");
+    Method fromSnippet = snippetKtClass.getMethod("fromSnippet", sourceCompanion.getType(), String.class, int.class);
+    Object snippet = fromSnippet.invoke(null, sourceCompanion.get(null), "System.out.println(403);", 4);
+    Class<?> snippetClass = snippet.getClass();
+    Class<?> compileArgsClass = Class.forName("edu.illinois.cs.cs125.jeed.core.CompilationArguments");
+    Method compile = Class.forName("edu.illinois.cs.cs125.jeed.core.CompileKt").getMethod("compile", sourceClass, compileArgsClass);
+    Object compileArgs = compileArgsClass.newInstance();
+    Object compiledSource = compile.invoke(null, snippet, compileArgs);
+    System.out.println(compiledSource);
+    System.out.println("Accessed compiler!");
+} catch (Exception e) {
+    e.printStackTrace();
+}
+
+            """.trim()).compile().execute()
+        result.output shouldNot contain("!")
+    }
+
+    "should not allow reflection to disable sandboxing" {
+        val SCompanionSSandbox = "\$Companion\$Sandbox"
+        val result = Source.fromSnippet("""
+            
+import java.lang.reflect.*;
+import java.net.*;
+import java.util.Map;
+
+try {
+    Class<?> sandboxClass = Class.forName("edu.illinois.cs.cs125.jeed.core.JeedExecutor$SCompanionSSandbox");
+    Field confinedThreadGroupsField = sandboxClass.getDeclaredField("confinedThreadGroups");
+    confinedThreadGroupsField.setAccessible(true);
+    Map confinedThreadGroups = (Map) confinedThreadGroupsField.get(null);
+    confinedThreadGroups.clear();
+    URLClassLoader loader = new URLClassLoader(new URL[] { new URL("https://example.com/sketchy/server") });
+    System.out.println("Escaped sandbox!");
+} catch (Exception e) {
+    e.printStackTrace();
+}
+        """.trim()).compile().execute()
+        println(result.output)
+        result.output shouldNot contain("!")
+    }
+
 })
 
 fun haveCompleted() = object : Matcher<ExecutionResult<out Any?>> {
