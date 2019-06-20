@@ -703,11 +703,9 @@ while (true) {
         val executionResult = Source.fromSnippet("""
 public class Example implements Runnable {
     public void run() {
-        System.err.println("Starting thread");
         while (true) {
             try {
                 java.util.stream.Stream.of(this).forEach(this::createThreadImpl);
-                System.err.println("Invoked the method");
             } catch (Exception e) {}
         }
     }
@@ -724,7 +722,6 @@ try {
 } catch (Exception e) { }
         """.trim()).compile().execute(SourceExecutionArguments(maxExtraThreads=256, timeout=1000L))
 
-        println(executionResult.output)
         executionResult shouldNot haveCompleted()
         executionResult should haveTimedOut()
     }
