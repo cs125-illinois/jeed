@@ -419,7 +419,7 @@ for (int i = 0; i < 32; i++) {
 public class Example implements Runnable {
     public void run() {
         System.out.println("Here");
-        System.exit(-1);
+        System.exit(1);
     }
 }
 ThreadGroup threadGroup = new ThreadGroup("test");
@@ -435,7 +435,7 @@ System.out.println("There");
     }
     "should prevent snippets from exiting" {
         val executionResult = Source.fromSnippet("""
-System.exit(-1);
+System.exit(2);
         """.trim()).compile().execute()
 
         executionResult shouldNot haveCompleted()
@@ -563,7 +563,7 @@ for (long i = 0;; i++) {
     "should not allow unsafe permissions to be provided" {
         shouldThrow<IllegalArgumentException> {
             Source.fromSnippet("""
-System.exit(-1);
+System.exit(3);
             """.trim()).compile().execute(SourceExecutionArguments(permissions=listOf(RuntimePermission("exitVM"))))
         }
     }
@@ -619,12 +619,56 @@ public class Example implements Runnable {
         }
     }
 }
-Thread thread = new Thread(new Example());
-thread.start();
-// Give time for things to get NASTY
-try {
-    Thread.sleep(Long.MAX_VALUE);
-} catch (Exception e) { }
+while (true) {
+    try {
+        Thread thread = new Thread(new Example());
+        thread.start();
+    } catch (Throwable e) { }
+}
+        """.trim()).compile().execute(SourceExecutionArguments(maxExtraThreads=256, timeout=1000L))
+
+        executionResult shouldNot haveCompleted()
+        executionResult should haveTimedOut()
+    }
+    "should shut down sleep bombs" {
+        val executionResult = Source.fromSnippet("""
+public class Example implements Runnable {
+    public void run() {
+        while (true) {
+            try {
+                Thread.sleep(Long.MAX_VALUE);
+            } catch (Throwable e) {}
+        }
+    }
+}
+while (true) {
+    try {
+        Thread thread = new Thread(new Example());
+        thread.start();
+    } catch (Throwable e) { }
+}
+        """.trim()).compile().execute(SourceExecutionArguments(maxExtraThreads=256, timeout=1000L))
+
+        executionResult shouldNot haveCompleted()
+        executionResult should haveTimedOut()
+    }
+    "should shut down exit bombs" {
+        val executionResult = Source.fromSnippet("""
+public class Example implements Runnable {
+    public void run() {
+        while (true) {
+            try {
+                System.exit(4);
+            } catch (Throwable e) {}
+        }
+    }
+}
+while (true) {
+    try {
+        Thread thread = new Thread(new Example());
+        thread.start();
+    } catch (Throwable e) { }
+}
         """.trim()).compile().execute(SourceExecutionArguments(maxExtraThreads=256, timeout=1000L))
 
         executionResult shouldNot haveCompleted()

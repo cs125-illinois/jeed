@@ -12,7 +12,6 @@ import java.lang.reflect.ReflectPermission
 import java.security.*
 import java.time.Duration
 import java.time.Instant
-import java.util.*
 import java.util.concurrent.*
 import kotlin.random.Random
 
@@ -89,7 +88,7 @@ class ExecutionResult<T>(
 class MethodNotFoundException(message: String) : Exception(message)
 
 @Throws(ClassNotFoundException::class, MethodNotFoundException:: class)
-suspend fun CompilationResult.execute(
+suspend fun CompiledSource.execute(
         executionArguments: SourceExecutionArguments = SourceExecutionArguments()
 ): ExecutionResult<out Any?> {
 
