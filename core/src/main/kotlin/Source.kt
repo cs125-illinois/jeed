@@ -2,6 +2,7 @@ package edu.illinois.cs.cs125.jeed.core
 
 import java.io.PrintWriter
 import java.io.StringWriter
+import java.lang.reflect.Method
 import java.time.Instant
 
 open class Source(
@@ -65,13 +66,6 @@ abstract class SourceError(
 abstract class JeepError(val errors: List<SourceError>) : Exception()
 data class Interval(val start: Instant, val end: Instant)
 
-fun Exception.getStackTraceAsString(): String {
-    val stringWriter = StringWriter()
-    val printWriter = PrintWriter(stringWriter)
-    this.printStackTrace(printWriter)
-    return stringWriter.toString()
-}
-
 data class TaskError(val error: Throwable) {
     val stackTrace: String
     init {
@@ -85,3 +79,11 @@ data class TaskError(val error: Throwable) {
         return error.toString()
     }
 }
+
+fun Exception.getStackTraceAsString(): String {
+    val stringWriter = StringWriter()
+    val printWriter = PrintWriter(stringWriter)
+    this.printStackTrace(printWriter)
+    return stringWriter.toString()
+}
+fun Method.getQualifiedName(): String { return "$name(${parameters.joinToString(separator = ", ")})" }

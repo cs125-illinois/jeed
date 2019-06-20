@@ -11,6 +11,8 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.runBlocking
 import java.io.ByteArrayOutputStream
 import java.io.PrintStream
+import java.lang.IllegalArgumentException
+import java.lang.IllegalStateException
 import java.util.*
 import java.util.stream.Collectors
 import kotlin.system.measureTimeMillis
@@ -412,6 +414,25 @@ for (int i = 0; i < 32; i++) {
 
         totalTime.toDouble() shouldBeLessThan individualTimeSum * 0.8
     }
+    "should prevent threads from populating a new thread group" {
+        val executionResult = Source.fromSnippet("""
+public class Example implements Runnable {
+    public void run() {
+        System.out.println("Here");
+        System.exit(-1);
+    }
+}
+ThreadGroup threadGroup = new ThreadGroup("test");
+Thread thread = new Thread(new ThreadGroup("test"), new Example());
+thread.start();
+try {
+    thread.join();
+} catch (Exception e) { }
+System.out.println("There");
+        """.trim()).compile().execute(SourceExecutionArguments(maxExtraThreads = 7))
+
+        println(executionResult.stdout)
+    }
     "should prevent snippets from exiting" {
         val executionResult = Source.fromSnippet("""
 System.exit(-1);
@@ -487,7 +508,9 @@ System.out.println("Started");
 thread.start();
 try {
     thread.join();
-} catch (Exception e) { }
+} catch (Exception e) {
+    System.out.println(e);
+}
         """.trim()).compile()
         val failedExecutionResult = compiledSource.execute()
         failedExecutionResult shouldNot haveCompleted()
@@ -538,7 +561,7 @@ for (long i = 0;; i++) {
         executionResult.stdoutLines.map { it.line } shouldContain "15"
     }
     "should not allow unsafe permissions to be provided" {
-        shouldThrow<SandboxConfigurationException> {
+        shouldThrow<IllegalArgumentException> {
             Source.fromSnippet("""
 System.exit(-1);
             """.trim()).compile().execute(SourceExecutionArguments(permissions=listOf(RuntimePermission("exitVM"))))
