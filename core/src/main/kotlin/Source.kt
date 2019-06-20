@@ -1,19 +1,48 @@
 package edu.illinois.cs.cs125.jeed.core
 
+import edu.illinois.cs.cs125.jeed.core.antlr.JavaLexer
+import edu.illinois.cs.cs125.jeed.core.antlr.JavaParser
+import org.antlr.v4.runtime.*
 import java.io.PrintWriter
 import java.io.StringWriter
 import java.lang.reflect.Method
 import java.time.Instant
 
-open class Source(
-        val sources: Map<String, String>, checkSources: (Map<String, String>)->Boolean = { source ->
+
+open class Source
+@Throws(JavaParsingFailed::class)
+constructor
+(
+        val sources: Map<String, String>,
+        checkSources: (Map<String, String>) -> Boolean = { source ->
             source.keys.all { name -> name.isNotBlank() && name.split("/").last()[0].isUpperCase() }
         }
 ) {
+
     init {
         require(sources.keys.isNotEmpty())
         require(checkSources(sources)) { "problem validating sources: $sources" }
     }
+    val parsedSources = sources.mapValues { (_, source) ->
+        val errorListener = JavaErrorListener(source)
+
+        val charStream = CharStreams.fromString(source)
+        val javaLexer = JavaLexer(charStream)
+        javaLexer.removeErrorListeners()
+        javaLexer.addErrorListener(errorListener)
+
+        val tokenStream = CommonTokenStream(javaLexer)
+        errorListener.check()
+
+        val javaParser = JavaParser(tokenStream)
+        javaParser.removeErrorListeners()
+        javaParser.addErrorListener(errorListener)
+
+        val toReturn = javaParser.compilationUnit()
+        errorListener.check()
+        toReturn
+    }
+
     open fun mapLocation(input: SourceLocation): SourceLocation {
         return input
     }
@@ -21,6 +50,21 @@ open class Source(
         return input
     }
     companion object
+}
+
+class JavaParseError(source: String, line: Int, column: Int, message: String?) : SourceError(SourceLocation(source, line, column), message)
+class JavaParsingFailed(errors: List<JavaParseError>) : JeepError(errors)
+
+class JavaErrorListener(val source: String) : BaseErrorListener() {
+    private val errors = mutableListOf<JavaParseError>()
+    override fun syntaxError(recognizer: Recognizer<*, *>?, offendingSymbol: Any?, line: Int, charPositionInLine: Int, msg: String, e: RecognitionException?) {
+        errors.add(JavaParseError(source, line, charPositionInLine, msg))
+    }
+    fun check() {
+        if (errors.size > 0) {
+            throw JavaParsingFailed(errors)
+        }
+    }
 }
 
 data class SourceLocation(
