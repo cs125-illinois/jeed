@@ -47,7 +47,11 @@ class Snippet(
         val wrappedClassName: String,
         val looseCodeMethodName: String,
         private val remappedLineMapping: Map<Int, RemappedLine>
-) : Source(sources, { sources.keys.size == 1 && sources.keys.first() == "" }) {
+) : Source(
+        sources,
+        { sources.keys.size == 1 && sources.keys.first() == "" },
+        { mapLocation(it, remappedLineMapping) }
+) {
     fun originalSourceFromMap(): String {
         val lines = rewrittenSource.lines()
         return remappedLineMapping.values.sortedBy { it.sourceLineNumber }.joinToString(separator = "\n") {
@@ -57,13 +61,6 @@ class Snippet(
         }
     }
 
-    override fun mapLocation(input: SourceLocation): SourceLocation {
-        return mapLocation(input, remappedLineMapping)
-    }
-    override fun mapLocation(source: String, input: Location): Location {
-        check(source == SNIPPET_SOURCE)
-        return mapLocation(input, remappedLineMapping)
-    }
     companion object {
         fun mapLocation(input: SourceLocation, remappedLineMapping: Map<Int, RemappedLine>): SourceLocation {
             check(input.source == SNIPPET_SOURCE)

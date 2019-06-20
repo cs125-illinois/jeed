@@ -518,14 +518,14 @@ try {
         successfulExecutionResult should haveCompleted()
         successfulExecutionResult should haveOutput("Started\nEnded")
     }
-    "f:should shut down a runaway thread" {
+    "should shut down a runaway thread" {
         val executionResult = Source.fromSnippet("""
 public class Example implements Runnable {
     public void run() {
         while (true) {
             try {
                 for (long i = 0; i < Long.MAX_VALUE; i++);
-            } catch (Throwable e) {}
+            } catch (Exception e) {}
         }
     }
 }
@@ -554,7 +554,7 @@ for (long i = 0;; i++) {
         Thread thread = new Thread(new Example());
         System.out.println(i);
         thread.start();
-    } catch (Throwable e) { }
+    } catch (Exception e) { }
 }
         """.trim()).compile().execute(SourceExecutionArguments(maxExtraThreads=16, timeout=1000L))
 
@@ -617,7 +617,7 @@ public class Example implements Runnable {
             try {
                 Thread thread = new Thread(new Example());
                 thread.start();
-            } catch (Throwable e) {}
+            } catch (Exception e) {}
         }
     }
 }
@@ -625,7 +625,7 @@ while (true) {
     try {
         Thread thread = new Thread(new Example());
         thread.start();
-    } catch (Throwable e) { }
+    } catch (Exception e) { }
 }
         """.trim()).compile().execute(SourceExecutionArguments(maxExtraThreads=256, timeout=1000L))
 
@@ -639,7 +639,7 @@ public class Example implements Runnable {
         while (true) {
             try {
                 Thread.sleep(Long.MAX_VALUE);
-            } catch (Throwable e) {}
+            } catch (Exception e) {}
         }
     }
 }
@@ -647,7 +647,7 @@ while (true) {
     try {
         Thread thread = new Thread(new Example());
         thread.start();
-    } catch (Throwable e) { }
+    } catch (Exception e) { }
 }
         """.trim()).compile().execute(SourceExecutionArguments(maxExtraThreads=256, timeout=1000L))
 
@@ -661,7 +661,7 @@ public class Example implements Runnable {
         while (true) {
             try {
                 System.exit(4);
-            } catch (Throwable e) {}
+            } catch (Exception e) {}
         }
     }
 }
@@ -669,7 +669,7 @@ while (true) {
     try {
         Thread thread = new Thread(new Example());
         thread.start();
-    } catch (Throwable e) { }
+    } catch (Exception e) { }
 }
         """.trim()).compile().execute(SourceExecutionArguments(maxExtraThreads=256, timeout=1000L))
 
@@ -683,7 +683,7 @@ public class Example implements Runnable {
         while (true) {
             try {
                 for (long i = 0; i < Long.MAX_VALUE; i++);
-            } catch (Throwable e) {}
+            } catch (Exception e) {}
         }
     }
 }
@@ -691,7 +691,7 @@ while (true) {
     try {
         Thread thread = new Thread(new Example());
         thread.start();
-    } catch (Throwable e) { }
+    } catch (Exception e) { }
 }
         """.trim()).compile().execute(SourceExecutionArguments(maxExtraThreads=256, timeout=1000L))
 
@@ -733,7 +733,7 @@ public class Example implements Runnable {
         while (true) {
             try {
                 recursive(1000);
-            } catch (Throwable t) {}
+            } catch (Exception t) {}
         }
     }
     private void recursive(int depthToGo) {
@@ -744,7 +744,7 @@ public class Example implements Runnable {
                 if (depthToGo > 0) recursive(depthToGo - 1);
                 thread = new Thread(new Example());
                 thread.start();
-            } catch (Throwable t) {}
+            } catch (Exception t) {}
         }
     }
 }
@@ -753,12 +753,58 @@ thread.start();
 // Give time for things to get NASTY
 try {
     Thread.sleep(Long.MAX_VALUE);
-} catch (Throwable t) { }
-        """.trim()).compile().execute(SourceExecutionArguments(maxExtraThreads=256, timeout=1000L))
+} catch (Exception t) { }
+        """.trim()).compile().execute(SourceExecutionArguments(maxExtraThreads = 256, timeout = 1000L))
 
         executionResult shouldNot haveCompleted()
         executionResult should haveTimedOut()
     }
+
+    "should not allow ThreadDeath to be caught" {
+        shouldThrow<JavaParsingException> {
+            Source.fromSnippet("""
+try {
+    int i = 0;
+} catch (Throwable e) { }
+        """.trim()).compile()
+        }
+        shouldThrow<JavaParsingException> {
+            Source.fromSnippet("""
+try {
+    int i = 0;
+} catch (java.lang.Throwable e) { }
+        """.trim()).compile()
+        }
+        shouldThrow<JavaParsingException> {
+            Source.fromSnippet("""
+try {
+    int i = 0;
+} catch (Error e) { }
+        """.trim()).compile()
+        }
+        shouldThrow<JavaParsingException> {
+            Source.fromSnippet("""
+try {
+    int i = 0;
+} catch (java.lang.Error e) { }
+        """.trim()).compile()
+        }
+        shouldThrow<JavaParsingException> {
+            Source.fromSnippet("""
+try {
+    int i = 0;
+} catch (ThreadDeath e) { }
+        """.trim()).compile()
+        }
+        shouldThrow<JavaParsingException> {
+            Source.fromSnippet("""
+try {
+    int i = 0;
+} catch (java.lang.ThreadDeath e) { }
+        """.trim()).compile()
+        }
+    }
+
 })
 
 fun haveCompleted() = object : Matcher<ExecutionResult<out Any?>> {
