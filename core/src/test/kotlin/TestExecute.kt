@@ -518,7 +518,7 @@ try {
         successfulExecutionResult should haveCompleted()
         successfulExecutionResult should haveOutput("Started\nEnded")
     }
-    "f:should shut down a runaway thread" {
+    "!should shut down a runaway thread" {
         val executionResult = Source.fromSnippet("""
 public class Example implements Runnable {
     public void run() {
@@ -609,7 +609,7 @@ public class Main {
         executionResult should haveCompleted()
         executionResult should haveOutput("8")
     }
-    "should shut down nasty thread bombs" {
+    "f:should shut down nasty thread bombs" {
         val executionResult = Source.fromSnippet("""
 public class Example implements Runnable {
     public void run() {
@@ -617,7 +617,7 @@ public class Example implements Runnable {
             try {
                 Thread thread = new Thread(new Example());
                 thread.start();
-            } catch (Throwable e) {}
+            } catch (Exception e) {}
         }
     }
 }
@@ -625,7 +625,7 @@ while (true) {
     try {
         Thread thread = new Thread(new Example());
         thread.start();
-    } catch (Throwable e) { }
+    } catch (Exception e) { }
 }
         """.trim()).compile().execute(SourceExecutionArguments(maxExtraThreads=256, timeout=1000L))
 
