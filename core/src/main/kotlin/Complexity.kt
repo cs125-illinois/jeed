@@ -317,7 +317,7 @@ class ComplexityResults(@Transient val source: Source, val results: Map<String, 
     }
 }
 
-@Throws(JavaParsingFailed::class)
+@Throws(JavaParsingException::class)
 fun Source.complexity(names: Set<String> = this.sources.keys.toSet()): ComplexityResults {
     return ComplexityResults(this, this.sources.filter {
         names.contains(it.key)
