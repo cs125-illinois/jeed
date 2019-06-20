@@ -698,6 +698,66 @@ while (true) {
         executionResult shouldNot haveCompleted()
         executionResult should haveTimedOut()
     }
+    "should shut down reflection-protected thread bombs" {
+        val executionResult = Source.fromSnippet("""
+public class Example implements Runnable {
+    public void run() {
+        while (true) {
+            try {
+                java.util.stream.Stream.of(this).forEach(this::createThreadImpl);
+            } catch (Exception e) {}
+        }
+    }
+    public void createThreadImpl(Object unused) {
+        Thread thread = new Thread(new Example());
+        thread.start();
+    }
+}
+Thread thread = new Thread(new Example());
+thread.start();
+// Give time for things to get NASTY
+try {
+    Thread.sleep(Long.MAX_VALUE);
+} catch (Exception e) { }
+        """.trim()).compile().execute(SourceExecutionArguments(maxExtraThreads=256, timeout=1000L))
+
+        executionResult shouldNot haveCompleted()
+        executionResult should haveTimedOut()
+    }
+
+    "should shut down recursive thread bombs" {
+        val executionResult = Source.fromSnippet("""
+public class Example implements Runnable {
+    public void run() {
+        while (true) {
+            try {
+                recursive(1000);
+            } catch (Exception t) {}
+        }
+    }
+    private void recursive(int depthToGo) {
+        while (true) {
+            try {
+                Thread thread = new Thread(new Example());
+                thread.start();
+                if (depthToGo > 0) recursive(depthToGo - 1);
+                thread = new Thread(new Example());
+                thread.start();
+            } catch (Exception t) {}
+        }
+    }
+}
+Thread thread = new Thread(new Example());
+thread.start();
+// Give time for things to get NASTY
+try {
+    Thread.sleep(Long.MAX_VALUE);
+} catch (Exception t) { }
+        """.trim()).compile().execute(SourceExecutionArguments(maxExtraThreads = 256, timeout = 1000L))
+
+        executionResult shouldNot haveCompleted()
+        executionResult should haveTimedOut()
+    }
     "should not allow ThreadDeath to be caught" {
         shouldThrow<JavaParsingException> {
             Source.fromSnippet("""
@@ -742,7 +802,6 @@ try {
         """.trim()).compile()
         }
     }
-
     "it should not allow snippets to read from the internet" {
         val executionResult = Source.fromSnippet("""
 
