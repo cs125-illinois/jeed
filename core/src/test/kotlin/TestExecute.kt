@@ -698,7 +698,7 @@ while (true) {
         executionResult shouldNot haveCompleted()
         executionResult should haveTimedOut()
     }
-    "f:should not allow ThreadDeath to be caught" {
+    "should not allow ThreadDeath to be caught" {
         shouldThrow<JavaParsingException> {
             Source.fromSnippet("""
 try {
@@ -741,6 +741,155 @@ try {
 } catch (java.lang.ThreadDeath e) { }
         """.trim()).compile()
         }
+    }
+
+    "it should not allow snippets to read from the internet" {
+        val executionResult = Source.fromSnippet("""
+
+import java.io.BufferedReader;
+import java.io.InputStreamReader;
+import java.net.URL;
+
+public class ReadWebPage {
+    public static void execute() throws Exception {
+
+        BufferedReader br = null;
+
+        URL url = new URL("http://cs125.cs.illinois.edu");
+        br = new BufferedReader(new InputStreamReader(url.openStream()));
+
+        String line;
+
+        StringBuilder sb = new StringBuilder();
+
+        while ((line = br.readLine()) != null) {
+
+            sb.append(line);
+            sb.append(System.lineSeparator());
+        }
+
+        System.out.println(sb);
+        if (br != null) {
+            br.close();
+        }
+    }
+}
+
+try {
+    ReadWebPage.execute();
+} catch (Exception e) {
+    System.out.println(e);
+}
+
+        """.trim()).compile().execute()
+
+        executionResult.permissionDenied shouldBe true
+        executionResult should haveCompleted()
+    }
+
+    "it should not allow snippets to execute commands" {
+        val executionResult = Source.fromSnippet("""
+
+import java.io.*;
+
+try {
+    Process p = Runtime.getRuntime().exec("/bin/sh ls");
+    BufferedReader in = new BufferedReader(
+                        new InputStreamReader(p.getInputStream()));
+    String line = null;
+
+    while ((line = in.readLine()) != null) {
+        System.out.println(line);
+    }
+} catch (Exception e) {
+    System.out.println(e);
+}
+
+        """.trim()).compile().execute()
+
+        executionResult.permissionDenied shouldBe true
+        executionResult should haveCompleted()
+    }
+
+    "it should not allow SecurityManager to be set again through reflection" {
+        var executionResult = Source.fromSnippet("""
+
+import java.lang.reflect.Method;
+
+Class<System> c = System.class;
+try {
+    System s = c.newInstance();
+} catch (Exception e) {
+    System.out.println(e);
+}
+
+        """.trim()).compile().execute()
+
+        executionResult should haveOutput("java.lang.IllegalAccessException: class Main cannot access a " +
+                "member of class java.lang.System (in module java.base) with modifiers \"private\"");
+    }
+
+    "it should not allow SecurityManager to be created again through reflection" {
+        var executionResult = Source.fromSnippet("""
+
+import java.lang.reflect.Method;
+
+Class<SecurityManager> c = SecurityManager.class;
+try {
+    SecurityManager s = c.newInstance();
+
+} catch (Exception e) {
+    System.out.println(e);
+}
+
+        """.trim()).compile().execute()
+
+        executionResult should haveOutput("java.security.AccessControlException: " +
+                "access denied (\"java.lang.RuntimePermission\" \"createSecurityManager\")");
+
+    }
+
+    "!should shut down memory exhaustion bombs" {
+        val goodTask = async {
+            Source.fromSnippet("""
+
+for (int i = 0; i < 10; i++) {
+    System.out.print("A");
+}
+
+            """.trim()).compile().execute()
+        }
+
+        val badTask = async {
+            Source.fromSnippet("""
+
+import java.util.List;
+import java.util.ArrayList;
+
+public class Example implements Runnable {
+    public void run() {
+        while (true) {
+            try {
+                List<Object> list = new ArrayList<Object>();
+                for (int i = 0; i < Integer.MAX_VALUE; i++) {
+                    list.add(new ArrayList<Object>(10000));
+                }
+            } catch (Exception e) {}
+        }
+    }
+}
+while (true) {
+    try {
+        Thread thread = new Thread(new Example());
+        thread.start();
+    } catch (Exception e) { }
+}
+
+        """.trim()).compile().execute(SourceExecutionArguments(maxExtraThreads=256, timeout=1000L))
+        }
+
+        val goodResult = goodTask.await()
+        goodResult should haveOutput("AAAAAAAAAA")
     }
 })
 
