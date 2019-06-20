@@ -124,6 +124,7 @@ class JeedExecutor<T>(
             val started = Instant.now()
 
             val threadGroup = ThreadGroup("execute")
+            threadGroup.maxPriority = Thread.MIN_PRIORITY
             val thread = Thread(threadGroup, futureTask)
 
             val key = Sandbox.confine(threadGroup, executionArguments.permissions, executionArguments.maxExtraThreads)
@@ -142,7 +143,6 @@ class JeedExecutor<T>(
             }
             val executionEnded = Instant.now()
 
-
             // Kill off any remaining threads.
             Sandbox.shutdown(key, threadGroup)
 
@@ -159,14 +159,12 @@ class JeedExecutor<T>(
                     if (threadGroup.activeCount() == 0) {
                         return@find true
                     }
-
                     val threadGroupThreads = Array<Thread?>(threadGroup.activeCount()) { null }
                     threadGroup.enumerate(threadGroupThreads, true)
                     val runningThreads = threadGroupThreads.toList().filterNotNull()
                     if (runningThreads.isEmpty()) {
                         return@find true
                     }
-
                     for (runningThread in runningThreads) {
                         if (!runningThread.isInterrupted) {
                             runningThread.interrupt()
@@ -174,7 +172,6 @@ class JeedExecutor<T>(
                         @Suppress("DEPRECATION")
                         runningThread.stop()
                     }
-
                     // The delay here may need some tuning on certain platforms. Too fast and the threads we are trying
                     // to kill don't have time to get stuck. Too slow and it takes forever.
                     Thread.sleep(threadShutdownDelay)
@@ -240,7 +237,7 @@ class JeedExecutor<T>(
             }
         }
 
-        private object Sandbox {
+        private object Sandbox : SecurityManager() {
             private val systemSecurityManager: SecurityManager? = System.getSecurityManager()
 
             private var originalStdout = System.out
@@ -271,8 +268,7 @@ class JeedExecutor<T>(
                     val loggedRequests: MutableList<ExecutionResult.PermissionRequest> = mutableListOf()
             )
 
-            private val confinedThreadGroups: MutableMap<ThreadGroup, ConfinedThreadGroup> =
-                    Collections.synchronizedMap(WeakHashMap<ThreadGroup, ConfinedThreadGroup>())
+            private val confinedThreadGroups: MutableMap<ThreadGroup, ConfinedThreadGroup> = mutableMapOf()
 
             fun confine(threadGroup: ThreadGroup, permissionList: List<Permission>, maxExtraThreadCount: Int = 0): Long {
                 require(!confinedThreadGroups.containsKey(threadGroup)) { "thread group is already confined" }
@@ -289,7 +285,7 @@ class JeedExecutor<T>(
                 )
 
                 if (confinedThreadGroups.keys.size == 1) {
-                    System.setSecurityManager(ourSecurityManager)
+                    System.setSecurityManager(this)
                     originalStdout = System.out
                     originalStderr = System.err
                     System.setOut(ourStdout)
@@ -331,82 +327,90 @@ class JeedExecutor<T>(
                 return confinedThreadGroup.results
             }
 
-            val ourSecurityManager = object : SecurityManager() {
-                override fun checkRead(file: String) {
-                    val confinedThreadGroup = confinedThreadGroups[Thread.currentThread().threadGroup]
-                            ?: return systemSecurityManager?.checkRead(file) ?: return
-                    if (confinedThreadGroup.shuttingDown) {
-                        sleepForever()
-                    }
-
-                    if (!file.endsWith(".class")) {
-                        confinedThreadGroup.results.loggedRequests.add(
-                                ExecutionResult.PermissionRequest(FilePermission(file, "read"), false)
-                        )
-                        throw SecurityException()
-                    }
+            override fun checkRead(file: String) {
+                val confinedThreadGroup = confinedThreadGroups[Thread.currentThread().threadGroup]
+                        ?: return systemSecurityManager?.checkRead(file) ?: return
+                if (confinedThreadGroup.shuttingDown) {
+                    sleepForever()
                 }
 
-                override fun checkAccess(thread: Thread) {
-                    if (!confinedThreadGroups.contains(Thread.currentThread().threadGroup)) {
-                        return systemSecurityManager?.checkAccess(thread) ?: return
-                    }
-                    if (thread.threadGroup != Thread.currentThread().threadGroup) {
-                        throw SecurityException()
-                    } else {
-                        return super.checkAccess(thread)
-                    }
+                if (!file.endsWith(".class")) {
+                    confinedThreadGroup.results.loggedRequests.add(
+                            ExecutionResult.PermissionRequest(FilePermission(file, "read"), false)
+                    )
+                    throw SecurityException()
+                }
+            }
+
+            override fun checkAccess(thread: Thread) {
+                val confinedThreadGroup = confinedThreadGroups[Thread.currentThread().threadGroup]
+                        ?: return systemSecurityManager?.checkAccess(thread) ?: return
+                if (confinedThreadGroup.shuttingDown) {
+                    sleepForever()
                 }
 
-                override fun checkAccess(threadGroup: ThreadGroup) {
-                    if (!confinedThreadGroups.contains(Thread.currentThread().threadGroup)) {
-                        return systemSecurityManager?.checkAccess(threadGroup) ?: return
-                    }
-                    if (threadGroup != Thread.currentThread().threadGroup) {
-                        throw SecurityException()
-                    } else {
-                        return super.checkAccess(threadGroup)
-                    }
+                if (thread.threadGroup != Thread.currentThread().threadGroup) {
+                    throw SecurityException()
+                } else {
+                    return super.checkAccess(thread)
+                }
+            }
+
+            override fun checkAccess(threadGroup: ThreadGroup) {
+                val confinedThreadGroup = confinedThreadGroups[Thread.currentThread().threadGroup]
+                        ?: return systemSecurityManager?.checkAccess(threadGroup) ?: return
+                if (confinedThreadGroup.shuttingDown) {
+                    sleepForever()
                 }
 
-                override fun getThreadGroup(): ThreadGroup {
-                    val confinedThreadGroup = confinedThreadGroups[Thread.currentThread().threadGroup]
-                            ?: return super.getThreadGroup()
-                    if (confinedThreadGroup.shuttingDown) {
-                        sleepForever()
-                    }
-                    if (Thread.currentThread().threadGroup.activeCount() >= confinedThreadGroup.maxExtraThreadCount + 1) {
-                        throw SecurityException()
-                    } else {
-                        return super.getThreadGroup()
-                    }
+                if (threadGroup != Thread.currentThread().threadGroup) {
+                    throw SecurityException()
+                } else {
+                    return super.checkAccess(threadGroup)
+                }
+            }
+
+            override fun getThreadGroup(): ThreadGroup {
+                val confinedThreadGroup = confinedThreadGroups[Thread.currentThread().threadGroup]
+                        ?: return super.getThreadGroup()
+                if (confinedThreadGroup.shuttingDown) {
+                    sleepForever()
                 }
 
-                override fun checkPermission(permission: Permission) {
-                    val confinedThreadGroup = confinedThreadGroups[Thread.currentThread().threadGroup]
-                            ?: return systemSecurityManager?.checkPermission(permission) ?: return
+                if (Thread.currentThread().threadGroup.activeCount() >= confinedThreadGroup.maxExtraThreadCount + 1) {
+                    throw SecurityException()
+                } else {
+                    return super.getThreadGroup()
+                }
+            }
 
-                    try {
-                        if (confinedThreadGroup.shuttingDown) {
-                            sleepForever()
-                        }
-                        systemSecurityManager?.checkPermission(permission)
-                        confinedThreadGroup.accessControlContext.checkPermission(permission)
-                        confinedThreadGroup.results.loggedRequests.add(
-                                ExecutionResult.PermissionRequest(permission, true)
-                        )
-                    } catch (e: SecurityException) {
-                        confinedThreadGroup.results.loggedRequests.add(
-                                ExecutionResult.PermissionRequest(permission, false)
-                        )
-                        throw e
-                    }
+            override fun checkPermission(permission: Permission) {
+                val confinedThreadGroup = confinedThreadGroups[Thread.currentThread().threadGroup]
+                        ?: return systemSecurityManager?.checkPermission(permission) ?: return
+                if (confinedThreadGroup.shuttingDown) {
+                    sleepForever()
+                }
+
+                try {
+                    systemSecurityManager?.checkPermission(permission)
+                    confinedThreadGroup.accessControlContext.checkPermission(permission)
+                    confinedThreadGroup.results.loggedRequests.add(
+                            ExecutionResult.PermissionRequest(permission, true)
+                    )
+                } catch (e: SecurityException) {
+                    confinedThreadGroup.results.loggedRequests.add(
+                            ExecutionResult.PermissionRequest(permission, false)
+                    )
+                    throw e
                 }
             }
 
             fun write(int: Int, console: ExecutionResult.OutputLine.Console) {
                 val confinedThreadGroup = confinedThreadGroups[Thread.currentThread().threadGroup]
                         ?: return defaultWrite(int, console)
+                if (confinedThreadGroup.shuttingDown) {
+                    sleepForever()
+                }
 
                 val currentLine =
                         confinedThreadGroup.currentLines.getOrPut(console, { Companion.Sandbox.ConfinedThreadGroup.CurrentLine() })
