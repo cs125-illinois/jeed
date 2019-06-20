@@ -1,8 +1,7 @@
 package edu.illinois.cs.cs125.jeed.core
 
+import kotlinx.coroutines.*
 import kotlinx.coroutines.channels.Channel
-import kotlinx.coroutines.coroutineScope
-import kotlinx.coroutines.runBlocking
 import mu.KotlinLogging
 import java.io.FilePermission
 import java.io.OutputStream
@@ -154,7 +153,7 @@ class JeedExecutor<T>(
             val threadShutdownRetries = if (threadGroup.activeCount() == 0) {
                 0
             } else {
-                (0..MAX_THREAD_SHUTDOWN_RETRIES).find { _ ->
+                (0..MAX_THREAD_SHUTDOWN_RETRIES).find {
                     if (threadGroup.activeCount() == 0) {
                         return@find true
                     }

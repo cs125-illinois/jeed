@@ -569,7 +569,7 @@ System.exit(3);
             """.trim()).compile().execute(SourceExecutionArguments(permissions=listOf(RuntimePermission("exitVM"))))
         }
     }
-    "should allow Java streams with default permissions" {
+    "f:should allow Java streams with default permissions" {
         val executionResult = Source.fromSnippet("""
 import java.util.List;
 import java.util.ArrayList;
@@ -724,7 +724,6 @@ try {
         executionResult shouldNot haveCompleted()
         executionResult should haveTimedOut()
     }
-
     "should shut down recursive thread bombs" {
         val executionResult = Source.fromSnippet("""
 public class Example implements Runnable {
@@ -845,7 +844,6 @@ try {
         executionResult.permissionDenied shouldBe true
         executionResult should haveCompleted()
     }
-
     "it should not allow snippets to execute commands" {
         val executionResult = Source.fromSnippet("""
 
@@ -869,9 +867,8 @@ try {
         executionResult.permissionDenied shouldBe true
         executionResult should haveCompleted()
     }
-
     "it should not allow SecurityManager to be set again through reflection" {
-        var executionResult = Source.fromSnippet("""
+        val executionResult = Source.fromSnippet("""
 
 import java.lang.reflect.Method;
 
@@ -885,11 +882,10 @@ try {
         """.trim()).compile().execute()
 
         executionResult should haveOutput("java.lang.IllegalAccessException: class Main cannot access a " +
-                "member of class java.lang.System (in module java.base) with modifiers \"private\"");
+                "member of class java.lang.System (in module java.base) with modifiers \"private\"")
     }
-
     "it should not allow SecurityManager to be created again through reflection" {
-        var executionResult = Source.fromSnippet("""
+        val executionResult = Source.fromSnippet("""
 
 import java.lang.reflect.Method;
 
@@ -904,23 +900,11 @@ try {
         """.trim()).compile().execute()
 
         executionResult should haveOutput("java.security.AccessControlException: " +
-                "access denied (\"java.lang.RuntimePermission\" \"createSecurityManager\")");
+                "access denied (\"java.lang.RuntimePermission\" \"createSecurityManager\")")
 
     }
-
-    "!should shut down memory exhaustion bombs" {
-        val goodTask = async {
-            Source.fromSnippet("""
-
-for (int i = 0; i < 10; i++) {
-    System.out.print("A");
-}
-
-            """.trim()).compile().execute()
-        }
-
-        val badTask = async {
-            Source.fromSnippet("""
+    "f:should shut down memory exhaustion bombs" {
+        Source.fromSnippet("""
 
 import java.util.List;
 import java.util.ArrayList;
@@ -931,24 +915,34 @@ public class Example implements Runnable {
             try {
                 List<Object> list = new ArrayList<Object>();
                 for (int i = 0; i < Integer.MAX_VALUE; i++) {
-                    list.add(new ArrayList<Object>(10000));
+                    list.add(new ArrayList<Object>(10000000));
                 }
             } catch (Exception e) {}
         }
     }
 }
-while (true) {
+w   hile (true) {
     try {
         Thread thread = new Thread(new Example());
         thread.start();
     } catch (Exception e) { }
 }
+        """.trim()).compile().execute(SourceExecutionArguments(maxExtraThreads=16, timeout=1000L))
+    }
+    "should recover from excessive memory usage" {
+        Source.fromSnippet("""
+import java.util.List;
+import java.util.ArrayList;
 
-        """.trim()).compile().execute(SourceExecutionArguments(maxExtraThreads=256, timeout=1000L))
+List<Object> list = new ArrayList<Object>();
+while (true) {
+    try {
+        for (int i = 0; i < Integer.MAX_VALUE; i++) {
+            list.add(new ArrayList<Object>(10000000));
         }
-
-        val goodResult = goodTask.await()
-        goodResult should haveOutput("AAAAAAAAAA")
+    } catch (Exception e) {}
+}
+            """.trim()).compile().execute(SourceExecutionArguments(maxExtraThreads=256, timeout=1000L))
     }
 })
 
