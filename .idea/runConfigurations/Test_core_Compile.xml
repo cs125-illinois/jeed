@@ -1,7 +1,7 @@
 <component name="ProjectRunConfigurationManager">
   <configuration default="false" name="Test core:Compile" type="JUnit" factoryName="JUnit">
     <module name="jeed.core.test" />
-    <extension name="coverage">
+    <extension name="coverage" runner="jacoco">
       <pattern>
         <option name="PATTERN" value="edu.illinois.cs.cs125.jeed.core.*" />
         <option name="ENABLED" value="true" />

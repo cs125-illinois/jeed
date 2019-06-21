@@ -195,7 +195,11 @@ class ComplexityResult(val source: Source, entry: Map.Entry<String, String>) : J
 
         val fullName = "$currentMethodName(${currentMethodParameters?.joinToString(separator = ", ")})"
         val methodComplexity = if (source is Snippet && source.looseCodeMethodName == fullName) {
-            MethodComplexity("", source.snippetRange)
+            val snippetMethodComplexity = MethodComplexity("", source.snippetRange)
+            // We add "throws Exception" to the main method wrapping loose code for snippets.
+            // This hack ensures that we still calculate complexity correctly in this special case.
+            snippetMethodComplexity.complexity = 0
+            snippetMethodComplexity
         } else {
             MethodComplexity(
                     fullName,
