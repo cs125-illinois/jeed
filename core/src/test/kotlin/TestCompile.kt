@@ -112,6 +112,19 @@ Foo f = new Foo();
         exception should haveCompilationErrorAt(line=1)
         exception should haveCompilationErrorAt(line=2)
     }
+    "should identify multiple compilation errors in reordered simple snippets" {
+        val exception = shouldThrow<CompilationFailed> {
+            Source.fromSnippet("""
+public void foo() {
+    return;
+}
+int i = a;
+Foo f = new Foo();
+            """.trim()).compile()
+        }
+        exception should haveCompilationErrorAt(line=4)
+        exception should haveCompilationErrorAt(line=5)
+    }
     "should identify warnings in snippets" {
         val compiledSource = Source.fromSnippet("""
 import java.util.List;
@@ -171,6 +184,17 @@ Test test = new Test();
         compiledSource.classLoader.loadedClasses shouldContainExactlyInAnyOrder listOf("Test", "Main")
         compiledSource.classLoader.bytecodeForClass("Me").size shouldBeGreaterThan 0
         compiledSource.classLoader.loadedClasses shouldHaveSize 3
+    }
+    "compile should correctly accept previously compiled source argument" {
+        val compiledTestSource = Source(
+                mapOf("Test" to """
+public class Test {}
+            """.trimIndent())).compile()
+        val compiledFooSource = Source(
+                    mapOf("Foo" to """
+    public class Foo extends Test { }
+            """.trimIndent())).compileWith(compiledTestSource)
+
     }
 })
 

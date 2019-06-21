@@ -935,7 +935,7 @@ Object compiledSource = compile.invoke(null, snippet, compileArgs);
         executionResult.permissionDenied shouldBe true
     }
 
-    "f:should not allow reflection to disable sandboxing" {
+    "should not allow reflection to disable sandboxing" {
         val SCompanionSSandbox = "\$Companion\$Sandbox"
         val executionResult = Source.fromSnippet("""
 import java.net.*;
