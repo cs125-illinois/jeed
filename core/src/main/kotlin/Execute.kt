@@ -6,6 +6,7 @@ import mu.KotlinLogging
 import java.io.FilePermission
 import java.io.OutputStream
 import java.io.PrintStream
+import java.lang.reflect.InvocationTargetException
 import java.lang.reflect.Modifier
 import java.lang.reflect.ReflectPermission
 import java.security.*
@@ -137,7 +138,10 @@ class JeedExecutor<T>(
                 thread.stop()
                 ExecutionResult.TaskResult(null, null, true)
             } catch (e: Throwable) {
-                ExecutionResult.TaskResult(null, e)
+                when (e.cause) {
+                    is InvocationTargetException -> ExecutionResult.TaskResult(null, e.cause?.cause)
+                    else -> ExecutionResult.TaskResult(null, e)
+                }
             }
             val executionEnded = Instant.now()
 
@@ -389,6 +393,15 @@ class JeedExecutor<T>(
                 }
 
                 try {
+                    /*
+                    if (permission is ReflectPermission && permission.name == "suppressAccessChecks") {
+                        val callerClassLoader = classContext[3]?.classLoader
+                        originalStdout.println(callerClassLoader)
+                        if (callerClassLoader != null && callerClassLoader != ClassLoader.getSystemClassLoader()) {
+                            throw SecurityException()
+                        }
+                    }
+                    */
                     systemSecurityManager?.checkPermission(permission)
                     confinedThreadGroup.accessControlContext.checkPermission(permission)
                     confinedThreadGroup.results.loggedRequests.add(

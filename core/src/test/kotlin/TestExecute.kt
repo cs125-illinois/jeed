@@ -7,6 +7,7 @@ import io.kotlintest.matchers.collections.shouldHaveSize
 import io.kotlintest.matchers.collections.shouldNotContain
 import io.kotlintest.matchers.doubles.shouldBeLessThan
 import io.kotlintest.matchers.string.contain
+import io.kotlintest.matchers.types.shouldBeSameInstanceAs
 import kotlinx.coroutines.async
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.runBlocking
@@ -570,7 +571,7 @@ System.exit(3);
             """.trim()).compile().execute(SourceExecutionArguments(permissions=listOf(RuntimePermission("exitVM"))))
         }
     }
-    "f:should allow Java streams with default permissions" {
+    "should allow Java streams with default permissions" {
         val executionResult = Source.fromSnippet("""
 import java.util.List;
 import java.util.ArrayList;
@@ -584,6 +585,7 @@ strings.stream()
     .forEach(System.out::println);
         """.trim()).compile().execute()
 
+        println(executionResult.permissionRequests.filter { !it.granted })
         executionResult should haveCompleted()
         executionResult should haveOutput("ME\nTEST")
     }
@@ -810,81 +812,54 @@ import java.io.BufferedReader;
 import java.io.InputStreamReader;
 import java.net.URL;
 
-public class ReadWebPage {
-    public static void execute() throws Exception {
+BufferedReader br = null;
+URL url = new URL("http://cs125.cs.illinois.edu");
+br = new BufferedReader(new InputStreamReader(url.openStream()));
 
-        BufferedReader br = null;
-
-        URL url = new URL("http://cs125.cs.illinois.edu");
-        br = new BufferedReader(new InputStreamReader(url.openStream()));
-
-        String line;
-
-        StringBuilder sb = new StringBuilder();
-
-        while ((line = br.readLine()) != null) {
-
-            sb.append(line);
-            sb.append(System.lineSeparator());
-        }
-
-        System.out.println(sb);
-        if (br != null) {
-            br.close();
-        }
-    }
+String line;
+StringBuilder sb = new StringBuilder();
+while ((line = br.readLine()) != null) {
+    sb.append(line);
+    sb.append(System.lineSeparator());
 }
 
-try {
-    ReadWebPage.execute();
-} catch (Exception e) {
-    System.out.println(e);
+System.out.println(sb);
+if (br != null) {
+    br.close();
 }
-
         """.trim()).compile().execute()
 
+        executionResult shouldNot haveCompleted()
         executionResult.permissionDenied shouldBe true
-        executionResult should haveCompleted()
     }
     "it should not allow snippets to execute commands" {
         val executionResult = Source.fromSnippet("""
 
 import java.io.*;
 
-try {
-    Process p = Runtime.getRuntime().exec("/bin/sh ls");
-    BufferedReader in = new BufferedReader(
-                        new InputStreamReader(p.getInputStream()));
-    String line = null;
+Process p = Runtime.getRuntime().exec("/bin/sh ls");
+BufferedReader in = new BufferedReader(
+                    new InputStreamReader(p.getInputStream()));
+String line = null;
 
-    while ((line = in.readLine()) != null) {
-        System.out.println(line);
-    }
-} catch (Exception e) {
-    System.out.println(e);
+while ((line = in.readLine()) != null) {
+    System.out.println(line);
 }
-
         """.trim()).compile().execute()
 
+        executionResult shouldNot haveCompleted()
         executionResult.permissionDenied shouldBe true
-        executionResult should haveCompleted()
     }
     "it should not allow SecurityManager to be set again through reflection" {
         val executionResult = Source.fromSnippet("""
-
 import java.lang.reflect.Method;
 
 Class<System> c = System.class;
-try {
-    System s = c.newInstance();
-} catch (Exception e) {
-    System.out.println(e);
-}
+System s = c.newInstance();
+            """.trim()).compile().execute()
 
-        """.trim()).compile().execute()
-
-        executionResult should haveOutput("java.lang.IllegalAccessException: class Main cannot access a " +
-                "member of class java.lang.System (in module java.base) with modifiers \"private\"")
+        executionResult shouldNot haveCompleted()
+        executionResult.permissionDenied shouldBe true
     }
     "it should not allow SecurityManager to be created again through reflection" {
         val executionResult = Source.fromSnippet("""
@@ -892,20 +867,13 @@ try {
 import java.lang.reflect.Method;
 
 Class<SecurityManager> c = SecurityManager.class;
-try {
-    SecurityManager s = c.newInstance();
+SecurityManager s = c.newInstance();
+            """.trim()).compile().execute()
 
-} catch (Exception e) {
-    System.out.println(e);
-}
-
-        """.trim()).compile().execute()
-
-        executionResult should haveOutput("java.security.AccessControlException: " +
-                "access denied (\"java.lang.RuntimePermission\" \"createSecurityManager\")")
-
+        executionResult shouldNot haveCompleted()
+        executionResult.permissionDenied shouldBe true
     }
-    "f:should shut down memory exhaustion bombs" {
+    "should shut down memory exhaustion bombs" {
         Source.fromSnippet("""
 
 import java.util.List;
@@ -923,7 +891,7 @@ public class Example implements Runnable {
         }
     }
 }
-w   hile (true) {
+while (true) {
     try {
         Thread thread = new Thread(new Example());
         thread.start();
@@ -948,54 +916,45 @@ while (true) {
     }
 
     "should not allow access to the compiler" {
-        val result = Source.fromSnippet("""
+        val executionResult = Source.fromSnippet("""
 import java.lang.reflect.*;
 
-try {
-    Class<?> sourceClass = Class.forName("edu.illinois.cs.cs125.jeed.core.Source");
-    Field sourceCompanion = sourceClass.getField("Companion");
-    Class<?> snippetKtClass = Class.forName("edu.illinois.cs.cs125.jeed.core.SnippetKt");
-    Method fromSnippet = snippetKtClass.getMethod("fromSnippet", sourceCompanion.getType(), String.class, int.class);
-    Object snippet = fromSnippet.invoke(null, sourceCompanion.get(null), "System.out.println(403);", 4);
-    Class<?> snippetClass = snippet.getClass();
-    Class<?> compileArgsClass = Class.forName("edu.illinois.cs.cs125.jeed.core.CompilationArguments");
-    Method compile = Class.forName("edu.illinois.cs.cs125.jeed.core.CompileKt").getMethod("compile", sourceClass, compileArgsClass);
-    Object compileArgs = compileArgsClass.newInstance();
-    Object compiledSource = compile.invoke(null, snippet, compileArgs);
-    System.out.println(compiledSource);
-    System.out.println("Accessed compiler!");
-} catch (Exception e) {
-    e.printStackTrace();
-}
-
+Class<?> sourceClass = Class.forName("edu.illinois.cs.cs125.jeed.core.Source");
+Field sourceCompanion = sourceClass.getField("Companion");
+Class<?> snippetKtClass = Class.forName("edu.illinois.cs.cs125.jeed.core.SnippetKt");
+Method fromSnippet = snippetKtClass.getMethod("fromSnippet", sourceCompanion.getType(), String.class, int.class);
+Object snippet = fromSnippet.invoke(null, sourceCompanion.get(null), "System.out.println(403);", 4);
+Class<?> snippetClass = snippet.getClass();
+Class<?> compileArgsClass = Class.forName("edu.illinois.cs.cs125.jeed.core.CompilationArguments");
+Method compile = Class.forName("edu.illinois.cs.cs125.jeed.core.CompileKt").getMethod("compile", sourceClass, compileArgsClass);
+Object compileArgs = compileArgsClass.newInstance();
+Object compiledSource = compile.invoke(null, snippet, compileArgs);
             """.trim()).compile().execute()
-        result.output shouldNot contain("!")
+
+        executionResult shouldNot haveCompleted()
+        executionResult.permissionDenied shouldBe true
     }
 
-    "should not allow reflection to disable sandboxing" {
+    "f:should not allow reflection to disable sandboxing" {
         val SCompanionSSandbox = "\$Companion\$Sandbox"
-        val result = Source.fromSnippet("""
-            
-import java.lang.reflect.*;
+        val executionResult = Source.fromSnippet("""
 import java.net.*;
 import java.util.Map;
 
-try {
-    Class<?> sandboxClass = Class.forName("edu.illinois.cs.cs125.jeed.core.JeedExecutor$SCompanionSSandbox");
-    Field confinedThreadGroupsField = sandboxClass.getDeclaredField("confinedThreadGroups");
-    confinedThreadGroupsField.setAccessible(true);
-    Map confinedThreadGroups = (Map) confinedThreadGroupsField.get(null);
-    confinedThreadGroups.clear();
-    URLClassLoader loader = new URLClassLoader(new URL[] { new URL("https://example.com/sketchy/server") });
-    System.out.println("Escaped sandbox!");
-} catch (Exception e) {
-    e.printStackTrace();
-}
+Class<?> sandboxClass = Class.forName("edu.illinois.cs.cs125.jeed.core.JeedExecutor$SCompanionSSandbox");
+sandboxClass.getDeclaredField("confinedThreadGroups").setAccessible(true);
+/*
+Map confinedThreadGroups = (Map) confinedThreadGroupsField.get(null);
+confinedThreadGroups.clear();
+URLClassLoader loader = new URLClassLoader(new URL[] { new URL("https://example.com/sketchy/server") });
+System.out.println("Escaped sandbox!");
+*/
         """.trim()).compile().execute()
-        println(result.output)
-        result.output shouldNot contain("!")
-    }
 
+        println(executionResult.output)
+        executionResult shouldNot haveCompleted()
+        executionResult.permissionDenied shouldBe true
+    }
 })
 
 fun haveCompleted() = object : Matcher<ExecutionResult<out Any?>> {
