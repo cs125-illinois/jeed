@@ -955,6 +955,56 @@ System.out.println("Escaped sandbox!");
         executionResult shouldNot haveCompleted()
         executionResult.permissionDenied shouldBe true
     }
+
+    "should not allow access to Unsafe" {
+        val result = Source.fromSnippet("""
+            
+import java.lang.reflect.*;
+import sun.misc.Unsafe;
+
+Field theUnsafe = Unsafe.class.getDeclaredField("theUnsafe");
+theUnsafe.setAccessible(true);
+Unsafe unsafe = (Unsafe) theUnsafe.get(null);
+System.out.println(unsafe);
+
+            """.trim()).compile().execute()
+        result.permissionDenied shouldBe true
+    }
+
+    "f:should shut down finally-protected thread bombs" {
+        val executionResult = Source.fromSnippet("""
+public class Example implements Runnable {
+    public void run() {
+        while (true) {
+            try {
+                recursive(1000);
+            } catch (Exception e) {}
+        }
+    }
+    private void recursive(int depthToGo) {
+        while (true) {
+            try {
+                Thread thread = new Thread(new Example());
+                thread.start();
+                if (depthToGo > 0) recursive(depthToGo - 1);
+                thread = new Thread(new Example());
+                thread.start();
+            } catch (Exception e) {} finally {
+                recursive(depthToGo - 1);
+            }
+        }
+    }
+}
+Thread thread = new Thread(new Example());
+thread.start();
+try {
+    Thread.sleep(Long.MAX_VALUE);
+} catch (Exception e) { }
+        """.trim()).compile().execute(SourceExecutionArguments(maxExtraThreads = 256, timeout = 1000L))
+
+        executionResult shouldNot haveCompleted()
+        executionResult should haveTimedOut()
+    }
 })
 
 fun haveCompleted() = object : Matcher<ExecutionResult<out Any?>> {
