@@ -149,7 +149,11 @@ abstract class SourceError(
         return "$location: $message"
     }
 }
-abstract class JeepError(val errors: List<SourceError>) : Exception()
+abstract class JeepError(val errors: List<SourceError>) : Exception() {
+    override fun toString(): String {
+        return javaClass.name + ":\n" + errors.joinToString(separator = "\n")
+    }
+}
 data class Interval(val start: Instant, val end: Instant)
 
 data class TaskError(val error: Throwable) {
