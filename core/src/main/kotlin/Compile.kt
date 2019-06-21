@@ -191,6 +191,13 @@ class JeedClassLoader(
             throw ClassNotFoundException(name)
         }
     }
+
+    override fun loadClass(name: String): Class<*> {
+        if (name.startsWith("java.lang.reflect")) {
+            throw ClassNotFoundException(name)
+        }
+        return super.loadClass(name)
+    }
 }
 
 class CompilationMessage(

@@ -224,7 +224,7 @@ fun Source.Companion.fromSnippet(originalSource: String, indent: Int = 4): Snipp
     if (methodDeclarations.size > 0) {
         rewrittenSource += methodDeclarations.joinToString(separator = "\n", postfix = "\n")
     }
-    rewrittenSource += """${" ".repeat(indent)}public static void $snippetMainMethodName() {""" + "\n"
+    rewrittenSource += """${" ".repeat(indent)}public static void $snippetMainMethodName() throws Exception {""" + "\n"
     if (looseCode.size > 0) {
         rewrittenSource += looseCode.joinToString(separator = "\n", postfix = "\n")
     }
