@@ -850,7 +850,7 @@ while ((line = in.readLine()) != null) {
         executionResult shouldNot haveCompleted()
         executionResult.permissionDenied shouldBe true
     }
-    "it should not allow SecurityManager to be set again through reflection" {
+    "!it should not allow SecurityManager to be set again through reflection" {
         val executionResult = Source.fromSnippet("""
 import java.lang.reflect.Method;
 
@@ -915,7 +915,7 @@ while (true) {
             """.trim()).compile().execute(SourceExecutionArguments(maxExtraThreads=256, timeout=1000L))
     }
 
-    "should not allow access to the compiler" {
+    "!should not allow access to the compiler" {
         val executionResult = Source.fromSnippet("""
 import java.lang.reflect.*;
 
@@ -935,7 +935,7 @@ Object compiledSource = compile.invoke(null, snippet, compileArgs);
         executionResult.permissionDenied shouldBe true
     }
 
-    "should not allow reflection to disable sandboxing" {
+    "!should not allow reflection to disable sandboxing" {
         val SCompanionSSandbox = "\$Companion\$Sandbox"
         val executionResult = Source.fromSnippet("""
 import java.net.*;
@@ -951,7 +951,6 @@ System.out.println("Escaped sandbox!");
 */
         """.trim()).compile().execute()
 
-        println(executionResult.output)
         executionResult shouldNot haveCompleted()
         executionResult.permissionDenied shouldBe true
     }
