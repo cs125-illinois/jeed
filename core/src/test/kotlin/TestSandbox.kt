@@ -6,8 +6,6 @@ import io.kotlintest.matchers.collections.shouldContain
 import io.kotlintest.matchers.collections.shouldHaveSize
 import io.kotlintest.matchers.collections.shouldNotContain
 import io.kotlintest.matchers.doubles.shouldBeLessThan
-import io.kotlintest.matchers.string.contain
-import io.kotlintest.matchers.types.shouldBeSameInstanceAs
 import kotlinx.coroutines.async
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.runBlocking
@@ -18,7 +16,7 @@ import java.util.*
 import java.util.stream.Collectors
 import kotlin.system.measureTimeMillis
 
-class TestExecute : StringSpec({
+class TestSandbox : StringSpec({
     "should execute snippets" {
         val executeMainResult = Source.fromSnippet("""
 int i = 0;
@@ -244,7 +242,7 @@ for (int i = 0; i < 32; i++) {
                     }
                 }
             }
-        }.map { it.await() }.filterIsInstance<ExecutionResult<out Any?>>().forEach {executionResult ->
+        }.map { it.await() }.filterIsInstance<Sandbox.TaskResults<out Any?>>().forEach {executionResult ->
             executionResult should haveTimedOut()
             executionResult.outputLines.map { it.line } shouldNotContain "Bad"
             executionResult.stderrLines.map { it.line } shouldNotContain "Bad"
@@ -370,7 +368,7 @@ for (int i = 0; i < 32; i++) {
             }
         }.map { it.await() }
 
-        lateinit var results: List<ExecutionResult<out Any?>>
+        lateinit var results: List<Sandbox.TaskResults<out Any?>>
         val totalTime = measureTimeMillis {
             results = compiledSources.parallelStream().map {
                 runBlocking {
@@ -398,7 +396,7 @@ for (int i = 0; i < 32; i++) {
             }
         }.map { it.await() }
 
-        lateinit var results: List<ExecutionResult<out Any?>>
+        lateinit var results: List<Sandbox.TaskResults<out Any?>>
         val totalTime = measureTimeMillis {
             results = compiledSources.map {
                 async {
@@ -432,7 +430,8 @@ try {
 System.out.println("There");
         """.trim()).compile().execute(SourceExecutionArguments(maxExtraThreads = 7))
 
-        println(executionResult.stdout)
+        executionResult shouldNot haveCompleted()
+        executionResult.permissionDenied shouldBe true
     }
     "should prevent snippets from exiting" {
         val executionResult = Source.fromSnippet("""
@@ -496,6 +495,7 @@ System.out.println("Started");
         """.trim()).compile().execute()
 
         executionResult shouldNot haveCompleted()
+        executionResult.permissionDenied shouldBe true
     }
     "should allow snippets to start threads when configured" {
         val compiledSource = Source.fromSnippet("""
@@ -515,8 +515,10 @@ try {
         """.trim()).compile()
         val failedExecutionResult = compiledSource.execute()
         failedExecutionResult shouldNot haveCompleted()
+        failedExecutionResult.permissionDenied shouldBe true
 
         val successfulExecutionResult = compiledSource.execute(SourceExecutionArguments(maxExtraThreads=1))
+        successfulExecutionResult.permissionDenied shouldBe false
         successfulExecutionResult should haveCompleted()
         successfulExecutionResult should haveOutput("Started\nEnded")
     }
@@ -561,6 +563,8 @@ for (long i = 0;; i++) {
         """.trim()).compile().execute(SourceExecutionArguments(maxExtraThreads=16, timeout=1000L))
 
         executionResult shouldNot haveCompleted()
+        executionResult.permissionDenied shouldBe true
+        executionResult should haveTimedOut()
         executionResult.stdoutLines shouldHaveSize 16
         executionResult.stdoutLines.map { it.line } shouldContain "15"
     }
@@ -585,7 +589,6 @@ strings.stream()
     .forEach(System.out::println);
         """.trim()).compile().execute()
 
-        println(executionResult.permissionRequests.filter { !it.granted })
         executionResult should haveCompleted()
         executionResult should haveOutput("ME\nTEST")
     }
@@ -633,6 +636,7 @@ while (true) {
         """.trim()).compile().execute(SourceExecutionArguments(maxExtraThreads=256, timeout=1000L))
 
         executionResult shouldNot haveCompleted()
+        executionResult.permissionDenied shouldBe true
         executionResult should haveTimedOut()
     }
     "should shut down sleep bombs" {
@@ -677,6 +681,7 @@ while (true) {
         """.trim()).compile().execute(SourceExecutionArguments(maxExtraThreads=256, timeout=1000L))
 
         executionResult shouldNot haveCompleted()
+        executionResult.permissionDenied shouldBe true
         executionResult should haveTimedOut()
     }
     "should shut down spin bombs" {
@@ -758,6 +763,7 @@ try {
         """.trim()).compile().execute(SourceExecutionArguments(maxExtraThreads = 256, timeout = 1000L))
 
         executionResult shouldNot haveCompleted()
+        executionResult.permissionDenied shouldBe true
         executionResult should haveTimedOut()
     }
     "should not allow ThreadDeath to be caught" {
@@ -936,12 +942,11 @@ Object compiledSource = compile.invoke(null, snippet, compileArgs);
     }
 
     "!should not allow reflection to disable sandboxing" {
-        val SCompanionSSandbox = "\$Companion\$Sandbox"
         val executionResult = Source.fromSnippet("""
 import java.net.*;
 import java.util.Map;
 
-Class<?> sandboxClass = Class.forName("edu.illinois.cs.cs125.jeed.core.JeedExecutor$SCompanionSSandbox");
+Class<?> sandboxClass = Class.forName("edu.illinois.cs.cs125.jeed.core.JeedExecutor${"$"}Companion${"$"}Sandbox");
 sandboxClass.getDeclaredField("confinedThreadGroups").setAccessible(true);
 /*
 Map confinedThreadGroups = (Map) confinedThreadGroupsField.get(null);
@@ -956,8 +961,8 @@ System.out.println("Escaped sandbox!");
     }
 })
 
-fun haveCompleted() = object : Matcher<ExecutionResult<out Any?>> {
-    override fun test(value: ExecutionResult<out Any?>): Result {
+fun haveCompleted() = object : Matcher<Sandbox.TaskResults<out Any?>> {
+    override fun test(value: Sandbox.TaskResults<out Any?>): Result {
         return Result(
                 value.completed,
                 "Code should have run",
@@ -965,8 +970,8 @@ fun haveCompleted() = object : Matcher<ExecutionResult<out Any?>> {
         )
     }
 }
-fun haveTimedOut() = object : Matcher<ExecutionResult<out Any?>> {
-    override fun test(value: ExecutionResult<out Any?>): Result {
+fun haveTimedOut() = object : Matcher<Sandbox.TaskResults<out Any?>> {
+    override fun test(value: Sandbox.TaskResults<out Any?>): Result {
         return Result(
                 value.timeout,
                 "Code should have timed out",
@@ -974,8 +979,8 @@ fun haveTimedOut() = object : Matcher<ExecutionResult<out Any?>> {
         )
     }
 }
-fun haveOutput(output: String = "") = object : Matcher<ExecutionResult<out Any?>> {
-    override fun test(value: ExecutionResult<out Any?>): Result {
+fun haveOutput(output: String = "") = object : Matcher<Sandbox.TaskResults<out Any?>> {
+    override fun test(value: Sandbox.TaskResults<out Any?>): Result {
         val actualOutput = value.output.trim()
         return Result(
                 actualOutput == output,
@@ -984,8 +989,8 @@ fun haveOutput(output: String = "") = object : Matcher<ExecutionResult<out Any?>
         )
     }
 }
-fun haveStdout(output: String) = object : Matcher<ExecutionResult<out Any?>> {
-    override fun test(value: ExecutionResult<out Any?>): Result {
+fun haveStdout(output: String) = object : Matcher<Sandbox.TaskResults<out Any?>> {
+    override fun test(value: Sandbox.TaskResults<out Any?>): Result {
         val actualOutput = value.stdout.trim()
         return Result(
                 actualOutput == output,
@@ -994,8 +999,8 @@ fun haveStdout(output: String) = object : Matcher<ExecutionResult<out Any?>> {
         )
     }
 }
-fun haveStderr(output: String) = object : Matcher<ExecutionResult<out Any?>> {
-    override fun test(value: ExecutionResult<out Any?>): Result {
+fun haveStderr(output: String) = object : Matcher<Sandbox.TaskResults<out Any?>> {
+    override fun test(value: Sandbox.TaskResults<out Any?>): Result {
         val actualOutput = value.stderr.trim()
         return Result(
                 actualOutput == output,
