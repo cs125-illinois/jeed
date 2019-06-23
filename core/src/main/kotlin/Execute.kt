@@ -1,5 +1,7 @@
 package edu.illinois.cs.cs125.jeed.core
 
+import java.lang.reflect.InvocationTargetException
+import java.lang.reflect.Method
 import java.lang.reflect.Modifier
 import java.security.Permission
 import java.util.concurrent.Callable
@@ -17,21 +19,36 @@ class SourceExecutionArguments(
     }
 }
 
-class MethodNotFoundException(message: String) : Exception(message)
 @Throws(ClassNotFoundException::class, MethodNotFoundException::class)
-suspend fun CompiledSource.execute(
-      executionArguments: SourceExecutionArguments = SourceExecutionArguments()
-): Sandbox.TaskResults<out Any?> {
-    val method = classLoader.loadClass(executionArguments.klass).declaredMethods.find { method ->
+fun ClassLoader.findClassMethod(klass: String, name: String): Method {
+    return loadClass(klass).declaredMethods.find { method ->
         if (!Modifier.isStatic(method.modifiers)
                 || !Modifier.isPublic(method.modifiers)
                 || method.parameterTypes.isNotEmpty()) {
             return@find false
         }
-        method.getQualifiedName() == executionArguments.method
+        method.getQualifiedName() == name
     } ?: throw MethodNotFoundException(
-            "Cannot locate public static no-argument method ${executionArguments.method} in ${executionArguments.klass}"
+            "Cannot locate public static no-argument method ${name} in ${klass}"
     )
+}
 
-    return Sandbox.execute(Callable { method.invoke(null) }, classLoader, executionArguments)
+class MethodNotFoundException(message: String) : Exception(message)
+@Throws(ClassNotFoundException::class, MethodNotFoundException::class)
+suspend fun CompiledSource.execute(
+      executionArguments: SourceExecutionArguments = SourceExecutionArguments()
+): Sandbox.TaskResults<out Any?> {
+    // Fail fast if the class or method don't exist
+    classLoader.findClassMethod(executionArguments.klass, executionArguments.method)
+
+    return Sandbox.execute(Callable {
+        try {
+            Thread.currentThread()
+                    .contextClassLoader
+                    .findClassMethod(executionArguments.klass, executionArguments.method)
+                    .invoke(null)
+        } catch (e: InvocationTargetException) {
+            throw(e.cause ?: e)
+        }
+    }, classLoader, executionArguments)
 }

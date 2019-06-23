@@ -125,6 +125,7 @@ object Sandbox {
                 val threadGroup = ThreadGroup("Sandbox")
                 threadGroup.maxPriority = Thread.MIN_PRIORITY
                 val thread = Thread(threadGroup, task)
+                thread.contextClassLoader = classLoader as ClassLoader
 
                 confine(threadGroup, classLoader, executionArguments)
                 val executionStarted = Instant.now()
@@ -137,15 +138,9 @@ object Sandbox {
                     thread.stop()
                     TaskResult(null, null, true)
                 } catch (e: Throwable) {
-                    when (e.cause) {
-                        is InvocationTargetException -> TaskResult(null, e.cause?.cause)
-                        else -> TaskResult(null, e.cause)
-                    }
+                    TaskResult(null, e.cause)
                 }
                 val executionEnded = Instant.now()
-
-
-
                 val sandboxResults = release(threadGroup)
 
                 val executionResult = TaskResults<T>(

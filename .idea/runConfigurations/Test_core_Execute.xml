@@ -1,14 +1,14 @@
 <component name="ProjectRunConfigurationManager">
-  <configuration default="false" name="Test core:Compile" type="JUnit" factoryName="JUnit">
+  <configuration default="false" name="Test core:Execute" type="JUnit" factoryName="JUnit">
     <module name="jeed.core.test" />
-    <extension name="coverage" runner="jacoco">
+    <extension name="coverage">
       <pattern>
         <option name="PATTERN" value="edu.illinois.cs.cs125.jeed.core.*" />
         <option name="ENABLED" value="true" />
       </pattern>
     </extension>
     <option name="PACKAGE_NAME" value="" />
-    <option name="MAIN_CLASS_NAME" value="edu.illinois.cs.cs125.jeed.core.TestCompile" />
+    <option name="MAIN_CLASS_NAME" value="edu.illinois.cs.cs125.jeed.core.TestExecute" />
     <option name="METHOD_NAME" value="" />
     <option name="TEST_OBJECT" value="class" />
     <option name="VM_PARAMETERS" value="-ea -Xmx512M" />
