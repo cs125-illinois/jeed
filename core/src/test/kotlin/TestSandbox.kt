@@ -58,7 +58,6 @@ System.err.print("There");
         executionResult should haveOutput("Here\nThere")
     }
     "should not intermingle unrelated thread output" {
-
         val combinedOutputStream = ByteArrayOutputStream()
         val combinedPrintStream = PrintStream(combinedOutputStream)
         val originalStdout = System.out

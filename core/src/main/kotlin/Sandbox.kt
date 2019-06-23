@@ -14,7 +14,6 @@ import java.util.concurrent.*
 @Suppress("UNUSED")
 private val logger = KotlinLogging.logger {}
 
-
 object Sandbox {
     open class ExecutionArguments<T>(
             val timeout: Long = DEFAULT_TIMEOUT,
@@ -187,9 +186,9 @@ object Sandbox {
     }
 
     private val confinedTasks: MutableMap<ThreadGroup, ConfinedTask> = mutableMapOf()
-    private fun confinedTaskByThreadGroup(): ConfinedTask? {
+    private fun confinedTaskByThreadGroup(trapIfShuttingDown: Boolean = true): ConfinedTask? {
         val confinedTask = confinedTasks[Thread.currentThread().threadGroup] ?: return null
-        if (confinedTask.shuttingDown) { while (true) { Thread.sleep(Long.MAX_VALUE) } }
+        if (confinedTask.shuttingDown && trapIfShuttingDown) { while (true) { Thread.sleep(Long.MAX_VALUE) } }
         return confinedTask
     }
 
@@ -247,8 +246,15 @@ object Sandbox {
     val systemSecurityManager: SecurityManager? = System.getSecurityManager()
 
     private object SandboxSecurityManager : SecurityManager() {
+        private fun confinedTaskByClassLoader(trapIfShuttingDown: Boolean = true): ConfinedTask? {
+            val confinedTask = confinedTaskByThreadGroup(trapIfShuttingDown) ?: return null
+            val classIsConfined = classContext.toList().subList(1, classContext.size).reversed().any { klass ->
+                klass.classLoader == confinedTask.classLoader
+            }
+            return if (classIsConfined) confinedTask else null
+        }
         override fun checkRead(file: String) {
-            val confinedTask = confinedTaskByThreadGroup()
+            val confinedTask = confinedTaskByClassLoader()
                     ?: return systemSecurityManager?.checkRead(file) ?: return
             if (!file.endsWith(".class")) {
                 confinedTask.addPermissionRequest(FilePermission(file, "read"), false)
@@ -286,7 +292,7 @@ object Sandbox {
             }
         }
         override fun checkPermission(permission: Permission) {
-            val confinedTask = confinedTaskByThreadGroup()
+            val confinedTask = confinedTaskByClassLoader()
                     ?: return systemSecurityManager?.checkPermission(permission) ?: return
             try {
                 confinedTask.accessControlContext.checkPermission(permission)
