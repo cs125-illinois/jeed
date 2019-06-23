@@ -6,8 +6,6 @@ import mu.KotlinLogging
 import java.io.FilePermission
 import java.io.OutputStream
 import java.io.PrintStream
-import java.lang.reflect.InvocationTargetException
-import java.lang.reflect.ReflectPermission
 import java.security.*
 import java.time.Duration
 import java.time.Instant
@@ -20,15 +18,11 @@ private val logger = KotlinLogging.logger {}
 object Sandbox {
     open class ExecutionArguments<T>(
             val timeout: Long = DEFAULT_TIMEOUT,
-            val permissions: List<Permission> = DEFAULT_PERMISSIONS,
+            val permissions: Set<Permission> = setOf(),
             val maxExtraThreads: Int = DEFAULT_MAX_EXTRA_THREADS
     ) {
         companion object {
             const val DEFAULT_TIMEOUT = 100L
-            val DEFAULT_PERMISSIONS = listOf(
-                    RuntimePermission("accessDeclaredMembers"),
-                    ReflectPermission("suppressAccessChecks")
-            )
             const val DEFAULT_MAX_EXTRA_THREADS = 0
         }
     }

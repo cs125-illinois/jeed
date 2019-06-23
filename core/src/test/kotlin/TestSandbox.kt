@@ -303,9 +303,7 @@ System.out.println(System.getProperty("file.separator"));
     "should allow snippets to read system properties if allowed" {
         val executionResult = Source.fromSnippet("""
 System.out.println(System.getProperty("file.separator"));
-        """.trim()).compile().execute(
-                SourceExecutionArguments(permissions=listOf(PropertyPermission("*", "read"))
-                ))
+        """.trim()).compile().execute(SourceExecutionArguments(permissions=listOf(PropertyPermission("*", "read"))))
 
         executionResult should haveCompleted()
         executionResult.permissionDenied shouldBe false

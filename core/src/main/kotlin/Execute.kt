@@ -3,6 +3,7 @@ package edu.illinois.cs.cs125.jeed.core
 import java.lang.reflect.InvocationTargetException
 import java.lang.reflect.Method
 import java.lang.reflect.Modifier
+import java.lang.reflect.ReflectPermission
 import java.security.Permission
 import java.util.concurrent.Callable
 
@@ -10,27 +11,17 @@ class SourceExecutionArguments(
         val klass: String = DEFAULT_KLASS,
         val method: String = DEFAULT_METHOD,
         timeout: Long = DEFAULT_TIMEOUT,
-        permissions: List<Permission> = DEFAULT_PERMISSIONS,
+        permissions: List<Permission> = REQUIRED_PERMISSIONS,
         maxExtraThreads: Int = DEFAULT_MAX_EXTRA_THREADS
-): Sandbox.ExecutionArguments<Any>(timeout, permissions, maxExtraThreads) {
+): Sandbox.ExecutionArguments<Any>(timeout, permissions.union(REQUIRED_PERMISSIONS), maxExtraThreads) {
     companion object {
         const val DEFAULT_KLASS = "Main"
         const val DEFAULT_METHOD = "main()"
+        val REQUIRED_PERMISSIONS = listOf(
+                RuntimePermission("accessDeclaredMembers"),
+                ReflectPermission("suppressAccessChecks")
+        )
     }
-}
-
-@Throws(ClassNotFoundException::class, MethodNotFoundException::class)
-fun ClassLoader.findClassMethod(klass: String, name: String): Method {
-    return loadClass(klass).declaredMethods.find { method ->
-        if (!Modifier.isStatic(method.modifiers)
-                || !Modifier.isPublic(method.modifiers)
-                || method.parameterTypes.isNotEmpty()) {
-            return@find false
-        }
-        method.getQualifiedName() == name
-    } ?: throw MethodNotFoundException(
-            "Cannot locate public static no-argument method ${name} in ${klass}"
-    )
 }
 
 class MethodNotFoundException(message: String) : Exception(message)
@@ -51,4 +42,16 @@ suspend fun CompiledSource.execute(
             throw(e.cause ?: e)
         }
     }, classLoader, executionArguments)
+}
+
+@Throws(ClassNotFoundException::class, MethodNotFoundException::class)
+fun ClassLoader.findClassMethod(klass: String, name: String): Method {
+    return loadClass(klass).declaredMethods.find { method ->
+        if (!Modifier.isStatic(method.modifiers)
+                || !Modifier.isPublic(method.modifiers)
+                || method.parameterTypes.isNotEmpty()) {
+            return@find false
+        }
+        method.getQualifiedName() == name
+    } ?: throw MethodNotFoundException("Cannot locate public static no-argument method $name in $klass")
 }
