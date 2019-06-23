@@ -274,7 +274,7 @@ System.out.println("There");
         executionResult shouldNot haveCompleted()
         executionResult.permissionDenied shouldBe true
     }
-    "should prevent snippets from exiting" {
+    "f:should prevent snippets from exiting" {
         val executionResult = Source.fromSnippet("""
 System.exit(2);
         """.trim()).compile().execute()
@@ -695,10 +695,8 @@ while ((line = in.readLine()) != null) {
         executionResult shouldNot haveCompleted()
         executionResult.permissionDenied shouldBe true
     }
-    "!it should not allow SecurityManager to be set again through reflection" {
+    "it should not allow SecurityManager to be set again through reflection" {
         val executionResult = Source.fromSnippet("""
-import java.lang.reflect.Method;
-
 Class<System> c = System.class;
 System s = c.newInstance();
             """.trim()).compile().execute()
@@ -708,9 +706,6 @@ System s = c.newInstance();
     }
     "it should not allow SecurityManager to be created again through reflection" {
         val executionResult = Source.fromSnippet("""
-
-import java.lang.reflect.Method;
-
 Class<SecurityManager> c = SecurityManager.class;
 SecurityManager s = c.newInstance();
             """.trim()).compile().execute()
@@ -720,7 +715,6 @@ SecurityManager s = c.newInstance();
     }
     "should shut down memory exhaustion bombs" {
         Source.fromSnippet("""
-
 import java.util.List;
 import java.util.ArrayList;
 
@@ -760,7 +754,7 @@ while (true) {
             """.trim()).compile().execute(SourceExecutionArguments(maxExtraThreads=256, timeout=1000L))
     }
 
-    "!should not allow access to the compiler" {
+    "f:should not allow access to the compiler" {
         val executionResult = Source.fromSnippet("""
 import java.lang.reflect.*;
 
@@ -779,20 +773,17 @@ Object compiledSource = compile.invoke(null, snippet, compileArgs);
         executionResult shouldNot haveCompleted()
         executionResult.permissionDenied shouldBe true
     }
-
-    "!should not allow reflection to disable sandboxing" {
+    // TODO: Ben please take another go at this one.
+    "should not allow reflection to disable sandboxing" {
         val executionResult = Source.fromSnippet("""
 import java.net.*;
 import java.util.Map;
 
-Class<?> sandboxClass = Class.forName("edu.illinois.cs.cs125.jeed.core.JeedExecutor${"$"}Companion${"$"}Sandbox");
-sandboxClass.getDeclaredField("confinedThreadGroups").setAccessible(true);
-/*
-Map confinedThreadGroups = (Map) confinedThreadGroupsField.get(null);
-confinedThreadGroups.clear();
-URLClassLoader loader = new URLClassLoader(new URL[] { new URL("https://example.com/sketchy/server") });
-System.out.println("Escaped sandbox!");
-*/
+Class<?> sandboxClass = Class.forName("edu.illinois.cs.cs125.jeed.core.Sandbox");
+sandboxClass.getDeclaredField("confinedTasks").setAccessible(true);
+Map confinedTasks = (Map) sandboxClass.getDeclaredField("confinedTasks").get(null);
+confinedTasks.clear();
+System.exit(-1);
         """.trim()).compile().execute()
 
         executionResult shouldNot haveCompleted()

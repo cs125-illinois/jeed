@@ -81,16 +81,15 @@ object Sandbox {
             RuntimePermission("modifyThreadGroup")
     )
     suspend fun <T> execute(
-            callable: Callable<T>,
             classLoader: ByteCodeProvidingClassLoader,
-            executionArguments: ExecutionArguments<T>
+            executionArguments: ExecutionArguments<T>,
+            callable: (ClassLoader)->T
     ): TaskResults<out T?> {
         require(executionArguments.permissions.intersect(blacklistedPermissions).isEmpty()) { "attempt to allow unsafe permissions" }
 
         return coroutineScope {
             val resultsChannel = Channel<ExecutorResult<T>>()
-            val task = FutureTask<T>(callable)
-            val executor = Executor(task, classLoader, executionArguments, resultsChannel)
+            val executor = Executor(callable, classLoader, executionArguments, resultsChannel)
             threadPool.submit(executor)
             val result = executor.resultChannel.receive()
             result.taskResults ?: throw result.executionException
@@ -104,7 +103,7 @@ object Sandbox {
     private val threadPool = Executors.newFixedThreadPool(Runtime.getRuntime().availableProcessors()) ?: error("thread pool should be available")
     private data class ExecutorResult<T>(val taskResults: TaskResults<T>?, val executionException: Throwable)
     private class Executor<T>(
-            val task: FutureTask<T>,
+            val callable: (ClassLoader) -> T,
             val classLoader: ByteCodeProvidingClassLoader,
             val executionArguments: ExecutionArguments<T>,
             val resultChannel: Channel<ExecutorResult<T>>
@@ -113,14 +112,10 @@ object Sandbox {
 
         override fun call() {
             try {
-                val started = Instant.now()
 
-                val threadGroup = ThreadGroup("Sandbox")
-                threadGroup.maxPriority = Thread.MIN_PRIORITY
-                val thread = Thread(threadGroup, task)
-                thread.contextClassLoader = classLoader as ClassLoader
+                val (task, thread) = confine(callable, classLoader, executionArguments)
+                val threadGroup = thread.threadGroup
 
-                confine(threadGroup, classLoader, executionArguments)
                 val executionStarted = Instant.now()
                 val taskResult = try {
                     thread.start()
@@ -140,7 +135,7 @@ object Sandbox {
                         taskResult.returned, taskResult.threw, taskResult.timeout,
                         sandboxResults.outputLines,
                         sandboxResults.permissionRequests,
-                        Interval(started, Instant.now()),
+                        Interval(sandboxResults.started, Instant.now()),
                         Interval(executionStarted, executionEnded)
                 )
                 runBlocking { resultChannel.send(ExecutorResult(executionResult, Exception())) }
@@ -153,7 +148,7 @@ object Sandbox {
     }
 
     private class ConfinedTask (
-            val classLoader: ByteCodeProvidingClassLoader,
+            val classLoader: SandboxedClassLoader,
             executionArguments: ExecutionArguments<*>
     ) {
         val accessControlContext: AccessControlContext
@@ -174,6 +169,7 @@ object Sandbox {
                 val line: StringBuilder = StringBuilder(),
                 val startedThread: Long = Thread.currentThread().id
         )
+        val started: Instant = Instant.now()
         lateinit var interval: Interval
         lateinit var executionInterval: Interval
 
@@ -192,13 +188,18 @@ object Sandbox {
         return confinedTask
     }
 
-    private fun confine(
-            threadGroup: ThreadGroup,
-            classLoader: ByteCodeProvidingClassLoader,
+    private fun <T> confine(
+            callable: (ClassLoader) -> T,
+            byteCodeProvidingClassLoader: ByteCodeProvidingClassLoader,
             executionArguments: ExecutionArguments<*>
-    ) {
-        require(!confinedTasks.containsKey(threadGroup)) { "thread group is already confined" }
-        confinedTasks[threadGroup] = ConfinedTask(classLoader, executionArguments)
+    ): Pair<FutureTask<T>, Thread> {
+        val threadGroup = ThreadGroup("Sandbox")
+        threadGroup.maxPriority = Thread.MIN_PRIORITY
+        val sandboxedClassLoader = SandboxedClassLoader(byteCodeProvidingClassLoader)
+        val task = FutureTask(SandboxedCallable<T>(callable, sandboxedClassLoader))
+        val thread = Thread(threadGroup, task)
+        confinedTasks[threadGroup] = ConfinedTask(sandboxedClassLoader, executionArguments)
+        return Pair(task, thread)
     }
     private fun release(threadGroup: ThreadGroup): ConfinedTask {
         require(confinedTasks.containsKey(threadGroup)) { "thread group is not confined" }
@@ -241,6 +242,26 @@ object Sandbox {
 
         confinedTasks.remove(threadGroup)
         return confinedTask
+    }
+
+    private class SandboxedCallable<V>(val callable: (ClassLoader)->V, val sandboxedClassLoader: SandboxedClassLoader): Callable<V> {
+        override fun call(): V {
+            return callable(sandboxedClassLoader as ClassLoader)
+        }
+    }
+
+    private class SandboxedClassLoader(byteCodeProvidingClassLoader: ByteCodeProvidingClassLoader) : ClassLoader() {
+        val bytecodeForKnownClasses = byteCodeProvidingClassLoader.bytecodeForClasses
+        override fun findClass(name: String): Class<*> {
+            originalStdout.println("Finding $name")
+            val knownClass = bytecodeForKnownClasses[name] ?: return super.findClass(name)
+            return defineClass(name, knownClass, 0, knownClass.size)
+        }
+
+        override fun loadClass(name: String, resolve: Boolean): Class<*> {
+            originalStdout.println("Loading $name")
+            return super.loadClass(name, resolve)
+        }
     }
 
     val systemSecurityManager: SecurityManager? = System.getSecurityManager()

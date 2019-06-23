@@ -5,7 +5,6 @@ import java.lang.reflect.Method
 import java.lang.reflect.Modifier
 import java.lang.reflect.ReflectPermission
 import java.security.Permission
-import java.util.concurrent.Callable
 
 class SourceExecutionArguments(
         val klass: String = DEFAULT_KLASS,
@@ -32,16 +31,13 @@ suspend fun CompiledSource.execute(
     // Fail fast if the class or method don't exist
     classLoader.findClassMethod(executionArguments.klass, executionArguments.method)
 
-    return Sandbox.execute(Callable {
+    return Sandbox.execute(classLoader, executionArguments) { classLoader ->
         try {
-            Thread.currentThread()
-                    .contextClassLoader
-                    .findClassMethod(executionArguments.klass, executionArguments.method)
-                    .invoke(null)
+            classLoader.findClassMethod(executionArguments.klass, executionArguments.method).invoke(null)
         } catch (e: InvocationTargetException) {
             throw(e.cause ?: e)
         }
-    }, classLoader, executionArguments)
+    }
 }
 
 @Throws(ClassNotFoundException::class, MethodNotFoundException::class)
