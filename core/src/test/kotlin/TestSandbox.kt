@@ -21,8 +21,6 @@ class TestSandbox : StringSpec({
         val executionResult = Source.fromSnippet("""
 System.out.println("Here");
             """.trim()).compile().execute()
-        println(executionResult.output)
-        println(executionResult.threw)
         executionResult should haveCompleted()
         executionResult shouldNot haveTimedOut()
         executionResult should haveStdout("Here")
@@ -134,39 +132,6 @@ while (true) {
         executionResult shouldNot haveCompleted()
         executionResult should haveTimedOut()
         executionResult should haveOutput("Here")
-    }
-    "should import libraries properly" {
-        val executionResult = Source.fromSnippet("""
-import java.util.List;
-import java.util.ArrayList;
-
-List<Integer> list = new ArrayList<>();
-list.add(8);
-System.out.println(list.get(0));
-            """.trim()).compile().execute()
-
-        executionResult should haveCompleted()
-        executionResult should haveOutput("8")
-    }
-    "should execute sources that use inner classes" {
-        val executionResult = Source(mapOf(
-                "Main" to """
-public class Main {
-    class Inner {
-        Inner() {
-            System.out.println("Inner");
-        }
-    }
-    Main() {
-        Inner inner = new Inner();
-    }
-    public static void main() {
-        Main main = new Main();
-    }
-}
-                """.trim())).compile().execute()
-        executionResult should haveCompleted()
-        executionResult should haveStdout("Inner")
     }
     "should execute correctly in parallel using streams" {
         (0..8).toList().parallelStream().map { value ->
@@ -654,7 +619,6 @@ try {
 
     "it should not allow snippets to read from the internet" {
         val executionResult = Source.fromSnippet("""
-
 import java.io.BufferedReader;
 import java.io.InputStreamReader;
 import java.net.URL;
@@ -789,53 +753,64 @@ System.exit(-1);
         executionResult shouldNot haveCompleted()
         executionResult.permissionDenied shouldBe true
     }
-})
+    "should prohibit default blacklisted imports" {
+        val executionResult = Source.fromSnippet("""
+import java.lang.reflect.*;
 
-fun haveCompleted() = object : Matcher<Sandbox.TaskResults<out Any?>> {
-    override fun test(value: Sandbox.TaskResults<out Any?>): Result {
-        return Result(
-                value.completed,
-                "Code should have run",
-                "Code should not have run"
-        )
+Method[] methods = Main.class.getMethods();
+System.out.println(methods[0].getName());
+        """.trim()).compile().execute()
+
+        executionResult shouldNot haveCompleted()
+        executionResult.permissionDenied shouldBe true
     }
-}
-fun haveTimedOut() = object : Matcher<Sandbox.TaskResults<out Any?>> {
-    override fun test(value: Sandbox.TaskResults<out Any?>): Result {
-        return Result(
-                value.timeout,
-                "Code should have timed out",
-                "Code should not have timed out"
-        )
+    "should prohibit configured blacklisted imports" {
+        val successfulExecutionResult = Source.fromSnippet("""
+import java.util.List;
+import java.util.ArrayList;
+
+List list = new ArrayList<String>();
+        """.trim()).compile().execute()
+
+        successfulExecutionResult should haveCompleted()
+
+        val failedExecutionResult = Source.fromSnippet("""
+import java.util.List;
+import java.util.ArrayList;
+
+List list = new ArrayList<String>();
+        """.trim()).compile().execute(SourceExecutionArguments(blacklistedClasses = setOf("java.util.")))
+
+        failedExecutionResult shouldNot haveCompleted()
+        failedExecutionResult.permissionDenied shouldBe true
     }
-}
-fun haveOutput(output: String = "") = object : Matcher<Sandbox.TaskResults<out Any?>> {
-    override fun test(value: Sandbox.TaskResults<out Any?>): Result {
-        val actualOutput = value.output.trim()
-        return Result(
-                actualOutput == output,
-                "Expected output $output, found $actualOutput",
-                "Expected to not find output $actualOutput"
-        )
+    "should allow only whitelisted imports" {
+        val successfulExecutionResult = Source.fromSnippet("""
+String s = new String("test");
+        """.trim()).compile().execute(SourceExecutionArguments(whitelistedClasses = setOf("java.lang.")))
+
+        successfulExecutionResult should haveCompleted()
+
+        val failedExecutionResult = Source.fromSnippet("""
+import java.util.List;
+import java.util.ArrayList;
+
+List list = new ArrayList<String>();
+        """.trim()).compile().execute(SourceExecutionArguments(whitelistedClasses = setOf("java.lang.")))
+
+        failedExecutionResult shouldNot haveCompleted()
+        failedExecutionResult.permissionDenied shouldBe true
     }
-}
-fun haveStdout(output: String) = object : Matcher<Sandbox.TaskResults<out Any?>> {
-    override fun test(value: Sandbox.TaskResults<out Any?>): Result {
-        val actualOutput = value.stdout.trim()
-        return Result(
-                actualOutput == output,
-                "Expected stdout $output, found $actualOutput",
-                "Expected to not find stdout $actualOutput"
-        )
+    "should not allow java.lang.reflect to be whitelisted" {
+        shouldThrow<IllegalArgumentException> {
+            Source.fromSnippet("""
+System.out.println("Here");
+            """.trim()).compile().execute(SourceExecutionArguments(whitelistedClasses = setOf("java.lang.reflect.")))
+        }
+        shouldThrow<IllegalArgumentException> {
+            Source.fromSnippet("""
+System.out.println("Here");
+            """.trim()).compile().execute(SourceExecutionArguments(whitelistedClasses = setOf("java.lang.reflect.Method")))
+        }
     }
-}
-fun haveStderr(output: String) = object : Matcher<Sandbox.TaskResults<out Any?>> {
-    override fun test(value: Sandbox.TaskResults<out Any?>): Result {
-        val actualOutput = value.stderr.trim()
-        return Result(
-                actualOutput == output,
-                "Expected stderr $output, found $actualOutput",
-                "Expected to not find stderr $actualOutput"
-        )
-    }
-}
+})

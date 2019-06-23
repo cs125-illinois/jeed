@@ -1,5 +1,7 @@
 package edu.illinois.cs.cs125.jeed.core
 
+import io.kotlintest.Matcher
+import io.kotlintest.Result
 import io.kotlintest.should
 import io.kotlintest.shouldNot
 import io.kotlintest.shouldThrow
@@ -182,4 +184,87 @@ System.out.println(i);
             """.trim()).compile().execute(SourceExecutionArguments(method = "test"))
         }
     }
+    "should import libraries properly" {
+        val executionResult = Source.fromSnippet("""
+import java.util.List;
+import java.util.ArrayList;
+
+List<Integer> list = new ArrayList<>();
+list.add(8);
+System.out.println(list.get(0));
+            """.trim()).compile().execute()
+
+        executionResult should haveCompleted()
+        executionResult should haveOutput("8")
+    }
+    "should execute sources that use inner classes" {
+        val executionResult = Source(mapOf(
+                "Main" to """
+public class Main {
+    class Inner {
+        Inner() {
+            System.out.println("Inner");
+        }
+    }
+    Main() {
+        Inner inner = new Inner();
+    }
+    public static void main() {
+        Main main = new Main();
+    }
+}
+                """.trim())).compile().execute()
+        executionResult should haveCompleted()
+        executionResult should haveStdout("Inner")
+    }
 })
+
+fun haveCompleted() = object : Matcher<Sandbox.TaskResults<out Any?>> {
+    override fun test(value: Sandbox.TaskResults<out Any?>): Result {
+        return Result(
+                value.completed,
+                "Code should have run",
+                "Code should not have run"
+        )
+    }
+}
+fun haveTimedOut() = object : Matcher<Sandbox.TaskResults<out Any?>> {
+    override fun test(value: Sandbox.TaskResults<out Any?>): Result {
+        return Result(
+                value.timeout,
+                "Code should have timed out",
+                "Code should not have timed out"
+        )
+    }
+}
+fun haveOutput(output: String = "") = object : Matcher<Sandbox.TaskResults<out Any?>> {
+    override fun test(value: Sandbox.TaskResults<out Any?>): Result {
+        val actualOutput = value.output.trim()
+        return Result(
+                actualOutput == output,
+                "Expected output $output, found $actualOutput",
+                "Expected to not find output $actualOutput"
+        )
+    }
+}
+fun haveStdout(output: String) = object : Matcher<Sandbox.TaskResults<out Any?>> {
+    override fun test(value: Sandbox.TaskResults<out Any?>): Result {
+        val actualOutput = value.stdout.trim()
+        return Result(
+                actualOutput == output,
+                "Expected stdout $output, found $actualOutput",
+                "Expected to not find stdout $actualOutput"
+        )
+    }
+}
+fun haveStderr(output: String) = object : Matcher<Sandbox.TaskResults<out Any?>> {
+    override fun test(value: Sandbox.TaskResults<out Any?>): Result {
+        val actualOutput = value.stderr.trim()
+        return Result(
+                actualOutput == output,
+                "Expected stderr $output, found $actualOutput",
+                "Expected to not find stderr $actualOutput"
+        )
+    }
+}
+

@@ -18,8 +18,11 @@ object Sandbox {
     open class ExecutionArguments<T>(
             val timeout: Long = DEFAULT_TIMEOUT,
             val permissions: Set<Permission> = setOf(),
+            val whitelistedClasses: Set<String> = setOf(),
+            blacklistedClasses: Set<String> = setOf(),
             val maxExtraThreads: Int = DEFAULT_MAX_EXTRA_THREADS
     ) {
+        val blacklistedClasses = blacklistedClasses.union(PERMANENTLY_BLACKLISTED_CLASSES)
         companion object {
             const val DEFAULT_TIMEOUT = 100L
             const val DEFAULT_MAX_EXTRA_THREADS = 0
@@ -58,7 +61,7 @@ object Sandbox {
             get() { return Duration.between(interval.start, interval.end) }
     }
 
-    val blacklistedPermissions = listOf(
+    val BLACKLISTED_PERMISSIONS = setOf(
             // Suggestions from here: https://github.com/pro-grade/pro-grade/issues/31.
             RuntimePermission("createClassLoader"),
             RuntimePermission("accessClassInPackage.sun"),
@@ -80,12 +83,27 @@ object Sandbox {
             RuntimePermission("modifyThread"),
             RuntimePermission("modifyThreadGroup")
     )
+    val PERMANENTLY_BLACKLISTED_CLASSES = setOf("java.lang.reflect.")
+
     suspend fun <T> execute(
             classLoader: ByteCodeProvidingClassLoader,
             executionArguments: ExecutionArguments<T>,
             callable: (ClassLoader)->T
     ): TaskResults<out T?> {
-        require(executionArguments.permissions.intersect(blacklistedPermissions).isEmpty()) { "attempt to allow unsafe permissions" }
+        require(executionArguments.permissions.intersect(BLACKLISTED_PERMISSIONS).isEmpty()) {
+            "attempt to allow unsafe permissions"
+        }
+        require(!executionArguments.whitelistedClasses.any {whitelistedClass ->
+            PERMANENTLY_BLACKLISTED_CLASSES.any {blacklistedClass ->
+                whitelistedClass.startsWith(blacklistedClass)
+            }
+        }) {
+            "attempt to allow access to unsafe classes"
+        }
+        require(!(executionArguments.whitelistedClasses.isNotEmpty()
+                && executionArguments.blacklistedClasses != PERMANENTLY_BLACKLISTED_CLASSES)) {
+            "can't set both a class whitelist and blacklist"
+        }
 
         return coroutineScope {
             val resultsChannel = Channel<ExecutorResult<T>>()
@@ -96,9 +114,8 @@ object Sandbox {
         }
     }
 
-    private const val MAX_THREAD_SHUTDOWN_RETRIES = 10240
+    private const val MAX_THREAD_SHUTDOWN_RETRIES = 64
     private const val THREADGROUP_SHUTDOWN_DELAY = 10L
-
 
     private val threadPool = Executors.newFixedThreadPool(Runtime.getRuntime().availableProcessors()) ?: error("thread pool should be available")
     private data class ExecutorResult<T>(val taskResults: TaskResults<T>?, val executionException: Throwable)
@@ -113,29 +130,27 @@ object Sandbox {
         override fun call() {
             try {
 
-                val (task, thread) = confine(callable, classLoader, executionArguments)
-                val threadGroup = thread.threadGroup
-
+                val confinedTask = confine(callable, classLoader, executionArguments)
                 val executionStarted = Instant.now()
                 val taskResult = try {
-                    thread.start()
-                    TaskResult(task.get(executionArguments.timeout, TimeUnit.MILLISECONDS))
+                    confinedTask.thread.start()
+                    TaskResult(confinedTask.task.get(executionArguments.timeout, TimeUnit.MILLISECONDS))
                 } catch (e: TimeoutException) {
-                    task.cancel(true)
+                    confinedTask.task.cancel(true)
                     @Suppress("DEPRECATION")
-                    thread.stop()
+                    confinedTask.thread.stop()
                     TaskResult(null, null, true)
                 } catch (e: Throwable) {
                     TaskResult(null, e.cause)
                 }
                 val executionEnded = Instant.now()
-                val sandboxResults = release(threadGroup)
+                release(confinedTask)
 
                 val executionResult = TaskResults<T>(
                         taskResult.returned, taskResult.threw, taskResult.timeout,
-                        sandboxResults.outputLines,
-                        sandboxResults.permissionRequests,
-                        Interval(sandboxResults.started, Instant.now()),
+                        confinedTask.outputLines,
+                        confinedTask.permissionRequests,
+                        Interval(confinedTask.started, Instant.now()),
                         Interval(executionStarted, executionEnded)
                 )
                 runBlocking { resultChannel.send(ExecutorResult(executionResult, Exception())) }
@@ -147,10 +162,13 @@ object Sandbox {
         }
     }
 
-    private class ConfinedTask (
+    private class ConfinedTask<T> (
             val classLoader: SandboxedClassLoader,
+            val task: FutureTask<T>,
+            val thread: Thread,
             executionArguments: ExecutionArguments<*>
     ) {
+        val threadGroup = thread.threadGroup ?: error("thread should be in thread group")
         val accessControlContext: AccessControlContext
         init {
             val permissions = Permissions()
@@ -173,16 +191,16 @@ object Sandbox {
         lateinit var interval: Interval
         lateinit var executionInterval: Interval
 
-        fun addPermissionRequest(permission: Permission, granted: Boolean) {
+        fun addPermissionRequest(permission: Permission, granted: Boolean, throwException: Boolean = true) {
             permissionRequests.add(TaskResults.PermissionRequest(permission, granted))
-            if (!granted) {
+            if (!granted && throwException) {
                 throw SecurityException()
             }
         }
     }
 
-    private val confinedTasks: MutableMap<ThreadGroup, ConfinedTask> = mutableMapOf()
-    private fun confinedTaskByThreadGroup(trapIfShuttingDown: Boolean = true): ConfinedTask? {
+    private val confinedTasks: MutableMap<ThreadGroup, ConfinedTask<*>> = mutableMapOf()
+    private fun confinedTaskByThreadGroup(trapIfShuttingDown: Boolean = true): ConfinedTask<*>? {
         val confinedTask = confinedTasks[Thread.currentThread().threadGroup] ?: return null
         if (confinedTask.shuttingDown && trapIfShuttingDown) { while (true) { Thread.sleep(Long.MAX_VALUE) } }
         return confinedTask
@@ -192,18 +210,23 @@ object Sandbox {
             callable: (ClassLoader) -> T,
             byteCodeProvidingClassLoader: ByteCodeProvidingClassLoader,
             executionArguments: ExecutionArguments<*>
-    ): Pair<FutureTask<T>, Thread> {
+    ): ConfinedTask<T> {
         val threadGroup = ThreadGroup("Sandbox")
         threadGroup.maxPriority = Thread.MIN_PRIORITY
-        val sandboxedClassLoader = SandboxedClassLoader(byteCodeProvidingClassLoader)
-        val task = FutureTask(SandboxedCallable<T>(callable, sandboxedClassLoader))
+        val sandboxedClassLoader = SandboxedClassLoader(
+                byteCodeProvidingClassLoader,
+                executionArguments.whitelistedClasses,
+                executionArguments.blacklistedClasses
+        )
+        val task = FutureTask<T>(SandboxedCallable<T>(callable, sandboxedClassLoader))
         val thread = Thread(threadGroup, task)
-        confinedTasks[threadGroup] = ConfinedTask(sandboxedClassLoader, executionArguments)
-        return Pair(task, thread)
+        val confinedTask = ConfinedTask(sandboxedClassLoader, task, thread, executionArguments)
+        confinedTasks[threadGroup] = confinedTask
+        return confinedTask
     }
-    private fun release(threadGroup: ThreadGroup): ConfinedTask {
+    private fun <T> release(confinedTask: ConfinedTask<T>) {
+        val threadGroup = confinedTask.threadGroup
         require(confinedTasks.containsKey(threadGroup)) { "thread group is not confined" }
-        val confinedTask = confinedTasks[threadGroup] ?: error("thread group is not confined")
 
         confinedTask.shuttingDown = true
 
@@ -241,33 +264,52 @@ object Sandbox {
         }
 
         confinedTasks.remove(threadGroup)
-        return confinedTask
     }
 
     private class SandboxedCallable<V>(val callable: (ClassLoader)->V, val sandboxedClassLoader: SandboxedClassLoader): Callable<V> {
-        override fun call(): V {
-            return callable(sandboxedClassLoader as ClassLoader)
-        }
+        override fun call(): V { return callable(sandboxedClassLoader as ClassLoader) }
     }
 
-    private class SandboxedClassLoader(byteCodeProvidingClassLoader: ByteCodeProvidingClassLoader) : ClassLoader() {
+    private class SandboxedClassLoader(
+            byteCodeProvidingClassLoader: ByteCodeProvidingClassLoader,
+            val whitelistedClasses: Set<String> = setOf(),
+            val blacklistedClasses: Set<String> = setOf()
+    ) : ClassLoader() {
         val bytecodeForKnownClasses = byteCodeProvidingClassLoader.bytecodeForClasses
         override fun findClass(name: String): Class<*> {
-            originalStdout.println("Finding $name")
             val knownClass = bytecodeForKnownClasses[name] ?: return super.findClass(name)
             return defineClass(name, knownClass, 0, knownClass.size)
         }
 
-        override fun loadClass(name: String, resolve: Boolean): Class<*> {
-            originalStdout.println("Loading $name")
-            return super.loadClass(name, resolve)
+        val filter = whitelistedClasses.isNotEmpty() || blacklistedClasses.isNotEmpty()
+        val isWhiteList = whitelistedClasses.isNotEmpty()
+        override fun loadClass(name: String): Class<*> {
+            if (!filter) { return super.loadClass(name) }
+            val confinedTask = confinedTaskByThreadGroup() ?: return super.loadClass(name)
+
+            if (bytecodeForKnownClasses.containsKey(name)) { return super.loadClass(name) }
+            return if (isWhiteList) {
+                if (whitelistedClasses.any { name.startsWith(it) }) {
+                    super.loadClass(name)
+                } else {
+                    confinedTask.addPermissionRequest(RuntimePermission("loadClass $name"), granted = false, throwException = false)
+                    throw ClassNotFoundException(name)
+                }
+            } else {
+                if (blacklistedClasses.any { name.startsWith(it) }) {
+                    confinedTask.addPermissionRequest(RuntimePermission("loadClass $name"), granted = false, throwException = false)
+                    throw ClassNotFoundException(name)
+                } else {
+                    super.loadClass(name)
+                }
+            }
         }
     }
 
     val systemSecurityManager: SecurityManager? = System.getSecurityManager()
 
     private object SandboxSecurityManager : SecurityManager() {
-        private fun confinedTaskByClassLoader(trapIfShuttingDown: Boolean = true): ConfinedTask? {
+        private fun confinedTaskByClassLoader(trapIfShuttingDown: Boolean = true): ConfinedTask<*>? {
             val confinedTask = confinedTaskByThreadGroup(trapIfShuttingDown) ?: return null
             val classIsConfined = classContext.toList().subList(1, classContext.size).reversed().any { klass ->
                 klass.classLoader == confinedTask.classLoader
@@ -317,9 +359,9 @@ object Sandbox {
                     ?: return systemSecurityManager?.checkPermission(permission) ?: return
             try {
                 confinedTask.accessControlContext.checkPermission(permission)
-                confinedTask.permissionRequests.add(TaskResults.PermissionRequest(permission, true))
+                confinedTask.addPermissionRequest(permission, true)
             } catch (e: SecurityException) {
-                confinedTask.permissionRequests.add(TaskResults.PermissionRequest(permission, false))
+                confinedTask.addPermissionRequest(permission, granted = false, throwException = false)
                 throw e
             }
             systemSecurityManager?.checkPermission(permission)
