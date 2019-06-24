@@ -737,8 +737,7 @@ Object compiledSource = compile.invoke(null, snippet, compileArgs);
         executionResult shouldNot haveCompleted()
         executionResult.permissionDenied shouldBe true
     }
-    // TODO: Ben please take another go at this one.
-    "!should not allow reflection to disable sandboxing" {
+    "should not allow reflection to disable sandboxing" {
         val executionResult = Source.fromSnippet("""
 import java.net.*;
 import java.util.Map;
@@ -827,7 +826,7 @@ try {
             """.trim()).compile().execute()
         executionResult should haveOutput("Try\nFinally")
     }
-    "f:shouldn't allow static{} to escape the sandbox" {
+    "should not allow static{} to escape the sandbox" {
         val result = Source(mapOf(
                 "Example" to """
 public class Example {
