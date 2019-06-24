@@ -99,8 +99,8 @@ private class Results : DiagnosticListener<JavaFileObject> {
     override fun report(diagnostic: Diagnostic<out JavaFileObject>) { diagnostics.add(diagnostic) }
 }
 
-private fun classNameToPath(className: String): String { return className.replace(".", File.separator) }
-private fun pathToClassName(path: String): String { return path.replace(File.separator, ".") }
+fun classNameToPath(className: String): String { return className.replace(".", File.separator) }
+fun pathToClassName(path: String): String { return path.replace(File.separator, ".") }
 
 class JeedFileManager(parentFileManager: JavaFileManager) : ForwardingJavaFileManager<JavaFileManager>(parentFileManager) {
     private val classFiles: MutableMap<String, JavaFileObject> = mutableMapOf()

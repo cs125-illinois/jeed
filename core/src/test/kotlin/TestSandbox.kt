@@ -813,4 +813,18 @@ System.out.println("Here");
             """.trim()).compile().execute(SourceExecutionArguments(whitelistedClasses = setOf("java.lang.reflect.Method")))
         }
     }
+    "f:should rewrite try-catch block properly" {
+        val executionResult = Source.fromSnippet("""
+try {
+    System.out.println("Try");
+    Object o = null;
+    o.toString();
+} catch (Throwable e) {
+    System.out.println("Catch");
+} finally {
+    System.out.println("Here");
+}
+            """.trim()).compile().execute()
+        executionResult should haveOutput("Try\nFinally")
+    }
 })

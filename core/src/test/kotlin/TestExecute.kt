@@ -223,7 +223,7 @@ fun haveCompleted() = object : Matcher<Sandbox.TaskResults<out Any?>> {
     override fun test(value: Sandbox.TaskResults<out Any?>): Result {
         return Result(
                 value.completed,
-                "Code should have run",
+                "Code should have run: ${value.threw}",
                 "Code should not have run"
         )
     }
