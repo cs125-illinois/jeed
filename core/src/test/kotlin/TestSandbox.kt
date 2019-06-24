@@ -813,7 +813,7 @@ System.out.println("Here");
             """.trim()).compile().execute(SourceExecutionArguments(whitelistedClasses = setOf("java.lang.reflect.Method")))
         }
     }
-    "f:should rewrite try-catch block properly" {
+    "should rewrite try-catch block properly" {
         val executionResult = Source.fromSnippet("""
 try {
     System.out.println("Try");
@@ -822,9 +822,26 @@ try {
 } catch (Throwable e) {
     System.out.println("Catch");
 } finally {
-    System.out.println("Here");
+    System.out.println("Finally");
 }
             """.trim()).compile().execute()
         executionResult should haveOutput("Try\nFinally")
+    }
+    "f:shouldn't allow static{} to escape the sandbox" {
+        val result = Source(mapOf(
+                "Example" to """
+public class Example {
+    static {
+        System.out.println("Static initializer");
+        System.exit(-1);
+    }
+    public static void main() {
+        System.out.println("Main");
+    }
+}
+                """
+        )).compile().execute(SourceExecutionArguments("Example"))
+        println(result.output)
+        result.permissionDenied shouldBe true
     }
 })
