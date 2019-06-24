@@ -74,9 +74,11 @@ constructor
         }
     }
     init {
+        /*
         this.sources.forEach {
             SourceSanitizer(this, it)
         }
+        */
     }
 
     companion object {
