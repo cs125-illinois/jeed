@@ -275,7 +275,7 @@ object Sandbox {
             byteCodeProvidingClassLoader: ByteCodeProvidingClassLoader,
             val whitelistedClasses: Set<String> = setOf(),
             val blacklistedClasses: Set<String> = setOf()
-    ) : ClassLoader() {
+    ) : ClassLoader((byteCodeProvidingClassLoader as ClassLoader).parent) {
         val knownClasses: Map<String, Class<*>>
         init {
             knownClasses = byteCodeProvidingClassLoader.bytecodeForClasses.mapValues { (name, unsafeByteArray) ->
@@ -427,8 +427,6 @@ object Sandbox {
                         ?: error("checkFinally should have a name")
                 private val finallyInterceptorDescription = Type.getMethodDescriptor(Sandbox::checkFinally.javaMethod)
                         ?: error("should be able to retrieve method signature for checkException")
-
-
             }
         }
         companion object {
