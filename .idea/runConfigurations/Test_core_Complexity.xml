@@ -3,7 +3,7 @@
     <module name="jeed.core.test" />
     <extension name="coverage">
       <pattern>
-        <option name="PATTERN" value="edu.illinois.cs.cs125.jeed.core.*" />
+        <option name="PATTERN" value="edu.illinois.cs.cs125.jeed.core.TestCheckstyleKt" />
         <option name="ENABLED" value="true" />
       </pattern>
     </extension>

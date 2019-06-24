@@ -21,9 +21,17 @@ object Sandbox {
             val permissions: Set<Permission> = setOf(),
             val whitelistedClasses: Set<String> = setOf(),
             blacklistedClasses: Set<String> = setOf(),
+            unsafeExceptions: Set<String> = setOf(),
             val maxExtraThreads: Int = DEFAULT_MAX_EXTRA_THREADS
     ) {
         val blacklistedClasses = blacklistedClasses.union(PERMANENTLY_BLACKLISTED_CLASSES)
+        val unsafeExceptions = unsafeExceptions.union(ALWAYS_UNSAFE_EXCEPTIONS)
+        init {
+            unsafeExceptions.forEach { name ->
+                val klass = Class.forName(name) ?: error("$name does not refer to a Java class")
+                require(Throwable::class.java.isAssignableFrom(klass)) { "$name does not refer to a Java Throwable" }
+            }
+        }
         companion object {
             const val DEFAULT_TIMEOUT = 100L
             const val DEFAULT_MAX_EXTRA_THREADS = 0
@@ -84,11 +92,16 @@ object Sandbox {
             RuntimePermission("modifyThread"),
             RuntimePermission("modifyThreadGroup")
     )
-    val PERMANENTLY_BLACKLISTED_CLASSES = setOf("java.lang.reflect.")
+    val PERMANENTLY_BLACKLISTED_CLASSES = setOf(
+            "java.lang.reflect.",
+            "edu.illinois.cs.cs125.jeed.",
+            "org.objectweb.asm.*"
+    )
+    val ALWAYS_UNSAFE_EXCEPTIONS = setOf("java.lang.Error")
 
     suspend fun <T> execute(
-            byteCodeProvidingClassLoader: ByteCodeProvidingClassLoader,
-            executionArguments: ExecutionArguments<T>,
+            byteCodeProvidingClassLoader: ByteCodeProvidingClassLoader = EmptyClassLoader,
+            executionArguments: ExecutionArguments<T> = ExecutionArguments(),
             callable: (ClassLoader)->T
     ): TaskResults<out T?> {
         require(executionArguments.permissions.intersect(BLACKLISTED_PERMISSIONS).isEmpty()) {
@@ -106,11 +119,8 @@ object Sandbox {
             "can't set both a class whitelist and blacklist"
         }
 
-        val sandboxedClassLoader = SandboxedClassLoader(
-                byteCodeProvidingClassLoader,
-                executionArguments.whitelistedClasses,
-                executionArguments.blacklistedClasses
-        )
+        val sandboxedClassLoader = SandboxedClassLoader(byteCodeProvidingClassLoader, executionArguments)
+
         return coroutineScope {
             val resultsChannel = Channel<ExecutorResult<T>>()
             val executor = Executor(callable, sandboxedClassLoader, executionArguments, resultsChannel)
@@ -135,7 +145,6 @@ object Sandbox {
 
         override fun call() {
             try {
-
                 val confinedTask = confine(callable, sandboxedClassLoader, executionArguments)
                 val executionStarted = Instant.now()
                 val taskResult = try {
@@ -182,6 +191,7 @@ object Sandbox {
             accessControlContext = AccessControlContext(arrayOf(ProtectionDomain(null, permissions)))
         }
         val maxExtraThreads: Int = executionArguments.maxExtraThreads
+        val unsafeExceptions = executionArguments.unsafeExceptions
 
         var shuttingDown: Boolean = false
         val currentLines: MutableMap<TaskResults.OutputLine.Console, CurrentLine> = mutableMapOf()
@@ -217,7 +227,9 @@ object Sandbox {
             sandboxedClassLoader: SandboxedClassLoader,
             executionArguments: ExecutionArguments<*>
     ): ConfinedTask<T> {
-        val threadGroup = ThreadGroup("Sandbox")
+        val threadGroup = object : ThreadGroup("Sandbox") {
+            override fun uncaughtException(t: Thread?, e: Throwable?) { }
+        }
         threadGroup.maxPriority = Thread.MIN_PRIORITY
         val task = FutureTask<T>(SandboxedCallable<T>(callable, sandboxedClassLoader))
         val thread = Thread(threadGroup, task)
@@ -237,16 +249,19 @@ object Sandbox {
             assert(threadGroups.toList().filterNotNull().map { it.activeCount() }.sum() == 0)
         }
 
-        (0..MAX_THREAD_SHUTDOWN_RETRIES).find {
+        // TODO: Fix shutdown logic
+        @Suppress("DEPRECATION") threadGroup.stop()
+
+        val threadGroupShutdownRetries = (0..MAX_THREAD_SHUTDOWN_RETRIES).find {
             return@find if (threadGroup.activeCount() == 0) {
                 true
             } else {
-                @Suppress("DEPRECATION") threadGroup.stop()
                 Thread.sleep(THREADGROUP_SHUTDOWN_DELAY)
                 false
             }
         }
 
+        assert(threadGroupShutdownRetries != null) { "failed to shut down thread group" }
         threadGroup.destroy()
         assert(threadGroup.isDestroyed)
 
@@ -273,16 +288,25 @@ object Sandbox {
 
     private class SandboxedClassLoader(
             byteCodeProvidingClassLoader: ByteCodeProvidingClassLoader,
-            val whitelistedClasses: Set<String> = setOf(),
-            val blacklistedClasses: Set<String> = setOf()
+            executionArguments: ExecutionArguments<*>
     ) : ClassLoader((byteCodeProvidingClassLoader as ClassLoader).parent) {
+        val whitelistedClasses = executionArguments.whitelistedClasses
+        val blacklistedClasses = executionArguments.blacklistedClasses
+        val unsafeExceptionClasses: Set<Class<*>> = executionArguments.unsafeExceptions.map { name ->
+            val klass = Class.forName(name) ?: error("$name does not refer to a Java class")
+            require(Throwable::class.java.isAssignableFrom(klass)) { "$name does not refer to a Java Throwable" }
+            klass
+        }.toSet()
+
         val knownClasses: Map<String, Class<*>>
+
         init {
             knownClasses = byteCodeProvidingClassLoader.bytecodeForClasses.mapValues { (name, unsafeByteArray) ->
-                val safeByteArray = sandboxClass(unsafeByteArray)
+                val safeByteArray = RewriteTryCatchFinally.rewrite(unsafeByteArray, unsafeExceptionClasses)
                 defineClass(name, safeByteArray, 0, safeByteArray.size)
             }
         }
+
         override fun findClass(name: String): Class<*> {
             return knownClasses[name] ?: super.findClass(name)
         }
@@ -290,10 +314,17 @@ object Sandbox {
         val filter = whitelistedClasses.isNotEmpty() || blacklistedClasses.isNotEmpty()
         val isWhiteList = whitelistedClasses.isNotEmpty()
         override fun loadClass(name: String): Class<*> {
-            if (!filter) { return super.loadClass(name) }
+            if (!filter) {
+                return super.loadClass(name)
+            }
             val confinedTask = confinedTaskByThreadGroup() ?: return super.loadClass(name)
 
-            if (knownClasses.containsKey(name)) { return super.loadClass(name) }
+            if (knownClasses.containsKey(name)) {
+                return super.loadClass(name)
+            }
+            if (name == pathToClassName(RewriteTryCatchFinally.checkClassName)) {
+                return super.loadClass(name)
+            }
             return if (isWhiteList) {
                 if (whitelistedClasses.any { name.startsWith(it) }) {
                     super.loadClass(name)
@@ -310,176 +341,91 @@ object Sandbox {
                 }
             }
         }
+    }
 
-        private class SandboxingByteCodeRewriter(classWriter: ClassWriter) : ClassVisitor(Opcodes.ASM5, classWriter) {
-            val labelsToRewrite: MutableMap<Label, String> = mutableMapOf()
-            override fun visitMethod(access: Int, name: String, descriptor: String, signature: String?, exceptions: Array<out String>?): MethodVisitor {
-                val visitor = super.visitMethod(access, name, descriptor, signature, exceptions)
-                return object : MethodVisitor(Opcodes.ASM5, visitor) {
-                    private val waitForFrame: MutableMap<Label, Boolean> = mutableMapOf()
-                    private val blockLabels: MutableSet<Label> = mutableSetOf()
-                    override fun visitTryCatchBlock(start: Label, end: Label, handler: Label, type: String?) {
-                        if (type == null) {
-                            if (!labelsToRewrite.contains(start)) {
-                                labelsToRewrite[start] = if (!blockLabels.contains(start)) { tryInterceptorMethodName } else { finallyInterceptorMethodName }
-                                waitForFrame[start] = blockLabels.contains(start)
-                            }
-                            labelsToRewrite[handler] = finallyInterceptorMethodName
-                            waitForFrame[handler] = true
-                        } else {
-                            blockLabels.add(handler)
-                            if (!labelsToRewrite.contains(start)) {
-                                labelsToRewrite[start] = tryInterceptorMethodName
-                                waitForFrame[start] = blockLabels.contains(start)
-                            }
-                            if (threadDeathAndParents.contains(type)) {
-                                labelsToRewrite[handler] = catchInterceptorMethodName
-                                waitForFrame[handler] = true
-                            }
-                        }
-                        super.visitTryCatchBlock(start, end, handler, type)
-                    }
-                    var aboutToInsert: String? = null
-                    var sawFrame: Boolean = false
-                    override fun visitLabel(label: Label) {
-                        if (labelsToRewrite.contains(label)) {
-                            assert(aboutToInsert == null)
-                            assert(waitForFrame.containsKey(label))
-                            aboutToInsert = labelsToRewrite.remove(label)
-                            sawFrame = waitForFrame.remove(label) == false
-                        }
-                        super.visitLabel(label)
-                        if (aboutToInsert == tryInterceptorMethodName && sawFrame) {
-                            super.visitMethodInsn(
-                                    Opcodes.INVOKESTATIC,
-                                    interceptorClassName,
-                                    tryInterceptorMethodName,
-                                    tryInterceptorDescription,
-                                    false
-                            )
-                            aboutToInsert = null
-                        } else if (aboutToInsert == finallyInterceptorMethodName && sawFrame) {
-                            super.visitMethodInsn(
-                                    Opcodes.INVOKESTATIC,
-                                    interceptorClassName,
-                                    finallyInterceptorMethodName,
-                                    finallyInterceptorDescription,
-                                    false
-                            )
-                            aboutToInsert = null
-                        }
-                    }
+    object RewriteTryCatchFinally {
+        val checkClassName = classNameToPath(RewriteTryCatchFinally::class.java.name ?: error("should have a class name"))
+        private val checkMethodName = RewriteTryCatchFinally::checkException.javaMethod?.name
+                ?: error("should have a method name")
+        private val checkMethodDescription = Type.getMethodDescriptor(RewriteTryCatchFinally::checkException.javaMethod)
+                ?: error("should be able to retrieve method signature")
 
-                    override fun visitFrame(type: Int, numLocal: Int, local: Array<out Any>?, numStack: Int, stack: Array<out Any>?) {
-                        super.visitFrame(type, numLocal, local, numStack, stack)
-                        if (aboutToInsert == tryInterceptorMethodName && !sawFrame) {
-                            super.visitMethodInsn(
-                                    Opcodes.INVOKESTATIC,
-                                    interceptorClassName,
-                                    tryInterceptorMethodName,
-                                    tryInterceptorDescription,
-                                    false
-                            )
-                            aboutToInsert = null
-                        } else if (aboutToInsert == finallyInterceptorMethodName && !sawFrame) {
-                            super.visitMethodInsn(
-                                    Opcodes.INVOKESTATIC,
-                                    interceptorClassName,
-                                    finallyInterceptorMethodName,
-                                    finallyInterceptorDescription,
-                                    false
-                            )
-                            aboutToInsert = null
-                        }
-                    }
+        @JvmStatic
+        fun checkException(throwable: Throwable) {
+            val confinedTask = confinedTaskByThreadGroup()
+                    ?: error("only confined tasks should call this method")
+            // This check is required because of how we handle finally blocks
+            if (confinedTask.classLoader.unsafeExceptionClasses.any { throwable.javaClass.isAssignableFrom(it) }) {
+                throw(throwable)
+            }
+        }
 
-                    override fun visitVarInsn(opcode: Int, `var`: Int) {
-                        super.visitVarInsn(opcode, `var`)
-                        if (aboutToInsert != null) {
-                            assert(aboutToInsert == catchInterceptorMethodName)
-                            assert(opcode == Opcodes.ASTORE)
-                            super.visitVarInsn(Opcodes.ALOAD, `var`)
-                            super.visitMethodInsn(
-                                    Opcodes.INVOKESTATIC,
-                                    interceptorClassName,
-                                    catchInterceptorMethodName,
-                                    catchInterceptorDescription,
-                                    false
-                            )
-                            aboutToInsert = null
-                        }
-                    }
+        fun rewrite(originalByteArray: ByteArray, unsafeExceptionClasses: Set<Class<*>>): ByteArray {
+            val classReader = ClassReader(originalByteArray)
+            val classWriter = ClassWriter(classReader, ClassWriter.COMPUTE_MAXS)
+            val ourVisitor = object : ClassVisitor(Opcodes.ASM5, classWriter) {
+                override fun visitMethod(access: Int, name: String, descriptor: String, signature: String?, exceptions: Array<out String>?): MethodVisitor {
+                    return OurMethodVisitor(unsafeExceptionClasses, super.visitMethod(access, name, descriptor, signature, exceptions))
                 }
             }
-            companion object {
-                private val threadDeathAndParents = setOf("java/lang/ThreadDeath", "java/lang/Error", "java/lang/Throwable")
-                private val interceptorClassName = classNameToPath(Sandbox::class.qualifiedName ?: error("Sandbox should have a qualified name"))
 
-                private val tryInterceptorMethodName = Sandbox::checkTry.javaMethod?.name
-                        ?: error("checkFinally should have a name")
-                private val tryInterceptorDescription = Type.getMethodDescriptor(Sandbox::checkTry.javaMethod)
-                        ?: error("should be able to retrieve method signature for checkException")
-                private val catchInterceptorMethodName = Sandbox::checkCatch.javaMethod?.name
-                        ?: error("checkCatch should have a name")
-                private val catchInterceptorDescription = Type.getMethodDescriptor(Sandbox::checkCatch.javaMethod)
-                        ?: error("should be able to retrieve method signature for checkCatch")
-                private val finallyInterceptorMethodName = Sandbox::checkFinally.javaMethod?.name
-                        ?: error("checkFinally should have a name")
-                private val finallyInterceptorDescription = Type.getMethodDescriptor(Sandbox::checkFinally.javaMethod)
-                        ?: error("should be able to retrieve method signature for checkException")
-            }
+            classReader.accept(ourVisitor, 0)
+            val rewrittenByteArray = classWriter.toByteArray()
+            return rewrittenByteArray
         }
-        companion object {
-            fun sandboxClass(byteArray: ByteArray): ByteArray {
-                originalStdout.println(printClass(byteArray))
-                val classReader = ClassReader(byteArray)
-                val classWriter = ClassWriter(classReader, 0)
-                val sandboxingByteCodeRewriter = SandboxingByteCodeRewriter(classWriter)
 
-                classReader.accept(sandboxingByteCodeRewriter, 0)
-                assert(sandboxingByteCodeRewriter.labelsToRewrite.isEmpty())
+        private class OurMethodVisitor(
+                val unsafeExceptionClasses: Set<Class<*>>,
+                methodVisitor: MethodVisitor
+        ) : MethodVisitor(Opcodes.ASM5, methodVisitor) {
+            private val labelsToRewrite: MutableSet<Label> = mutableSetOf()
+            private var rewroteLabel = false
 
-                val safeByteArray = classWriter.toByteArray()
-                originalStdout.println(printClass(safeByteArray))
-                return safeByteArray
+            override fun visitTryCatchBlock(start: Label, end: Label, handler: Label, type: String?) {
+                if (type == null) {
+                    labelsToRewrite.add(handler)
+                } else {
+                    val exceptionClass = Class.forName(pathToClassName(type))
+                            ?: error("no class for type $type")
+
+                    if (unsafeExceptionClasses.any { exceptionClass.isAssignableFrom(it) }) {
+                        labelsToRewrite.add(handler)
+                    }
+                }
+                super.visitTryCatchBlock(start, end, handler, type)
             }
-            fun printClass(byteArray: ByteArray): String {
-                val classReader = ClassReader(byteArray)
-                val stringWriter = StringWriter()
-                val printWriter = PrintWriter(stringWriter)
-                val traceVisitor = TraceClassVisitor(printWriter)
-                classReader.accept(traceVisitor, 0)
-                return stringWriter.toString()
+            private var nextLabel: Label? = null
+            override fun visitLabel(label: Label) {
+                if (labelsToRewrite.contains(label)) {
+                    assert(nextLabel == null)
+                    nextLabel = label
+                }
+                super.visitLabel(label)
+            }
+            override fun visitFrame(type: Int, numLocal: Int, local: Array<out Any>?, numStack: Int, stack: Array<out Any>?) {
+                super.visitFrame(type, numLocal, local, numStack, stack)
+                if (nextLabel != null) {
+                    super.visitInsn(Opcodes.DUP)
+                    super.visitMethodInsn(Opcodes.INVOKESTATIC, checkClassName, checkMethodName, checkMethodDescription,false)
+                    rewroteLabel = true
+                    labelsToRewrite.remove(nextLabel ?: error("nextLabel changed"))
+                    nextLabel = null
+                }
+            }
+            override fun visitEnd() {
+                assert(labelsToRewrite.isEmpty())
+                super.visitEnd()
             }
         }
     }
 
-    @JvmStatic
-    fun checkTry() {
-        originalStdout.println("Checking try")
-        val confinedTask = confinedTaskByThreadGroup() ?: return
-        if (confinedTask.shuttingDown) {
-            @Suppress("DEPRECATION") Thread.currentThread().stop()
-        }
-    }
-    @JvmStatic
-    fun checkCatch(throwable: Throwable) {
-        originalStdout.println("catch")
-        val confinedTask = confinedTaskByThreadGroup() ?: return
-        if (confinedTask.shuttingDown) {
-            @Suppress("DEPRECATION") Thread.currentThread().stop()
-        }
-        if (throwable is ThreadDeath) {
-            throw(throwable)
-        }
-    }
-    @JvmStatic
-    fun checkFinally() {
-        originalStdout.println("Checking finally")
-        val confinedTask = confinedTaskByThreadGroup() ?: return
-        if (confinedTask.shuttingDown) {
-            @Suppress("DEPRECATION") Thread.currentThread().stop()
-        }
+    private fun classByteArrayToString(byteArray: ByteArray): String {
+        val classReader = ClassReader(byteArray)
+        val stringWriter = StringWriter()
+        val printWriter = PrintWriter(stringWriter)
+        val traceVisitor = TraceClassVisitor(printWriter)
+        classReader.accept(traceVisitor, 0)
+        return stringWriter.toString()
     }
 
     val systemSecurityManager: SecurityManager? = System.getSecurityManager()
@@ -531,8 +477,13 @@ object Sandbox {
             }
         }
         override fun checkPermission(permission: Permission) {
-            val confinedTask = confinedTaskByClassLoader()
-                    ?: return systemSecurityManager?.checkPermission(permission) ?: return
+            // Special case to prevent even trusted task code from calling System.setOut
+            val confinedTask = if (permission == RuntimePermission("setIO")) {
+                confinedTaskByThreadGroup()
+            } else {
+                confinedTaskByClassLoader()
+            } ?: return systemSecurityManager?.checkPermission(permission) ?: return
+
             try {
                 confinedTask.accessControlContext.checkPermission(permission)
                 confinedTask.addPermissionRequest(permission, true)

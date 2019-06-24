@@ -13,12 +13,14 @@ class SourceExecutionArguments(
         permissions: List<Permission> = REQUIRED_PERMISSIONS,
         whitelistedClasses: Set<String> = setOf(),
         blacklistedClasses: Set<String> = setOf(),
+        unsafeExceptions: Set<String> = setOf(),
         maxExtraThreads: Int = DEFAULT_MAX_EXTRA_THREADS
 ): Sandbox.ExecutionArguments<Any?>(
         timeout,
         permissions.union(REQUIRED_PERMISSIONS),
         whitelistedClasses,
         blacklistedClasses,
+        unsafeExceptions,
         maxExtraThreads
 ) {
     companion object {
