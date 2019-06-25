@@ -102,9 +102,6 @@ object Sandbox {
     )
     val ALWAYS_UNSAFE_EXCEPTIONS = setOf("java.lang.Error")
 
-
-
-
     suspend fun <T> execute(
             sandboxableClassLoader: SandboxableClassLoader = EmptyClassLoader,
             executionArguments: ExecutionArguments<T> = ExecutionArguments(),
@@ -158,8 +155,6 @@ object Sandbox {
                     TaskResult(confinedTask.task.get(executionArguments.timeout, TimeUnit.MILLISECONDS))
                 } catch (e: TimeoutException) {
                     confinedTask.task.cancel(true)
-                    // TODO: Maybe defer this until release
-                    // @Suppress("DEPRECATION") confinedTask.thread.stop()
                     TaskResult(null, null, true)
                 } catch (e: Throwable) {
                     TaskResult(null, e.cause)
@@ -263,21 +258,30 @@ object Sandbox {
             assert(threadGroups.toList().filterNotNull().map { it.activeCount() }.sum() == 0)
         }
 
-        // TODO: Fix shutdown logic
-        @Suppress("DEPRECATION") threadGroup.stop()
-
-        val threadGroupShutdownRetries = (0..MAX_THREAD_SHUTDOWN_RETRIES).find {
-            return@find if (threadGroup.activeCount() == 0) {
-                true
-            } else {
-                Thread.sleep(THREADGROUP_SHUTDOWN_DELAY)
+        runBlocking {
+            val stoppedThreads: MutableSet<Thread> = mutableSetOf()
+            val threadGroupShutdownRetries = (0..MAX_THREAD_SHUTDOWN_RETRIES).find {
+                if (threadGroup.activeCount() == 0) {
+                    return@find true
+                }
+                val activeThreads = arrayOfNulls<Thread>(threadGroup.activeCount())
+                threadGroup.enumerate(activeThreads)
+                activeThreads.filterNotNull().filter { !stoppedThreads.contains(it) }.map {
+                    async {
+                        stoppedThreads.add(it)
+                        while (it.isAlive) {
+                            @Suppress("DEPRECATION") it.stop()
+                            yield()
+                        }
+                    }
+                }.awaitAll()
                 false
             }
-        }
 
-        assert(threadGroupShutdownRetries != null) { "failed to shut down thread group" }
-        threadGroup.destroy()
-        assert(threadGroup.isDestroyed)
+            assert(threadGroupShutdownRetries != null) { "failed to shut down thread group" }
+            threadGroup.destroy()
+            assert(threadGroup.isDestroyed)
+        }
 
         for (console in TaskResults.OutputLine.Console.values()) {
             val currentLine = confinedTask.currentLines[console] ?: continue

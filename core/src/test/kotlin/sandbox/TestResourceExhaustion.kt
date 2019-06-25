@@ -72,7 +72,7 @@ try {
         executionResult should haveTimedOut()
         executionResult should haveOutput("Started")
     }
-    "should shut down thread bombs" {
+    "should shut down small thread bombs" {
         val executionResult = Source.fromSnippet("""
 public class Example implements Runnable {
     public void run() {
@@ -218,7 +218,7 @@ public class Example implements Runnable {
     public void run() {
         while (true) {
             try {
-                recursive(1000);
+                recursive(8);
             } catch (Throwable t) {}
         }
     }
@@ -246,7 +246,7 @@ try {
         executionResult.permissionDenied shouldBe true
         executionResult should haveTimedOut()
     }
-    "f:should shut down parallel recursive thread bombs" {
+    "should shut down parallel recursive thread bombs" {
         (0..8).toList().map {
             async {
                 Source.fromSnippet("""
