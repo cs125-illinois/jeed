@@ -7,6 +7,7 @@ import io.kotlintest.should
 import io.kotlintest.shouldBe
 import io.kotlintest.shouldNot
 import io.kotlintest.specs.StringSpec
+import kotlinx.coroutines.async
 
 class TestResourceExhaustion : StringSpec({
     "should timeout correctly on snippet" {
@@ -65,7 +66,7 @@ thread.start();
 try {
     thread.join();
 } catch (Throwable e) { }
-        """.trim()).compile().execute(SourceExecutionArguments(maxExtraThreads=1))
+        """.trim()).compile().execute(SourceExecutionArguments(maxExtraThreads = 1))
 
         executionResult shouldNot haveCompleted()
         executionResult should haveTimedOut()
@@ -86,7 +87,7 @@ for (long i = 0;; i++) {
         thread.start();
     } catch (Throwable e) { }
 }
-        """.trim()).compile().execute(SourceExecutionArguments(maxExtraThreads=16, timeout=1000L))
+        """.trim()).compile().execute(SourceExecutionArguments(maxExtraThreads = 16, timeout = 1000L))
 
         executionResult shouldNot haveCompleted()
         executionResult.permissionDenied shouldBe true
@@ -112,7 +113,7 @@ while (true) {
         thread.start();
     } catch (Throwable e) { }
 }
-        """.trim()).compile().execute(SourceExecutionArguments(maxExtraThreads=256, timeout=1000L))
+        """.trim()).compile().execute(SourceExecutionArguments(maxExtraThreads = 256, timeout = 1000L))
 
         executionResult shouldNot haveCompleted()
         executionResult.permissionDenied shouldBe true
@@ -135,7 +136,7 @@ while (true) {
         thread.start();
     } catch (Throwable e) { }
 }
-        """.trim()).compile().execute(SourceExecutionArguments(maxExtraThreads=256, timeout=1000L))
+        """.trim()).compile().execute(SourceExecutionArguments(maxExtraThreads = 256, timeout = 1000L))
 
         executionResult shouldNot haveCompleted()
         executionResult should haveTimedOut()
@@ -157,7 +158,7 @@ while (true) {
         thread.start();
     } catch (Throwable e) { }
 }
-        """.trim()).compile().execute(SourceExecutionArguments(maxExtraThreads=256, timeout=1000L))
+        """.trim()).compile().execute(SourceExecutionArguments(maxExtraThreads = 256, timeout = 1000L))
 
         executionResult shouldNot haveCompleted()
         executionResult.permissionDenied shouldBe true
@@ -180,7 +181,7 @@ while (true) {
         thread.start();
     } catch (Throwable e) { }
 }
-        """.trim()).compile().execute(SourceExecutionArguments(maxExtraThreads=256, timeout=1000L))
+        """.trim()).compile().execute(SourceExecutionArguments(maxExtraThreads = 256, timeout = 1000L))
 
         executionResult shouldNot haveCompleted()
         executionResult should haveTimedOut()
@@ -206,7 +207,7 @@ thread.start();
 try {
     Thread.sleep(Long.MAX_VALUE);
 } catch (Throwable e) { }
-        """.trim()).compile().execute(SourceExecutionArguments(maxExtraThreads=256, timeout=1000L))
+        """.trim()).compile().execute(SourceExecutionArguments(maxExtraThreads = 256, timeout = 1000L))
 
         executionResult shouldNot haveCompleted()
         executionResult should haveTimedOut()
@@ -244,6 +245,46 @@ try {
         executionResult shouldNot haveCompleted()
         executionResult.permissionDenied shouldBe true
         executionResult should haveTimedOut()
+    }
+    "f:should shut down parallel recursive thread bombs" {
+        (0..8).toList().map {
+            async {
+                Source.fromSnippet("""
+public class Example implements Runnable {
+    public void run() {
+        while (true) {
+            try {
+                recursive(1000);
+            } catch (Throwable t) {}
+        }
+    }
+    private void recursive(int depthToGo) {
+        while (true) {
+            try {
+                Thread thread = new Thread(new Example());
+                thread.start();
+                if (depthToGo > 0) recursive(depthToGo - 1);
+                thread = new Thread(new Example());
+                thread.start();
+            } catch (Throwable t) {}
+        }
+    }
+}
+Thread thread = new Thread(new Example());
+thread.start();
+// Give time for things to get NASTY
+try {
+    Thread.sleep(Long.MAX_VALUE);
+} catch (Throwable t) { }
+        """.trim()).compile().execute(SourceExecutionArguments(maxExtraThreads = 128, timeout = 1000L))
+            }
+        }.map {
+            val executionResult = it.await()
+
+            executionResult shouldNot haveCompleted()
+            executionResult.permissionDenied shouldBe true
+            executionResult should haveTimedOut()
+        }
     }
     "should shut down memory exhaustion bombs" {
         Source.fromSnippet("""

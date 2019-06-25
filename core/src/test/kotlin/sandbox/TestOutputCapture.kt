@@ -89,4 +89,21 @@ for (int i = 0; i < 32; i++) {
         val unrelatedOutput = combinedOutputStream.toString()
         unrelatedOutput.lines().filter { it == "Bad" }.size shouldBe 4 * 2 * 512
     }
+    "should redirect output to trusted task properly" {
+        val compiledSource = Source.fromSnippet("""
+System.out.println("Here");
+System.err.println("There");
+            """.trim()).compile()
+        val executionResult = Sandbox.execute(compiledSource.classLoader) { (classLoader, redirectOutput) ->
+            val (stdout, stderr) = redirectOutput {
+                classLoader.findClassMethod().invoke(null)
+            }
+            assert(stdout == "Here")
+            assert(stderr == "There")
+        }
+        executionResult should haveCompleted()
+        executionResult shouldNot haveTimedOut()
+        executionResult should haveStdout("Here")
+        executionResult should haveStderr("There")
+    }
 })

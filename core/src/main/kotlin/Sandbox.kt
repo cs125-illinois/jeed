@@ -15,6 +15,8 @@ import kotlin.reflect.jvm.javaMethod
 @Suppress("UNUSED")
 private val logger = KotlinLogging.logger {}
 
+private typealias SandboxCallableArguments<T> = (Pair<ClassLoader, (() -> Unit) -> Pair<String, String>>)->T
+
 object Sandbox {
     open class ExecutionArguments<T>(
             val timeout: Long = DEFAULT_TIMEOUT,
@@ -45,7 +47,8 @@ object Sandbox {
             val outputLines: MutableList<OutputLine> = mutableListOf(),
             val permissionRequests: MutableList<PermissionRequest> = mutableListOf(),
             val interval: Interval,
-            val executionInterval: Interval
+            val executionInterval: Interval,
+            val sandboxedClassLoader: SandboxedClassLoader
     ) {
         data class OutputLine (val console: Console, val line: String, val timestamp: Instant, val thread: Long) {
             enum class Console(val fd: Int) { STDOUT(1), STDERR(2) }
@@ -99,10 +102,13 @@ object Sandbox {
     )
     val ALWAYS_UNSAFE_EXCEPTIONS = setOf("java.lang.Error")
 
+
+
+
     suspend fun <T> execute(
-            byteCodeProvidingClassLoader: ByteCodeProvidingClassLoader = EmptyClassLoader,
+            sandboxableClassLoader: SandboxableClassLoader = EmptyClassLoader,
             executionArguments: ExecutionArguments<T> = ExecutionArguments(),
-            callable: (ClassLoader)->T
+            callable: SandboxCallableArguments<T>
     ): TaskResults<out T?> {
         require(executionArguments.permissions.intersect(BLACKLISTED_PERMISSIONS).isEmpty()) {
             "attempt to allow unsafe permissions"
@@ -119,7 +125,7 @@ object Sandbox {
             "can't set both a class whitelist and blacklist"
         }
 
-        val sandboxedClassLoader = SandboxedClassLoader(byteCodeProvidingClassLoader, executionArguments)
+        val sandboxedClassLoader = SandboxedClassLoader(sandboxableClassLoader, executionArguments)
 
         return coroutineScope {
             val resultsChannel = Channel<ExecutorResult<T>>()
@@ -136,7 +142,7 @@ object Sandbox {
     private val threadPool = Executors.newFixedThreadPool(Runtime.getRuntime().availableProcessors()) ?: error("thread pool should be available")
     private data class ExecutorResult<T>(val taskResults: TaskResults<T>?, val executionException: Throwable)
     private class Executor<T>(
-            val callable: (ClassLoader) -> T,
+            val callable: SandboxCallableArguments<T>,
             val sandboxedClassLoader: SandboxedClassLoader,
             val executionArguments: ExecutionArguments<T>,
             val resultChannel: Channel<ExecutorResult<T>>
@@ -152,8 +158,8 @@ object Sandbox {
                     TaskResult(confinedTask.task.get(executionArguments.timeout, TimeUnit.MILLISECONDS))
                 } catch (e: TimeoutException) {
                     confinedTask.task.cancel(true)
-                    @Suppress("DEPRECATION")
-                    confinedTask.thread.stop()
+                    // TODO: Maybe defer this until release
+                    // @Suppress("DEPRECATION") confinedTask.thread.stop()
                     TaskResult(null, null, true)
                 } catch (e: Throwable) {
                     TaskResult(null, e.cause)
@@ -166,7 +172,8 @@ object Sandbox {
                         confinedTask.outputLines,
                         confinedTask.permissionRequests,
                         Interval(confinedTask.started, Instant.now()),
-                        Interval(executionStarted, executionEnded)
+                        Interval(executionStarted, executionEnded),
+                        sandboxedClassLoader
                 )
                 runBlocking { resultChannel.send(ExecutorResult(executionResult, Exception())) }
             } catch (e: Throwable) {
@@ -196,6 +203,13 @@ object Sandbox {
         var shuttingDown: Boolean = false
         val currentLines: MutableMap<TaskResults.OutputLine.Console, CurrentLine> = mutableMapOf()
         val outputLines: MutableList<TaskResults.OutputLine> = mutableListOf()
+
+        val redirectedOutputLines: MutableMap<TaskResults.OutputLine.Console, StringBuilder> = mutableMapOf(
+                TaskResults.OutputLine.Console.STDOUT to StringBuilder(),
+                TaskResults.OutputLine.Console.STDERR to StringBuilder()
+        )
+        var redirectingOutput: Boolean = false
+
         val permissionRequests: MutableList<TaskResults.PermissionRequest> = mutableListOf()
 
         data class CurrentLine(
@@ -223,7 +237,7 @@ object Sandbox {
     }
 
     private fun <T> confine(
-            callable: (ClassLoader) -> T,
+            callable: SandboxCallableArguments<T>,
             sandboxedClassLoader: SandboxedClassLoader,
             executionArguments: ExecutionArguments<*>
     ): ConfinedTask<T> {
@@ -282,14 +296,28 @@ object Sandbox {
         confinedTasks.remove(threadGroup)
     }
 
-    private class SandboxedCallable<V>(val callable: (ClassLoader)->V, val sandboxedClassLoader: SandboxedClassLoader): Callable<V> {
-        override fun call(): V { return callable(sandboxedClassLoader as ClassLoader) }
+    private class SandboxedCallable<T>(
+            val callable: SandboxCallableArguments<T>,
+            val sandboxedClassLoader: SandboxedClassLoader
+    ): Callable<T> {
+        override fun call(): T {
+            return callable(Pair(sandboxedClassLoader as ClassLoader, Sandbox::redirectOutput))
+        }
     }
 
-    private class SandboxedClassLoader(
-            byteCodeProvidingClassLoader: ByteCodeProvidingClassLoader,
+    interface SandboxableClassLoader {
+        val bytecodeForClasses: Map<String, ByteArray>
+    }
+    interface EnumerableClassLoader {
+        val definedClasses: Set<String>
+        val providedClasses: Set<String>
+        val loadedClasses: Set<String>
+    }
+
+    class SandboxedClassLoader(
+            sandboxableClassLoader: SandboxableClassLoader,
             executionArguments: ExecutionArguments<*>
-    ) : ClassLoader((byteCodeProvidingClassLoader as ClassLoader).parent) {
+    ) : ClassLoader((sandboxableClassLoader as ClassLoader).parent), EnumerableClassLoader {
         val whitelistedClasses = executionArguments.whitelistedClasses
         val blacklistedClasses = executionArguments.blacklistedClasses
         val unsafeExceptionClasses: Set<Class<*>> = executionArguments.unsafeExceptions.map { name ->
@@ -298,36 +326,50 @@ object Sandbox {
             klass
         }.toSet()
 
-        val knownClasses: Map<String, Class<*>>
+        override val definedClasses: Set<String> get() = knownClasses.keys.toSet()
+        override val providedClasses: MutableSet<String> = mutableSetOf()
+        override val loadedClasses: MutableSet<String> = mutableSetOf()
 
+        private val knownClasses: Map<String, ByteArray>
         init {
-            knownClasses = byteCodeProvidingClassLoader.bytecodeForClasses.mapValues { (name, unsafeByteArray) ->
-                val safeByteArray = RewriteTryCatchFinally.rewrite(unsafeByteArray, unsafeExceptionClasses)
-                defineClass(name, safeByteArray, 0, safeByteArray.size)
+            knownClasses = sandboxableClassLoader.bytecodeForClasses.mapValues { (_, unsafeByteArray) ->
+                RewriteTryCatchFinally.rewrite(unsafeByteArray, unsafeExceptionClasses)
             }
         }
 
         override fun findClass(name: String): Class<*> {
-            return knownClasses[name] ?: super.findClass(name)
+            return if (knownClasses.containsKey(name)) {
+                loadedClasses.add(name)
+                providedClasses.add(name)
+                val byteArray = knownClasses[name] ?: error("should still be in map")
+                return defineClass(name, byteArray, 0, byteArray.size)
+            } else {
+                super.findClass(name)
+            }
         }
 
         val filter = whitelistedClasses.isNotEmpty() || blacklistedClasses.isNotEmpty()
         val isWhiteList = whitelistedClasses.isNotEmpty()
+        private fun delegateClass(name: String): Class<*> {
+            val klass = super.loadClass(name)
+            loadedClasses.add(name)
+            return klass
+        }
         override fun loadClass(name: String): Class<*> {
             if (!filter) {
-                return super.loadClass(name)
+                return delegateClass(name)
             }
             val confinedTask = confinedTaskByThreadGroup() ?: return super.loadClass(name)
 
             if (knownClasses.containsKey(name)) {
-                return super.loadClass(name)
+                return delegateClass(name)
             }
             if (name == pathToClassName(RewriteTryCatchFinally.checkClassName)) {
-                return super.loadClass(name)
+                return delegateClass(name)
             }
             return if (isWhiteList) {
                 if (whitelistedClasses.any { name.startsWith(it) }) {
-                    super.loadClass(name)
+                    delegateClass(name)
                 } else {
                     confinedTask.addPermissionRequest(RuntimePermission("loadClass $name"), granted = false, throwException = false)
                     throw ClassNotFoundException(name)
@@ -337,9 +379,16 @@ object Sandbox {
                     confinedTask.addPermissionRequest(RuntimePermission("loadClass $name"), granted = false, throwException = false)
                     throw ClassNotFoundException(name)
                 } else {
-                    super.loadClass(name)
+                    delegateClass(name)
                 }
             }
+        }
+    }
+
+    object EmptyClassLoader : ClassLoader(getSystemClassLoader()), SandboxableClassLoader {
+        override val bytecodeForClasses: Map<String, ByteArray> = mapOf()
+        override fun findClass(name: String): Class<*> {
+            throw ClassNotFoundException(name)
         }
     }
 
@@ -370,8 +419,7 @@ object Sandbox {
             }
 
             classReader.accept(ourVisitor, 0)
-            val rewrittenByteArray = classWriter.toByteArray()
-            return rewrittenByteArray
+            return classWriter.toByteArray()
         }
 
         private class OurMethodVisitor(
@@ -513,17 +561,40 @@ object Sandbox {
                         )
                 )
                 confinedTask.currentLines.remove(console)
+
+                if (confinedTask.redirectingOutput) {
+                    confinedTask.redirectedOutputLines[console]?.append(currentLine.line.toString())
+                }
             }
             else -> {
                 currentLine.line.append(char)
             }
         }
     }
-    fun defaultWrite(int: Int, console: TaskResults.OutputLine.Console) {
+    private fun defaultWrite(int: Int, console: TaskResults.OutputLine.Console) {
         when (console) {
             TaskResults.OutputLine.Console.STDOUT -> originalStdout.write(int)
             TaskResults.OutputLine.Console.STDERR -> originalStderr.write(int)
         }
+    }
+
+    @JvmStatic
+    fun redirectOutput(block: () -> Unit): Pair<String, String> {
+        val confinedTask = confinedTaskByThreadGroup() ?: check { "should only be used from a confined task" }
+        check(!confinedTask.redirectingOutput) { "can't nest calls to redirectOutput" }
+
+        confinedTask.redirectingOutput = true
+        block()
+        confinedTask.redirectingOutput = false
+
+        val toReturn = Pair(
+                confinedTask.redirectedOutputLines[TaskResults.OutputLine.Console.STDOUT].toString(),
+                confinedTask.redirectedOutputLines[TaskResults.OutputLine.Console.STDERR].toString()
+        )
+        confinedTask.redirectedOutputLines[TaskResults.OutputLine.Console.STDOUT] = StringBuilder()
+        confinedTask.redirectedOutputLines[TaskResults.OutputLine.Console.STDERR] = StringBuilder()
+
+        return toReturn
     }
 
     private var originalStdout = System.out
