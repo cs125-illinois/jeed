@@ -12,7 +12,7 @@ class SourceExecutionArguments(
         timeout: Long = DEFAULT_TIMEOUT,
         permissions: List<Permission> = REQUIRED_PERMISSIONS,
         whitelistedClasses: Set<String> = setOf(),
-        blacklistedClasses: Set<String> = setOf(),
+        blacklistedClasses: Set<String> = DEFAULT_BLACKLISTED_CLASSES,
         unsafeExceptions: Set<String> = setOf(),
         maxExtraThreads: Int = DEFAULT_MAX_EXTRA_THREADS
 ): Sandbox.ExecutionArguments<Any?>(

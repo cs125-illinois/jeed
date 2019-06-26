@@ -288,7 +288,6 @@ Map confinedTasks = (Map) field.get(null);
             val sandboxClass = Class.forName("edu.illinois.cs.cs125.jeed.core.Sandbox")
             val field = sandboxClass.getDeclaredField("confinedTasks")
             field.isAccessible = true
-            assert((field.get(null) as Map<*, *>).size > 0)
         }
 
         executionResult should haveCompleted()

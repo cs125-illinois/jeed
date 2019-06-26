@@ -22,7 +22,7 @@ object Sandbox {
             val timeout: Long = DEFAULT_TIMEOUT,
             val permissions: Set<Permission> = setOf(),
             val whitelistedClasses: Set<String> = setOf(),
-            blacklistedClasses: Set<String> = setOf(),
+            blacklistedClasses: Set<String> = DEFAULT_BLACKLISTED_CLASSES,
             unsafeExceptions: Set<String> = setOf(),
             val maxExtraThreads: Int = DEFAULT_MAX_EXTRA_THREADS
     ) {
@@ -37,6 +37,7 @@ object Sandbox {
         companion object {
             const val DEFAULT_TIMEOUT = 100L
             const val DEFAULT_MAX_EXTRA_THREADS = 0
+            val DEFAULT_BLACKLISTED_CLASSES = setOf("java.lang.reflect.")
         }
     }
 
@@ -95,11 +96,7 @@ object Sandbox {
             RuntimePermission("modifyThread"),
             RuntimePermission("modifyThreadGroup")
     )
-    val PERMANENTLY_BLACKLISTED_CLASSES = setOf(
-            "java.lang.reflect.",
-            "edu.illinois.cs.cs125.jeed.",
-            "org.objectweb.asm.*"
-    )
+    val PERMANENTLY_BLACKLISTED_CLASSES = setOf("edu.illinois.cs.cs125.jeed.", "org.objectweb.asm.*")
     val ALWAYS_UNSAFE_EXCEPTIONS = setOf("java.lang.Error")
 
     suspend fun <T> execute(
