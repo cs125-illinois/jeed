@@ -284,7 +284,7 @@ class ComplexityResult(val source: Source, entry: Map.Entry<String, String>) : J
     }
 
     init {
-        ParseTreeWalker.DEFAULT.walk(this, source.parsedSources[name])
+        ParseTreeWalker.DEFAULT.walk(this, source.parsed[name])
     }
 }
 

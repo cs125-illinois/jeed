@@ -16,7 +16,8 @@ int i = 0;
 while (true) {
     i++;
 }
-            """.trim()).compile().execute()
+        """.trim()).compile().execute()
+
         executionResult shouldNot haveCompleted()
         executionResult should haveTimedOut()
         executionResult should haveOutput()
@@ -32,7 +33,8 @@ public class Main {
         }
     }
 }
-                """.trim())).compile().execute()
+        """.trim())).compile().execute()
+
         executionResult shouldNot haveCompleted()
         executionResult should haveTimedOut()
         executionResult should haveOutput()
@@ -247,7 +249,7 @@ try {
         executionResult should haveTimedOut()
     }
     "should shut down parallel recursive thread bombs" {
-        (0..8).toList().map {
+        (0..16).toList().map {
             async {
                 Source.fromSnippet("""
 public class Example implements Runnable {
@@ -276,7 +278,7 @@ thread.start();
 try {
     Thread.sleep(Long.MAX_VALUE);
 } catch (Throwable t) { }
-        """.trim()).compile().execute(SourceExecutionArguments(maxExtraThreads = 128, timeout = 1000L))
+        """.trim()).compile().execute(SourceExecutionArguments(maxExtraThreads = 256, timeout = 1000L))
             }
         }.map {
             val executionResult = it.await()

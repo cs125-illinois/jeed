@@ -58,6 +58,7 @@ System.setOut(printStream);
             val printStream = PrintStream(byteArrayOutputStream)
             System.setOut(printStream)
         }
+
         executionResult shouldNot haveCompleted()
         executionResult.permissionDenied shouldBe true
     }
@@ -81,7 +82,7 @@ System.out.println(System.getProperty("file.separator"));
     "should allow snippets to read system properties if allowed" {
         val executionResult = Source.fromSnippet("""
 System.out.println(System.getProperty("file.separator"));
-        """.trim()).compile().execute(SourceExecutionArguments(permissions=listOf(PropertyPermission("*", "read"))))
+        """.trim()).compile().execute(SourceExecutionArguments(permissions=setOf(PropertyPermission("*", "read"))))
 
         executionResult should haveCompleted()
         executionResult.permissionDenied shouldBe false
@@ -96,7 +97,7 @@ System.out.println(System.getProperty("file.separator"));
         failedExecution.permissionDenied shouldBe true
 
         val successfulExecution = compiledSource.execute(
-                SourceExecutionArguments(permissions=listOf(PropertyPermission("*", "read"))
+                SourceExecutionArguments(permissions=setOf(PropertyPermission("*", "read"))
                 ))
         successfulExecution should haveCompleted()
         successfulExecution.permissionDenied shouldBe false
@@ -104,8 +105,7 @@ System.out.println(System.getProperty("file.separator"));
     "should prevent snippets from starting threads by default" {
         val executionResult = Source.fromSnippet("""
 public class Example implements Runnable {
-    public void run() {
-    }
+    public void run() { }
 }
 Thread thread = new Thread(new Example());
 thread.start();
@@ -131,6 +131,7 @@ try {
     System.out.println(e);
 }
         """.trim()).compile()
+
         val failedExecutionResult = compiledSource.execute()
         failedExecutionResult shouldNot haveCompleted()
         failedExecutionResult.permissionDenied shouldBe true
@@ -144,7 +145,9 @@ try {
         shouldThrow<IllegalArgumentException> {
             Source.fromSnippet("""
 System.exit(3);
-            """.trim()).compile().execute(SourceExecutionArguments(permissions=listOf(RuntimePermission("exitVM"))))
+            """.trim()).compile().execute(
+                    SourceExecutionArguments(permissions=setOf(RuntimePermission("exitVM")))
+            )
         }
     }
     "should allow Java streams with default permissions" {
@@ -182,7 +185,7 @@ public class Main {
         System.out.println(test(new A[] { }));
     }
 }
-                """.trim())).compile().execute()
+        """.trim())).compile().execute()
 
         executionResult should haveCompleted()
         executionResult should haveOutput("8")
@@ -230,19 +233,19 @@ while ((line = in.readLine()) != null) {
         executionResult shouldNot haveCompleted()
         executionResult.permissionDenied shouldBe true
     }
-    "it should not allow SecurityManager to be set again through reflection" {
+    "should not allow SecurityManager to be set again through reflection" {
         val executionResult = Source.fromSnippet("""
 Class<System> c = System.class;
 System s = c.newInstance();
-            """.trim()).compile().execute()
+        """.trim()).compile().execute()
 
         executionResult shouldNot haveCompleted()
     }
-    "it should not allow SecurityManager to be created again through reflection" {
+    "should not allow SecurityManager to be created again through reflection" {
         val executionResult = Source.fromSnippet("""
 Class<SecurityManager> c = SecurityManager.class;
 SecurityManager s = c.newInstance();
-            """.trim()).compile().execute()
+        """.trim()).compile().execute()
 
         executionResult shouldNot haveCompleted()
         executionResult.permissionDenied shouldBe true
@@ -261,7 +264,7 @@ Class<?> compileArgsClass = Class.forName("edu.illinois.cs.cs125.jeed.core.Compi
 Method compile = Class.forName("edu.illinois.cs.cs125.jeed.core.CompileKt").getMethod("compile", sourceClass, compileArgsClass);
 Object compileArgs = compileArgsClass.newInstance();
 Object compiledSource = compile.invoke(null, snippet, compileArgs);
-            """.trim()).compile().execute()
+        """.trim()).compile().execute()
 
         executionResult shouldNot haveCompleted()
         executionResult.permissionDenied shouldBe true
@@ -285,13 +288,12 @@ Map confinedTasks = (Map) field.get(null);
             val sandboxClass = Class.forName("edu.illinois.cs.cs125.jeed.core.Sandbox")
             val field = sandboxClass.getDeclaredField("confinedTasks")
             field.isAccessible = true
-            assert((field.get(null) as Map<*, *>).size > 0)
         }
 
         executionResult should haveCompleted()
     }
     "should not allow static{} to escape the sandbox" {
-        val result = Source(mapOf(
+        val executionResult = Source(mapOf(
                 "Example" to """
 public class Example {
     static {
@@ -302,9 +304,9 @@ public class Example {
         System.out.println("Main");
     }
 }
-                """
-        )).compile().execute(SourceExecutionArguments("Example"))
-        println(result.output)
-        result.permissionDenied shouldBe true
+        """)).compile().execute(SourceExecutionArguments("Example"))
+
+        executionResult shouldNot haveCompleted()
+        executionResult.permissionDenied shouldBe true
     }
 })

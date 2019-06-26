@@ -34,7 +34,9 @@ try {
 } finally {
     System.out.println("Finally");
 }
-            """.trim()).compile().execute(SourceExecutionArguments(unsafeExceptions = setOf("java.lang.NullPointerException")))
+            """.trim()).compile().execute(
+                SourceExecutionArguments(classLoaderConfiguration = Sandbox.ClassLoaderConfiguration(unsafeExceptions = setOf("java.lang.NullPointerException")))
+        )
 
         executionResult shouldNot haveCompleted()
         executionResult should haveOutput("Try")
@@ -51,7 +53,9 @@ try {
 } finally {
     System.out.println("Finally");
 }
-            """.trim()).compile().execute(SourceExecutionArguments(unsafeExceptions = setOf("java.lang.NullPointerException")))
+            """.trim()).compile().execute(
+                SourceExecutionArguments(classLoaderConfiguration = Sandbox.ClassLoaderConfiguration(unsafeExceptions = setOf("java.lang.NullPointerException")))
+        )
 
         executionResult shouldNot haveCompleted()
         executionResult should haveOutput("Try")
@@ -66,7 +70,9 @@ try {
 } finally {
     System.out.println("Finally");
 }
-            """.trim()).compile().execute(SourceExecutionArguments(unsafeExceptions = setOf("java.lang.NullPointerException")))
+            """.trim()).compile().execute(
+                SourceExecutionArguments(classLoaderConfiguration = Sandbox.ClassLoaderConfiguration(unsafeExceptions = setOf("java.lang.NullPointerException")))
+        )
 
         executionResult shouldNot haveCompleted()
         executionResult should haveOutput("Try")
@@ -83,7 +89,9 @@ try {
 } finally {
     System.out.println("Finally");
 }
-            """.trim()).compile().execute(SourceExecutionArguments(unsafeExceptions = setOf("java.lang.ClassCastException")))
+            """.trim()).compile().execute(
+                SourceExecutionArguments(classLoaderConfiguration = Sandbox.ClassLoaderConfiguration(unsafeExceptions = setOf("java.lang.ClassCastException")))
+        )
 
         executionResult shouldNot haveCompleted()
         executionResult should haveOutput("Try\nFinally")
@@ -107,7 +115,9 @@ try {
 } finally {
     System.out.println("Bah");
 }
-            """.trim()).compile().execute(SourceExecutionArguments(unsafeExceptions = setOf("java.lang.NullPointerException")))
+            """.trim()).compile().execute(
+                SourceExecutionArguments(classLoaderConfiguration = Sandbox.ClassLoaderConfiguration(unsafeExceptions = setOf("java.lang.NullPointerException")))
+        )
 
         executionResult shouldNot haveCompleted()
         executionResult should haveOutput("Try\nCatch")
@@ -127,7 +137,9 @@ while (true) {
         System.out.println("Finally");
     }
 }
-            """.trim()).compile().execute(SourceExecutionArguments(unsafeExceptions = setOf("java.lang.NullPointerException")))
+            """.trim()).compile().execute(
+                SourceExecutionArguments(classLoaderConfiguration = Sandbox.ClassLoaderConfiguration(unsafeExceptions = setOf("java.lang.NullPointerException")))
+        )
 
         executionResult shouldNot haveCompleted()
         executionResult should haveOutput("Try\nCatch")

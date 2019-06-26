@@ -15,7 +15,7 @@ dependencies {
 
     antlr("org.antlr:antlr4:4.7.2")
 
-    implementation("com.puppycrawl.tools:checkstyle:8.21")
+    implementation("com.puppycrawl.tools:checkstyle:8.22")
     implementation("org.jetbrains.kotlin:kotlin-reflect:1.3.31")
 
     implementation("com.squareup.moshi:moshi:1.8.0")

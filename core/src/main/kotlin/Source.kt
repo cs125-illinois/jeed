@@ -1,16 +1,16 @@
 package edu.illinois.cs.cs125.jeed.core
 
+import com.squareup.moshi.JsonClass
 import edu.illinois.cs.cs125.jeed.core.antlr.JavaLexer
 import edu.illinois.cs.cs125.jeed.core.antlr.JavaParser
-import edu.illinois.cs.cs125.jeed.core.antlr.JavaParserBaseListener
 import org.antlr.v4.runtime.*
-import org.antlr.v4.runtime.tree.ParseTreeWalker
 import java.io.PrintWriter
 import java.io.StringWriter
 import java.lang.reflect.Method
 import java.time.Instant
 
 
+@JsonClass(generateAdapter = true)
 open class Source
 @Throws(JavaParsingException::class)
 constructor
@@ -24,68 +24,44 @@ constructor
         require(sources.keys.isNotEmpty())
         require(checkSourceNames(sources))
     }
-    val parsedSources = sources.mapValues { entry ->
-        val errorListener = JavaErrorListener(this, entry)
-
-        val charStream = CharStreams.fromString(entry.value)
-        val javaLexer = JavaLexer(charStream)
-        javaLexer.removeErrorListeners()
-        javaLexer.addErrorListener(errorListener)
-
-        val tokenStream = CommonTokenStream(javaLexer)
-        errorListener.check()
-
-        val javaParser = JavaParser(tokenStream)
-        javaParser.removeErrorListeners()
-        javaParser.addErrorListener(errorListener)
-
-        val toReturn = javaParser.compilationUnit()
-        errorListener.check()
-        toReturn
-    }
 
     fun mapLocation(input: SourceLocation): SourceLocation {
         return sourceMappingFunction(input)
     }
+
     fun mapLocation(source: String, input: Location): Location {
         val resultSourceLocation = sourceMappingFunction(SourceLocation(source, input.line, input.column))
         return Location(resultSourceLocation.line, resultSourceLocation.column)
     }
 
-    private class SourceSanitizer(val source: Source, entry: Map.Entry<String, String>) : JavaParserBaseListener() {
-        private val name = entry.key
-        private val contents = entry.value
+    @Transient private lateinit var _parsed: Map<String, JavaParser.CompilationUnitContext>
+    val parsed: Map<String, JavaParser.CompilationUnitContext>
+        get() {
+            if (!this::_parsed.isInitialized) {
+                _parsed = sources.mapValues { entry ->
+                    val errorListener = JavaErrorListener(this, entry)
 
-        override fun enterCatchType(ctx: JavaParser.CatchTypeContext) {
-            assert(ctx.children.size >= 1)
-            assert(ctx.children.size % 2 == 1)
+                    val charStream = CharStreams.fromString(entry.value)
+                    val javaLexer = JavaLexer(charStream)
+                    javaLexer.removeErrorListeners()
+                    javaLexer.addErrorListener(errorListener)
 
-            val caughtTypes = ctx.children.filterIndexed { i, _ -> i % 2 == 0 }.map{ it.text }
-            val unsafeCaughtTypes = unsafeCatchTypes.intersect(caughtTypes)
-            if (unsafeCaughtTypes.isNotEmpty()) {
-                throw JavaParsingException(listOf(UnsafeCatchError(
-                        source.mapLocation(SourceLocation(name, ctx.start.line, ctx.start.charPositionInLine)),
-                        "exceptions ${ unsafeCaughtTypes.joinToString(separator = ",") } cannot be safely caught by Jeed sources"
-                )))
+                    val tokenStream = CommonTokenStream(javaLexer)
+                    errorListener.check()
+
+                    val javaParser = JavaParser(tokenStream)
+                    javaParser.removeErrorListeners()
+                    javaParser.addErrorListener(errorListener)
+
+                    val toReturn = javaParser.compilationUnit()
+                    errorListener.check()
+                    toReturn
+                }
             }
+            return _parsed
         }
-        init {
-            ParseTreeWalker.DEFAULT.walk(this, source.parsedSources[name])
-        }
-    }
-    init {
-        /*
-        this.sources.forEach {
-            SourceSanitizer(this, it)
-        }
-        */
-    }
 
     companion object {
-        val unsafeCatchTypes = listOf(
-                "Throwable", "Error", "ThreadDeath",
-                "java.lang.Throwable", "java.lang.Error", "java.lang.ThreadDeath"
-        )
         private fun defaultCheckSourceNames(sources: Map<String, String>): Boolean {
             return sources.keys.all { name -> name.isNotBlank() && name.split("/").last()[0].isUpperCase() }
         }
@@ -94,7 +70,7 @@ constructor
 
 class JavaParseError(location: SourceLocation, message: String) : SourceError(location, message)
 class UnsafeCatchError(location: SourceLocation, message: String) : SourceError(location, message)
-class JavaParsingException(errors: List<SourceError>) : JeepError(errors)
+class JavaParsingException(errors: List<SourceError>) : JeedError(errors)
 
 class JavaErrorListener(val source: Source, entry: Map.Entry<String, String>) : BaseErrorListener() {
     private val name = entry.key
@@ -145,13 +121,14 @@ open class LocatedMethod(
 
 abstract class SourceError(
         val location: SourceLocation,
-        val message: String?
+        val message: String
 ) {
     override fun toString(): String {
         return "$location: $message"
     }
 }
-abstract class JeepError(val errors: List<SourceError>) : Exception() {
+
+abstract class JeedError(val errors: List<SourceError>) : Exception() {
     override fun toString(): String {
         return javaClass.name + ":\n" + errors.joinToString(separator = "\n")
     }

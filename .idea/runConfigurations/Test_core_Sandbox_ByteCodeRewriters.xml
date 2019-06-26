@@ -1,5 +1,5 @@
 <component name="ProjectRunConfigurationManager">
-  <configuration default="false" name="Test core:Sandbox:ResourceExhaustion" type="JUnit" factoryName="JUnit">
+  <configuration default="false" name="Test core:Sandbox:ByteCodeRewriters" type="JUnit" factoryName="JUnit">
     <module name="jeed.core.test" />
     <extension name="coverage">
       <pattern>
@@ -8,7 +8,7 @@
       </pattern>
     </extension>
     <option name="PACKAGE_NAME" value="sandbox" />
-    <option name="MAIN_CLASS_NAME" value="edu.illinois.cs.cs125.jeed.core.sandbox.TestResourceExhaustion" />
+    <option name="MAIN_CLASS_NAME" value="edu.illinois.cs.cs125.jeed.core.sandbox.TestByteCodeRewriters" />
     <option name="METHOD_NAME" value="" />
     <option name="TEST_OBJECT" value="class" />
     <option name="VM_PARAMETERS" value="-ea -Xmx1G" />

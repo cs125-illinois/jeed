@@ -1,32 +1,30 @@
 package edu.illinois.cs.cs125.jeed.core
 
+import com.squareup.moshi.JsonClass
 import java.lang.reflect.InvocationTargetException
 import java.lang.reflect.Method
 import java.lang.reflect.Modifier
 import java.lang.reflect.ReflectPermission
 import java.security.Permission
 
+@JsonClass(generateAdapter = true)
 class SourceExecutionArguments(
         val klass: String = DEFAULT_KLASS,
         val method: String = DEFAULT_METHOD,
         timeout: Long = DEFAULT_TIMEOUT,
-        permissions: List<Permission> = REQUIRED_PERMISSIONS,
-        whitelistedClasses: Set<String> = setOf(),
-        blacklistedClasses: Set<String> = setOf(),
-        unsafeExceptions: Set<String> = setOf(),
-        maxExtraThreads: Int = DEFAULT_MAX_EXTRA_THREADS
+        permissions: Set<Permission> = REQUIRED_PERMISSIONS,
+        maxExtraThreads: Int = DEFAULT_MAX_EXTRA_THREADS,
+        classLoaderConfiguration: Sandbox.ClassLoaderConfiguration = Sandbox.ClassLoaderConfiguration()
 ): Sandbox.ExecutionArguments<Any?>(
         timeout,
         permissions.union(REQUIRED_PERMISSIONS),
-        whitelistedClasses,
-        blacklistedClasses,
-        unsafeExceptions,
-        maxExtraThreads
+        maxExtraThreads,
+        classLoaderConfiguration
 ) {
     companion object {
         const val DEFAULT_KLASS = "Main"
         const val DEFAULT_METHOD = "main()"
-        val REQUIRED_PERMISSIONS = listOf(
+        val REQUIRED_PERMISSIONS = setOf(
                 RuntimePermission("accessDeclaredMembers"),
                 ReflectPermission("suppressAccessChecks")
         )

@@ -1,5 +1,6 @@
 package edu.illinois.cs.cs125.jeed.core
 
+import com.squareup.moshi.JsonClass
 import kotlinx.coroutines.*
 import kotlinx.coroutines.channels.Channel
 import mu.KotlinLogging
@@ -18,28 +19,49 @@ private val logger = KotlinLogging.logger {}
 private typealias SandboxCallableArguments<T> = (Pair<ClassLoader, (() -> Unit) -> Pair<String, String>>)->T
 
 object Sandbox {
-    open class ExecutionArguments<T>(
-            val timeout: Long = DEFAULT_TIMEOUT,
-            val permissions: Set<Permission> = setOf(),
+    class ClassLoaderConfiguration(
             val whitelistedClasses: Set<String> = setOf(),
-            blacklistedClasses: Set<String> = setOf(),
-            unsafeExceptions: Set<String> = setOf(),
-            val maxExtraThreads: Int = DEFAULT_MAX_EXTRA_THREADS
+            blacklistedClasses: Set<String> = DEFAULT_BLACKLISTED_CLASSES,
+            unsafeExceptions: Set<String> = setOf()
     ) {
         val blacklistedClasses = blacklistedClasses.union(PERMANENTLY_BLACKLISTED_CLASSES)
         val unsafeExceptions = unsafeExceptions.union(ALWAYS_UNSAFE_EXCEPTIONS)
         init {
+            require(!whitelistedClasses.any {whitelistedClass ->
+                PERMANENTLY_BLACKLISTED_CLASSES.any { blacklistedClass -> whitelistedClass.startsWith(blacklistedClass) }
+            }) {
+                "attempt to allow access to unsafe classes"
+            }
+            require(!(whitelistedClasses.isNotEmpty()
+                    && blacklistedClasses.minus(PERMANENTLY_BLACKLISTED_CLASSES.union(DEFAULT_BLACKLISTED_CLASSES)).isNotEmpty())) {
+                "can't set both a class whitelist and blacklist"
+            }
             unsafeExceptions.forEach { name ->
                 val klass = Class.forName(name) ?: error("$name does not refer to a Java class")
                 require(Throwable::class.java.isAssignableFrom(klass)) { "$name does not refer to a Java Throwable" }
             }
         }
         companion object {
+            val DEFAULT_BLACKLISTED_CLASSES = setOf("java.lang.reflect.")
+            val PERMANENTLY_BLACKLISTED_CLASSES = setOf("edu.illinois.cs.cs125.jeed.", "org.objectweb.asm.*")
+            val ALWAYS_UNSAFE_EXCEPTIONS = setOf("java.lang.Error")
+        }
+    }
+    @JsonClass(generateAdapter = true)
+    open class ExecutionArguments<T>(
+            val timeout: Long = DEFAULT_TIMEOUT,
+            val permissions: Set<Permission> = setOf(),
+            val maxExtraThreads: Int = DEFAULT_MAX_EXTRA_THREADS,
+            val classLoaderConfiguration: ClassLoaderConfiguration = ClassLoaderConfiguration()
+    ) {
+        companion object {
             const val DEFAULT_TIMEOUT = 100L
             const val DEFAULT_MAX_EXTRA_THREADS = 0
+            val DEFAULT_BLACKLISTED_CLASSES = setOf("java.lang.reflect.")
         }
     }
 
+    @JsonClass(generateAdapter = true)
     class TaskResults<T>(
             val returned: T?,
             val threw: Throwable?,
@@ -95,11 +117,7 @@ object Sandbox {
             RuntimePermission("modifyThread"),
             RuntimePermission("modifyThreadGroup")
     )
-    val PERMANENTLY_BLACKLISTED_CLASSES = setOf(
-            "java.lang.reflect.",
-            "edu.illinois.cs.cs125.jeed.",
-            "org.objectweb.asm.*"
-    )
+    val PERMANENTLY_BLACKLISTED_CLASSES = setOf("edu.illinois.cs.cs125.jeed.", "org.objectweb.asm.*")
     val ALWAYS_UNSAFE_EXCEPTIONS = setOf("java.lang.Error")
 
     suspend fun <T> execute(
@@ -110,19 +128,9 @@ object Sandbox {
         require(executionArguments.permissions.intersect(BLACKLISTED_PERMISSIONS).isEmpty()) {
             "attempt to allow unsafe permissions"
         }
-        require(!executionArguments.whitelistedClasses.any {whitelistedClass ->
-            PERMANENTLY_BLACKLISTED_CLASSES.any {blacklistedClass ->
-                whitelistedClass.startsWith(blacklistedClass)
-            }
-        }) {
-            "attempt to allow access to unsafe classes"
-        }
-        require(!(executionArguments.whitelistedClasses.isNotEmpty()
-                && executionArguments.blacklistedClasses != PERMANENTLY_BLACKLISTED_CLASSES)) {
-            "can't set both a class whitelist and blacklist"
-        }
 
-        val sandboxedClassLoader = SandboxedClassLoader(sandboxableClassLoader, executionArguments)
+
+        val sandboxedClassLoader = SandboxedClassLoader(sandboxableClassLoader, executionArguments.classLoaderConfiguration)
 
         return coroutineScope {
             val resultsChannel = Channel<ExecutorResult<T>>()
@@ -193,7 +201,6 @@ object Sandbox {
             accessControlContext = AccessControlContext(arrayOf(ProtectionDomain(null, permissions)))
         }
         val maxExtraThreads: Int = executionArguments.maxExtraThreads
-        val unsafeExceptions = executionArguments.unsafeExceptions
 
         var shuttingDown: Boolean = false
         val currentLines: MutableMap<TaskResults.OutputLine.Console, CurrentLine> = mutableMapOf()
@@ -231,6 +238,7 @@ object Sandbox {
         return confinedTask
     }
 
+    @Synchronized
     private fun <T> confine(
             callable: SandboxCallableArguments<T>,
             sandboxedClassLoader: SandboxedClassLoader,
@@ -246,6 +254,7 @@ object Sandbox {
         confinedTasks[threadGroup] = confinedTask
         return confinedTask
     }
+    @Synchronized
     private fun <T> release(confinedTask: ConfinedTask<T>) {
         val threadGroup = confinedTask.threadGroup
         require(confinedTasks.containsKey(threadGroup)) { "thread group is not confined" }
@@ -320,11 +329,11 @@ object Sandbox {
 
     class SandboxedClassLoader(
             sandboxableClassLoader: SandboxableClassLoader,
-            executionArguments: ExecutionArguments<*>
+            classLoaderConfiguration: ClassLoaderConfiguration
     ) : ClassLoader((sandboxableClassLoader as ClassLoader).parent), EnumerableClassLoader {
-        val whitelistedClasses = executionArguments.whitelistedClasses
-        val blacklistedClasses = executionArguments.blacklistedClasses
-        val unsafeExceptionClasses: Set<Class<*>> = executionArguments.unsafeExceptions.map { name ->
+        val whitelistedClasses = classLoaderConfiguration.whitelistedClasses
+        val blacklistedClasses = classLoaderConfiguration.blacklistedClasses
+        val unsafeExceptionClasses: Set<Class<*>> = classLoaderConfiguration.unsafeExceptions.map { name ->
             val klass = Class.forName(name) ?: error("$name does not refer to a Java class")
             require(Throwable::class.java.isAssignableFrom(klass)) { "$name does not refer to a Java Throwable" }
             klass
@@ -610,5 +619,11 @@ object Sandbox {
         System.setErr(PrintStream(object : OutputStream() {
             override fun write(int: Int) { redirectedWrite(int, TaskResults.OutputLine.Console.STDERR) }
         }))
+        // Try to silence ThreadDeath error messages. Not sure this works but it can't hurt.
+        Thread.setDefaultUncaughtExceptionHandler { _, _ ->  }
     }
+}
+
+fun Sandbox.SandboxableClassLoader.sandbox(classLoaderConfiguration: Sandbox.ClassLoaderConfiguration): Sandbox.SandboxedClassLoader {
+    return Sandbox.SandboxedClassLoader(this, classLoaderConfiguration)
 }
