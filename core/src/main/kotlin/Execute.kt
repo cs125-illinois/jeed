@@ -13,12 +13,14 @@ class SourceExecutionArguments(
         permissions: List<Permission> = REQUIRED_PERMISSIONS,
         whitelistedClasses: Set<String> = setOf(),
         blacklistedClasses: Set<String> = setOf(),
+        unsafeExceptions: Set<String> = setOf(),
         maxExtraThreads: Int = DEFAULT_MAX_EXTRA_THREADS
 ): Sandbox.ExecutionArguments<Any?>(
         timeout,
         permissions.union(REQUIRED_PERMISSIONS),
         whitelistedClasses,
         blacklistedClasses,
+        unsafeExceptions,
         maxExtraThreads
 ) {
     companion object {
@@ -39,7 +41,7 @@ suspend fun CompiledSource.execute(
     // Fail fast if the class or method don't exist
     classLoader.findClassMethod(executionArguments.klass, executionArguments.method)
 
-    return Sandbox.execute(classLoader, executionArguments) { classLoader ->
+    return Sandbox.execute(classLoader, executionArguments) { (classLoader) ->
         try {
             classLoader.findClassMethod(executionArguments.klass, executionArguments.method).invoke(null)
         } catch (e: InvocationTargetException) {
@@ -49,7 +51,10 @@ suspend fun CompiledSource.execute(
 }
 
 @Throws(ClassNotFoundException::class, MethodNotFoundException::class)
-fun ClassLoader.findClassMethod(klass: String, name: String): Method {
+fun ClassLoader.findClassMethod(
+        klass: String = SourceExecutionArguments.DEFAULT_KLASS,
+        name: String = SourceExecutionArguments.DEFAULT_METHOD
+): Method {
     return loadClass(klass).declaredMethods.find { method ->
         if (!Modifier.isStatic(method.modifiers)
                 || !Modifier.isPublic(method.modifiers)

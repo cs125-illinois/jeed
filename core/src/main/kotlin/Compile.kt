@@ -165,26 +165,18 @@ class JeedFileManager(parentFileManager: JavaFileManager) : ForwardingJavaFileMa
     }
 }
 
-interface ByteCodeProvidingClassLoader {
-    val bytecodeForClasses: Map<String, ByteArray>
-}
 class JeedClassLoader(val fileManager: JeedFileManager, parentClassLoader: ClassLoader?)
-    : ClassLoader(parentClassLoader), ByteCodeProvidingClassLoader {
+    : ClassLoader(parentClassLoader), Sandbox.SandboxableClassLoader, Sandbox.EnumerableClassLoader {
 
     override val bytecodeForClasses = fileManager.bytecodeForPaths.mapKeys { pathToClassName(it.key) }.toMap()
-
     fun bytecodeForClass(name: String): ByteArray {
         require(bytecodeForClasses.containsKey(name)) { "class loader does not contain class $name" }
         return bytecodeForClasses[name] ?: error("")
     }
-    val definedClasses: Set<String>
-        get() {
-            return bytecodeForClasses.keys.toSet()
-        }
 
-    private var myLoadedClasses: MutableSet<String> = mutableSetOf()
-    val loadedClasses: Set<String>
-        get() { return myLoadedClasses.toSet() }
+    override val definedClasses: Set<String> get() = bytecodeForClasses.keys.toSet()
+    override var providedClasses: MutableSet<String> = mutableSetOf()
+    override var loadedClasses: MutableSet<String> = mutableSetOf()
 
     override fun findClass(name: String): Class<*> {
         @Suppress("UNREACHABLE_CODE")
@@ -195,11 +187,18 @@ class JeedClassLoader(val fileManager: JeedFileManager, parentClassLoader: Class
                     JavaFileObject.Kind.CLASS
             ) ?: throw ClassNotFoundException()
             val byteArray = classFile.openInputStream().readAllBytes()
-            myLoadedClasses.add(name)
+            loadedClasses.add(name)
+            providedClasses.add(name)
             return defineClass(name, byteArray, 0, byteArray.size)
         } catch (e: Exception) {
             throw ClassNotFoundException(name)
         }
+    }
+
+    override fun loadClass(name: String): Class<*> {
+        val klass = super.loadClass(name)
+        loadedClasses.add(name)
+        return klass
     }
 }
 

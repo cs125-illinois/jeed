@@ -10,7 +10,7 @@ class TestCompile : StringSpec({
         val compiledSource = Source.fromSnippet("int i = 1;").compile()
 
         compiledSource should haveDefinedExactlyTheseClasses(setOf("Main"))
-        compiledSource should haveLoadedThisManyClasses(0)
+        compiledSource should haveProvidedThisManyClasses(0)
     }
     "should compile snippets that include method definitions" {
         val compiledSource = Source.fromSnippet("""
@@ -21,7 +21,7 @@ private static int main() {
         """.trim()).compile()
 
         compiledSource should haveDefinedExactlyTheseClasses(setOf("Main"))
-        compiledSource should haveLoadedThisManyClasses(0)
+        compiledSource should haveProvidedThisManyClasses(0)
     }
     "should compile snippets that include class definitions" {
         val compiledSource = Source.fromSnippet("""
@@ -33,7 +33,7 @@ Foo foo = new Foo();
         """.trim()).compile()
 
         compiledSource should haveDefinedExactlyTheseClasses(setOf("Main", "Foo"))
-        compiledSource should haveLoadedThisManyClasses(0)
+        compiledSource should haveProvidedThisManyClasses(0)
     }
     "should compile multiple sources" {
         val compiledSource = Source(mapOf(
@@ -42,7 +42,7 @@ Foo foo = new Foo();
         )).compile()
 
         compiledSource should haveDefinedExactlyTheseClasses(setOf("Test", "Me"))
-        compiledSource should haveLoadedThisManyClasses(0)
+        compiledSource should haveProvidedThisManyClasses(0)
     }
     "should compile sources with dependencies" {
         val compiledSource = Source(mapOf(
@@ -51,7 +51,7 @@ Foo foo = new Foo();
         )).compile()
 
         compiledSource should haveDefinedExactlyTheseClasses(setOf("Test", "Me"))
-        compiledSource should haveLoadedThisManyClasses(0)
+        compiledSource should haveProvidedThisManyClasses(0)
     }
     "should compile sources with dependencies in wrong order" {
         val compiledSource = Source(mapOf(
@@ -60,7 +60,7 @@ Foo foo = new Foo();
         )).compile()
 
         compiledSource should haveDefinedExactlyTheseClasses(setOf("Test", "Me"))
-        compiledSource should haveLoadedThisManyClasses(0)
+        compiledSource should haveProvidedThisManyClasses(0)
     }
     "should compile sources in multiple packages" {
         val compiledSource = Source(mapOf(
@@ -75,7 +75,7 @@ public class Me {}
         )).compile()
 
         compiledSource should haveDefinedExactlyTheseClasses(setOf("test.Test", "me.Me"))
-        compiledSource should haveLoadedThisManyClasses(0)
+        compiledSource should haveProvidedThisManyClasses(0)
     }
     "should compile sources in multiple packages with dependencies in wrong order" {
         val compiledSource = Source(mapOf(
@@ -91,7 +91,7 @@ public class Me {}
         )).compile()
 
         compiledSource should haveDefinedExactlyTheseClasses(setOf("test.Test", "me.Me"))
-        compiledSource should haveLoadedThisManyClasses(0)
+        compiledSource should haveProvidedThisManyClasses(0)
     }
     "should compile sources that use Java 10 features" {
         val compiledSource = Source(mapOf(
@@ -105,7 +105,7 @@ public class Test {
         )).compile()
 
         compiledSource should haveDefinedExactlyTheseClasses(setOf("Test"))
-        compiledSource should haveLoadedThisManyClasses(0)
+        compiledSource should haveProvidedThisManyClasses(0)
     }
     "should compile sources that use inner classes" {
         val compiledSource = Source(mapOf(
@@ -123,7 +123,7 @@ public class Test {
         )).compile()
 
         compiledSource should haveDefinedExactlyTheseClasses(setOf("Test", "Test\$Inner"))
-        compiledSource should haveLoadedThisManyClasses(0)
+        compiledSource should haveProvidedThisManyClasses(0)
     }
     "should identify compilation errors in simple snippets" {
         val failedCompilation = shouldThrow<CompilationFailed> { Source.fromSnippet("int i = a;").compile() }
@@ -195,28 +195,14 @@ Me me = new Me();
         """.trim()).compile()
 
         compiledSource should haveDefinedExactlyTheseClasses(setOf("Test", "Me", "Main"))
-        compiledSource should haveLoadedThisManyClasses(0)
-        compiledSource.execute()
+        compiledSource should haveProvidedThisManyClasses(0)
+        val executionResult = compiledSource.execute()
 
-        compiledSource should haveDefinedExactlyTheseClasses(setOf("Test", "Me", "Main"))
-        compiledSource should haveLoadedExactlyTheseClasses(setOf("Test", "Me", "Main"))
+        executionResult should haveCompleted()
+        executionResult should haveDefinedExactlyTheseClasses(setOf("Test", "Me", "Main"))
+        executionResult should haveProvidedExactlyTheseClasses(setOf("Test", "Me", "Main"))
+        executionResult should haveLoadedAtLeastTheseClasses(setOf("java.lang.Object", "Test", "Me", "Main"))
         compiledSource.classLoader.bytecodeForClass("Test").size shouldBeGreaterThan 0
-    }
-    "should provide bytecode when requested even if the class hasn't been loaded" {
-        val compiledSource = Source.fromSnippet("""
-class Test {}
-class Me {}
-Test test = new Test();
-        """.trim()).compile()
-
-        compiledSource should haveDefinedExactlyTheseClasses(setOf("Test", "Me", "Main"))
-        compiledSource should haveLoadedThisManyClasses(0)
-        compiledSource.classLoader.bytecodeForClass("Test").size shouldBeGreaterThan 0
-        compiledSource.execute()
-
-        compiledSource should haveDefinedExactlyTheseClasses(setOf("Test", "Me", "Main"))
-        compiledSource should haveLoadedExactlyTheseClasses(setOf("Test", "Main"))
-        compiledSource.classLoader.bytecodeForClass("Me").size shouldBeGreaterThan 0
     }
     "should correctly accept previously compiled source argument" {
         val compiledTestSource = Source(
@@ -229,7 +215,7 @@ public class Test {}
             """.trim())).compileWith(compiledTestSource)
 
         compiledFooSource should haveDefinedExactlyTheseClasses(setOf("Foo"))
-        compiledFooSource should haveLoadedThisManyClasses(0)
+        compiledFooSource should haveProvidedThisManyClasses(0)
     }
     "should correctly accept previously compiled source argument in another package" {
         val compiledMeSource = Source(
@@ -246,7 +232,7 @@ public class Foo extends Me { }
             """.trim())).compileWith(compiledMeSource)
 
         compiledFooSource should haveDefinedExactlyTheseClasses(setOf("another.Foo"))
-        compiledFooSource should haveLoadedThisManyClasses(0)
+        compiledFooSource should haveProvidedThisManyClasses(0)
     }
     "should compile with classes from Java standard libraries" {
         val compiledSource = Source.fromSnippet("""
@@ -257,7 +243,7 @@ List list = new ArrayList();
         """.trim()).compile()
 
         compiledSource should haveDefinedExactlyTheseClasses(setOf("Main"))
-        compiledSource should haveLoadedThisManyClasses(0)
+        compiledSource should haveProvidedThisManyClasses(0)
     }
 })
 
@@ -279,39 +265,73 @@ fun haveCompilationMessageAt(source: String = SNIPPET_SOURCE, line: Int) = objec
         )
     }
 }
-fun haveDefinedThisManyClasses(count: Int) = object : Matcher<CompiledSource> {
-    override fun test(value: CompiledSource): Result {
+fun <T> haveDefinedThisManyClasses(count: Int) = object : Matcher<T> {
+    override fun test(value: T): Result {
+        val definedClassCount = when (value) {
+            is CompiledSource -> value.classLoader.definedClasses.size
+            is Sandbox.TaskResults<*> -> value.sandboxedClassLoader.definedClasses.size
+            else -> error("invalid type")
+        }
         return Result(
-                value.classLoader.definedClasses.size == count,
-                "should have defined $count classes",
+                definedClassCount == count,
+                "should have defined $count classes (found $definedClassCount)",
                 "should not have defined $count classes"
         )
     }
 }
-fun haveDefinedExactlyTheseClasses(classes: Set<String>) = object : Matcher<CompiledSource> {
-    override fun test(value: CompiledSource): Result {
+fun <T> haveDefinedExactlyTheseClasses(classes: Set<String>) = object : Matcher<T> {
+    override fun test(value: T): Result {
+        val definedClasses = when (value) {
+            is CompiledSource -> value.classLoader.definedClasses
+            is Sandbox.TaskResults<*> -> value.sandboxedClassLoader.definedClasses
+            else -> error("invalid type")
+        }
         return Result(
-                value.classLoader.definedClasses.toSet() == classes,
-                "should have defined exactly these classes: ${ classes.joinToString(separator = ", ")}",
-                "should nothave defined exactly these classes: ${ classes.joinToString(separator = ", ")}"
+                definedClasses == classes,
+                "should have defined ${ classes.joinToString(separator = ", ")} (found ${ definedClasses.joinToString(separator = ", ") })",
+                "should not have defined ${ classes.joinToString(separator = ", ")}"
         )
     }
 }
-fun haveLoadedThisManyClasses(count: Int) = object : Matcher<CompiledSource> {
-    override fun test(value: CompiledSource): Result {
+fun <T> haveProvidedThisManyClasses(count: Int) = object : Matcher<T> {
+    override fun test(value: T): Result {
+        val providedClassCount = when (value) {
+            is CompiledSource -> value.classLoader.providedClasses.size
+            is Sandbox.TaskResults<*> -> value.sandboxedClassLoader.providedClasses.size
+            else -> error("invalid type")
+        }
         return Result(
-                value.classLoader.loadedClasses.size == count,
-                "should have defined $count classes",
-                "should not have defined $count classes"
+                providedClassCount == count,
+                "should have loaded $count classes (found $providedClassCount)",
+                "should not have loaded $count classes"
         )
     }
 }
-fun haveLoadedExactlyTheseClasses(classes: Set<String>) = object : Matcher<CompiledSource> {
-    override fun test(value: CompiledSource): Result {
+fun <T> haveProvidedExactlyTheseClasses(classes: Set<String>) = object : Matcher<T> {
+    override fun test(value: T): Result {
+        val providedClasses = when (value) {
+            is CompiledSource -> value.classLoader.providedClasses
+            is Sandbox.TaskResults<*> -> value.sandboxedClassLoader.providedClasses
+            else -> error("invalid type")
+        }
         return Result(
-                value.classLoader.loadedClasses.toSet() == classes,
-                "should have defined exactly these classes: ${ classes.joinToString(separator = ", ")}",
-                "should nothave defined exactly these classes: ${ classes.joinToString(separator = ", ")}"
+                providedClasses == classes,
+                "should have provided ${ classes.joinToString(separator = ", ")} (found ${ providedClasses.joinToString(separator = ", ") })",
+                "should not have provided ${ classes.joinToString(separator = ", ")}"
+        )
+    }
+}
+fun <T> haveLoadedAtLeastTheseClasses(classes: Set<String>) = object : Matcher<T> {
+    override fun test(value: T): Result {
+        val loadedClasses = when (value) {
+            is CompiledSource -> value.classLoader.loadedClasses
+            is Sandbox.TaskResults<*> -> value.sandboxedClassLoader.loadedClasses
+            else -> error("invalid type")
+        }
+        return Result(
+                loadedClasses.containsAll(classes),
+                "should have loaded at least ${ classes.joinToString(separator = ", ")} (found ${ loadedClasses.joinToString(separator = ", ") })",
+                "should not have loaded at least ${ classes.joinToString(separator = ", ")}"
         )
     }
 }
