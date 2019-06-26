@@ -290,4 +290,21 @@ Map confinedTasks = (Map) field.get(null);
 
         executionResult should haveCompleted()
     }
+    "should not allow static{} to escape the sandbox" {
+        val result = Source(mapOf(
+                "Example" to """
+public class Example {
+    static {
+        System.out.println("Static initializer");
+        System.exit(-1);
+    }
+    public static void main() {
+        System.out.println("Main");
+    }
+}
+                """
+        )).compile().execute(SourceExecutionArguments("Example"))
+        println(result.output)
+        result.permissionDenied shouldBe true
+    }
 })

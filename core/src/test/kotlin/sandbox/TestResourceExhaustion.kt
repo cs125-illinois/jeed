@@ -326,5 +326,82 @@ while (true) {
 }
             """.trim()).compile().execute(SourceExecutionArguments(maxExtraThreads=256, timeout=1000L))
     }
+    "should survive a very large class file" {
+        // TODO: What's the right behavior here?
+        // Throwing an exception during compilation/rewriting is probably OK
+        // It's only a problem if it dies at a time that causes a ConfinedTask to be leaked
+
+        // From https://stackoverflow.com/a/42301131/
+        Source.fromSnippet("""
+class A {
+    {
+        int a;
+        try {a=0;} finally {
+        try {a=0;} finally {
+        try {a=0;} finally {
+        try {a=0;} finally {
+        try {a=0;} finally {
+        try {a=0;} finally {
+        try {a=0;} finally {
+        try {a=0;} finally {
+        try {a=0;} finally {
+        try {a=0;} finally {
+        try {a=0;} finally {
+        a=0;
+        }}}}}}}}}}}
+        try {a=0;} finally {
+        try {a=0;} finally {
+        try {a=0;} finally {
+        try {a=0;} finally {
+        try {a=0;} finally {
+        try {a=0;} finally {
+        try {a=0;} finally {
+        try {a=0;} finally {
+        try {a=0;} finally {
+        a=0;
+        }}}}}}}}}
+    }
+    A() { }
+    A(int a) { }
+    A(int a, int b) { }
+    A(int a, int b, int c) { }
+    A(char a) { }
+    A(char a, char b) { }
+    A(char a, char b, char c) { }
+    A(double a) { }
+    A(double a, double b) { }
+    A(double a, double b, double c) { }
+    A(float a) { }
+    A(float a, float b) { }
+    A(float a, float b, float c) { }
+    A(long a) { }
+    A(long a, long b) { }
+    A(long a, long b, long c) { }
+    A(short a) { }
+    A(short a, short b) { }
+    A(short a, short b, short c) { }
+    A(boolean a) { }
+    A(boolean a, boolean b) { }
+    A(boolean a, boolean b, boolean c) { }
+    A(String a) { }
+    A(String a, String b) { }
+    A(Integer a) { }
+    A(Integer a, Integer b) { }
+    A(Float a) { }
+    A(Float a, Float b) { }
+    A(Short a) { }
+    A(Short a, Short b) { }
+    A(Long a) { }
+    A(Long a, Long b) { }
+    A(Double a) { }
+    A(Double a, Double b) { }
+    A(Boolean a) { }
+    A(Boolean a, Boolean b) { }
+    A(Character a) { }
+    A(Character a, Character b) { }
+}
+new A();
+        """.trimIndent()).compile().execute()
+    }
 
 })
