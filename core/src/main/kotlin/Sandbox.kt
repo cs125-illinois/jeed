@@ -228,6 +228,7 @@ object Sandbox {
         return confinedTask
     }
 
+    @Synchronized
     private fun <T> confine(
             callable: SandboxCallableArguments<T>,
             sandboxedClassLoader: SandboxedClassLoader,
@@ -243,6 +244,7 @@ object Sandbox {
         confinedTasks[threadGroup] = confinedTask
         return confinedTask
     }
+    @Synchronized
     private fun <T> release(confinedTask: ConfinedTask<T>) {
         val threadGroup = confinedTask.threadGroup
         require(confinedTasks.containsKey(threadGroup)) { "thread group is not confined" }
@@ -607,5 +609,7 @@ object Sandbox {
         System.setErr(PrintStream(object : OutputStream() {
             override fun write(int: Int) { redirectedWrite(int, TaskResults.OutputLine.Console.STDERR) }
         }))
+        // Try to silence ThreadDeath error messages. Not sure this works but it can't hurt.
+        Thread.setDefaultUncaughtExceptionHandler { _, _ ->  }
     }
 }
