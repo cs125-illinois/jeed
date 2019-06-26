@@ -89,7 +89,7 @@ for (int i = 0; i < 32; i++) {
         val unrelatedOutput = combinedOutputStream.toString()
         unrelatedOutput.lines().filter { it == "Bad" }.size shouldBe 4 * 2 * 512
     }
-    "f:should redirect output to trusted task properly" {
+    "should redirect output to trusted task properly" {
         val compiledSource = Source.fromSnippet("""
 System.out.println("Here");
 System.err.println("There");
