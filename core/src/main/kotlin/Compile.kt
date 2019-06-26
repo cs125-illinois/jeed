@@ -1,5 +1,8 @@
 package edu.illinois.cs.cs125.jeed.core
 
+import com.squareup.moshi.FromJson
+import com.squareup.moshi.JsonClass
+import com.squareup.moshi.ToJson
 import mu.KotlinLogging
 import java.io.*
 import java.net.URI
@@ -14,6 +17,7 @@ private val logger = KotlinLogging.logger {}
 
 private val systemCompiler = ToolProvider.getSystemJavaCompiler() ?: error("systemCompiler not found: you are probably running a JRE, not a JDK")
 
+@JsonClass(generateAdapter = true)
 data class CompilationArguments(
         val wError: Boolean = DEFAULT_WERROR,
         val Xlint: String = DEFAULT_XLINT,
@@ -25,17 +29,23 @@ data class CompilationArguments(
         const val DEFAULT_XLINT = "all"
     }
 }
-class CompilationFailed(errors: List<CompilationError>) : JeepError(errors) {
+class CompilationFailed(errors: List<CompilationError>) : JeedError(errors) {
+    @JsonClass(generateAdapter = true)
     class CompilationError(location: SourceLocation, message: String) : SourceError(location, message)
 
     override fun toString(): String {
         return "compilation errors were encountered: ${errors.joinToString(separator = ",")}"
     }
 }
-class CompiledSource(val source: Source, val messages: List<CompilationMessage>, val classLoader: JeedClassLoader, val fileManager: JeedFileManager) {
+class CompiledSource(
+        val source: Source,
+        val messages: List<CompilationMessage>,
+        @Transient val classLoader: JeedClassLoader,
+        @Transient val fileManager: JeedFileManager
+) {
+    @JsonClass(generateAdapter = true)
     class CompilationMessage(val kind: String, location: SourceLocation, message: String) : SourceError(location, message)
 }
-
 @Throws(CompilationFailed::class)
 private fun compile(
         source: Source,
@@ -199,6 +209,28 @@ class JeedClassLoader(val fileManager: JeedFileManager, parentClassLoader: Class
         val klass = super.loadClass(name)
         loadedClasses.add(name)
         return klass
+    }
+}
+
+data class CompilationFailedJson(val errors: List<CompilationFailed.CompilationError>)
+class CompilationFailedAdapter {
+    @FromJson fun compilationFailedFromJson(compilationFailedJson: CompilationFailedJson): CompilationFailed {
+        return CompilationFailed(compilationFailedJson.errors)
+    }
+    @Suppress("UNCHECKED_CAST")
+    @ToJson fun compilationFailedToJson(compilationFailed: CompilationFailed): CompilationFailedJson {
+        return CompilationFailedJson(compilationFailed.errors as List<CompilationFailed.CompilationError>)
+    }
+}
+data class CompiledSourceJson(val messages: List<CompiledSource.CompilationMessage>)
+class CompiledSourceAdapter {
+    @Throws(Exception::class)
+    @Suppress("UNUSED_PARAMETER")
+    @FromJson fun compiledSourceFromJson(unused: CompiledSourceJson): CompiledSource {
+        throw Exception("Can't convert JSON to CompiledSourceAdapter")
+    }
+    @ToJson fun compiledSourceToJson(compiledSource: CompiledSource): CompiledSourceJson {
+        return CompiledSourceJson(compiledSource.messages)
     }
 }
 

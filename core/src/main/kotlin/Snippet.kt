@@ -23,8 +23,8 @@ fun generateName(prefix: String, existingNames: Set<String>) : String {
     throw IllegalStateException("couldn't generate $prefix class name")
 }
 
-class SnippetParseError(line: Int, column: Int, message: String?) : SourceError(SourceLocation(SNIPPET_SOURCE, line, column), message)
-class SnippetParsingFailed(errors: List<SnippetParseError>) : JeepError(errors)
+class SnippetParseError(line: Int, column: Int, message: String) : SourceError(SourceLocation(SNIPPET_SOURCE, line, column), message)
+class SnippetParsingFailed(errors: List<SnippetParseError>) : JeedError(errors)
 
 class SnippetErrorListener : BaseErrorListener() {
     private val errors = mutableListOf<SnippetParseError>()
@@ -245,8 +245,8 @@ fun Source.Companion.fromSnippet(originalSource: String, indent: Int = 4): Snipp
     )
 }
 
-class SnippetValidationError(location: SourceLocation, message: String?) : SourceError(location, message)
-class SnippetValidationFailed(errors: List<SnippetValidationError>) : JeepError(errors)
+class SnippetValidationError(location: SourceLocation, message: String) : SourceError(location, message)
+class SnippetValidationFailed(errors: List<SnippetValidationError>) : JeedError(errors)
 
 private fun checkLooseCode(looseCode: String, looseCodeStart: Int, remappedLineMapping: Map<Int, RemappedLine>) {
     val charStream = CharStreams.fromString(looseCode)

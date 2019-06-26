@@ -1,5 +1,6 @@
 package edu.illinois.cs.cs125.jeed.core
 
+import com.squareup.moshi.JsonClass
 import kotlinx.coroutines.*
 import kotlinx.coroutines.channels.Channel
 import mu.KotlinLogging
@@ -18,6 +19,7 @@ private val logger = KotlinLogging.logger {}
 private typealias SandboxCallableArguments<T> = (Pair<ClassLoader, (() -> Unit) -> Pair<String, String>>)->T
 
 object Sandbox {
+    @JsonClass(generateAdapter = true)
     open class ExecutionArguments<T>(
             val timeout: Long = DEFAULT_TIMEOUT,
             val permissions: Set<Permission> = setOf(),
@@ -41,6 +43,7 @@ object Sandbox {
         }
     }
 
+    @JsonClass(generateAdapter = true)
     class TaskResults<T>(
             val returned: T?,
             val threw: Throwable?,
