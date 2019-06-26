@@ -13,17 +13,13 @@ class SourceExecutionArguments(
         val method: String = DEFAULT_METHOD,
         timeout: Long = DEFAULT_TIMEOUT,
         permissions: Set<Permission> = REQUIRED_PERMISSIONS,
-        whitelistedClasses: Set<String> = setOf(),
-        blacklistedClasses: Set<String> = DEFAULT_BLACKLISTED_CLASSES,
-        unsafeExceptions: Set<String> = setOf(),
-        maxExtraThreads: Int = DEFAULT_MAX_EXTRA_THREADS
+        maxExtraThreads: Int = DEFAULT_MAX_EXTRA_THREADS,
+        classLoaderConfiguration: Sandbox.ClassLoaderConfiguration = Sandbox.ClassLoaderConfiguration()
 ): Sandbox.ExecutionArguments<Any?>(
         timeout,
         permissions.union(REQUIRED_PERMISSIONS),
-        whitelistedClasses,
-        blacklistedClasses,
-        unsafeExceptions,
-        maxExtraThreads
+        maxExtraThreads,
+        classLoaderConfiguration
 ) {
     companion object {
         const val DEFAULT_KLASS = "Main"

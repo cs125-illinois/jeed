@@ -32,7 +32,9 @@ System.out.println(methods[0].getName());
         failedExecutionResult.permissionDenied shouldBe true
 
         val successfulExecutionResult =
-                compiledSource.execute(SourceExecutionArguments(blacklistedClasses = setOf()))
+                compiledSource.execute(
+                        SourceExecutionArguments(classLoaderConfiguration=Sandbox.ClassLoaderConfiguration(blacklistedClasses = setOf()))
+                )
 
         successfulExecutionResult should haveCompleted()
     }
@@ -51,7 +53,9 @@ import java.util.List;
 import java.util.ArrayList;
 
 List list = new ArrayList<String>();
-        """.trim()).compile().execute(SourceExecutionArguments(blacklistedClasses = setOf("java.util.")))
+        """.trim()).compile().execute(
+                SourceExecutionArguments(classLoaderConfiguration = Sandbox.ClassLoaderConfiguration(blacklistedClasses = setOf("java.util.")))
+        )
 
         failedExecutionResult shouldNot haveCompleted()
         failedExecutionResult.permissionDenied shouldBe true
@@ -59,10 +63,10 @@ List list = new ArrayList<String>();
     "should allow only whitelisted imports" {
         val successfulExecutionResult = Source.fromSnippet("""
 String s = new String("test");
-        """.trim()).compile().execute(SourceExecutionArguments(
+        """.trim()).compile().execute(SourceExecutionArguments(classLoaderConfiguration = Sandbox.ClassLoaderConfiguration(
                 whitelistedClasses = setOf("java.lang."),
                 blacklistedClasses = setOf()
-        ))
+        )))
 
         successfulExecutionResult should haveCompleted()
 
@@ -71,10 +75,10 @@ import java.util.List;
 import java.util.ArrayList;
 
 List list = new ArrayList<String>();
-        """.trim()).compile().execute(SourceExecutionArguments(
+        """.trim()).compile().execute(SourceExecutionArguments(classLoaderConfiguration = Sandbox.ClassLoaderConfiguration(
                 whitelistedClasses = setOf("java.lang."),
                 blacklistedClasses = setOf()
-        ))
+        )))
 
         failedExecutionResult shouldNot haveCompleted()
         failedExecutionResult.permissionDenied shouldBe true
@@ -83,12 +87,16 @@ List list = new ArrayList<String>();
         shouldThrow<IllegalArgumentException> {
             Source.fromSnippet("""
 System.out.println("Here");
-            """.trim()).compile().execute(SourceExecutionArguments(whitelistedClasses = setOf("edu.illinois.cs.cs125.jeed.")))
+            """.trim()).compile().execute(SourceExecutionArguments(classLoaderConfiguration = Sandbox.ClassLoaderConfiguration(
+                    whitelistedClasses = setOf("edu.illinois.cs.cs125.jeed.")
+            )))
         }
         shouldThrow<IllegalArgumentException> {
             Source.fromSnippet("""
 System.out.println("Here");
-            """.trim()).compile().execute(SourceExecutionArguments(whitelistedClasses = setOf("edu.illinois.cs.cs125.jeed.core.Sandbox")))
+            """.trim()).compile().execute(SourceExecutionArguments(classLoaderConfiguration = Sandbox.ClassLoaderConfiguration(
+                    whitelistedClasses = setOf("edu.illinois.cs.cs125.jeed.core.Sandbox")
+            )))
         }
     }
 })
