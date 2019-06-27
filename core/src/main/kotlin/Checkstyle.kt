@@ -82,7 +82,7 @@ val defaultChecker = run {
 fun Source.checkstyle(names: Set<String> = this.sources.keys.toSet()): CheckstyleResults {
     return CheckstyleResults(defaultChecker.check(this.sources.filter { names.contains(it.key) }).mapValues {
         it.value.map { error ->
-            CheckstyleError(error.severity, this.mapLocation(error.location), error.message ?: "")
+            CheckstyleError(error.severity, this.mapLocation(error.location), error.message)
         }
     })
 }

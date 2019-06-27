@@ -15,7 +15,7 @@ class SourceExecutionArguments(
         permissions: Set<Permission> = REQUIRED_PERMISSIONS,
         maxExtraThreads: Int = DEFAULT_MAX_EXTRA_THREADS,
         classLoaderConfiguration: Sandbox.ClassLoaderConfiguration = Sandbox.ClassLoaderConfiguration()
-): Sandbox.ExecutionArguments<Any?>(
+): Sandbox.ExecutionArguments(
         timeout,
         permissions.union(REQUIRED_PERMISSIONS),
         maxExtraThreads,

@@ -1,5 +1,6 @@
 package edu.illinois.cs.cs125.jeed.core
 
+import com.squareup.moshi.JsonClass
 import edu.illinois.cs.cs125.jeed.core.antlr.*
 import mu.KotlinLogging
 import org.antlr.v4.runtime.*
@@ -39,6 +40,7 @@ class SnippetErrorListener : BaseErrorListener() {
     }
 }
 
+@JsonClass(generateAdapter = true)
 class Snippet(
         sources: Map<String, String>,
         val originalSource: String,
@@ -46,7 +48,7 @@ class Snippet(
         val snippetRange: SourceRange,
         val wrappedClassName: String,
         val looseCodeMethodName: String,
-        private val remappedLineMapping: Map<Int, RemappedLine>
+        @Transient private val remappedLineMapping: Map<Int, RemappedLine> = mapOf()
 ) : Source(
         sources,
         { sources.keys.size == 1 && sources.keys.first() == "" },
@@ -245,6 +247,7 @@ fun Source.Companion.fromSnippet(originalSource: String, indent: Int = 4): Snipp
     )
 }
 
+@JsonClass(generateAdapter = true)
 class SnippetValidationError(location: SourceLocation, message: String) : SourceError(location, message)
 class SnippetValidationFailed(errors: List<SnippetValidationError>) : JeedError(errors)
 

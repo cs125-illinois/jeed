@@ -215,26 +215,3 @@ class JeedClassLoader(val fileManager: JeedFileManager, parentClassLoader: Class
         return klass
     }
 }
-
-data class CompilationFailedJson(val errors: List<CompilationFailed.CompilationError>)
-class CompilationFailedAdapter {
-    @FromJson fun compilationFailedFromJson(compilationFailedJson: CompilationFailedJson): CompilationFailed {
-        return CompilationFailed(compilationFailedJson.errors)
-    }
-    @Suppress("UNCHECKED_CAST")
-    @ToJson fun compilationFailedToJson(compilationFailed: CompilationFailed): CompilationFailedJson {
-        return CompilationFailedJson(compilationFailed.errors as List<CompilationFailed.CompilationError>)
-    }
-}
-data class CompiledSourceJson(val messages: List<CompiledSource.CompilationMessage>)
-class CompiledSourceAdapter {
-    @Throws(Exception::class)
-    @Suppress("UNUSED_PARAMETER")
-    @FromJson fun compiledSourceFromJson(unused: CompiledSourceJson): CompiledSource {
-        throw Exception("Can't convert JSON to CompiledSourceAdapter")
-    }
-    @ToJson fun compiledSourceToJson(compiledSource: CompiledSource): CompiledSourceJson {
-        return CompiledSourceJson(compiledSource.messages)
-    }
-}
-

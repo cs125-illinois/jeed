@@ -48,7 +48,7 @@ object Sandbox {
         }
     }
     @JsonClass(generateAdapter = true)
-    open class ExecutionArguments<T>(
+    open class ExecutionArguments(
             val timeout: Long = DEFAULT_TIMEOUT,
             val permissions: Set<Permission> = setOf(),
             val maxExtraThreads: Int = DEFAULT_MAX_EXTRA_THREADS,
@@ -70,7 +70,7 @@ object Sandbox {
             val permissionRequests: MutableList<PermissionRequest> = mutableListOf(),
             val interval: Interval,
             val executionInterval: Interval,
-            val sandboxedClassLoader: SandboxedClassLoader
+            @Transient val sandboxedClassLoader: SandboxedClassLoader? = null
     ) {
         data class OutputLine (val console: Console, val line: String, val timestamp: Instant, val thread: Long) {
             enum class Console(val fd: Int) { STDOUT(1), STDERR(2) }
@@ -122,7 +122,7 @@ object Sandbox {
 
     suspend fun <T> execute(
             sandboxableClassLoader: SandboxableClassLoader = EmptyClassLoader,
-            executionArguments: ExecutionArguments<T> = ExecutionArguments(),
+            executionArguments: ExecutionArguments = ExecutionArguments(),
             callable: SandboxCallableArguments<T>
     ): TaskResults<out T?> {
         require(executionArguments.permissions.intersect(BLACKLISTED_PERMISSIONS).isEmpty()) {
@@ -141,15 +141,15 @@ object Sandbox {
         }
     }
 
-    private const val MAX_THREAD_SHUTDOWN_RETRIES = 64
-    private const val THREADGROUP_SHUTDOWN_DELAY = 10L
+    private const val MAX_THREAD_SHUTDOWN_RETRIES = 256
+    private const val THREADGROUP_SHUTDOWN_DELAY = 4L
 
     private val threadPool = Executors.newFixedThreadPool(Runtime.getRuntime().availableProcessors()) ?: error("thread pool should be available")
     private data class ExecutorResult<T>(val taskResults: TaskResults<T>?, val executionException: Throwable)
     private class Executor<T>(
             val callable: SandboxCallableArguments<T>,
             val sandboxedClassLoader: SandboxedClassLoader,
-            val executionArguments: ExecutionArguments<T>,
+            val executionArguments: ExecutionArguments,
             val resultChannel: Channel<ExecutorResult<T>>
     ): Callable<Any> {
         private data class TaskResult<T>(val returned: T, val threw: Throwable? = null, val timeout: Boolean = false)
@@ -191,7 +191,7 @@ object Sandbox {
             val classLoader: SandboxedClassLoader,
             val task: FutureTask<T>,
             val thread: Thread,
-            executionArguments: ExecutionArguments<*>
+            executionArguments: ExecutionArguments
     ) {
         val threadGroup = thread.threadGroup ?: error("thread should be in thread group")
         val accessControlContext: AccessControlContext
@@ -242,7 +242,7 @@ object Sandbox {
     private fun <T> confine(
             callable: SandboxCallableArguments<T>,
             sandboxedClassLoader: SandboxedClassLoader,
-            executionArguments: ExecutionArguments<*>
+            executionArguments: ExecutionArguments
     ): ConfinedTask<T> {
         val threadGroup = object : ThreadGroup("Sandbox") {
             override fun uncaughtException(t: Thread?, e: Throwable?) { }
@@ -284,6 +284,7 @@ object Sandbox {
                         }
                     }
                 }.awaitAll()
+                delay(THREADGROUP_SHUTDOWN_DELAY)
                 false
             }
 

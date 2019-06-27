@@ -285,7 +285,7 @@ fun <T> haveDefinedThisManyClasses(count: Int) = object : Matcher<T> {
     override fun test(value: T): Result {
         val definedClassCount = when (value) {
             is CompiledSource -> value.classLoader.definedClasses.size
-            is Sandbox.TaskResults<*> -> value.sandboxedClassLoader.definedClasses.size
+            is Sandbox.TaskResults<*> -> value.sandboxedClassLoader?.definedClasses?.size
             else -> error("invalid type")
         }
         return Result(
@@ -299,7 +299,7 @@ fun <T> haveDefinedExactlyTheseClasses(classes: Set<String>) = object : Matcher<
     override fun test(value: T): Result {
         val definedClasses = when (value) {
             is CompiledSource -> value.classLoader.definedClasses
-            is Sandbox.TaskResults<*> -> value.sandboxedClassLoader.definedClasses
+            is Sandbox.TaskResults<*> -> value.sandboxedClassLoader!!.definedClasses
             else -> error("invalid type")
         }
         return Result(
@@ -313,7 +313,7 @@ fun <T> haveProvidedThisManyClasses(count: Int) = object : Matcher<T> {
     override fun test(value: T): Result {
         val providedClassCount = when (value) {
             is CompiledSource -> value.classLoader.providedClasses.size
-            is Sandbox.TaskResults<*> -> value.sandboxedClassLoader.providedClasses.size
+            is Sandbox.TaskResults<*> -> value.sandboxedClassLoader!!.providedClasses.size
             else -> error("invalid type")
         }
         return Result(
@@ -327,7 +327,7 @@ fun <T> haveProvidedExactlyTheseClasses(classes: Set<String>) = object : Matcher
     override fun test(value: T): Result {
         val providedClasses = when (value) {
             is CompiledSource -> value.classLoader.providedClasses
-            is Sandbox.TaskResults<*> -> value.sandboxedClassLoader.providedClasses
+            is Sandbox.TaskResults<*> -> value.sandboxedClassLoader!!.providedClasses
             else -> error("invalid type")
         }
         return Result(
@@ -341,7 +341,7 @@ fun <T> haveLoadedAtLeastTheseClasses(classes: Set<String>) = object : Matcher<T
     override fun test(value: T): Result {
         val loadedClasses = when (value) {
             is CompiledSource -> value.classLoader.loadedClasses
-            is Sandbox.TaskResults<*> -> value.sandboxedClassLoader.loadedClasses
+            is Sandbox.TaskResults<*> -> value.sandboxedClassLoader!!.loadedClasses
             else -> error("invalid type")
         }
         return Result(
