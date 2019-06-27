@@ -580,6 +580,9 @@ object Sandbox {
                     confinedTask.redirectedOutputLines[console]?.append(currentLine.line.toString())
                 }
             }
+            '\r' -> {
+                // Ignore - results will contain Unix line endings only
+            }
             else -> {
                 currentLine.line.append(char)
             }
