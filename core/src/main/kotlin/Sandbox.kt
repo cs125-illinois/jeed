@@ -141,8 +141,8 @@ object Sandbox {
         }
     }
 
-    private const val MAX_THREAD_SHUTDOWN_RETRIES = 64
-    private const val THREADGROUP_SHUTDOWN_DELAY = 10L
+    private const val MAX_THREAD_SHUTDOWN_RETRIES = 256
+    private const val THREADGROUP_SHUTDOWN_DELAY = 4L
 
     private val threadPool = Executors.newFixedThreadPool(Runtime.getRuntime().availableProcessors()) ?: error("thread pool should be available")
     private data class ExecutorResult<T>(val taskResults: TaskResults<T>?, val executionException: Throwable)
@@ -284,6 +284,7 @@ object Sandbox {
                         }
                     }
                 }.awaitAll()
+                delay(THREADGROUP_SHUTDOWN_DELAY)
                 false
             }
 
