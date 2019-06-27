@@ -7,6 +7,7 @@ import mu.KotlinLogging
 import org.objectweb.asm.*
 import org.objectweb.asm.util.TraceClassVisitor
 import java.io.*
+import java.lang.reflect.InvocationTargetException
 import java.security.*
 import java.time.Duration
 import java.time.Instant
@@ -43,7 +44,7 @@ object Sandbox {
         }
         companion object {
             val DEFAULT_BLACKLISTED_CLASSES = setOf("java.lang.reflect.")
-            val PERMANENTLY_BLACKLISTED_CLASSES = setOf("edu.illinois.cs.cs125.jeed.", "org.objectweb.asm.*")
+            val PERMANENTLY_BLACKLISTED_CLASSES = setOf("edu.illinois.cs.cs125.jeed.", "org.objectweb.asm.")
             val ALWAYS_UNSAFE_EXCEPTIONS = setOf("java.lang.Error")
         }
     }
@@ -387,7 +388,7 @@ object Sandbox {
             if (knownClasses.containsKey(name)) {
                 return delegateClass(name)
             }
-            if (name == pathToClassName(RewriteTryCatchFinally.checkClassName)) {
+            if (name in ALWAYS_ALLOWED_CLASS_NAMES) {
                 return delegateClass(name)
             }
             return if (isWhiteList) {
@@ -405,6 +406,10 @@ object Sandbox {
                     delegateClass(name)
                 }
             }
+        }
+
+        companion object {
+            private val ALWAYS_ALLOWED_CLASS_NAMES = setOf(RewriteTryCatchFinally::class.java.name, InvocationTargetException::class.java.name)
         }
     }
 
