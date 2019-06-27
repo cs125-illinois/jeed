@@ -317,12 +317,13 @@ object Sandbox {
             val sandboxedClassLoader: SandboxedClassLoader
     ): Callable<T> {
         override fun call(): T {
-            return callable(Pair(sandboxedClassLoader as ClassLoader, Sandbox::redirectOutput))
+            return callable(Pair(sandboxedClassLoader, Sandbox::redirectOutput))
         }
     }
 
     interface SandboxableClassLoader {
         val bytecodeForClasses: Map<String, ByteArray>
+        val classLoader: ClassLoader
     }
     interface EnumerableClassLoader {
         val definedClasses: Set<String>
@@ -333,7 +334,7 @@ object Sandbox {
     class SandboxedClassLoader(
             sandboxableClassLoader: SandboxableClassLoader,
             classLoaderConfiguration: ClassLoaderConfiguration
-    ) : ClassLoader((sandboxableClassLoader as ClassLoader).parent), EnumerableClassLoader {
+    ) : ClassLoader(sandboxableClassLoader.classLoader.parent), EnumerableClassLoader {
         val whitelistedClasses = classLoaderConfiguration.whitelistedClasses
         val blacklistedClasses = classLoaderConfiguration.blacklistedClasses
         val unsafeExceptionClasses: Set<Class<*>> = classLoaderConfiguration.unsafeExceptions.map { name ->
@@ -403,6 +404,7 @@ object Sandbox {
 
     object EmptyClassLoader : ClassLoader(getSystemClassLoader()), SandboxableClassLoader {
         override val bytecodeForClasses: Map<String, ByteArray> = mapOf()
+        override val classLoader: ClassLoader = this
         override fun findClass(name: String): Class<*> {
             throw ClassNotFoundException(name)
         }
