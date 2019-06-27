@@ -142,7 +142,7 @@ object Sandbox {
     }
 
     private const val MAX_THREAD_SHUTDOWN_RETRIES = 256
-    private const val THREADGROUP_SHUTDOWN_DELAY = 4L
+    private const val THREAD_SHUTDOWN_DELAY = 20L
 
     private val threadPool = Executors.newFixedThreadPool(Runtime.getRuntime().availableProcessors()) ?: error("thread pool should be available")
     private data class ExecutorResult<T>(val taskResults: TaskResults<T>?, val executionException: Throwable)
@@ -202,7 +202,9 @@ object Sandbox {
         }
         val maxExtraThreads: Int = executionArguments.maxExtraThreads
 
+        @Volatile
         var shuttingDown: Boolean = false
+
         val currentLines: MutableMap<TaskResults.OutputLine.Console, CurrentLine> = mutableMapOf()
         val outputLines: MutableList<TaskResults.OutputLine> = mutableListOf()
 
@@ -232,7 +234,7 @@ object Sandbox {
     }
 
     private val confinedTasks: MutableMap<ThreadGroup, ConfinedTask<*>> = mutableMapOf()
-    private fun confinedTaskByThreadGroup(trapIfShuttingDown: Boolean = true): ConfinedTask<*>? {
+    private fun confinedTaskByThreadGroup(trapIfShuttingDown: Boolean = false): ConfinedTask<*>? {
         val confinedTask = confinedTasks[Thread.currentThread().threadGroup] ?: return null
         if (confinedTask.shuttingDown && trapIfShuttingDown) { while (true) { Thread.sleep(Long.MAX_VALUE) } }
         return confinedTask
@@ -273,18 +275,18 @@ object Sandbox {
                 if (threadGroup.activeCount() == 0) {
                     return@find true
                 }
-                val activeThreads = arrayOfNulls<Thread>(threadGroup.activeCount())
+                val activeThreads = arrayOfNulls<Thread>(threadGroup.activeCount() * 2)
                 threadGroup.enumerate(activeThreads)
-                activeThreads.filterNotNull().filter { !stoppedThreads.contains(it) }.map {
-                    async {
-                        stoppedThreads.add(it)
-                        while (it.isAlive) {
-                            @Suppress("DEPRECATION") it.stop()
-                            yield()
-                        }
-                    }
-                }.awaitAll()
-                delay(THREADGROUP_SHUTDOWN_DELAY)
+                activeThreads.filterNotNull().filter { !stoppedThreads.contains(it) }.forEach {
+                    stoppedThreads.add(it)
+                    @Suppress("DEPRECATION") it.stop()
+                }
+                threadGroup.maxPriority = Thread.NORM_PRIORITY
+                stoppedThreads.filter { it.isAlive }.forEach {
+                    it.priority = Thread.NORM_PRIORITY
+                    it.join(THREAD_SHUTDOWN_DELAY)
+                    it.priority = Thread.MIN_PRIORITY
+                }
                 false
             }
 
@@ -418,7 +420,7 @@ object Sandbox {
             val confinedTask = confinedTaskByThreadGroup()
                     ?: error("only confined tasks should call this method")
             // This check is required because of how we handle finally blocks
-            if (confinedTask.classLoader.unsafeExceptionClasses.any { throwable.javaClass.isAssignableFrom(it) }) {
+            if (confinedTask.classLoader.unsafeExceptionClasses.any { it.isAssignableFrom(throwable.javaClass) }) {
                 throw(throwable)
             }
         }
@@ -493,7 +495,7 @@ object Sandbox {
     val systemSecurityManager: SecurityManager? = System.getSecurityManager()
 
     private object SandboxSecurityManager : SecurityManager() {
-        private fun confinedTaskByClassLoader(trapIfShuttingDown: Boolean = true): ConfinedTask<*>? {
+        private fun confinedTaskByClassLoader(trapIfShuttingDown: Boolean = false): ConfinedTask<*>? {
             val confinedTask = confinedTaskByThreadGroup(trapIfShuttingDown) ?: return null
             val classIsConfined = classContext.toList().subList(1, classContext.size).reversed().any { klass ->
                 klass.classLoader == confinedTask.classLoader
@@ -515,6 +517,7 @@ object Sandbox {
             if (thread.threadGroup != Thread.currentThread().threadGroup) {
                 confinedTask.addPermissionRequest(RuntimePermission("changeThreadGroup"), false)
             } else {
+                if (confinedTask.shuttingDown) throw ThreadDeath()
                 systemSecurityManager?.checkAccess(thread)
             }
         }
@@ -531,6 +534,10 @@ object Sandbox {
             val threadGroup = Thread.currentThread().threadGroup
             val confinedTask = confinedTaskByThreadGroup()
                     ?: return systemSecurityManager?.threadGroup ?: return threadGroup
+            if (confinedTask.shuttingDown) {
+                confinedTask.permissionRequests.add(TaskResults.PermissionRequest(RuntimePermission("createThreadAfterTimeout"), false))
+                throw ThreadDeath()
+            }
             if (Thread.currentThread().threadGroup.activeCount() >= confinedTask.maxExtraThreads + 1) {
                 confinedTask.permissionRequests.add(TaskResults.PermissionRequest(RuntimePermission("exceedThreadLimit"), false))
                 throw SecurityException()
