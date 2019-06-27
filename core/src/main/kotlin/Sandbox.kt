@@ -70,7 +70,7 @@ object Sandbox {
             val permissionRequests: MutableList<PermissionRequest> = mutableListOf(),
             val interval: Interval,
             val executionInterval: Interval,
-            val sandboxedClassLoader: SandboxedClassLoader
+            @Transient val sandboxedClassLoader: SandboxedClassLoader? = null
     ) {
         data class OutputLine (val console: Console, val line: String, val timestamp: Instant, val thread: Long) {
             enum class Console(val fd: Int) { STDOUT(1), STDERR(2) }
