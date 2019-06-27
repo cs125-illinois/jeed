@@ -121,16 +121,13 @@ object Sandbox {
     val ALWAYS_UNSAFE_EXCEPTIONS = setOf("java.lang.Error")
 
     suspend fun <T> execute(
-            sandboxableClassLoader: SandboxableClassLoader = EmptyClassLoader,
-            executionArguments: ExecutionArguments = ExecutionArguments(),
+            sandboxedClassLoader: SandboxedClassLoader,
+            executionArguments: ExecutionArguments,
             callable: SandboxCallableArguments<T>
     ): TaskResults<out T?> {
         require(executionArguments.permissions.intersect(BLACKLISTED_PERMISSIONS).isEmpty()) {
             "attempt to allow unsafe permissions"
         }
-
-
-        val sandboxedClassLoader = SandboxedClassLoader(sandboxableClassLoader, executionArguments.classLoaderConfiguration)
 
         return coroutineScope {
             val resultsChannel = Channel<ExecutorResult<T>>()
@@ -139,6 +136,15 @@ object Sandbox {
             val result = executor.resultChannel.receive()
             result.taskResults ?: throw result.executionException
         }
+    }
+
+    suspend fun <T> execute(
+            sandboxableClassLoader: SandboxableClassLoader = EmptyClassLoader,
+            executionArguments: ExecutionArguments = ExecutionArguments(),
+            callable: SandboxCallableArguments<T>
+    ): TaskResults<out T?> {
+        val sandboxedClassLoader = SandboxedClassLoader(sandboxableClassLoader, executionArguments.classLoaderConfiguration)
+        return execute(sandboxedClassLoader, executionArguments, callable)
     }
 
     private const val MAX_THREAD_SHUTDOWN_RETRIES = 256
