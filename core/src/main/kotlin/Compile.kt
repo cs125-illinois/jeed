@@ -171,7 +171,11 @@ class JeedFileManager(parentFileManager: JavaFileManager) : ForwardingJavaFileMa
         }
     }
     override fun inferBinaryName(location: JavaFileManager.Location?, file: JavaFileObject): String {
-        return file.name.substring(0, file.name.lastIndexOf('.')).replace('/', '.')
+        return if (file is ByteSource) {
+            file.name.substring(0, file.name.lastIndexOf('.')).replace('/', '.')
+        } else {
+            super.inferBinaryName(location, file)
+        }
     }
 }
 

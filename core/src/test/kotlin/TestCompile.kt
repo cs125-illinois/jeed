@@ -245,6 +245,22 @@ List list = new ArrayList();
         compiledSource should haveDefinedExactlyTheseClasses(setOf("Main"))
         compiledSource should haveProvidedThisManyClasses(0)
     }
+    "should compile with classes from nonstandard libraries" {
+        val compiledSource = Source.fromSnippet("""
+import com.puppycrawl.tools.checkstyle.Checker;
+
+System.out.println(new Checker());
+        """.trim()).compile()
+        compiledSource should haveDefinedExactlyTheseClasses(setOf("Main"))
+    }
+    "should compile with classes from .class files" {
+        val compiledSource = Source.fromSnippet("""
+import edu.illinois.cs.cs125.testingjeed.importable.*;
+
+Widget w = new Widget();
+        """.trim()).compile()
+        compiledSource should haveDefinedExactlyTheseClasses(setOf("Main"))
+    }
 })
 
 fun haveCompilationErrorAt(source: String = SNIPPET_SOURCE, line: Int) = object : Matcher<CompilationFailed> {
