@@ -347,7 +347,7 @@ object Sandbox {
         override val providedClasses: MutableSet<String> = mutableSetOf()
         override val loadedClasses: MutableSet<String> = mutableSetOf()
 
-        private val knownClasses: Map<String, ByteArray>
+        val knownClasses: Map<String, ByteArray>
         init {
             knownClasses = sandboxableClassLoader.bytecodeForClasses.mapValues { (_, unsafeByteArray) ->
                 RewriteTryCatchFinally.rewrite(unsafeByteArray, unsafeExceptionClasses)
