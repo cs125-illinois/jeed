@@ -158,9 +158,5 @@ fun Exception.getStackTraceAsString(): String {
 fun Method.getQualifiedName(): String { return "$name(${parameters.joinToString(separator = ", ")})" }
 
 // Overloads of built-in functions that can be used to the right of Elvis operators
-fun check(block: () -> String): Nothing {
-    throw IllegalStateException(block())
-}
-fun require(block: () -> String): Nothing {
-    throw IllegalArgumentException(block())
-}
+fun check(block: () -> String): Nothing { throw IllegalStateException(block()) }
+fun require(block: () -> String): Nothing { throw IllegalArgumentException(block()) }
