@@ -430,6 +430,7 @@ object Sandbox {
         fun checkException(throwable: Throwable) {
             val confinedTask = confinedTaskByThreadGroup()
                     ?: error("only confined tasks should call this method")
+            if (confinedTask.shuttingDown) throw ThreadDeath()
             // This check is required because of how we handle finally blocks
             if (confinedTask.classLoader.unsafeExceptionClasses.any { it.isAssignableFrom(throwable.javaClass) }) {
                 throw(throwable)
@@ -463,7 +464,7 @@ object Sandbox {
                     val exceptionClass = Class.forName(pathToClassName(type))
                             ?: error("no class for type $type")
 
-                    if (unsafeExceptionClasses.any { exceptionClass.isAssignableFrom(it) }) {
+                    if (unsafeExceptionClasses.any { exceptionClass.isAssignableFrom(it) || it.isAssignableFrom(exceptionClass) }) {
                         labelsToRewrite.add(handler)
                     }
                 }
