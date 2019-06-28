@@ -133,8 +133,9 @@ object Sandbox {
         return coroutineScope {
             val resultsChannel = Channel<ExecutorResult<T>>()
             val executor = Executor(callable, sandboxedClassLoader, executionArguments, resultsChannel)
-            threadPool.submit(executor)
+            val task = threadPool.submit(executor)
             val result = executor.resultChannel.receive()
+            @Suppress("BlockingMethodInNonBlockingContext") task.get() // The task is over - make sure the thread pool doesn't keep the process alive
             result.taskResults ?: throw result.executionException
         }
     }
