@@ -161,6 +161,7 @@ object Sandbox {
             threadPool!!.submit(task)
         }
     }
+    @JvmStatic
     fun shutdownThreadPool() {
         synchronized(threadPoolSynclock) {
             threadPool?.shutdownNow()
