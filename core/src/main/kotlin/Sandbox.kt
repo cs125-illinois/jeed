@@ -133,9 +133,8 @@ object Sandbox {
         return coroutineScope {
             val resultsChannel = Channel<ExecutorResult<T>>()
             val executor = Executor(callable, sandboxedClassLoader, executionArguments, resultsChannel)
-            val task = threadPool.submit(executor)
+            submitToThreadPool(executor)
             val result = executor.resultChannel.receive()
-            @Suppress("BlockingMethodInNonBlockingContext") task.get() // The task is over - make sure the thread pool doesn't keep the process alive
             result.taskResults ?: throw result.executionException
         }
     }
@@ -152,7 +151,23 @@ object Sandbox {
     private const val MAX_THREAD_SHUTDOWN_RETRIES = 256
     private const val THREAD_SHUTDOWN_DELAY = 20L
 
-    private val threadPool = Executors.newFixedThreadPool(Runtime.getRuntime().availableProcessors()) ?: error("thread pool should be available")
+    private var threadPool: ExecutorService? = null
+    private val threadPoolSynclock = Object()
+    private fun submitToThreadPool(task: Executor<*>) {
+        synchronized(threadPoolSynclock) {
+            if (threadPool == null) {
+                threadPool = Executors.newFixedThreadPool(Runtime.getRuntime().availableProcessors()) ?: error("thread pool should be available")
+            }
+            threadPool!!.submit(task)
+        }
+    }
+    fun shutdownThreadPool() {
+        synchronized(threadPoolSynclock) {
+            threadPool?.shutdownNow()
+            threadPool = null
+        }
+    }
+
     private data class ExecutorResult<T>(val taskResults: TaskResults<T>?, val executionException: Throwable)
     private class Executor<T>(
             val callable: SandboxCallableArguments<T>,
