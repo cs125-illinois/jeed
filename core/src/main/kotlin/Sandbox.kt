@@ -241,10 +241,8 @@ object Sandbox {
     }
 
     private val confinedTasks: MutableMap<ThreadGroup, ConfinedTask<*>> = mutableMapOf()
-    private fun confinedTaskByThreadGroup(trapIfShuttingDown: Boolean = false): ConfinedTask<*>? {
-        val confinedTask = confinedTasks[Thread.currentThread().threadGroup] ?: return null
-        if (confinedTask.shuttingDown && trapIfShuttingDown) { while (true) { Thread.sleep(Long.MAX_VALUE) } }
-        return confinedTask
+    private fun confinedTaskByThreadGroup(): ConfinedTask<*>? {
+        return confinedTasks[Thread.currentThread().threadGroup]
     }
 
     @Synchronized
@@ -508,8 +506,8 @@ object Sandbox {
     val systemSecurityManager: SecurityManager? = System.getSecurityManager()
 
     private object SandboxSecurityManager : SecurityManager() {
-        private fun confinedTaskByClassLoader(trapIfShuttingDown: Boolean = false): ConfinedTask<*>? {
-            val confinedTask = confinedTaskByThreadGroup(trapIfShuttingDown) ?: return null
+        private fun confinedTaskByClassLoader(): ConfinedTask<*>? {
+            val confinedTask = confinedTaskByThreadGroup() ?: return null
             val classIsConfined = classContext.toList().subList(1, classContext.size).reversed().any { klass ->
                 klass.classLoader == confinedTask.classLoader
             }
