@@ -458,8 +458,12 @@ object Sandbox {
             val classReader = ClassReader(originalByteArray)
             val classWriter = ClassWriter(classReader, ClassWriter.COMPUTE_MAXS)
             val ourVisitor = object : ClassVisitor(Opcodes.ASM5, classWriter) {
-                override fun visitMethod(access: Int, name: String, descriptor: String, signature: String?, exceptions: Array<out String>?): MethodVisitor {
-                    return OurMethodVisitor(unsafeExceptionClasses, super.visitMethod(access, name, descriptor, signature, exceptions))
+                override fun visitMethod(access: Int, name: String, descriptor: String, signature: String?, exceptions: Array<out String>?): MethodVisitor? {
+                    return if (name == "finalize" && descriptor == "()V") {
+                        null // Drop the finalizer
+                    } else {
+                        OurMethodVisitor(unsafeExceptionClasses, super.visitMethod(access, name, descriptor, signature, exceptions))
+                    }
                 }
             }
 

@@ -145,4 +145,39 @@ while (true) {
         executionResult should haveOutput("Try\nCatch")
         executionResult.threw.shouldBeTypeOf<NullPointerException>()
     }
+    "should remove finalizers" {
+        val executionResult = Source.fromSnippet("""
+public class Example {
+    public Example() {
+        finalize();
+    }
+    protected void finalize() {
+        System.out.println("Finalizer");
+    }
+}
+Example ex = new Example();
+            """.trim()).compile().execute()
+        executionResult should haveCompleted()
+        executionResult shouldNot haveOutput("Finalizer")
+    }
+    "should not remove non-finalizer finalize methods" {
+        val executionResult = Source.fromSnippet("""
+public class Example {
+    public Example() {
+        finalize(0);
+        finalize("", 0.0);
+    }
+    protected void finalize(int unused) {
+        System.out.println("Finalizer 1");
+    }
+    public String finalize(String toReturn, double unused) {
+        System.out.println("Finalizer 2");
+        return toReturn;
+    }
+}
+Example ex = new Example();
+            """.trim()).compile().execute()
+        executionResult should haveCompleted()
+        executionResult should haveOutput("Finalizer 1\nFinalizer 2")
+    }
 })

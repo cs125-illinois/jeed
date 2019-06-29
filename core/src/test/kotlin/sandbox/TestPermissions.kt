@@ -309,4 +309,27 @@ public class Example {
         executionResult shouldNot haveCompleted()
         executionResult.permissionDenied shouldBe true
     }
+    "should not allow finalizers to escape the sandbox" {
+        val executionResult = Source(mapOf(
+                "Example" to """
+public class Example {
+    public static void main() {
+        Example ex = null;
+        for (int i = 0; i < 10000; i++) {
+            ex = new Example();
+        }
+    }
+    public Example() {
+        System.out.println("Example");
+    }
+    protected void finalize() {
+        System.out.println("Finalizer");
+        System.exit(-1);
+    }
+}
+""".trim()
+        )).compile().execute(SourceExecutionArguments("Example"))
+        System.gc()
+        println(executionResult.output)
+    }
 })
