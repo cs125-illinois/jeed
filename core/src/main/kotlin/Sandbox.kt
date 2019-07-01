@@ -7,6 +7,7 @@ import mu.KotlinLogging
 import org.objectweb.asm.*
 import org.objectweb.asm.util.TraceClassVisitor
 import java.io.*
+import java.lang.reflect.InvocationTargetException
 import java.security.*
 import java.time.Duration
 import java.time.Instant
@@ -43,7 +44,7 @@ object Sandbox {
         }
         companion object {
             val DEFAULT_BLACKLISTED_CLASSES = setOf("java.lang.reflect.")
-            val PERMANENTLY_BLACKLISTED_CLASSES = setOf("edu.illinois.cs.cs125.jeed.", "org.objectweb.asm.*")
+            val PERMANENTLY_BLACKLISTED_CLASSES = setOf("edu.illinois.cs.cs125.jeed.", "org.objectweb.asm.")
             val ALWAYS_UNSAFE_EXCEPTIONS = setOf("java.lang.Error")
         }
     }
@@ -121,30 +122,53 @@ object Sandbox {
     val ALWAYS_UNSAFE_EXCEPTIONS = setOf("java.lang.Error")
 
     suspend fun <T> execute(
-            sandboxableClassLoader: SandboxableClassLoader = EmptyClassLoader,
-            executionArguments: ExecutionArguments = ExecutionArguments(),
+            sandboxedClassLoader: SandboxedClassLoader,
+            executionArguments: ExecutionArguments,
             callable: SandboxCallableArguments<T>
     ): TaskResults<out T?> {
         require(executionArguments.permissions.intersect(BLACKLISTED_PERMISSIONS).isEmpty()) {
             "attempt to allow unsafe permissions"
         }
 
-
-        val sandboxedClassLoader = SandboxedClassLoader(sandboxableClassLoader, executionArguments.classLoaderConfiguration)
-
         return coroutineScope {
             val resultsChannel = Channel<ExecutorResult<T>>()
             val executor = Executor(callable, sandboxedClassLoader, executionArguments, resultsChannel)
-            threadPool.submit(executor)
+            submitToThreadPool(executor)
             val result = executor.resultChannel.receive()
             result.taskResults ?: throw result.executionException
         }
     }
 
+    suspend fun <T> execute(
+            sandboxableClassLoader: SandboxableClassLoader = EmptyClassLoader,
+            executionArguments: ExecutionArguments = ExecutionArguments(),
+            callable: SandboxCallableArguments<T>
+    ): TaskResults<out T?> {
+        val sandboxedClassLoader = SandboxedClassLoader(sandboxableClassLoader, executionArguments.classLoaderConfiguration)
+        return execute(sandboxedClassLoader, executionArguments, callable)
+    }
+
     private const val MAX_THREAD_SHUTDOWN_RETRIES = 256
     private const val THREAD_SHUTDOWN_DELAY = 20L
 
-    private val threadPool = Executors.newFixedThreadPool(Runtime.getRuntime().availableProcessors()) ?: error("thread pool should be available")
+    private var threadPool: ExecutorService? = null
+    private val threadPoolSynclock = Object()
+    private fun submitToThreadPool(task: Executor<*>) {
+        synchronized(threadPoolSynclock) {
+            if (threadPool == null) {
+                threadPool = Executors.newFixedThreadPool(Runtime.getRuntime().availableProcessors()) ?: error("thread pool should be available")
+            }
+            threadPool!!.submit(task)
+        }
+    }
+    @JvmStatic
+    fun shutdownThreadPool() {
+        synchronized(threadPoolSynclock) {
+            threadPool?.shutdownNow()
+            threadPool = null
+        }
+    }
+
     private data class ExecutorResult<T>(val taskResults: TaskResults<T>?, val executionException: Throwable)
     private class Executor<T>(
             val callable: SandboxCallableArguments<T>,
@@ -234,10 +258,8 @@ object Sandbox {
     }
 
     private val confinedTasks: MutableMap<ThreadGroup, ConfinedTask<*>> = mutableMapOf()
-    private fun confinedTaskByThreadGroup(trapIfShuttingDown: Boolean = false): ConfinedTask<*>? {
-        val confinedTask = confinedTasks[Thread.currentThread().threadGroup] ?: return null
-        if (confinedTask.shuttingDown && trapIfShuttingDown) { while (true) { Thread.sleep(Long.MAX_VALUE) } }
-        return confinedTask
+    private fun confinedTaskByThreadGroup(): ConfinedTask<*>? {
+        return confinedTasks[Thread.currentThread().threadGroup]
     }
 
     @Synchronized
@@ -317,12 +339,13 @@ object Sandbox {
             val sandboxedClassLoader: SandboxedClassLoader
     ): Callable<T> {
         override fun call(): T {
-            return callable(Pair(sandboxedClassLoader as ClassLoader, Sandbox::redirectOutput))
+            return callable(Pair(sandboxedClassLoader, Sandbox::redirectOutput))
         }
     }
 
     interface SandboxableClassLoader {
         val bytecodeForClasses: Map<String, ByteArray>
+        val classLoader: ClassLoader
     }
     interface EnumerableClassLoader {
         val definedClasses: Set<String>
@@ -333,7 +356,7 @@ object Sandbox {
     class SandboxedClassLoader(
             sandboxableClassLoader: SandboxableClassLoader,
             classLoaderConfiguration: ClassLoaderConfiguration
-    ) : ClassLoader((sandboxableClassLoader as ClassLoader).parent), EnumerableClassLoader {
+    ) : ClassLoader(sandboxableClassLoader.classLoader.parent), EnumerableClassLoader {
         val whitelistedClasses = classLoaderConfiguration.whitelistedClasses
         val blacklistedClasses = classLoaderConfiguration.blacklistedClasses
         val unsafeExceptionClasses: Set<Class<*>> = classLoaderConfiguration.unsafeExceptions.map { name ->
@@ -346,7 +369,7 @@ object Sandbox {
         override val providedClasses: MutableSet<String> = mutableSetOf()
         override val loadedClasses: MutableSet<String> = mutableSetOf()
 
-        private val knownClasses: Map<String, ByteArray>
+        val knownClasses: Map<String, ByteArray>
         init {
             knownClasses = sandboxableClassLoader.bytecodeForClasses.mapValues { (_, unsafeByteArray) ->
                 RewriteTryCatchFinally.rewrite(unsafeByteArray, unsafeExceptionClasses)
@@ -380,7 +403,7 @@ object Sandbox {
             if (knownClasses.containsKey(name)) {
                 return delegateClass(name)
             }
-            if (name == pathToClassName(RewriteTryCatchFinally.checkClassName)) {
+            if (name in ALWAYS_ALLOWED_CLASS_NAMES) {
                 return delegateClass(name)
             }
             return if (isWhiteList) {
@@ -399,10 +422,15 @@ object Sandbox {
                 }
             }
         }
+
+        companion object {
+            private val ALWAYS_ALLOWED_CLASS_NAMES = setOf(RewriteTryCatchFinally::class.java.name, InvocationTargetException::class.java.name)
+        }
     }
 
     object EmptyClassLoader : ClassLoader(getSystemClassLoader()), SandboxableClassLoader {
         override val bytecodeForClasses: Map<String, ByteArray> = mapOf()
+        override val classLoader: ClassLoader = this
         override fun findClass(name: String): Class<*> {
             throw ClassNotFoundException(name)
         }
@@ -419,6 +447,7 @@ object Sandbox {
         fun checkException(throwable: Throwable) {
             val confinedTask = confinedTaskByThreadGroup()
                     ?: error("only confined tasks should call this method")
+            if (confinedTask.shuttingDown) throw ThreadDeath()
             // This check is required because of how we handle finally blocks
             if (confinedTask.classLoader.unsafeExceptionClasses.any { it.isAssignableFrom(throwable.javaClass) }) {
                 throw(throwable)
@@ -429,8 +458,12 @@ object Sandbox {
             val classReader = ClassReader(originalByteArray)
             val classWriter = ClassWriter(classReader, ClassWriter.COMPUTE_MAXS)
             val ourVisitor = object : ClassVisitor(Opcodes.ASM5, classWriter) {
-                override fun visitMethod(access: Int, name: String, descriptor: String, signature: String?, exceptions: Array<out String>?): MethodVisitor {
-                    return OurMethodVisitor(unsafeExceptionClasses, super.visitMethod(access, name, descriptor, signature, exceptions))
+                override fun visitMethod(access: Int, name: String, descriptor: String, signature: String?, exceptions: Array<out String>?): MethodVisitor? {
+                    return if (name == "finalize" && descriptor == "()V") {
+                        null // Drop the finalizer
+                    } else {
+                        OurMethodVisitor(unsafeExceptionClasses, super.visitMethod(access, name, descriptor, signature, exceptions))
+                    }
                 }
             }
 
@@ -452,7 +485,7 @@ object Sandbox {
                     val exceptionClass = Class.forName(pathToClassName(type))
                             ?: error("no class for type $type")
 
-                    if (unsafeExceptionClasses.any { exceptionClass.isAssignableFrom(it) }) {
+                    if (unsafeExceptionClasses.any { exceptionClass.isAssignableFrom(it) || it.isAssignableFrom(exceptionClass) }) {
                         labelsToRewrite.add(handler)
                     }
                 }
@@ -495,8 +528,8 @@ object Sandbox {
     val systemSecurityManager: SecurityManager? = System.getSecurityManager()
 
     private object SandboxSecurityManager : SecurityManager() {
-        private fun confinedTaskByClassLoader(trapIfShuttingDown: Boolean = false): ConfinedTask<*>? {
-            val confinedTask = confinedTaskByThreadGroup(trapIfShuttingDown) ?: return null
+        private fun confinedTaskByClassLoader(): ConfinedTask<*>? {
+            val confinedTask = confinedTaskByThreadGroup() ?: return null
             val classIsConfined = classContext.toList().subList(1, classContext.size).reversed().any { klass ->
                 klass.classLoader == confinedTask.classLoader
             }

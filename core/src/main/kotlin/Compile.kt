@@ -183,6 +183,8 @@ class JeedClassLoader(val fileManager: JeedFileManager, parentClassLoader: Class
     : ClassLoader(parentClassLoader), Sandbox.SandboxableClassLoader, Sandbox.EnumerableClassLoader {
 
     override val bytecodeForClasses = fileManager.bytecodeForPaths.mapKeys { pathToClassName(it.key) }.toMap()
+    override val classLoader: ClassLoader = this
+
     fun bytecodeForClass(name: String): ByteArray {
         require(bytecodeForClasses.containsKey(name)) { "class loader does not contain class $name" }
         return bytecodeForClasses[name] ?: error("")

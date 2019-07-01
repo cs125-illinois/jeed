@@ -249,6 +249,40 @@ try {
         executionResult.permissionDenied shouldBe true
         executionResult should haveTimedOut()
     }
+    "should shut down finally-protected thread bombs" {
+        val executionResult = Source.fromSnippet("""
+public class Example implements Runnable {
+    public void run() {
+        while (true) {
+            try {
+                recursive(1000);
+            } catch (Throwable e) {}
+        }
+    }
+    private void recursive(int depthToGo) {
+        while (true) {
+            try {
+                Thread thread = new Thread(new Example());
+                thread.start();
+                if (depthToGo > 0) recursive(depthToGo - 1);
+                thread = new Thread(new Example());
+                thread.start();
+            } catch (Throwable e) {} finally {
+                recursive(depthToGo - 1);
+            }
+        }
+    }
+}
+Thread thread = new Thread(new Example());
+thread.start();
+try {
+    Thread.sleep(Long.MAX_VALUE);
+} catch (Throwable e) { }
+        """.trim()).compile().execute(SourceExecutionArguments(maxExtraThreads = 256, timeout = 1000L))
+
+        executionResult shouldNot haveCompleted()
+        executionResult should haveTimedOut()
+    }
     "should shut down parallel recursive thread bombs" {
         (0..16).toList().map {
             async {
