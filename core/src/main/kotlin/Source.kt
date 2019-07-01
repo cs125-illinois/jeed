@@ -1,6 +1,5 @@
 package edu.illinois.cs.cs125.jeed.core
 
-import com.squareup.moshi.JsonClass
 import edu.illinois.cs.cs125.jeed.core.antlr.JavaLexer
 import edu.illinois.cs.cs125.jeed.core.antlr.JavaParser
 import org.antlr.v4.runtime.*
@@ -9,25 +8,18 @@ import java.io.StringWriter
 import java.lang.reflect.Method
 import java.time.Instant
 
-
-@JsonClass(generateAdapter = true)
-open class Source
-constructor
-(
+open class Source(
         val sources: Map<String, String>,
         checkSourceNames: (Map<String, String>) -> Boolean = ::defaultCheckSourceNames,
         @Transient val sourceMappingFunction: (SourceLocation) -> SourceLocation = { it }
 ) {
-
     init {
         require(sources.keys.isNotEmpty())
         require(checkSourceNames(sources))
     }
-
     fun mapLocation(input: SourceLocation): SourceLocation {
         return sourceMappingFunction(input)
     }
-
     fun mapLocation(source: String, input: Location): Location {
         val resultSourceLocation = sourceMappingFunction(SourceLocation(source, input.line, input.column))
         return Location(resultSourceLocation.line, resultSourceLocation.column)
@@ -158,5 +150,6 @@ fun Exception.getStackTraceAsString(): String {
 fun Method.getQualifiedName(): String { return "$name(${parameters.joinToString(separator = ", ")})" }
 
 // Overloads of built-in functions that can be used to the right of Elvis operators
+fun assert(block: () -> String): Nothing { throw AssertionError(block()) }
 fun check(block: () -> String): Nothing { throw IllegalStateException(block()) }
 fun require(block: () -> String): Nothing { throw IllegalArgumentException(block()) }

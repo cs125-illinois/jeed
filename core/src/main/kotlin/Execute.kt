@@ -1,13 +1,11 @@
 package edu.illinois.cs.cs125.jeed.core
 
-import com.squareup.moshi.JsonClass
 import java.lang.reflect.InvocationTargetException
 import java.lang.reflect.Method
 import java.lang.reflect.Modifier
 import java.lang.reflect.ReflectPermission
 import java.security.Permission
 
-@JsonClass(generateAdapter = true)
 class SourceExecutionArguments(
         val klass: String = DEFAULT_KLASS,
         val method: String = DEFAULT_METHOD,

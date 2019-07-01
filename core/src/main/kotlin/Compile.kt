@@ -1,6 +1,5 @@
 package edu.illinois.cs.cs125.jeed.core
 
-import com.squareup.moshi.JsonClass
 import mu.KotlinLogging
 import java.io.*
 import java.net.URI
@@ -15,7 +14,6 @@ private val logger = KotlinLogging.logger {}
 
 private val systemCompiler = ToolProvider.getSystemJavaCompiler() ?: error("systemCompiler not found: you are probably running a JRE, not a JDK")
 
-@JsonClass(generateAdapter = true)
 data class CompilationArguments(
         val wError: Boolean = DEFAULT_WERROR,
         val Xlint: String = DEFAULT_XLINT,
@@ -28,7 +26,6 @@ data class CompilationArguments(
     }
 }
 class CompilationFailed(errors: List<CompilationError>) : JeedError(errors) {
-    @JsonClass(generateAdapter = true)
     class CompilationError(location: SourceLocation, message: String) : SourceError(location, message)
 
     override fun toString(): String {
@@ -41,7 +38,6 @@ class CompiledSource(
         @Transient val classLoader: JeedClassLoader,
         @Transient val fileManager: JeedFileManager
 ) {
-    @JsonClass(generateAdapter = true)
     class CompilationMessage(val kind: String, location: SourceLocation, message: String) : SourceError(location, message)
 }
 @Throws(CompilationFailed::class)

@@ -1,6 +1,5 @@
 package edu.illinois.cs.cs125.jeed.core
 
-import com.squareup.moshi.JsonClass
 import edu.illinois.cs.cs125.jeed.core.antlr.*
 import mu.KotlinLogging
 import org.antlr.v4.runtime.*
@@ -46,7 +45,6 @@ class SnippetErrorListener : BaseErrorListener() {
     }
 }
 
-@JsonClass(generateAdapter = true)
 class Snippet(
         sources: Map<String, String>,
         val originalSource: String,

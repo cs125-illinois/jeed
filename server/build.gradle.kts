@@ -9,16 +9,13 @@ tasks.test {
 dependencies {
     val ktorVersion = "1.2.2"
 
-    implementation(kotlin("stdlib"))
+    kapt("com.squareup.moshi:moshi-kotlin-codegen:1.8.0")
 
     implementation(project(":core"))
+    implementation(kotlin("stdlib"))
     implementation("io.ktor:ktor-server-netty:$ktorVersion")
-
     implementation("com.squareup.moshi:moshi:1.8.0")
-    implementation("com.squareup.moshi:moshi-adapters:1.8.0")
-    kapt("com.squareup.moshi:moshi-kotlin-codegen:1.8.0")
     implementation("com.ryanharter.ktor:ktor-moshi:1.0.1")
-
     implementation("ch.qos.logback:logback-classic:1.2.3")
 
     val kotlintestVersion = "3.3.2"

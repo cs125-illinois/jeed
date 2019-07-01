@@ -1,6 +1,5 @@
 package edu.illinois.cs.cs125.jeed.core
 
-import com.squareup.moshi.JsonClass
 import kotlinx.coroutines.*
 import kotlinx.coroutines.channels.Channel
 import mu.KotlinLogging
@@ -48,7 +47,6 @@ object Sandbox {
             val ALWAYS_UNSAFE_EXCEPTIONS = setOf("java.lang.Error")
         }
     }
-    @JsonClass(generateAdapter = true)
     open class ExecutionArguments(
             val timeout: Long = DEFAULT_TIMEOUT,
             val permissions: Set<Permission> = setOf(),
