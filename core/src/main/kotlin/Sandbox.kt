@@ -62,7 +62,6 @@ object Sandbox {
         }
     }
 
-    @JsonClass(generateAdapter = true)
     class TaskResults<T>(
             val returned: T?,
             val threw: Throwable?,

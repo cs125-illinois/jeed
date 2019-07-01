@@ -2,7 +2,7 @@ package edu.illinois.cs.cs125.jeed.server
 
 import com.ryanharter.ktor.moshi.moshi
 import com.squareup.moshi.JsonEncodingException
-import edu.illinois.cs.cs125.jeed.core.moshi.Adapters
+import edu.illinois.cs.cs125.jeed.core.moshi.Adapters as JeedAdapters
 import io.ktor.application.Application
 import io.ktor.application.ApplicationCallPipeline
 import io.ktor.application.call
@@ -17,9 +17,8 @@ import io.ktor.routing.routing
 fun Application.jeed() {
     install(ContentNegotiation) {
         moshi {
+            JeedAdapters.forEach { this.add(it) }
             Adapters.forEach { this.add(it) }
-            add(Job.JobAdapter())
-            add(Result.ResultAdapter())
         }
     }
     routing {

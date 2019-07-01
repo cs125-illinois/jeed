@@ -14,7 +14,8 @@ val Adapters = setOf(
         CompiledSourceAdapter(),
         PermissionAdapter(),
         ThrowableAdapter(),
-        InstantAdapter()
+        InstantAdapter(),
+        TaskResultsAdapter()
 )
 
 data class CompilationFailedJson(val errors: List<CompilationFailed.CompilationError>)
@@ -90,5 +91,34 @@ class InstantAdapter {
     }
     @ToJson fun instantToJson(instant: Instant): String {
         return instant.toString()
+    }
+}
+data class TaskResultsJson(
+        val returned: String?,
+        val threw: Throwable?,
+        val timeout: Boolean,
+        val outputLines: MutableList<Sandbox.TaskResults.OutputLine> = mutableListOf(),
+        val permissionRequests: MutableList<Sandbox.TaskResults.PermissionRequest> = mutableListOf(),
+        val interval: Interval,
+        val executionInterval: Interval
+)
+class TaskResultsAdapter {
+    @Throws(Exception::class)
+    @Suppress("UNUSED_PARAMETER")
+    @FromJson
+    fun taskResultsFromJson(unused: TaskResultsJson): Sandbox.TaskResults<*> {
+        throw Exception("Can't convert JSON to TaskResults")
+    }
+    @ToJson
+    fun taskResultsToJson(taskResults: Sandbox.TaskResults<*>): TaskResultsJson {
+        return TaskResultsJson(
+                taskResults.returned.toString(),
+                taskResults.threw,
+                taskResults.timeout,
+                taskResults.outputLines,
+                taskResults.permissionRequests,
+                taskResults.interval,
+                taskResults.executionInterval
+        )
     }
 }

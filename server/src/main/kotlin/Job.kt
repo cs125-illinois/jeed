@@ -1,6 +1,7 @@
 package edu.illinois.cs.cs125.jeed.server
 
 import com.squareup.moshi.FromJson
+import com.squareup.moshi.JsonClass
 import com.squareup.moshi.ToJson
 import edu.illinois.cs.cs125.jeed.core.*
 
@@ -16,11 +17,11 @@ class Job(
     init {
         require(!(source != null && snippet != null)) { "can't create task with both source and snippet" }
         val tasksToRun = passedTasks.toMutableSet()
-        if (tasksToRun.contains(Task.EXECUTE)) { tasksToRun.add(Task.COMPILE) }
-        if (snippet != null) { tasksToRun.add(Task.SNIPPET) }
+        if (tasksToRun.contains(Task.execute)) { tasksToRun.add(Task.compile) }
+        if (snippet != null) { tasksToRun.add(Task.snippet) }
         tasks = tasksToRun.toSet()
     }
-    fun run(): Result {
+    suspend fun run(): Result {
         val result = Result(this)
         val actualSource = if (source != null) { source } else {
             try {
@@ -32,13 +33,19 @@ class Job(
             }
         } ?: check { "should have a source" }
 
-        val compiledSource = try {
-            result.completed.compilation = actualSource.compile()
-            result.completed.compilation
-        } catch (compilationFailed: CompilationFailed) {
-            result.failed.compilation = compilationFailed
-            return result
-        } ?: check { "should have a compiled source" }
+        val compiledSource: CompiledSource? = if (tasks.contains(Task.compile)) {
+            try {
+                result.completed.compilation = actualSource.compile(arguments.compilation)
+                result.completed.compilation
+            } catch (compilationFailed: CompilationFailed) {
+                result.failed.compilation = compilationFailed
+                null
+            }
+        } else { null }
+
+        if (tasks.contains(Task.execute) && compiledSource != null) {
+            result.completed.execution = compiledSource.execute(arguments.execution)
+        }
 
         return result
     }
@@ -63,10 +70,11 @@ class Job(
     }
 }
 
+@Suppress("NAMING")
 enum class Task(val task: String) {
-    SNIPPET("snippet"),
-    COMPILE("compile"),
-    EXECUTE("execute")
+    snippet("snippet"),
+    compile("compile"),
+    execute("execute")
 }
 class TaskArguments(
         val compilation: CompilationArguments = CompilationArguments(),
@@ -102,9 +110,15 @@ class Result(job: Job) {
 class CompletedTasks(
         var snippet: Snippet? = null,
         var compilation: CompiledSource? = null,
-        var execution: Sandbox.TaskResults<Any>? = null
+        var execution: Sandbox.TaskResults<out Any?>? = null
 )
 class FailedTasks(
         var snippet: SnippetTransformationFailed? = null,
         var compilation: CompilationFailed? = null
+)
+
+@JvmField
+val Adapters = setOf(
+        Job.JobAdapter(),
+        Result.ResultAdapter()
 )

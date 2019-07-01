@@ -13,14 +13,14 @@ import io.ktor.server.testing.handleRequest
 import io.ktor.server.testing.setBody
 
 class TestHTTP : StringSpec({
-    "f:should accept good request" {
+    "should accept good request" {
         withTestApplication(Application::jeed) {
             handleRequest(HttpMethod.Post, "/") {
                 addHeader("content-type", "application/json")
                 setBody("""
 {
   "snippet": "System.out.println(\"Here\");",
-  "tasks": [ "COMPILE" ]
+  "tasks": [ "execute" ]
 }""".trim())
             }.apply {
                 response.shouldHaveStatus(HttpStatusCode.OK.value)
