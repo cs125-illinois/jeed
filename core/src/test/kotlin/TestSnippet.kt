@@ -6,7 +6,7 @@ import io.kotlintest.matchers.collections.shouldHaveSize
 
 class TestSnippet : StringSpec({
   "should parse snippets" {
-      Source.fromSnippet("""
+      Source.transformSnippet("""
 class Test {
     int me = 0;
     int anotherTest() {
@@ -23,8 +23,8 @@ int i = 0;
 i++;""".trim())
   }
     "should identify a parse errors in a broken snippet" {
-        val exception = shouldThrow<SnippetParsingFailed> {
-            Source.fromSnippet("""
+        val exception = shouldThrow<SnippetTransformationFailed> {
+            Source.transformSnippet("""
 class Test {
     int me = 0;
     int anotherTest() {
@@ -44,8 +44,8 @@ i++
 
     }
     "should identify multiple parse errors in a broken snippet" {
-        val exception = shouldThrow<SnippetParsingFailed> {
-            Source.fromSnippet("""
+        val exception = shouldThrow<SnippetTransformationFailed> {
+            Source.transformSnippet("""
 class;
 class Test {
     int me = 0;
@@ -74,22 +74,22 @@ int adder(int first, int second) {
     return first + second;
 }
         """.trim()
-        val source = Source.fromSnippet(snippet)
+        val source = Source.transformSnippet(snippet)
 
         source.originalSource shouldBe(snippet)
         source.rewrittenSource shouldNotBe(snippet)
         source.originalSourceFromMap() shouldBe(snippet)
     }
     "should not allow return statements in loose code" {
-        shouldThrow<SnippetValidationFailed> {
-            Source.fromSnippet("""
+        shouldThrow<SnippetTransformationFailed> {
+            Source.transformSnippet("""
 return;
         """.trim())
         }
     }
     "should not allow return statements in loose code even under if statements" {
-        shouldThrow<SnippetValidationFailed> {
-            Source.fromSnippet("""
+        shouldThrow<SnippetTransformationFailed> {
+            Source.transformSnippet("""
 int i = 0;
 if (i > 2) {
     return;
@@ -99,8 +99,8 @@ if (i > 2) {
     }
 })
 
-fun haveParseErrorOnLine(line: Int) = object : Matcher<SnippetParsingFailed> {
-    override fun test(value: SnippetParsingFailed): Result {
+fun haveParseErrorOnLine(line: Int) = object : Matcher<SnippetTransformationFailed> {
+    override fun test(value: SnippetTransformationFailed): Result {
         return Result(value.errors.any { it.location.line == line },
                 "should have parse error on line $line",
                 "should not have parse error on line $line")

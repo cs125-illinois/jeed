@@ -5,7 +5,7 @@ import io.kotlintest.specs.StringSpec
 
 class TestExecute : StringSpec({
     "should execute snippets" {
-        val executeMainResult = Source.fromSnippet("""
+        val executeMainResult = Source.transformSnippet("""
 int i = 0;
 i++;
 System.out.println(i);
@@ -14,7 +14,7 @@ System.out.println(i);
         executeMainResult should haveOutput("1")
     }
     "should execute snippets that include class definitions" {
-        val executeMainResult = Source.fromSnippet("""
+        val executeMainResult = Source.transformSnippet("""
 public class Foo {
     int i = 0;
 }
@@ -26,7 +26,7 @@ System.out.println(foo.i);
         executeMainResult should haveOutput("4")
     }
     "should execute the right class in snippets that include multiple class definitions" {
-        val compiledSource = Source.fromSnippet("""
+        val compiledSource = Source.transformSnippet("""
 public class Bar {
     public static void main() {
         System.out.println("Bar");
@@ -57,7 +57,7 @@ System.out.println("Main");
         }
     }
     "should execute the right method in snippets that include multiple method definitions" {
-        val compiledSource = Source.fromSnippet("""
+        val compiledSource = Source.transformSnippet("""
 public static void foo() {
     System.out.println("foo");
 }
@@ -80,7 +80,7 @@ System.out.println("main");
         executeMainResult should haveOutput("main")
     }
     "should not execute private methods" {
-        val compiledSource = Source.fromSnippet("""
+        val compiledSource = Source.transformSnippet("""
 private static void foo() {
     System.out.println("foo");
 }
@@ -96,7 +96,7 @@ System.out.println("main");
         executeMainResult should haveOutput("main")
     }
     "should not execute non-static methods" {
-        val compiledSource = Source.fromSnippet("""
+        val compiledSource = Source.transformSnippet("""
 public void foo() {
     System.out.println("foo");
 }
@@ -112,7 +112,7 @@ System.out.println("main");
         executeMainResult should haveOutput("main")
     }
     "should not execute methods that require arguments" {
-        val compiledSource = Source.fromSnippet("""
+        val compiledSource = Source.transformSnippet("""
 public static void foo(int i) {
     System.out.println("foo");
 }
@@ -164,7 +164,7 @@ public class Foo {
     }
     "should throw missing class exceptions correctly" {
         shouldThrow<ClassNotFoundException> {
-            Source.fromSnippet("""
+            Source.transformSnippet("""
 int i = 0;
 i++;
 System.out.println(i);
@@ -173,7 +173,7 @@ System.out.println(i);
     }
     "should throw missing method exceptions correctly" {
         shouldThrow<MethodNotFoundException> {
-            Source.fromSnippet("""
+            Source.transformSnippet("""
 int i = 0;
 i++;
 System.out.println(i);
@@ -181,7 +181,7 @@ System.out.println(i);
         }
     }
     "should import libraries properly" {
-        val executionResult = Source.fromSnippet("""
+        val executionResult = Source.transformSnippet("""
 import java.util.List;
 import java.util.ArrayList;
 

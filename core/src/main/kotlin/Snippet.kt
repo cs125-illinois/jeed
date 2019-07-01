@@ -24,18 +24,24 @@ fun generateName(prefix: String, existingNames: Set<String>) : String {
     throw IllegalStateException("couldn't generate $prefix class name")
 }
 
-class SnippetParseError(line: Int, column: Int, message: String) : SourceError(SourceLocation(SNIPPET_SOURCE, line, column), message)
-class SnippetParsingFailed(errors: List<SnippetParseError>) : JeedError(errors)
+class SnippetTransformationError(
+        line: Int,
+        column: Int,
+        message: String
+) : SourceError(SourceLocation(SNIPPET_SOURCE, line, column), message) {
+    constructor(location: SourceLocation, message: String): this(location.line, location.column, message)
+}
+class SnippetTransformationFailed(errors: List<SnippetTransformationError>) : JeedError(errors)
 
 class SnippetErrorListener : BaseErrorListener() {
-    private val errors = mutableListOf<SnippetParseError>()
+    private val errors = mutableListOf<SnippetTransformationError>()
     override fun syntaxError(recognizer: Recognizer<*, *>?, offendingSymbol: Any?, line: Int, charPositionInLine: Int, msg: String, e: RecognitionException?) {
         // Decrement line number by 1 to account for added braces
-        errors.add(SnippetParseError( line - 1, charPositionInLine, msg))
+        errors.add(SnippetTransformationError( line - 1, charPositionInLine, msg))
     }
     fun check() {
         if (errors.size > 0) {
-            throw SnippetParsingFailed(errors)
+            throw SnippetTransformationFailed(errors)
         }
     }
 }
@@ -84,8 +90,8 @@ data class RemappedLine(
         val addedIndentation: Int = 0
 )
 
-@Throws(SnippetParsingFailed::class, SnippetValidationFailed::class)
-fun Source.Companion.fromSnippet(originalSource: String, indent: Int = 4): Snippet {
+@Throws(SnippetTransformationFailed::class)
+fun Source.Companion.transformSnippet(originalSource: String, indent: Int = 4): Snippet {
     require(originalSource.isNotEmpty())
 
     val errorListener = SnippetErrorListener()
@@ -247,10 +253,6 @@ fun Source.Companion.fromSnippet(originalSource: String, indent: Int = 4): Snipp
     )
 }
 
-@JsonClass(generateAdapter = true)
-class SnippetValidationError(location: SourceLocation, message: String) : SourceError(location, message)
-class SnippetValidationFailed(errors: List<SnippetValidationError>) : JeedError(errors)
-
 private fun checkLooseCode(looseCode: String, looseCodeStart: Int, remappedLineMapping: Map<Int, RemappedLine>) {
     val charStream = CharStreams.fromString(looseCode)
     val javaLexer = JavaLexer(charStream)
@@ -261,12 +263,12 @@ private fun checkLooseCode(looseCode: String, looseCodeStart: Int, remappedLineM
     val validationErrors = tokenStream.tokens.filter {
         it.type == JavaLexer.RETURN
     }.map {
-        SnippetValidationError(
+        SnippetTransformationError(
                 Snippet.mapLocation(SourceLocation(SNIPPET_SOURCE, it.line + looseCodeStart, it.charPositionInLine), remappedLineMapping),
                 "return statements not allowed at top level in snippets"
         )
     }
     if (validationErrors.isNotEmpty()) {
-        throw SnippetValidationFailed(validationErrors)
+        throw SnippetTransformationFailed(validationErrors)
     }
 }

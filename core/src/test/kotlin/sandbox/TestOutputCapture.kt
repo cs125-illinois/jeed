@@ -13,7 +13,7 @@ import java.io.PrintStream
 
 class TestOutputCapture : StringSpec({
     "should capture stdout" {
-        val executionResult = Source.fromSnippet("""
+        val executionResult = Source.transformSnippet("""
 System.out.println("Here");
             """.trim()).compile().execute()
         executionResult should haveCompleted()
@@ -22,7 +22,7 @@ System.out.println("Here");
         executionResult should haveStderr("")
     }
     "should capture stderr" {
-        val executionResult = Source.fromSnippet("""
+        val executionResult = Source.transformSnippet("""
 System.err.println("Here");
             """.trim()).compile().execute()
         executionResult should haveCompleted()
@@ -31,7 +31,7 @@ System.err.println("Here");
         executionResult should haveStderr("Here")
     }
     "should capture stderr and stdout" {
-        val executionResult = Source.fromSnippet("""
+        val executionResult = Source.transformSnippet("""
 System.out.println("Here");
 System.err.println("There");
             """.trim()).compile().execute()
@@ -42,7 +42,7 @@ System.err.println("There");
         executionResult should haveOutput("Here\nThere")
     }
     "should capture incomplete stderr and stdout lines" {
-        val executionResult = Source.fromSnippet("""
+        val executionResult = Source.transformSnippet("""
 System.out.print("Here");
 System.err.print("There");
             """.trim()).compile().execute()
@@ -63,7 +63,7 @@ System.err.print("There");
         (0..8).toList().map {
             if (it % 2 == 0) {
                 async {
-                    Source.fromSnippet("""
+                    Source.transformSnippet("""
 for (int i = 0; i < 32; i++) {
     for (long j = 0; j < 1024 * 1024 * 1024; j++);
 }
@@ -90,7 +90,7 @@ for (int i = 0; i < 32; i++) {
         unrelatedOutput.lines().filter { it == "Bad" }.size shouldBe 4 * 2 * 512
     }
     "should redirect output to trusted task properly" {
-        val compiledSource = Source.fromSnippet("""
+        val compiledSource = Source.transformSnippet("""
 System.out.println("Here");
 System.err.println("There");
             """.trim()).compile()

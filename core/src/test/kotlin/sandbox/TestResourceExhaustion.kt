@@ -2,7 +2,6 @@ package edu.illinois.cs.cs125.jeed.core.sandbox
 
 import edu.illinois.cs.cs125.jeed.core.*
 import io.kotlintest.matchers.collections.shouldContain
-import io.kotlintest.matchers.collections.shouldHaveSize
 import io.kotlintest.should
 import io.kotlintest.shouldBe
 import io.kotlintest.shouldNot
@@ -11,7 +10,7 @@ import kotlinx.coroutines.async
 
 class TestResourceExhaustion : StringSpec({
     "should timeout correctly on snippet" {
-        val executionResult = Source.fromSnippet("""
+        val executionResult = Source.transformSnippet("""
 int i = 0;
 while (true) {
     i++;
@@ -40,7 +39,7 @@ public class Main {
         executionResult should haveOutput()
     }
     "should return output after timeout" {
-        val executionResult = Source.fromSnippet("""
+        val executionResult = Source.transformSnippet("""
 System.out.println("Here");
 int i = 0;
 while (true) {
@@ -52,7 +51,7 @@ while (true) {
         executionResult should haveOutput("Here")
     }
     "should shut down a runaway thread" {
-        val executionResult = Source.fromSnippet("""
+        val executionResult = Source.transformSnippet("""
 public class Example implements Runnable {
     public void run() {
         while (true) {
@@ -75,7 +74,7 @@ try {
         executionResult should haveOutput("Started")
     }
     "should shut down small thread bombs" {
-        val executionResult = Source.fromSnippet("""
+        val executionResult = Source.transformSnippet("""
 public class Example implements Runnable {
     public void run() {
         for (long j = 0; j < 512 * 1024 * 1024; j++);
@@ -99,7 +98,7 @@ for (long i = 0;; i++) {
         executionResult.stdoutLines.map { it.line } shouldContain "15"
     }
     "should shut down nasty thread bombs" {
-        val executionResult = Source.fromSnippet("""
+        val executionResult = Source.transformSnippet("""
 public class Example implements Runnable {
     public void run() {
         while (true) {
@@ -123,7 +122,7 @@ while (true) {
         executionResult should haveTimedOut()
     }
     "should shut down sleep bombs" {
-        val executionResult = Source.fromSnippet("""
+        val executionResult = Source.transformSnippet("""
 public class Example implements Runnable {
     public void run() {
         while (true) {
@@ -145,7 +144,7 @@ while (true) {
         executionResult should haveTimedOut()
     }
     "should shut down exit bombs" {
-        val executionResult = Source.fromSnippet("""
+        val executionResult = Source.transformSnippet("""
 public class Example implements Runnable {
     public void run() {
         while (true) {
@@ -168,7 +167,7 @@ while (true) {
         executionResult should haveTimedOut()
     }
     "should shut down spin bombs" {
-        val executionResult = Source.fromSnippet("""
+        val executionResult = Source.transformSnippet("""
 public class Example implements Runnable {
     public void run() {
         while (true) {
@@ -190,7 +189,7 @@ while (true) {
         executionResult should haveTimedOut()
     }
     "should shut down reflection-protected thread bombs" {
-        val executionResult = Source.fromSnippet("""
+        val executionResult = Source.transformSnippet("""
 public class Example implements Runnable {
     public void run() {
         while (true) {
@@ -216,7 +215,7 @@ try {
         executionResult should haveTimedOut()
     }
     "should shut down recursive thread bombs" {
-        val executionResult = Source.fromSnippet("""
+        val executionResult = Source.transformSnippet("""
 public class Example implements Runnable {
     public void run() {
         while (true) {
@@ -250,7 +249,7 @@ try {
         executionResult should haveTimedOut()
     }
     "should shut down finally-protected thread bombs" {
-        val executionResult = Source.fromSnippet("""
+        val executionResult = Source.transformSnippet("""
 public class Example implements Runnable {
     public void run() {
         while (true) {
@@ -286,7 +285,7 @@ try {
     "should shut down parallel recursive thread bombs" {
         (0..16).toList().map {
             async {
-                Source.fromSnippet("""
+                Source.transformSnippet("""
 public class Example implements Runnable {
     public void run() {
         while (true) {
@@ -324,7 +323,7 @@ try {
         }
     }
     "should shut down memory exhaustion bombs" {
-        Source.fromSnippet("""
+        Source.transformSnippet("""
 import java.util.List;
 import java.util.ArrayList;
 
@@ -349,7 +348,7 @@ while (true) {
         """.trim()).compile().execute(SourceExecutionArguments(maxExtraThreads=16, timeout=1000L))
     }
     "should recover from excessive memory usage" {
-        Source.fromSnippet("""
+        Source.transformSnippet("""
 import java.util.List;
 import java.util.ArrayList;
 
@@ -369,7 +368,7 @@ while (true) {
         // It's only a problem if it dies at a time that causes a ConfinedTask to be leaked
 
         // From https://stackoverflow.com/a/42301131/
-        Source.fromSnippet("""
+        Source.transformSnippet("""
 class A {
     {
         int a;

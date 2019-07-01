@@ -5,14 +5,14 @@ import io.kotlintest.*
 
 class TestCheckstyle : StringSpec({
     "it should check strings without errors" {
-        val checkstyleResult = Source.fromSnippet("""
+        val checkstyleResult = Source.transformSnippet("""
 int i = 0;
 """.trim()).checkstyle()
 
         checkstyleResult shouldNot haveCheckstyleErrors()
     }
     "it should identify checkstyle errors in strings" {
-        val checkstyleErrors = Source.fromSnippet("""
+        val checkstyleErrors = Source.transformSnippet("""
 int i = 0;
 int y =1;
 """.trim()).checkstyle()
@@ -21,7 +21,7 @@ int y =1;
         checkstyleErrors should haveCheckstyleErrorAt(line=2)
     }
     "it should identify checkstyle errors in snippet results" {
-        val checkstyleErrors = Source.fromSnippet("""
+        val checkstyleErrors = Source.transformSnippet("""
 int i = 0;
 int y = 1;
 int add(int a, int b) {
@@ -34,7 +34,7 @@ add(i, y);
         checkstyleErrors should haveCheckstyleErrorAt(line=4)
     }
     "it should identify checkstyle errors in snippet static results" {
-        val checkstyleErrors = Source.fromSnippet("""
+        val checkstyleErrors = Source.transformSnippet("""
 int i = 0;
 int y = 1;
 static int add(int a, int b) {
@@ -47,7 +47,7 @@ add(i, y);
         checkstyleErrors should haveCheckstyleErrorAt(line=4)
     }
     "it should identify checkstyle errors in snippet results with modifiers" {
-        val checkstyleErrors = Source.fromSnippet("""
+        val checkstyleErrors = Source.transformSnippet("""
 int i = 0;
 int y = 1;
 public int add(int a, int b) {

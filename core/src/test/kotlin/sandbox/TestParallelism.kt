@@ -16,7 +16,7 @@ class TestParallelism : StringSpec({
     "should execute correctly in parallel using streams" {
         (0..8).toList().parallelStream().map { value ->
             val result = runBlocking {
-                Source.fromSnippet("""
+                Source.transformSnippet("""
 for (int i = 0; i < 32; i++) {
     for (long j = 0; j < 1024 * 1024; j++);
     System.out.println($value);
@@ -31,7 +31,7 @@ for (int i = 0; i < 32; i++) {
     "should execute correctly in parallel using coroutines" {
         (0..8).toList().map { value ->
             async {
-                Pair(Source.fromSnippet("""
+                Pair(Source.transformSnippet("""
 for (int i = 0; i < 32; i++) {
     for (long j = 0; j < 1024 * 1024; j++);
     System.out.println($value);
@@ -48,7 +48,7 @@ for (int i = 0; i < 32; i++) {
     "should execute efficiently in parallel using streams" {
         val compiledSources = (0..8).toList().map {
             async {
-                Source.fromSnippet("""
+                Source.transformSnippet("""
 for (int i = 0; i < 32; i++) {
     for (long j = 0; j < 1024 * 1024 * 1024; j++);
 }
@@ -76,7 +76,7 @@ for (int i = 0; i < 32; i++) {
     "should execute efficiently in parallel using coroutines" {
         val compiledSources = (0..8).toList().map {
             async {
-                Source.fromSnippet("""
+                Source.transformSnippet("""
 for (int i = 0; i < 32; i++) {
     for (long j = 0; j < 1024 * 1024 * 1024; j++);
 }

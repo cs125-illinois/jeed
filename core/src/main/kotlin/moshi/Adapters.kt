@@ -8,11 +8,10 @@ import java.time.Instant
 
 @JvmField
 val Adapters = setOf(
+        SnippetTransformationErrorAdapter(),
+        SnippetTransformationFailedAdapter(),
         CompilationFailedAdapter(),
         CompiledSourceAdapter(),
-        SnippetParseErrorAdapter(),
-        SnippetParsingFailedAdapter(),
-        SnippetValidationFailedAdapter(),
         PermissionAdapter(),
         ThrowableAdapter(),
         InstantAdapter()
@@ -43,33 +42,23 @@ class CompiledSourceAdapter {
         return CompiledSourceJson(compiledSource.messages)
     }
 }
-data class SnippetParseErrorJson(val line: Int, val column: Int, val message: String)
-class SnippetParseErrorAdapter {
-    @FromJson fun snippetParseErrorFromJson(snippetParseErrorJson: SnippetParseErrorJson): SnippetParseError {
-        return SnippetParseError(snippetParseErrorJson.line, snippetParseErrorJson.column, snippetParseErrorJson.message)
+data class SnippetTransformationErrorJson(val line: Int, val column: Int, val message: String)
+class SnippetTransformationErrorAdapter {
+    @FromJson fun snippetTransformationErrorFromJson(snippetParseErrorJson: SnippetTransformationErrorJson): SnippetTransformationError {
+        return SnippetTransformationError(snippetParseErrorJson.line, snippetParseErrorJson.column, snippetParseErrorJson.message)
     }
-    @ToJson fun snippetParseErrorToJson(snippetParseError: SnippetParseError): SnippetParseErrorJson {
-        return SnippetParseErrorJson(snippetParseError.location.line, snippetParseError.location.column, snippetParseError.message)
-    }
-}
-data class SnippetParsingFailedJson(val errors: List<SnippetParseError>)
-class SnippetParsingFailedAdapter {
-    @FromJson fun snippetParsingFailedFromJson(snippetParsingFailedJson: SnippetParsingFailedJson): SnippetParsingFailed {
-        return SnippetParsingFailed(snippetParsingFailedJson.errors)
-    }
-    @Suppress("UNCHECKED_CAST")
-    @ToJson fun snippetParsingFailedToJson(snippetParsingFailed: SnippetParsingFailed): SnippetParsingFailedJson {
-        return SnippetParsingFailedJson(snippetParsingFailed.errors as List<SnippetParseError>)
+    @ToJson fun snippetTransformationErrorToJson(snippetTransformationError: SnippetTransformationError): SnippetTransformationErrorJson {
+        return SnippetTransformationErrorJson(snippetTransformationError.location.line, snippetTransformationError.location.column, snippetTransformationError.message)
     }
 }
-data class SnippetValidationFailedJson(val errors: List<SnippetValidationError>)
-class SnippetValidationFailedAdapter {
-    @FromJson fun snippetValidationFailedFromJson(snippetValidationFailedJson: SnippetValidationFailedJson): SnippetValidationFailed {
-        return SnippetValidationFailed(snippetValidationFailedJson.errors)
+data class SnippetTransformationFailedJson(val errors: List<SnippetTransformationError>)
+class SnippetTransformationFailedAdapter {
+    @FromJson fun snippetParsingFailedFromJson(snippetParsingFailedJson: SnippetTransformationFailedJson): SnippetTransformationFailed {
+        return SnippetTransformationFailed(snippetParsingFailedJson.errors)
     }
     @Suppress("UNCHECKED_CAST")
-    @ToJson fun snippetValidationFailedToJson(snippetValidationFailed: SnippetValidationFailed): SnippetValidationFailedJson {
-        return SnippetValidationFailedJson(snippetValidationFailed.errors as List<SnippetValidationError>)
+    @ToJson fun snippetParsingFailedToJson(snippetTransformationFailed: SnippetTransformationFailed): SnippetTransformationFailedJson {
+        return SnippetTransformationFailedJson(snippetTransformationFailed.errors as List<SnippetTransformationError>)
     }
 }
 data class PermissionJson(val type: String, val name: String, val actions: String?)

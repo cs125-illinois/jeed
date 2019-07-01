@@ -12,7 +12,6 @@ import java.time.Instant
 
 @JsonClass(generateAdapter = true)
 open class Source
-@Throws(JavaParsingException::class)
 constructor
 (
         val sources: Map<String, String>,
@@ -36,6 +35,7 @@ constructor
 
     @Transient private lateinit var _parsed: Map<String, JavaParser.CompilationUnitContext>
     val parsed: Map<String, JavaParser.CompilationUnitContext>
+        @Throws(JavaParsingException::class)
         get() {
             if (!this::_parsed.isInitialized) {
                 _parsed = sources.mapValues { entry ->

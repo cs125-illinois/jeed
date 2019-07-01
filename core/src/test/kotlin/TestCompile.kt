@@ -7,13 +7,13 @@ import io.kotlintest.matchers.numerics.shouldBeGreaterThan
 
 class TestCompile : StringSpec({
     "should compile simple snippets" {
-        val compiledSource = Source.fromSnippet("int i = 1;").compile()
+        val compiledSource = Source.transformSnippet("int i = 1;").compile()
 
         compiledSource should haveDefinedExactlyTheseClasses(setOf("Main"))
         compiledSource should haveProvidedThisManyClasses(0)
     }
     "should compile snippets that include method definitions" {
-        val compiledSource = Source.fromSnippet("""
+        val compiledSource = Source.transformSnippet("""
 int i = 0;
 private static int main() {
     return 0;
@@ -24,7 +24,7 @@ private static int main() {
         compiledSource should haveProvidedThisManyClasses(0)
     }
     "should compile snippets that include class definitions" {
-        val compiledSource = Source.fromSnippet("""
+        val compiledSource = Source.transformSnippet("""
 int i = 0;
 public class Foo {
     int i;
@@ -126,13 +126,13 @@ public class Test {
         compiledSource should haveProvidedThisManyClasses(0)
     }
     "should identify compilation errors in simple snippets" {
-        val failedCompilation = shouldThrow<CompilationFailed> { Source.fromSnippet("int i = a;").compile() }
+        val failedCompilation = shouldThrow<CompilationFailed> { Source.transformSnippet("int i = a;").compile() }
 
         failedCompilation should haveCompilationErrorAt(line=1)
     }
     "should identify multiple compilation errors in simple snippets" {
         val failedCompilation = shouldThrow<CompilationFailed> {
-            Source.fromSnippet("""
+            Source.transformSnippet("""
 int i = a;
 Foo f = new Foo();
             """.trim()).compile()
@@ -143,7 +143,7 @@ Foo f = new Foo();
     }
     "should identify multiple compilation errors in reordered simple snippets" {
         val failedCompilation = shouldThrow<CompilationFailed> {
-            Source.fromSnippet("""
+            Source.transformSnippet("""
 public void foo() {
     return;
 }
@@ -157,7 +157,7 @@ Foo f = new Foo();
         failedCompilation should haveCompilationErrorAt(line=6)
     }
     "should identify warnings in snippets" {
-        val compiledSource = Source.fromSnippet("""
+        val compiledSource = Source.transformSnippet("""
 import java.util.List;
 import java.util.ArrayList;
 List test = new ArrayList();
@@ -167,7 +167,7 @@ List test = new ArrayList();
         compiledSource should haveCompilationMessageAt(line=3)
     }
     "should not identify warnings in snippets when warnings are disabled" {
-        val compiledSource = Source.fromSnippet("""
+        val compiledSource = Source.transformSnippet("""
 import java.util.List;
 import java.util.ArrayList;
 List test = new ArrayList();
@@ -177,7 +177,7 @@ List test = new ArrayList();
     }
     "should fail when warnings are treated as errors" {
         val exception = shouldThrow<CompilationFailed> {
-            Source.fromSnippet("""
+            Source.transformSnippet("""
 import java.util.List;
 import java.util.ArrayList;
 List test = new ArrayList();
@@ -187,7 +187,7 @@ List test = new ArrayList();
         exception should haveCompilationErrorAt(line=3)
     }
     "should enumerate and load classes correctly after execution" {
-        val compiledSource = Source.fromSnippet("""
+        val compiledSource = Source.transformSnippet("""
 class Test {}
 class Me {}
 Test test = new Test();
@@ -235,7 +235,7 @@ public class Foo extends Me { }
         compiledFooSource should haveProvidedThisManyClasses(0)
     }
     "should compile with classes from Java standard libraries" {
-        val compiledSource = Source.fromSnippet("""
+        val compiledSource = Source.transformSnippet("""
 import java.util.List;
 import java.util.ArrayList;
 
@@ -246,7 +246,7 @@ List list = new ArrayList();
         compiledSource should haveProvidedThisManyClasses(0)
     }
     "should compile with classes from nonstandard libraries" {
-        val compiledSource = Source.fromSnippet("""
+        val compiledSource = Source.transformSnippet("""
 import com.puppycrawl.tools.checkstyle.Checker;
 
 System.out.println(new Checker());
@@ -254,7 +254,7 @@ System.out.println(new Checker());
         compiledSource should haveDefinedExactlyTheseClasses(setOf("Main"))
     }
     "should compile with classes from .class files" {
-        val compiledSource = Source.fromSnippet("""
+        val compiledSource = Source.transformSnippet("""
 import edu.illinois.cs.cs125.testingjeed.importable.*;
 
 Widget w = new Widget();

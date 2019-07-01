@@ -1,8 +1,6 @@
 package edu.illinois.cs.cs125.jeed.core
 
-import com.squareup.moshi.FromJson
 import com.squareup.moshi.JsonClass
-import com.squareup.moshi.ToJson
 import mu.KotlinLogging
 import java.io.*
 import java.net.URI

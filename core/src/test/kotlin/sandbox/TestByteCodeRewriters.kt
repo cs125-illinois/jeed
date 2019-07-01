@@ -8,7 +8,7 @@ import io.kotlintest.specs.StringSpec
 
 class TestByteCodeRewriters : StringSpec({
     "should not intercept safe exceptions" {
-        val executionResult = Source.fromSnippet("""
+        val executionResult = Source.transformSnippet("""
 try {
     System.out.println("Try");
     Object o = null;
@@ -24,7 +24,7 @@ try {
         executionResult should haveOutput("Try\nCatch\nFinally")
     }
     "should intercept exceptions configured to be unsafe in catch blocks" {
-        val executionResult = Source.fromSnippet("""
+        val executionResult = Source.transformSnippet("""
 try {
     System.out.println("Try");
     Object o = null;
@@ -43,7 +43,7 @@ try {
         executionResult.threw.shouldBeTypeOf<NullPointerException>()
     }
     "should intercept subclasses of exceptions configured to be unsafe in catch blocks" {
-        val executionResult = Source.fromSnippet("""
+        val executionResult = Source.transformSnippet("""
 try {
     System.out.println("Try");
     Object o = null;
@@ -62,7 +62,7 @@ try {
         executionResult.threw.shouldBeTypeOf<NullPointerException>()
     }
     "should intercept subclasses of exceptions configured to be unsafe in finally blocks" {
-        val executionResult = Source.fromSnippet("""
+        val executionResult = Source.transformSnippet("""
 try {
     System.out.println("Try");
     Object o = null;
@@ -79,7 +79,7 @@ try {
         executionResult.threw.shouldBeTypeOf<NullPointerException>()
     }
     "should not intercept exceptions configured to be safe in finally blocks" {
-        val executionResult = Source.fromSnippet("""
+        val executionResult = Source.transformSnippet("""
 try {
     System.out.println("Try");
     Object o = null;
@@ -98,7 +98,7 @@ try {
         executionResult.threw.shouldBeTypeOf<NullPointerException>()
     }
     "should handle nested try-catch blocks" {
-        val executionResult = Source.fromSnippet("""
+        val executionResult = Source.transformSnippet("""
 try {
     try {
         System.out.println("Try");
@@ -124,7 +124,7 @@ try {
         executionResult.threw.shouldBeTypeOf<NullPointerException>()
     }
     "should handle try-catch blocks in loops" {
-        val executionResult = Source.fromSnippet("""
+        val executionResult = Source.transformSnippet("""
 while (true) {
     try {
         System.out.println("Try");
@@ -146,7 +146,7 @@ while (true) {
         executionResult.threw.shouldBeTypeOf<NullPointerException>()
     }
     "should remove finalizers" {
-        val executionResult = Source.fromSnippet("""
+        val executionResult = Source.transformSnippet("""
 public class Example {
     public Example() {
         finalize();
@@ -161,7 +161,7 @@ Example ex = new Example();
         executionResult shouldNot haveOutput("Finalizer")
     }
     "should not remove non-finalizer finalize methods" {
-        val executionResult = Source.fromSnippet("""
+        val executionResult = Source.transformSnippet("""
 public class Example {
     public Example() {
         finalize(0);
