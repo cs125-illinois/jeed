@@ -1,10 +1,6 @@
 package edu.illinois.cs.cs125.jeed.core
 
-import io.kotlintest.Matcher
-import io.kotlintest.Result
-import io.kotlintest.should
-import io.kotlintest.shouldNot
-import io.kotlintest.shouldThrow
+import io.kotlintest.*
 import io.kotlintest.specs.StringSpec
 
 class TestExecute : StringSpec({

@@ -3,6 +3,7 @@
 *.class
 *.swp
 *.swo
+*.iml
 .idea/workspace.xml
 .idea/tasks.xml
 .idea/.name
