@@ -1,6 +1,7 @@
 package edu.illinois.cs.cs125.jeed.core.sandbox
 
 import edu.illinois.cs.cs125.jeed.core.*
+import io.kotlintest.matchers.collections.shouldHaveSize
 import io.kotlintest.should
 import io.kotlintest.shouldBe
 import io.kotlintest.shouldNot
@@ -330,6 +331,7 @@ public class Example {
 """.trim()
         )).compile().execute(SourceExecutionArguments("Example"))
         System.gc()
-        println(executionResult.output)
+        executionResult.outputLines shouldHaveSize 10000
+        executionResult.outputLines.all { (_, line) -> line.trim().equals("Example") } shouldBe true
     }
 })
