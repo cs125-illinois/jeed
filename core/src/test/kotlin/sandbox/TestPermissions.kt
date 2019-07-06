@@ -377,7 +377,7 @@ try {
         """.trim()).compile().execute(SourceExecutionArguments(timeout = 10000))
         executionResult.permissionDenied shouldBe true
     }
-    "f:should not allow MethodHandles to alter the security manager" {
+    "should not allow MethodHandles to alter the security manager" {
         val executionResult = Source.transformSnippet("""
 import java.lang.invoke.*;
 import java.util.Map;
