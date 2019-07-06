@@ -334,7 +334,7 @@ public class Example {
         executionResult.outputLines shouldHaveSize 10000
         executionResult.outputLines.all { (_, line) -> line.trim().equals("Example") } shouldBe true
     }
-    "f:should not allow LambdaMetafactory to escape the sandbox" {
+    "should not allow LambdaMetafactory to escape the sandbox" {
         val executionResult = Source.transformSnippet("""
 import java.lang.invoke.*;
             
@@ -356,25 +356,48 @@ try {
         """.trim()).compile().execute(SourceExecutionArguments(maxExtraThreads = 1))
         executionResult.permissionDenied shouldBe true
     }
-    "f:should not allow MethodHandle-based reflection to escape the sandbox" {
+    "should not allow MethodHandle-based reflection to dodge the sandbox" {
         val executionResult = Source.transformSnippet("""
 import java.lang.invoke.*;
+import com.puppycrawl.tools.checkstyle.api.CheckstyleException;
             
 try {
-    MethodHandles.Lookup lookup = MethodHandles.lookup();
+    MethodHandles.Lookup lookup = MethodHandles.privateLookupIn(CheckstyleException.class, MethodHandles.lookup());
     Class<?> shutdownClass = Class.forName("java.lang.Shutdown");
-    Class<?> methodClass = lookup.in(Object.class).findClass("java.lang.reflect.Method");
-    System.out.println(methodClass);
+    Class<?> methodClass = lookup.findClass("java.lang.reflect.Method");
     MethodHandle gdmHandle = lookup.findVirtual(Class.class, "getDeclaredMethod", MethodType.methodType(methodClass, String.class, Class[].class));
     Object exitMethod = gdmHandle.invokeWithArguments(shutdownClass, "exit", int.class);
-    MethodHandle saHandle = lookup.findVirtual(methodClass, "setAccessible", MethodType.methodType(void.class, boolean.class));
-    saHandle.invokeWithArguments(exitMethod, true);
+    MethodHandle saHandle = lookup.findVirtual(methodClass, "trySetAccessible", MethodType.methodType(boolean.class));
+    saHandle.invokeWithArguments(exitMethod);
     MethodHandle invokeHandle = lookup.findVirtual(methodClass, "invoke", MethodType.methodType(Object.class, Object.class, Object[].class));
     invokeHandle.invokeWithArguments(exitMethod, null, 125);
 } catch (Throwable t) {
     throw new RuntimeException(t);
 }
-        """.trim()).compile().execute()
+        """.trim()).compile().execute(SourceExecutionArguments(timeout = 10000))
+        executionResult.permissionDenied shouldBe true
+    }
+    "f:should not allow MethodHandles to alter the security manager" {
+        val executionResult = Source.transformSnippet("""
+import java.lang.invoke.*;
+import java.util.Map;
+import com.puppycrawl.tools.checkstyle.api.CheckstyleException;
+            
+try {
+    MethodHandles.Lookup lookup = MethodHandles.privateLookupIn(CheckstyleException.class, MethodHandles.lookup());
+    Class<?> sandboxClass = lookup.findClass("edu.illinois.cs.cs125.jeed.core.Sandbox");
+    Class<?> fieldClass = lookup.findClass("java.lang.reflect.Field");
+    MethodHandle gdfHandle = lookup.findVirtual(Class.class, "getDeclaredField", MethodType.methodType(fieldClass, String.class));
+    Object confinedField = gdfHandle.invokeWithArguments(sandboxClass, "confinedTasks");
+    MethodHandle saHandle = lookup.findVirtual(fieldClass, "setAccessible", MethodType.methodType(void.class, boolean.class));
+    saHandle.invokeWithArguments(confinedField, true);
+    MethodHandle getHandle = lookup.findVirtual(fieldClass, "get", MethodType.methodType(Object.class, Object.class));
+    Map confined = (Map) getHandle.invokeWithArguments(confinedField, null);
+    confined.clear();
+} catch (Throwable t) {
+    throw new RuntimeException(t);
+}
+        """.trim()).compile().execute(SourceExecutionArguments(timeout = 10000))
         executionResult.permissionDenied shouldBe true
     }
 })
