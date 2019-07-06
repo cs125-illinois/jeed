@@ -334,4 +334,47 @@ public class Example {
         executionResult.outputLines shouldHaveSize 10000
         executionResult.outputLines.all { (_, line) -> line.trim().equals("Example") } shouldBe true
     }
+    "f:should not allow LambdaMetafactory to escape the sandbox" {
+        val executionResult = Source.transformSnippet("""
+import java.lang.invoke.*;
+            
+try {
+    MethodHandle handle = MethodHandles.lookup().findStatic(System.class, "exit", MethodType.methodType(void.class, int.class));
+    CallSite site = LambdaMetafactory.metafactory(MethodHandles.lookup(),
+            "run",
+            MethodType.methodType(Runnable.class, int.class),
+            MethodType.methodType(void.class),
+            handle,
+            MethodType.methodType(void.class));
+    Runnable runnable = (Runnable) site.dynamicInvoker().invoke(125);
+    Thread thread = new Thread(runnable);
+    thread.start();
+    Thread.sleep(50);
+} catch (Throwable t) {
+    throw new RuntimeException(t);
+}
+        """.trim()).compile().execute(SourceExecutionArguments(maxExtraThreads = 1))
+        executionResult.permissionDenied shouldBe true
+    }
+    "f:should not allow MethodHandle-based reflection to escape the sandbox" {
+        val executionResult = Source.transformSnippet("""
+import java.lang.invoke.*;
+            
+try {
+    MethodHandles.Lookup lookup = MethodHandles.lookup();
+    Class<?> shutdownClass = Class.forName("java.lang.Shutdown");
+    Class<?> methodClass = lookup.in(Object.class).findClass("java.lang.reflect.Method");
+    System.out.println(methodClass);
+    MethodHandle gdmHandle = lookup.findVirtual(Class.class, "getDeclaredMethod", MethodType.methodType(methodClass, String.class, Class[].class));
+    Object exitMethod = gdmHandle.invokeWithArguments(shutdownClass, "exit", int.class);
+    MethodHandle saHandle = lookup.findVirtual(methodClass, "setAccessible", MethodType.methodType(void.class, boolean.class));
+    saHandle.invokeWithArguments(exitMethod, true);
+    MethodHandle invokeHandle = lookup.findVirtual(methodClass, "invoke", MethodType.methodType(Object.class, Object.class, Object[].class));
+    invokeHandle.invokeWithArguments(exitMethod, null, 125);
+} catch (Throwable t) {
+    throw new RuntimeException(t);
+}
+        """.trim()).compile().execute()
+        executionResult.permissionDenied shouldBe true
+    }
 })
