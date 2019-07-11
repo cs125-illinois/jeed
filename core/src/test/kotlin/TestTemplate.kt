@@ -44,8 +44,7 @@ class TestTemplate : StringSpec({
     "should work with indented templates" {
         val templatedSource = Source.fromTemplates(mapOf(
                 "Test.java" to "int i = 0;"
-        ), mapOf(
-                "Test.hbs" to """
+        ), mapOf("Test.hbs" to """
 public class Question {
     public static void main() {
         {{{ contents }}}
@@ -65,10 +64,8 @@ public class Question {
     }
     "should fail with broken templates" {
         val templatingFailed = shouldThrow<TemplatingFailed> {
-            Source.fromTemplates(mapOf(
-                    "Test" to "int i = 0;"
-            ), mapOf(
-                    "Test.hbs" to """
+            Source.fromTemplates(mapOf("Test.java" to "int i = 0;"
+            ), mapOf("Test.hbs" to """
 public class Question {
     public static void main() {
         {{{ contents }}
@@ -79,5 +76,34 @@ public class Question {
         templatingFailed.errors shouldHaveSize 1
         templatingFailed.errors[0].location.source shouldBe "Test.hbs"
         templatingFailed.errors[0].location.line shouldBe 3
+    }
+    "should remap line numbers properly" {
+        val templatedSource = Source.fromTemplates(mapOf(
+                "Test.java" to "int i = ;"
+        ), mapOf(
+                "Test.hbs" to """
+public class Question {
+    public static void main() {
+        {{{ contents }}}
+    }
+}""".trim()
+        ))
+
+        templatedSource.sources.keys shouldHaveSize 1
+        templatedSource.originalSources.keys shouldHaveSize 1
+        templatedSource.sources["Test.java"] shouldBe """
+public class Question {
+    public static void main() {
+        int i = ;
+    }
+}""".trim()
+        templatedSource.originalSources["Test.java"] shouldBe "int i = ;"
+
+        val compilationFailed = shouldThrow<CompilationFailed> {
+            templatedSource.compile()
+        }
+        compilationFailed.errors shouldHaveSize 1
+        compilationFailed.errors[0].location.line shouldBe 1
+        compilationFailed.errors[0].location.column shouldBe 9
     }
 })

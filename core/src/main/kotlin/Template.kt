@@ -6,12 +6,25 @@ import com.github.jknack.handlebars.HandlebarsException
 class TemplatedSource(
         sources: Map<String, String>,
         val originalSources: Map<String, String>,
-        @Transient private val remappedLineMapping: Map<String, RemappedLines> = mapOf()
-) : Source(sources) {
+        @Transient private val remappedLineMapping: Map<String, RemappedLines>
+) : Source(sources, sourceMappingFunction = { mapLocation(it, remappedLineMapping) }) {
     data class RemappedLines(val start: Int, val end: Int, val addedIndentation: Int = 0)
+    companion object {
+        fun mapLocation(input: SourceLocation, remappedLineMapping: Map<String, RemappedLines>): SourceLocation {
+            val remappedLineInfo = remappedLineMapping[input.source] ?: assert { "should contain source mapping" }
+            assert(remappedLineInfo.start <= input.line) { "can't map line before template range" }
+            assert(input.line >= remappedLineInfo.start) { "can't map line after template range" }
+            return SourceLocation(
+                    input.source,
+                    input.line - remappedLineInfo.start + 1,
+                    input.column - remappedLineInfo.addedIndentation
+            )
+        }
+    }
 }
 
 private val handlebars = Handlebars()
+
 private val TEMPLATE_START = """\{\{\{\s*contents\s*}}}""".toRegex()
 private val LEADING_WHITESPACE = """^\s*""".toRegex()
 
@@ -64,14 +77,12 @@ fun Source.Companion.fromTemplates(sources: Map<String, String>, templates: Map<
         }.filter { (_, line) ->
             line.contains(TEMPLATE_START)
         }
-        if (contentsLines.size != 1) {
-            return@mapValues TemplatedSource.RemappedLines(1, sourceLength)
-        }
+        require(contentsLines.size == 1) { "template string occurs twice in template" }
 
         val templateLine = contentsLines.first()
         val leadingWhitespace = (LEADING_WHITESPACE.find(templateLine.second)?.range?.endInclusive ?: -1) + 1
         TemplatedSource.RemappedLines(templateLine.first + 1, templateLine.first + sourceLength, leadingWhitespace)
     }
 
-    return TemplatedSource(templatedSources, sources)
+    return TemplatedSource(templatedSources, sources, remappedLineMapping)
 }

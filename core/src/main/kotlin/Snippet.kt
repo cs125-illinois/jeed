@@ -43,11 +43,6 @@ class Snippet(
             check(remappedLineInfo != null)
             return SourceLocation(SNIPPET_SOURCE, remappedLineInfo.sourceLineNumber, input.column - remappedLineInfo.addedIndentation)
         }
-        fun mapLocation(input: Location, remappedLineMapping: Map<Int, RemappedLine>): Location {
-            val remappedLineInfo = remappedLineMapping[input.line]
-            check(remappedLineInfo != null)
-            return Location(remappedLineInfo.sourceLineNumber, input.column - remappedLineInfo.addedIndentation)
-        }
     }
 }
 
