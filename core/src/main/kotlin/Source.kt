@@ -10,12 +10,12 @@ import java.time.Instant
 
 open class Source(
         val sources: Map<String, String>,
-        checkSourceNames: (Map<String, String>) -> Boolean = ::defaultCheckSourceNames,
+        checkSourceNames: (Map<String, String>) -> Unit = ::defaultCheckSourceNames,
         @Transient val sourceMappingFunction: (SourceLocation) -> SourceLocation = { it }
 ) {
     init {
         require(sources.keys.isNotEmpty())
-        require(checkSourceNames(sources))
+        checkSourceNames(sources)
     }
     fun mapLocation(input: SourceLocation): SourceLocation {
         return sourceMappingFunction(input)
@@ -54,8 +54,13 @@ open class Source(
         }
 
     companion object {
-        private fun defaultCheckSourceNames(sources: Map<String, String>): Boolean {
-            return sources.keys.all { name -> name.isNotBlank() && name.split("/").last()[0].isUpperCase() }
+        private fun defaultCheckSourceNames(sources: Map<String, String>) {
+            sources.keys.forEach { name ->
+                require(name.isNotBlank()) { "filename cannot be blank" }
+                val filename = name.split("/").last()
+                require(filename.endsWith(".java")) { "filename must end with .java" }
+                require(filename[0].isUpperCase()) { "filename must begin with an uppercase letter" }
+            }
         }
     }
 }

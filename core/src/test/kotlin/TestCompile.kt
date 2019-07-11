@@ -37,8 +37,8 @@ Foo foo = new Foo();
     }
     "should compile multiple sources" {
         val compiledSource = Source(mapOf(
-                "Test" to "public class Test {}",
-                "Me" to "public class Me {}"
+                "Test.java" to "public class Test {}",
+                "Me.java" to "public class Me {}"
         )).compile()
 
         compiledSource should haveDefinedExactlyTheseClasses(setOf("Test", "Me"))
@@ -46,8 +46,8 @@ Foo foo = new Foo();
     }
     "should compile sources with dependencies" {
         val compiledSource = Source(mapOf(
-                "Test" to "public class Test {}",
-                "Me" to "public class Me extends Test {}"
+                "Test.java" to "public class Test {}",
+                "Me.java" to "public class Me extends Test {}"
         )).compile()
 
         compiledSource should haveDefinedExactlyTheseClasses(setOf("Test", "Me"))
@@ -55,8 +55,8 @@ Foo foo = new Foo();
     }
     "should compile sources with dependencies in wrong order" {
         val compiledSource = Source(mapOf(
-                "Test" to "public class Test extends Me {}",
-                "Me" to "public class Me {}"
+                "Test.java" to "public class Test extends Me {}",
+                "Me.java" to "public class Me {}"
         )).compile()
 
         compiledSource should haveDefinedExactlyTheseClasses(setOf("Test", "Me"))
@@ -64,11 +64,11 @@ Foo foo = new Foo();
     }
     "should compile sources in multiple packages" {
         val compiledSource = Source(mapOf(
-                "test/Test" to """
+                "test/Test.java" to """
 package test;
 public class Test {}
                 """.trim(),
-                "me/Me" to """
+                "me/Me.java" to """
 package me;
 public class Me {}
                 """.trim()
@@ -79,12 +79,12 @@ public class Me {}
     }
     "should compile sources in multiple packages with dependencies in wrong order" {
         val compiledSource = Source(mapOf(
-                "test/Test" to """
+                "test/Test.java" to """
 package test;
 import me.Me;
 public class Test extends Me {}
                 """.trim(),
-                "me/Me" to """
+                "me/Me.java" to """
 package me;
 public class Me {}
                 """.trim()
@@ -95,7 +95,7 @@ public class Me {}
     }
     "should compile sources that use Java 10 features" {
         val compiledSource = Source(mapOf(
-                "Test" to """
+                "Test.java" to """
 public class Test {
     public static void main() {
         var i = 0;
@@ -109,7 +109,7 @@ public class Test {
     }
     "should compile sources that use inner classes" {
         val compiledSource = Source(mapOf(
-                "Test" to """
+                "Test.java" to """
 public class Test {
     class Inner { }
     Test() {
@@ -206,11 +206,11 @@ Me me = new Me();
     }
     "should correctly accept previously compiled source argument" {
         val compiledTestSource = Source(
-                mapOf("Test" to """
+                mapOf("Test.java" to """
 public class Test {}
             """.trim())).compile()
         val compiledFooSource = Source(
-                    mapOf("Foo" to """
+                    mapOf("Foo.java" to """
     public class Foo extends Test { }
             """.trim())).compileWith(compiledTestSource)
 
@@ -219,13 +219,13 @@ public class Test {}
     }
     "should correctly accept previously compiled source argument in another package" {
         val compiledMeSource = Source(
-                mapOf("test/Me" to """
+                mapOf("test/Me.java" to """
 package test;
 public class Me {}
             """.trim())).compile()
 
         val compiledFooSource = Source(
-                mapOf("another/Foo" to """
+                mapOf("another/Foo.java" to """
 package another;
 import test.Me;
 public class Foo extends Me { }

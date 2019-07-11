@@ -23,7 +23,7 @@ while (true) {
     }
     "should timeout correctly on sources" {
         val executionResult = Source(mapOf(
-                "Foo" to """
+                "Foo.java" to """
 public class Main {
     public static void main() {
         int i = 0;

@@ -9,28 +9,6 @@ private val logger = KotlinLogging.logger {}
 
 const val SNIPPET_SOURCE = ""
 
-class SnippetTransformationError(
-        line: Int,
-        column: Int,
-        message: String
-) : SourceError(SourceLocation(SNIPPET_SOURCE, line, column), message) {
-    constructor(location: SourceLocation, message: String): this(location.line, location.column, message)
-}
-class SnippetTransformationFailed(errors: List<SnippetTransformationError>) : JeedError(errors)
-
-class SnippetErrorListener : BaseErrorListener() {
-    private val errors = mutableListOf<SnippetTransformationError>()
-    override fun syntaxError(recognizer: Recognizer<*, *>?, offendingSymbol: Any?, line: Int, charPositionInLine: Int, msg: String, e: RecognitionException?) {
-        // Decrement line number by 1 to account for added braces
-        errors.add(SnippetTransformationError( line - 1, charPositionInLine, msg))
-    }
-    fun check() {
-        if (errors.size > 0) {
-            throw SnippetTransformationFailed(errors)
-        }
-    }
-}
-
 class Snippet(
         sources: Map<String, String>,
         val originalSource: String,
@@ -41,9 +19,14 @@ class Snippet(
         @Transient private val remappedLineMapping: Map<Int, RemappedLine> = mapOf()
 ) : Source(
         sources,
-        { sources.keys.size == 1 && sources.keys.first() == "" },
+        {
+            require(sources.keys.size == 1) { "snippets should only provide a single source file" }
+            require(sources.keys.first() == "") { "snippets should use a blank string as their filename" }
+        },
         { mapLocation(it, remappedLineMapping) }
 ) {
+    data class RemappedLine(val sourceLineNumber: Int, val rewrittenLineNumber: Int, val addedIndentation: Int = 0)
+
     fun originalSourceFromMap(): String {
         val lines = rewrittenSource.lines()
         return remappedLineMapping.values.sortedBy { it.sourceLineNumber }.joinToString(separator = "\n") {
@@ -68,11 +51,28 @@ class Snippet(
     }
 }
 
-data class RemappedLine(
-        val sourceLineNumber: Int,
-        val rewrittenLineNumber: Int,
-        val addedIndentation: Int = 0
-)
+class SnippetTransformationError(
+        line: Int,
+        column: Int,
+        message: String
+) : SourceError(SourceLocation(SNIPPET_SOURCE, line, column), message) {
+    constructor(location: SourceLocation, message: String): this(location.line, location.column, message)
+}
+class SnippetTransformationFailed(errors: List<SnippetTransformationError>) : JeedError(errors)
+
+class SnippetErrorListener : BaseErrorListener() {
+    private val errors = mutableListOf<SnippetTransformationError>()
+    override fun syntaxError(recognizer: Recognizer<*, *>?, offendingSymbol: Any?, line: Int, charPositionInLine: Int, msg: String, e: RecognitionException?) {
+        // Decrement line number by 1 to account for added braces
+        errors.add(SnippetTransformationError( line - 1, charPositionInLine, msg))
+    }
+    fun check() {
+        if (errors.size > 0) {
+            throw SnippetTransformationFailed(errors)
+        }
+    }
+}
+
 
 @Throws(SnippetTransformationFailed::class)
 fun Source.Companion.transformSnippet(originalSource: String, indent: Int = 4): Snippet {
@@ -140,7 +140,7 @@ fun Source.Companion.transformSnippet(originalSource: String, indent: Int = 4): 
     val snippetMainMethodName = generateName("main", methodNames)
 
     var currentOutputLineNumber = 1
-    val remappedLineMapping = hashMapOf<Int, RemappedLine>()
+    val remappedLineMapping = hashMapOf<Int, Snippet.RemappedLine>()
 
     val importStatements = mutableListOf<String>()
     originalSource.lines().forEachIndexed { i, line ->
@@ -148,7 +148,7 @@ fun Source.Companion.transformSnippet(originalSource: String, indent: Int = 4): 
         if (contentMapping[lineNumber] == "import") {
             importStatements.add(line)
             assert(!remappedLineMapping.containsKey(currentOutputLineNumber))
-            remappedLineMapping[currentOutputLineNumber] = RemappedLine(lineNumber, currentOutputLineNumber)
+            remappedLineMapping[currentOutputLineNumber] = Snippet.RemappedLine(lineNumber, currentOutputLineNumber)
             currentOutputLineNumber++
         }
     }
@@ -159,7 +159,7 @@ fun Source.Companion.transformSnippet(originalSource: String, indent: Int = 4): 
         if (contentMapping[lineNumber] == "class") {
             classDeclarations.add(line)
             assert(!remappedLineMapping.containsKey(currentOutputLineNumber))
-            remappedLineMapping[currentOutputLineNumber] = RemappedLine(lineNumber, currentOutputLineNumber)
+            remappedLineMapping[currentOutputLineNumber] = Snippet.RemappedLine(lineNumber, currentOutputLineNumber)
             currentOutputLineNumber++
         }
     }
@@ -181,7 +181,7 @@ fun Source.Companion.transformSnippet(originalSource: String, indent: Int = 4): 
             }
             methodDeclarations.add(" ".repeat(indentToUse) + line)
             assert(!remappedLineMapping.containsKey(currentOutputLineNumber))
-            remappedLineMapping[currentOutputLineNumber] = RemappedLine(lineNumber, currentOutputLineNumber, indentToUse)
+            remappedLineMapping[currentOutputLineNumber] = Snippet.RemappedLine(lineNumber, currentOutputLineNumber, indentToUse)
             currentOutputLineNumber++
         }
     }
@@ -196,7 +196,7 @@ fun Source.Companion.transformSnippet(originalSource: String, indent: Int = 4): 
         if (!contentMapping.containsKey(lineNumber)) {
             looseCode.add(" ".repeat(indent * 2) + line)
             assert(!remappedLineMapping.containsKey(currentOutputLineNumber))
-            remappedLineMapping[currentOutputLineNumber] = RemappedLine(lineNumber, currentOutputLineNumber, indent * 2)
+            remappedLineMapping[currentOutputLineNumber] = Snippet.RemappedLine(lineNumber, currentOutputLineNumber, indent * 2)
             currentOutputLineNumber++
         }
     }
@@ -237,7 +237,7 @@ fun Source.Companion.transformSnippet(originalSource: String, indent: Int = 4): 
     )
 }
 
-private fun checkLooseCode(looseCode: String, looseCodeStart: Int, remappedLineMapping: Map<Int, RemappedLine>) {
+private fun checkLooseCode(looseCode: String, looseCodeStart: Int, remappedLineMapping: Map<Int, Snippet.RemappedLine>) {
     val charStream = CharStreams.fromString(looseCode)
     val javaLexer = JavaLexer(charStream)
     javaLexer.removeErrorListeners()

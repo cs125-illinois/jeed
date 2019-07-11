@@ -129,7 +129,7 @@ System.out.println("main");
     }
     "should execute sources" {
         val executionMainResult = Source(mapOf(
-                "Main" to """
+                "Main.java" to """
 public class Main {
     public static void main() {
         var i = 0;
@@ -143,7 +143,7 @@ public class Main {
     }
     "should execute multiple sources with dependencies" {
         val executionMainResult = Source(mapOf(
-                "Main" to """
+                "Main.java" to """
 public class Main {
     public static void main() {
         var i = 0;
@@ -151,7 +151,7 @@ public class Main {
     }
 }
                 """.trim(),
-                "Foo" to """
+                "Foo.java" to """
 public class Foo {
     public static void foo() {
         System.out.println("Foo");
@@ -195,7 +195,7 @@ System.out.println(list.get(0));
     }
     "should execute sources that use inner classes" {
         val executionResult = Source(mapOf(
-                "Main" to """
+                "Main.java" to """
 public class Main {
     class Inner {
         Inner() {

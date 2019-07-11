@@ -170,14 +170,14 @@ strings.stream()
     }
     "should allow generic methods with the default permissions" {
         val executionResult = Source(mapOf(
-                "A" to """
+                "A.java" to """
 public class A implements Comparable<A> {
     public int compareTo(A other) {
         return 0;
     }
 }
                 """.trim(),
-                "Main" to """
+                "Main.java" to """
 public class Main {
     public static <T extends Comparable<T>> int test(T[] values) {
         return 8;
@@ -295,7 +295,7 @@ Map confinedTasks = (Map) field.get(null);
     }
     "should not allow static{} to escape the sandbox" {
         val executionResult = Source(mapOf(
-                "Example" to """
+                "Example.java" to """
 public class Example {
     static {
         System.out.println("Static initializer");
@@ -312,7 +312,7 @@ public class Example {
     }
     "should not allow finalizers to escape the sandbox" {
         val executionResult = Source(mapOf(
-                "Example" to """
+                "Example.java" to """
 public class Example {
     public static void main() {
         Example ex = null;
