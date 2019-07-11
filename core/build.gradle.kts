@@ -17,6 +17,7 @@ dependencies {
     implementation("com.puppycrawl.tools:checkstyle:8.22")
     // Pinned at 1.3.31 since upgrading to 1.3.40 causes the first test StackOverFlowError bug
     implementation("org.jetbrains.kotlin:kotlin-reflect:1.3.31")
+    implementation("com.github.jknack:handlebars:4.1.2")
     implementation("com.squareup.moshi:moshi:1.8.0")
     implementation("org.ow2.asm:asm:7.1")
     implementation("org.ow2.asm:asm-util:7.1")
