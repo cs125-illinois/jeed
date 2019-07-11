@@ -43,7 +43,7 @@ object Sandbox {
         }
         companion object {
             val DEFAULT_BLACKLISTED_CLASSES = setOf("java.lang.reflect.")
-            val PERMANENTLY_BLACKLISTED_CLASSES = setOf("edu.illinois.cs.cs125.jeed.", "org.objectweb.asm.")
+            val PERMANENTLY_BLACKLISTED_CLASSES = setOf("edu.illinois.cs.cs125.jeed.", "org.objectweb.asm.", "java.lang.invoke.MethodHandles")
             val ALWAYS_UNSAFE_EXCEPTIONS = setOf("java.lang.Error")
         }
     }
