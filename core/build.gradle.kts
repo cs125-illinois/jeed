@@ -15,6 +15,7 @@ dependencies {
     implementation(kotlin("stdlib"))
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-core:1.3.0-M2")
     implementation("com.puppycrawl.tools:checkstyle:8.22")
+    // Pinned at 1.3.31 since upgrading to 1.3.40 causes the first test StackOverFlowError bug
     implementation("org.jetbrains.kotlin:kotlin-reflect:1.3.31")
     implementation("com.squareup.moshi:moshi:1.8.0")
     implementation("org.ow2.asm:asm:7.1")
@@ -23,6 +24,7 @@ dependencies {
     implementation("ch.qos.logback:logback-classic:1.2.3")
     implementation("io.github.microutils:kotlin-logging:1.6.26")
 
+    // Pinned at 3.3.2 since upgrading to 3.3.3 causes the first test StackOverFlowError bug
     testImplementation("io.kotlintest:kotlintest-runner-junit5:3.3.2")
 }
 tasks.generateGrammarSource {
