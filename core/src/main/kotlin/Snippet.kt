@@ -9,20 +9,6 @@ private val logger = KotlinLogging.logger {}
 
 const val SNIPPET_SOURCE = ""
 
-fun generateName(prefix: String, existingNames: Set<String>) : String {
-    if (!existingNames.contains(prefix)) {
-        return prefix
-    } else {
-        for (suffix in 1..64) {
-            val testClassName = "$prefix$suffix"
-            if (!existingNames.contains(testClassName)) {
-                return testClassName
-            }
-        }
-    }
-    throw IllegalStateException("couldn't generate $prefix class name")
-}
-
 class SnippetTransformationError(
         line: Int,
         column: Int,
@@ -269,4 +255,18 @@ private fun checkLooseCode(looseCode: String, looseCodeStart: Int, remappedLineM
     if (validationErrors.isNotEmpty()) {
         throw SnippetTransformationFailed(validationErrors)
     }
+}
+
+private fun generateName(prefix: String, existingNames: Set<String>) : String {
+    if (!existingNames.contains(prefix)) {
+        return prefix
+    } else {
+        for (suffix in 1..64) {
+            val testClassName = "$prefix$suffix"
+            if (!existingNames.contains(testClassName)) {
+                return testClassName
+            }
+        }
+    }
+    throw IllegalStateException("couldn't generate $prefix class name")
 }
