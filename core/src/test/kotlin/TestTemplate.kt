@@ -62,6 +62,34 @@ public class Question {
 }""".trim()
         templatedSource.originalSources["Test.java"] shouldBe "int i = 0;"
     }
+    "should work with multi-line indented templates" {
+        val templatedSource = Source.fromTemplates(mapOf(
+                "Test.java" to """
+int i = 0;
+i += 4;
+""".trim()
+        ), mapOf("Test.hbs" to """
+public class Question {
+    public static void main() {
+        {{{ contents }}}
+    }
+}""".trim()
+        ))
+
+        templatedSource.sources.keys shouldHaveSize 1
+        templatedSource.originalSources.keys shouldHaveSize 1
+        templatedSource.sources["Test.java"] shouldBe """
+public class Question {
+    public static void main() {
+        int i = 0;
+        i += 4;
+    }
+}""".trim()
+        templatedSource.originalSources["Test.java"] shouldBe """
+int i = 0;
+i += 4;
+""".trim()
+    }
     "should fail with broken templates" {
         val templatingFailed = shouldThrow<TemplatingFailed> {
             Source.fromTemplates(mapOf("Test.java" to "int i = 0;"

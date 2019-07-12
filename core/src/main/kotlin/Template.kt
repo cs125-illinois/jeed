@@ -11,7 +11,7 @@ class TemplatedSource(
     data class RemappedLines(val start: Int, val end: Int, val addedIndentation: Int = 0)
     companion object {
         fun mapLocation(input: SourceLocation, remappedLineMapping: Map<String, RemappedLines>): SourceLocation {
-            val remappedLineInfo = remappedLineMapping[input.source] ?: assert { "should contain source mapping" }
+            val remappedLineInfo = remappedLineMapping[input.source] ?: return input
             assert(remappedLineInfo.start <= input.line) { "can't map line before template range" }
             assert(input.line >= remappedLineInfo.start) { "can't map line after template range" }
             return SourceLocation(
@@ -43,9 +43,35 @@ fun Source.Companion.fromTemplates(sources: Map<String, String>, templates: Map<
 
     val templatingErrors = mutableListOf<TemplatingError>()
 
+    val remappedLineMapping = mutableMapOf<String, TemplatedSource.RemappedLines>()
     val templatedSources = sources.mapValues { (name, source) ->
         val templateName = "${name.removeSuffix(".java")}.hbs"
-        if (!templates.keys.contains(templateName)) { return@mapValues source }
+        val templateSource = templates[templateName] ?: return@mapValues source
+
+        val contentsLines = templateSource.lines().mapIndexed{ lineNumber, line ->
+            Pair(lineNumber, line)
+        }.filter { (_, line) ->
+            line.contains(TEMPLATE_START)
+        }
+
+        val leadingWhitespaceContent = if (contentsLines.size == 1) {
+            val sourceLength = source.lines().size
+            val templateLine = contentsLines.first()
+            val leadingWhitespace = LEADING_WHITESPACE.find(templateLine.second)
+            val (whitespaceContent, leadingWhitespaceAmount) = if (leadingWhitespace == null) {
+                Pair("", 0)
+            } else {
+                Pair(leadingWhitespace.value, leadingWhitespace.range.last + 1)
+            }
+            remappedLineMapping[name] = TemplatedSource.RemappedLines(
+                    templateLine.first + 1,
+                    templateLine.first + sourceLength,
+                    leadingWhitespaceAmount
+            )
+            whitespaceContent
+        } else {
+            ""
+        }
 
         val template = try {
             handlebars.compileInline(templates[templateName])
@@ -55,7 +81,10 @@ fun Source.Companion.fromTemplates(sources: Map<String, String>, templates: Map<
         } ?: assert { "should have created a template" }
 
         try {
-             template.apply(mapOf("contents" to source))
+            val indentedSource = source.lines().mapIndexed { i, line ->
+                if (i > 0) { "$leadingWhitespaceContent$line" } else { line }
+            }.joinToString(separator = "\n")
+            template.apply(mapOf("contents" to indentedSource))
         } catch (e: HandlebarsException) {
             templatingErrors.add(TemplatingError(name, e.error.line, e.error.column, e.error.message))
             ""
@@ -63,25 +92,6 @@ fun Source.Companion.fromTemplates(sources: Map<String, String>, templates: Map<
     }
     if (templatingErrors.isNotEmpty()) {
         throw TemplatingFailed(templatingErrors)
-    }
-
-    val remappedLineMapping = sources.mapValues { (name, source) ->
-        val templateName = "${name.removeSuffix(".java")}.hbs"
-        val sourceLength = source.lines().size
-
-        val templateSource = templates[templateName]
-                ?: return@mapValues TemplatedSource.RemappedLines(1, sourceLength)
-
-        val contentsLines = templateSource.lines().mapIndexed{ lineNumber, line ->
-            Pair(lineNumber, line)
-        }.filter { (_, line) ->
-            line.contains(TEMPLATE_START)
-        }
-        require(contentsLines.size == 1) { "template string occurs twice in template" }
-
-        val templateLine = contentsLines.first()
-        val leadingWhitespace = (LEADING_WHITESPACE.find(templateLine.second)?.range?.endInclusive ?: -1) + 1
-        TemplatedSource.RemappedLines(templateLine.first + 1, templateLine.first + sourceLength, leadingWhitespace)
     }
 
     return TemplatedSource(templatedSources, sources, remappedLineMapping)
