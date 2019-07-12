@@ -12,6 +12,8 @@ val Adapters = setOf(
         SnippetTransformationFailedAdapter(),
         CompilationFailedAdapter(),
         CompiledSourceAdapter(),
+        TemplatingErrorAdapter(),
+        TemplatingFailedAdapter(),
         PermissionAdapter(),
         ThrowableAdapter(),
         InstantAdapter(),
@@ -30,7 +32,10 @@ class CompilationFailedAdapter {
         return CompilationFailedJson(compilationFailed.errors as List<CompilationFailed.CompilationError>)
     }
 }
-data class CompiledSourceJson(val messages: List<CompiledSource.CompilationMessage>)
+data class CompiledSourceJson(
+        val messages: List<CompiledSource.CompilationMessage>,
+        val interval: Interval
+)
 class CompiledSourceAdapter {
     @Throws(Exception::class)
     @Suppress("UNUSED_PARAMETER")
@@ -40,7 +45,7 @@ class CompiledSourceAdapter {
     }
     @ToJson
     fun compiledSourceToJson(compiledSource: CompiledSource): CompiledSourceJson {
-        return CompiledSourceJson(compiledSource.messages)
+        return CompiledSourceJson(compiledSource.messages, compiledSource.interval)
     }
 }
 data class SnippetTransformationErrorJson(val line: Int, val column: Int, val message: String)
@@ -62,6 +67,26 @@ class SnippetTransformationFailedAdapter {
         return SnippetTransformationFailedJson(snippetTransformationFailed.errors as List<SnippetTransformationError>)
     }
 }
+data class TemplatingErrorJson(val name: String, val line: Int, val column: Int, val message: String)
+class TemplatingErrorAdapter {
+    @FromJson fun templatingErrorFromJson(templatingErrorJson: TemplatingErrorJson): TemplatingError {
+        return TemplatingError(templatingErrorJson.name, templatingErrorJson.line, templatingErrorJson.column, templatingErrorJson.message)
+    }
+    @ToJson fun templatingErrorToJson(templatingError: TemplatingError): TemplatingErrorJson {
+        return TemplatingErrorJson(templatingError.location.source, templatingError.location.line, templatingError.location.column, templatingError.message)
+    }
+}
+data class TemplatingFailedJson(val errors: List<TemplatingError>)
+class TemplatingFailedAdapter {
+    @FromJson fun templatingFailedFromJson(templatingFailedJson: TemplatingFailedJson): TemplatingFailed {
+        return TemplatingFailed(templatingFailedJson.errors)
+    }
+    @Suppress("UNCHECKED_CAST")
+    @ToJson fun templatingFailedToJson(templatingFailed: TemplatingFailed): TemplatingFailedJson {
+        return TemplatingFailedJson(templatingFailed.errors as List<TemplatingError>)
+    }
+}
+
 data class PermissionJson(val type: String, val name: String, val actions: String?)
 class PermissionAdapter {
     @FromJson fun permissionFromJson(permissionJson: PermissionJson): Permission {

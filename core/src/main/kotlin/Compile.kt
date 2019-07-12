@@ -6,6 +6,7 @@ import java.net.URI
 import java.nio.charset.Charset
 import java.security.AccessController
 import java.security.PrivilegedAction
+import java.time.Instant
 import java.util.*
 import javax.tools.*
 
@@ -35,6 +36,7 @@ class CompilationFailed(errors: List<CompilationError>) : JeedError(errors) {
 class CompiledSource(
         val source: Source,
         val messages: List<CompilationMessage>,
+        val interval: Interval,
         @Transient val classLoader: JeedClassLoader,
         @Transient val fileManager: JeedFileManager
 ) {
@@ -47,6 +49,8 @@ private fun compile(
         parentFileManager: JavaFileManager? = compilationArguments.parentFileManager,
         parentClassLoader: ClassLoader? = compilationArguments.parentClassLoader ?: ClassLoader.getSystemClassLoader()
 ): CompiledSource {
+    val started = Instant.now()
+
     val units = source.sources.entries.map { Unit(it) }
     val results = Results()
     val fileManager = JeedFileManager(parentFileManager ?: ToolProvider.getSystemJavaCompiler().getStandardFileManager(results, Locale.US, Charset.forName("UTF-8")))
@@ -76,7 +80,7 @@ private fun compile(
         JeedClassLoader(fileManager, parentClassLoader)
     })
 
-    return CompiledSource(source, messages, classLoader, fileManager)
+    return CompiledSource(source, messages, Interval(started, Instant.now()), classLoader, fileManager)
 }
 
 fun Source.compile(
