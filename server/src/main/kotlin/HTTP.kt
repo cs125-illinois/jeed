@@ -8,9 +8,12 @@ import io.ktor.application.ApplicationCallPipeline
 import io.ktor.application.call
 import io.ktor.application.install
 import io.ktor.features.ContentNegotiation
+import io.ktor.http.ContentType
 import io.ktor.http.HttpStatusCode
 import io.ktor.request.receive
 import io.ktor.response.respond
+import io.ktor.response.respondText
+import io.ktor.routing.get
 import io.ktor.routing.post
 import io.ktor.routing.routing
 
@@ -22,6 +25,9 @@ fun Application.jeed() {
         }
     }
     routing {
+        get("/") {
+            call.respondText("OK", ContentType.Text.Plain)
+        }
         post("/") {
             try {
                 val job = call.receive<Job>()

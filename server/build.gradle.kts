@@ -1,6 +1,7 @@
 plugins {
     kotlin("jvm")
     kotlin("kapt")
+    id("com.github.johnrengelman.shadow") version "5.1.0"
 }
 tasks.test {
     useJUnitPlatform()
@@ -22,4 +23,9 @@ dependencies {
     testImplementation("io.kotlintest:kotlintest-runner-junit5:$kotlintestVersion")
     testImplementation("io.kotlintest:kotlintest-assertions-ktor:$kotlintestVersion")
     testImplementation("io.ktor:ktor-server-test-host:$ktorVersion")
+}
+tasks.jar {
+    manifest {
+        attributes["Main-Class"] = "edu.illinois.cs.cs125.jeed.server.MainKt"
+    }
 }

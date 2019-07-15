@@ -15,7 +15,7 @@ dependencies {
     implementation(kotlin("stdlib"))
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-core:1.3.0-M2")
     implementation("com.puppycrawl.tools:checkstyle:8.22")
-    // Pinned at 1.3.31 since upgrading to 1.3.40 causes the first test StackOverFlowError bug
+    // Pinned at 1.3.31 since upgrading to 1.3.41 causes the first test StackOverFlowError bug
     implementation("org.jetbrains.kotlin:kotlin-reflect:1.3.31")
     implementation("com.github.jknack:handlebars:4.1.2")
     implementation("com.squareup.moshi:moshi:1.8.0")

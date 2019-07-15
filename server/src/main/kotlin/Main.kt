@@ -4,11 +4,14 @@ import io.ktor.application.Application
 import io.ktor.server.engine.embeddedServer
 import io.ktor.server.netty.Netty
 import java.lang.AssertionError
+import java.net.URI
 
 fun main() {
-    val port = (System.getenv("PORT") ?: "8080").toIntOrNull()
-            ?: require { "${System.getenv("PORT")} is not a valid port number " }
-    embeddedServer(Netty, port = port, module = Application::jeed).start(wait = true)
+    System.getenv("HTTP")?.run {
+        val url = URI(this)
+        assert(url.scheme == "http")
+        embeddedServer(Netty, host=url.host, port=url.port, module=Application::jeed).start(wait = true)
+    }
 }
 
 fun assert(block: () -> String): Nothing { throw AssertionError(block()) }
