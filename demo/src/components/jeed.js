@@ -7,14 +7,6 @@ import 'brace/mode/java'
 import 'brace/theme/github'
 
 import styled from 'styled-components'
-import { space } from 'styled-system'
-
-const Wrapper = styled.div`
-  display: flex
-  position: relative
-  border: 1px solid LightGrey
-`
-const Output = styled.output``
 
 class Jeed extends React.Component {
   constructor() {
@@ -24,25 +16,22 @@ class Jeed extends React.Component {
     }
   }
   render() {
+    const { Wrapper, RunButton, RunIcon, Output } = this.props
     return (
       <Wrapper>
-        <AceEditor {...this.props} style={{ "flex": 1 }}/>
-        <Run />
-        <Output>{ this.state.output }</Output>
+        <AceEditor { ...this.props.ace }/>
+        <RunButton onClick={ () => { console.log("Here") }}>
+          <RunIcon />
+        </RunButton>
+        <Output>
+          { this.state.output }
+        </Output>
       </Wrapper>
     )
   }
 }
 
-Jeed.defaultProps = {
-  mode: "java",
-  theme: "github",
-  width: "100%",
-  highlightActiveLine: false,
-  showPrintMargin: false
-}
-
-const Button = styled.button`
+const RunButton = styled.button`
     position: absolute
     bottom: 0
     right: 0
@@ -52,15 +41,31 @@ const Button = styled.button`
     cursor: pointer
     padding-bottom: 4px
     padding-right: 4px
-  `
-const Run = () => {
-  return (
-    <Button>
-      <svg width='16px' height='16px' viewBox="0 0 60 60">
-        <polygon points="0,0 50,30 0,60" />
-      </svg>
-    </Button>
-  )
+`
+
+const RunIcon = () =>
+  <svg width='16px' height='16px' viewBox="0 0 60 60">
+    <polygon points="0,0 50,30 0,60" />
+  </svg>
+
+const Output = styled.output``
+
+Jeed.defaultProps = {
+  Wrapper: styled.div`
+    display: flex
+    position: relative
+    border: 1px solid LightGrey
+  `,
+  RunButton,
+  RunIcon,
+  Output,
+  ace: {
+    mode: "java",
+    theme: "github",
+    width: "100%",
+    highlightActiveLine: false,
+    showPrintMargin: false
+  }
 }
 
 export default Jeed
