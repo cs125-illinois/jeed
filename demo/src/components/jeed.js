@@ -1,4 +1,5 @@
-import React from "react"
+import React from 'react'
+import PropTypes from 'prop-types'
 
 import AceEditor from 'react-ace'
 
@@ -50,6 +51,10 @@ const RunIcon = () =>
 
 const Output = styled.output``
 
+Jeed.propTypes = {
+  server: PropTypes.string.isRequired
+}
+
 Jeed.defaultProps = {
   Wrapper: styled.div`
     display: flex
@@ -68,4 +73,12 @@ Jeed.defaultProps = {
   }
 }
 
-export default Jeed
+function withServer(server) {
+  return class extends React.Component {
+    render() {
+      return <Jeed server={ server } { ...this.props } />
+    }
+  }
+}
+
+export default withServer

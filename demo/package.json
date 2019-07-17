@@ -1,6 +1,9 @@
 {
   "dependencies": {
+    "@mdx-js/mdx": "^1.1.0",
+    "@mdx-js/react": "^1.0.27",
     "gatsby": "^2.13.21",
+    "gatsby-plugin-mdx": "^1.0.13",
     "prop-types": "^15.7.2",
     "react": "^16.8.6",
     "react-ace": "^7.0.2",
@@ -11,5 +14,8 @@
   "scripts": {
     "develop": "GATSBY_JEED_SERVER=http://localhost:8888/ gatsby develop",
     "build": "gatsby build"
+  },
+  "devDependencies": {
+    "gatsby-plugin-root-import": "^2.0.5"
   }
 }
