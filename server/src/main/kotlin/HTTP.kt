@@ -7,6 +7,7 @@ import io.ktor.application.Application
 import io.ktor.application.ApplicationCallPipeline
 import io.ktor.application.call
 import io.ktor.application.install
+import io.ktor.features.CORS
 import io.ktor.features.ContentNegotiation
 import io.ktor.http.HttpStatusCode
 import io.ktor.request.receive
@@ -16,6 +17,9 @@ import io.ktor.routing.post
 import io.ktor.routing.routing
 
 fun Application.jeed() {
+    install(CORS) {
+        anyHost()
+    }
     install(ContentNegotiation) {
         moshi {
             JeedAdapters.forEach { this.add(it) }

@@ -13,11 +13,15 @@ import 'brace/theme/github'
 
 import styled from 'styled-components'
 
+import axios from 'axios';
+
 import log from 'loglevel'
+
 const logger = log.getLogger("Jeed")
 
+var serverInfo
 class Jeed extends React.Component {
-  constructor({ children, mode: passedMode }) {
+  constructor({ children, mode: passedMode, tasks }) {
     super()
 
     this.originalSources = {}
@@ -34,7 +38,6 @@ class Jeed extends React.Component {
         this.originalSources[filename] = Children.onlyText(child.props.children).trim() + "\n"
       } catch (error) { }
     })
-    const enabled = _.find(this.originalSources, source => source.trim().length > 0) !== undefined
 
     var mode = passedMode
     if (mode === "auto") {
@@ -46,25 +49,51 @@ class Jeed extends React.Component {
     }
 
     this.state = {
-      output: null, enabled, mode
+      output: null, mode, sources: _.clone(this.originalSources), serverInfo, tasks
     }
   }
 
+  run = async () => {
+    const { server } = this.props
+    const { sources, mode, tasks } = this.state
+    const request = { tasks }
+    if (mode === "snippet") {
+      request.snippet = sources[""]
+    }
+    const result = await axios.post(server, request)
+    const output = _.map(result.data.completed.execution.outputLines, (line, key) =>
+      <span key={ key } style={{ color: line.console === "STDERR" ? "red" : "black" }}>{ line.line }</span>
+    )
+    this.setState({ output })
+  }
+
   render() {
-    const { Wrapper, RunButton, RunIcon, Output } = this.props
-    const { output, enabled } = this.state
-    const { originalSources, mode } = this
+    const { Wrapper, ace, RunButton, RunIcon, Output } = this.props
+    const { sources, output, serverInfo } = this.state
 
     return (
       <Wrapper>
         <AceEditor
-          defaultValue={ originalSources[""] }
+          value={ sources[""] }
           editorProps={{ $blockScrolling: true }}
-          { ...this.props.ace }
+          onLoad={ editor => {
+            editor.gotoLine(1, 0)
+            editor.commands.addCommand({
+              name: "run code",
+              bindKey: { win: "Ctrl-Enter", mac: "Ctrl-Enter"},
+              exec: () => { this.run() }
+            })
+          }}
+          onChange={ contents => {
+            sources[""] = contents
+          }}
+          { ...ace }
         />
-        <RunButton onClick={ () => { console.log("Here") }}>
-          <RunIcon enabled={ enabled }/>
-        </RunButton>
+        { serverInfo &&
+            <RunButton onClick={ () => { this.run() }}>
+              <RunIcon />
+            </RunButton>
+        }
         <Output>{ output }</Output>
       </Wrapper>
     )
@@ -83,13 +112,9 @@ const RunButton = styled.button`
     padding-right: 4px
 `
 
-const RunIcon = ({ enabled }) =>
+const RunIcon = () =>
   <svg width='16px' height='16px' viewBox="0 0 60 60">
-    <polygon points="0,0 50,30 0,60"
-      style={{
-        "fill": enabled ? "green" : "grey"
-      }}
-    />
+    <polygon points="0,0 50,30 0,60" style={{ "fill": "green" }} />
   </svg>
 
 const Output = styled.output``
@@ -101,6 +126,7 @@ Jeed.propTypes = {
 Jeed.defaultProps = {
   Wrapper: styled.div`
     display: flex
+    flex-direction: column
     position: relative
     border: 1px solid LightGrey
   `,
@@ -114,15 +140,17 @@ Jeed.defaultProps = {
     highlightActiveLine: false,
     showPrintMargin: false,
     minLines: 4,
-    maxLines: Infinity
+    maxLines: Infinity,
   },
-  mode: "auto"
+  mode: "auto",
+  tasks: [ "execute" ]
 }
 
-function withServer(server) {
+function withServer(server, defaultProps={}) {
+  axios.get(server).then(response => { serverInfo = response.data })
   return class extends React.Component {
     render() {
-      return <Jeed server={ server } { ...this.props } />
+      return <Jeed server={ server } { ...defaultProps } { ...this.props } />
     }
   }
 }
