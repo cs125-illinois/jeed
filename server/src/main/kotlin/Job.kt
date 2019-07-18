@@ -26,6 +26,8 @@ class Job(
         tasks = tasksToRun.toSet()
     }
     suspend fun run(): Result {
+        currentStatus.counts.submittedJobs++
+
         val started = Instant.now()
 
         val result = Result(this)
@@ -54,6 +56,7 @@ class Job(
         } catch (compilationFailed: CompilationFailed) {
             result.failed.compilation = compilationFailed
         } finally {
+            currentStatus.counts.completedJobs++
             result.interval = Interval(started, Instant.now())
             return result
         }
@@ -93,6 +96,7 @@ class TaskArguments(
 )
 
 class Result(job: Job) {
+    val status = currentStatus
     val tasks = job.tasks
     val arguments = job.arguments
     val completed: CompletedTasks = CompletedTasks()
@@ -100,6 +104,7 @@ class Result(job: Job) {
     lateinit var interval: Interval
 
     data class ResultJson(
+            val status: Status,
             val tasks: Set<Task>,
             val arguments: TaskArguments,
             val completed: CompletedTasks,
@@ -115,7 +120,7 @@ class Result(job: Job) {
         }
         @ToJson
         fun resultToJson(result: Result): ResultJson {
-            return ResultJson(result.tasks, result.arguments, result.completed, result.failed, result.interval)
+            return ResultJson(result.status, result.tasks, result.arguments, result.completed, result.failed, result.interval)
         }
     }
 

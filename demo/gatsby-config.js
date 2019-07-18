@@ -7,6 +7,7 @@ module.exports = {
     author: `@gatsbyjs`,
   },
   plugins: [
-    `gatsby-plugin-mdx`
+    `gatsby-plugin-mdx`,
+    `gatsby-plugin-lodash`
   ]
 }

@@ -78,4 +78,13 @@ public class Main {
             }
         }
     }
+    "should provide info in response to GET" {
+        withTestApplication(Application::jeed) {
+            handleRequest(HttpMethod.Get, "/") {
+                addHeader("content-type", "application/json")
+            }.apply {
+                response.shouldHaveStatus(HttpStatusCode.OK.value)
+            }
+        }
+    }
 })

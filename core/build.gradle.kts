@@ -1,9 +1,16 @@
+import java.util.Properties
+
 plugins {
     kotlin("jvm")
     antlr
     java
     maven
+    `maven-publish`
 }
+
+group = "com.github.cs125-illinois"
+version = "1.0.0"
+
 tasks.test {
     useJUnitPlatform()
     jvmArgs("-ea", "-Xmx1G")
@@ -33,5 +40,14 @@ tasks.generateGrammarSource {
     arguments.addAll(listOf("-visitor", "-package", "edu.illinois.cs.cs125.jeed.core.antlr", "-Xexact-output-dir"))
 }
 tasks.compileKotlin {
-    dependsOn(tasks.generateGrammarSource)
+    dependsOn(tasks.generateGrammarSource, "createProperties")
+}
+task("createProperties") {
+    dependsOn(tasks.processResources)
+    doLast {
+        val properties = Properties().also {
+            it["version"] = project.version.toString()
+        }
+        File(projectDir, "src/main/resources/version.properties").printWriter().use { properties.store(it, null) }
+    }
 }
