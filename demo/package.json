@@ -18,6 +18,7 @@
   },
   "scripts": {
     "develop": "GATSBY_JEED_SERVER=http://localhost:8888/ gatsby develop",
+    "develop:minikube": "GATSBY_JEED_SERVER=https://$(minikube ip)/demos/jeed/ gatsby develop",
     "build": "gatsby build"
   },
   "devDependencies": {
