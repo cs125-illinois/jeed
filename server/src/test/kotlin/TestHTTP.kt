@@ -1,6 +1,5 @@
 package edu.illinois.cs.cs125.jeed.server
 
-
 import io.kotlintest.assertions.ktor.shouldHaveStatus
 import io.kotlintest.specs.StringSpec
 import io.ktor.application.Application

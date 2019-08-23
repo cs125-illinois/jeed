@@ -2,6 +2,7 @@ package edu.illinois.cs.cs125.jeed.server
 
 import com.ryanharter.ktor.moshi.moshi
 import com.squareup.moshi.JsonEncodingException
+import edu.illinois.cs.cs125.jeed.server.moshi.Adapters
 import edu.illinois.cs.cs125.jeed.core.moshi.Adapters as JeedAdapters
 import io.ktor.application.Application
 import io.ktor.application.ApplicationCallPipeline

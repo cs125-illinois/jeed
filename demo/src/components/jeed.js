@@ -19,7 +19,8 @@ import log from 'loglevel'
 
 const logger = log.getLogger("Jeed")
 
-var serverInfo
+const JeedContext = React.createContext({ serverInfo: undefined })
+
 class Jeed extends React.Component {
   constructor({ children, mode: passedMode, tasks }) {
     super()
@@ -60,16 +61,14 @@ class Jeed extends React.Component {
     if (mode === "snippet") {
       request.snippet = sources[""]
     }
-    const result = await axios.post(server, request)
-    const output = _.map(result.data.completed.execution.outputLines, (line, key) =>
-      <span key={ key } style={{ color: line.console === "STDERR" ? "red" : "black" }}>{ line.line }</span>
-    )
-    this.setState({ output })
+    const response = await axios.post(server, request)
+    console.log(response)
+    this.setState({ response })
   }
 
   render() {
     const { Wrapper, ace, RunButton, RunIcon, Output } = this.props
-    const { sources, output, serverInfo } = this.state
+    const { serverInfo, sources, response } = this.state
 
     return (
       <Wrapper>
@@ -84,23 +83,34 @@ class Jeed extends React.Component {
               exec: () => { this.run() }
             })
           }}
-          onChange={ contents => {
-            sources[""] = contents
-          }}
+          onChange={ contents => { sources[""] = contents }}
           { ...ace }
         />
-        { serverInfo &&
-            <RunButton onClick={ () => { this.run() }}>
-              <RunIcon />
-            </RunButton>
-        }
-        <Output>{ output }</Output>
+        <RunButton serverInfo={ serverInfo } onClick={ () => { this.run() }} />
+        <Results { ...response } />
       </Wrapper>
     )
   }
 }
 
-const RunButton = styled.button`
+class Results extends React.PureComponent {
+  static Output = styled.output``
+  render() {
+    console.log(this.props)
+
+    /*
+    const output = _.map(result.data.completed.execution.outputLines, (line, key) =>
+      <span key={ key } style={{ color: line.console === "STDERR" ? "red" : "black" }}>{ line.line }</span>
+    )
+    */
+    return (
+      <Results.Output />
+    )
+  }
+}
+
+class RunButton extends React.PureComponent {
+  static Button = styled.button`
     position: absolute
     bottom: 0
     right: 0
@@ -110,14 +120,18 @@ const RunButton = styled.button`
     cursor: pointer
     padding-bottom: 4px
     padding-right: 4px
-`
+  `
+  render() {
+    const { serverInfo, onClick, children } = this.props
+    return <RunButton.Button onClick={ onClick }>{ children }</RunButton.Button>
+  }
+}
 
 const RunIcon = () =>
   <svg width='16px' height='16px' viewBox="0 0 60 60">
     <polygon points="0,0 50,30 0,60" style={{ "fill": "green" }} />
   </svg>
 
-const Output = styled.output``
 
 Jeed.propTypes = {
   server: PropTypes.string.isRequired
@@ -132,7 +146,7 @@ Jeed.defaultProps = {
   `,
   RunButton,
   RunIcon,
-  Output,
+  Results,
   ace: {
     mode: "java",
     theme: "github",
@@ -147,7 +161,16 @@ Jeed.defaultProps = {
 }
 
 function withServer(server, defaultProps={}) {
-  axios.get(server).then(response => { serverInfo = response.data })
+  axios.get(server).then(response => {
+    try {
+      if ("jeed" in response.data.versions) {
+        serverInfo = response.data
+      }
+    } catch (err) {
+      console.log(err)
+      serverInfo = undefined
+    }
+  })
   return class extends React.Component {
     render() {
       return <Jeed server={ server } { ...defaultProps } { ...this.props } />

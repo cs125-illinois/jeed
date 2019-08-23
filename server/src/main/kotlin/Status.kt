@@ -1,6 +1,8 @@
 package edu.illinois.cs.cs125.jeed.server
 
+import com.squareup.moshi.FromJson
 import com.squareup.moshi.JsonClass
+import com.squareup.moshi.ToJson
 import edu.illinois.cs.cs125.jeed.core.version
 import java.time.Instant
 

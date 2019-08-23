@@ -8,9 +8,9 @@ import java.net.URI
 
 fun main() {
     System.getenv("HTTP")?.run {
-        val url = URI(this)
-        assert(url.scheme == "http")
-        embeddedServer(Netty, host=url.host, port=url.port, module=Application::jeed).start(wait = true)
+        val uri = URI(this)
+        assert(uri.scheme == "http")
+        embeddedServer(Netty, host=uri.host, port=uri.port, module=Application::jeed).start(wait = true)
     }
 }
 

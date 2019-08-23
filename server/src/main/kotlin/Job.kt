@@ -1,8 +1,16 @@
 package edu.illinois.cs.cs125.jeed.server
 
+import com.mongodb.MongoClient
+import com.mongodb.MongoClientURI
 import com.squareup.moshi.FromJson
+import com.squareup.moshi.JsonAdapter
+import com.squareup.moshi.Moshi
 import com.squareup.moshi.ToJson
 import edu.illinois.cs.cs125.jeed.core.*
+import edu.illinois.cs.cs125.jeed.server.moshi.Adapters
+import edu.illinois.cs.cs125.jeed.core.moshi.Adapters as JeedAdapters
+import kotlinx.coroutines.*
+import org.bson.BsonDocument
 import java.time.Instant
 
 class Job(
@@ -58,6 +66,9 @@ class Job(
         } finally {
             currentStatus.counts.completedJobs++
             result.interval = Interval(started, Instant.now())
+            if (mongoCollection != null) {
+                GlobalScope.launch { mongoCollection.insertOne(BsonDocument.parse(result.json)) }
+            }
             return result
         }
     }
@@ -79,6 +90,14 @@ class Job(
         fun jobToJson(job: Job): JobJson {
             assert(!(job.source != null && job.snippet != null)) { "can't set both snippet and sources" }
             return JobJson(job.source, job.templates, job.snippet, job.tasks, job.arguments)
+        }
+    }
+    companion object {
+        val mongoCollection = System.getenv("MONGODB")?.run {
+            val uri = MongoClientURI(this)
+            val database = uri.database ?: assert {"MONGODB must specify database" }
+            val collection = System.getenv("MONGO_COLLECTION") ?: "jeed"
+            MongoClient(uri).getDatabase(database).getCollection(collection, BsonDocument::class.java)
         }
     }
 }
@@ -103,6 +122,9 @@ class Result(job: Job) {
     val failed: FailedTasks = FailedTasks()
     lateinit var interval: Interval
 
+    val json: String
+        get() = resultAdapter.toJson(this)
+
     data class ResultJson(
             val status: Status,
             val tasks: Set<Task>,
@@ -124,6 +146,13 @@ class Result(job: Job) {
         }
     }
 
+    companion object {
+        val resultAdapter: JsonAdapter<Result> = Moshi.Builder().let { builder ->
+            Adapters.forEach { builder.add(it) }
+            JeedAdapters.forEach { builder.add(it) }
+            builder.build().adapter(Result::class.java)
+        }
+    }
 }
 class CompletedTasks(
         var snippet: Snippet? = null,
@@ -136,6 +165,3 @@ class FailedTasks(
         var template: TemplatingFailed? = null,
         var compilation: CompilationFailed? = null
 )
-
-@JvmField
-val Adapters = setOf(Job.JobAdapter(), Result.ResultAdapter())

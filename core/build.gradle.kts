@@ -30,7 +30,7 @@ dependencies {
     implementation("org.ow2.asm:asm-util:7.1")
     implementation("org.slf4j:slf4j-api:1.7.26")
     implementation("ch.qos.logback:logback-classic:1.2.3")
-    implementation("io.github.microutils:kotlin-logging:1.6.26")
+    implementation("io.github.microutils:kotlin-logging:1.7.1")
 
     // Pinned at 3.3.2 since upgrading to 3.3.3 causes the first test StackOverFlowError bug
     testImplementation("io.kotlintest:kotlintest-runner-junit5:3.3.2")

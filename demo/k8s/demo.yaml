@@ -16,6 +16,7 @@ spec:
       containers:
       - name: jeed-demo
         image: cs125/jeed:latest
+        imagePullPolicy: Always
         env:
         - name: HTTP
           value: http://0.0.0.0:80

@@ -15,11 +15,13 @@ dependencies {
     implementation(project(":core"))
     implementation(kotlin("stdlib"))
     implementation("io.ktor:ktor-server-netty:$ktorVersion")
+    implementation("org.mongodb:mongodb-driver:3.10.2")
+    implementation("org.jetbrains.kotlinx:kotlinx-coroutines-core:1.3.0-M2")
     implementation("com.squareup.moshi:moshi:1.8.0")
     implementation("com.ryanharter.ktor:ktor-moshi:1.0.1")
     implementation("ch.qos.logback:logback-classic:1.2.3")
 
-    val kotlintestVersion = "3.3.2"
+    val kotlintestVersion = "3.4.0"
     testImplementation("io.kotlintest:kotlintest-runner-junit5:$kotlintestVersion")
     testImplementation("io.kotlintest:kotlintest-assertions-ktor:$kotlintestVersion")
     testImplementation("io.ktor:ktor-server-test-host:$ktorVersion")
