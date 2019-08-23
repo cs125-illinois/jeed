@@ -62,15 +62,15 @@ add(i, y);
 })
 
 fun haveCheckstyleErrors() = object : Matcher<CheckstyleResults> {
-    override fun test(value: CheckstyleResults): Result {
-        return Result(value.errors.values.flatten().isNotEmpty(),
+    override fun test(value: CheckstyleResults): MatcherResult {
+        return MatcherResult(value.errors.values.flatten().isNotEmpty(),
                 "should have checkstyle errors",
                 "should have checkstyle errors")
     }
 }
 fun haveCheckstyleErrorAt(source: String = SNIPPET_SOURCE, line: Int) = object : Matcher<CheckstyleResults> {
-    override fun test(value: CheckstyleResults): Result {
-        return Result(value.errors.values.flatten().any { it.location.source == source && it.location.line == line },
+    override fun test(value: CheckstyleResults): MatcherResult {
+        return MatcherResult(value.errors.values.flatten().any { it.location.source == source && it.location.line == line },
                 "should have checkstyle error on line $line",
                 "should not have checkstyle error on line $line")
     }

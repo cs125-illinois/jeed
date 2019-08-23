@@ -264,8 +264,8 @@ Widget w = new Widget();
 })
 
 fun haveCompilationErrorAt(source: String = SNIPPET_SOURCE, line: Int) = object : Matcher<CompilationFailed> {
-    override fun test(value: CompilationFailed): Result {
-        return Result(
+    override fun test(value: CompilationFailed): MatcherResult {
+        return MatcherResult(
                 value.errors.any { it.location.source == source && it.location.line == line },
                 "should have compilation error on line $line",
                 "should not have compilation error on line $line"
@@ -273,8 +273,8 @@ fun haveCompilationErrorAt(source: String = SNIPPET_SOURCE, line: Int) = object 
     }
 }
 fun haveCompilationMessageAt(source: String = SNIPPET_SOURCE, line: Int) = object : Matcher<CompiledSource> {
-    override fun test(value: CompiledSource): Result {
-        return Result(
+    override fun test(value: CompiledSource): MatcherResult {
+        return MatcherResult(
                 value.messages.any { it.location.source == source && it.location.line == line },
                 "should have compilation message on line $line",
                 "should not have compilation message on line $line"
@@ -282,13 +282,13 @@ fun haveCompilationMessageAt(source: String = SNIPPET_SOURCE, line: Int) = objec
     }
 }
 fun <T> haveDefinedThisManyClasses(count: Int) = object : Matcher<T> {
-    override fun test(value: T): Result {
+    override fun test(value: T): MatcherResult {
         val definedClassCount = when (value) {
             is CompiledSource -> value.classLoader.definedClasses.size
             is Sandbox.TaskResults<*> -> value.sandboxedClassLoader?.definedClasses?.size
             else -> error("invalid type")
         }
-        return Result(
+        return MatcherResult(
                 definedClassCount == count,
                 "should have defined $count classes (found $definedClassCount)",
                 "should not have defined $count classes"
@@ -296,13 +296,13 @@ fun <T> haveDefinedThisManyClasses(count: Int) = object : Matcher<T> {
     }
 }
 fun <T> haveDefinedExactlyTheseClasses(classes: Set<String>) = object : Matcher<T> {
-    override fun test(value: T): Result {
+    override fun test(value: T): MatcherResult {
         val definedClasses = when (value) {
             is CompiledSource -> value.classLoader.definedClasses
             is Sandbox.TaskResults<*> -> value.sandboxedClassLoader!!.definedClasses
             else -> error("invalid type")
         }
-        return Result(
+        return MatcherResult(
                 definedClasses == classes,
                 "should have defined ${ classes.joinToString(separator = ", ")} (found ${ definedClasses.joinToString(separator = ", ") })",
                 "should not have defined ${ classes.joinToString(separator = ", ")}"
@@ -310,13 +310,13 @@ fun <T> haveDefinedExactlyTheseClasses(classes: Set<String>) = object : Matcher<
     }
 }
 fun <T> haveProvidedThisManyClasses(count: Int) = object : Matcher<T> {
-    override fun test(value: T): Result {
+    override fun test(value: T): MatcherResult {
         val providedClassCount = when (value) {
             is CompiledSource -> value.classLoader.providedClasses.size
             is Sandbox.TaskResults<*> -> value.sandboxedClassLoader!!.providedClasses.size
             else -> error("invalid type")
         }
-        return Result(
+        return MatcherResult(
                 providedClassCount == count,
                 "should have loaded $count classes (found $providedClassCount)",
                 "should not have loaded $count classes"
@@ -324,13 +324,13 @@ fun <T> haveProvidedThisManyClasses(count: Int) = object : Matcher<T> {
     }
 }
 fun <T> haveProvidedExactlyTheseClasses(classes: Set<String>) = object : Matcher<T> {
-    override fun test(value: T): Result {
+    override fun test(value: T): MatcherResult {
         val providedClasses = when (value) {
             is CompiledSource -> value.classLoader.providedClasses
             is Sandbox.TaskResults<*> -> value.sandboxedClassLoader!!.providedClasses
             else -> error("invalid type")
         }
-        return Result(
+        return MatcherResult(
                 providedClasses == classes,
                 "should have provided ${ classes.joinToString(separator = ", ")} (found ${ providedClasses.joinToString(separator = ", ") })",
                 "should not have provided ${ classes.joinToString(separator = ", ")}"
@@ -338,13 +338,13 @@ fun <T> haveProvidedExactlyTheseClasses(classes: Set<String>) = object : Matcher
     }
 }
 fun <T> haveLoadedAtLeastTheseClasses(classes: Set<String>) = object : Matcher<T> {
-    override fun test(value: T): Result {
+    override fun test(value: T): MatcherResult {
         val loadedClasses = when (value) {
             is CompiledSource -> value.classLoader.loadedClasses
             is Sandbox.TaskResults<*> -> value.sandboxedClassLoader!!.loadedClasses
             else -> error("invalid type")
         }
-        return Result(
+        return MatcherResult(
                 loadedClasses.containsAll(classes),
                 "should have loaded at least ${ classes.joinToString(separator = ", ")} (found ${ loadedClasses.joinToString(separator = ", ") })",
                 "should not have loaded at least ${ classes.joinToString(separator = ", ")}"

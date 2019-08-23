@@ -93,9 +93,9 @@ class Job(
         }
     }
     companion object {
-        val mongoCollection = System.getenv("MONGODB")?.run {
+        val mongoCollection = System.getenv("MONGO")?.run {
             val uri = MongoClientURI(this)
-            val database = uri.database ?: assert {"MONGODB must specify database" }
+            val database = uri.database ?: assert {"MONGO must specify database to use" }
             val collection = System.getenv("MONGO_COLLECTION") ?: "jeed"
             MongoClient(uri).getDatabase(database).getCollection(collection, BsonDocument::class.java)
         }

@@ -8,14 +8,14 @@ tasks.test {
     systemProperties["logback.configurationFile"] = File(projectDir, "src/test/resources/logback-test.xml").absolutePath
 }
 dependencies {
-    val ktorVersion = "1.2.2"
+    val ktorVersion = "1.2.3"
 
     kapt("com.squareup.moshi:moshi-kotlin-codegen:1.8.0")
 
     implementation(project(":core"))
     implementation(kotlin("stdlib"))
     implementation("io.ktor:ktor-server-netty:$ktorVersion")
-    implementation("org.mongodb:mongodb-driver:3.10.2")
+    implementation("org.mongodb:mongodb-driver:3.11.0")
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-core:1.3.0-M2")
     implementation("com.squareup.moshi:moshi:1.8.0")
     implementation("com.ryanharter.ktor:ktor-moshi:1.0.1")

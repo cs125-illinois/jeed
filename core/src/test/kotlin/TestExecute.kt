@@ -216,8 +216,8 @@ public class Main {
 })
 
 fun haveCompleted() = object : Matcher<Sandbox.TaskResults<out Any?>> {
-    override fun test(value: Sandbox.TaskResults<out Any?>): Result {
-        return Result(
+    override fun test(value: Sandbox.TaskResults<out Any?>): MatcherResult {
+        return MatcherResult(
                 value.completed,
                 "Code should have run: ${value.threw}",
                 "Code should not have run"
@@ -225,8 +225,8 @@ fun haveCompleted() = object : Matcher<Sandbox.TaskResults<out Any?>> {
     }
 }
 fun haveTimedOut() = object : Matcher<Sandbox.TaskResults<out Any?>> {
-    override fun test(value: Sandbox.TaskResults<out Any?>): Result {
-        return Result(
+    override fun test(value: Sandbox.TaskResults<out Any?>): MatcherResult {
+        return MatcherResult(
                 value.timeout,
                 "Code should have timed out",
                 "Code should not have timed out"
@@ -234,9 +234,9 @@ fun haveTimedOut() = object : Matcher<Sandbox.TaskResults<out Any?>> {
     }
 }
 fun haveOutput(output: String = "") = object : Matcher<Sandbox.TaskResults<out Any?>> {
-    override fun test(value: Sandbox.TaskResults<out Any?>): Result {
+    override fun test(value: Sandbox.TaskResults<out Any?>): MatcherResult {
         val actualOutput = value.output.trim()
-        return Result(
+        return MatcherResult(
                 actualOutput == output,
                 "Expected output $output, found $actualOutput",
                 "Expected to not find output $actualOutput"
@@ -244,9 +244,9 @@ fun haveOutput(output: String = "") = object : Matcher<Sandbox.TaskResults<out A
     }
 }
 fun haveStdout(output: String) = object : Matcher<Sandbox.TaskResults<out Any?>> {
-    override fun test(value: Sandbox.TaskResults<out Any?>): Result {
+    override fun test(value: Sandbox.TaskResults<out Any?>): MatcherResult {
         val actualOutput = value.stdout.trim()
-        return Result(
+        return MatcherResult(
                 actualOutput == output,
                 "Expected stdout $output, found $actualOutput",
                 "Expected to not find stdout $actualOutput"
@@ -254,9 +254,9 @@ fun haveStdout(output: String) = object : Matcher<Sandbox.TaskResults<out Any?>>
     }
 }
 fun haveStderr(output: String) = object : Matcher<Sandbox.TaskResults<out Any?>> {
-    override fun test(value: Sandbox.TaskResults<out Any?>): Result {
+    override fun test(value: Sandbox.TaskResults<out Any?>): MatcherResult {
         val actualOutput = value.stderr.trim()
-        return Result(
+        return MatcherResult(
                 actualOutput == output,
                 "Expected stderr $output, found $actualOutput",
                 "Expected to not find stderr $actualOutput"
