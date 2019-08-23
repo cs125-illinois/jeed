@@ -55,11 +55,22 @@ class SnippetTransformationError(
 }
 class SnippetTransformationFailed(errors: List<SnippetTransformationError>) : JeedError(errors)
 
-class SnippetErrorListener : BaseErrorListener() {
+class SnippetErrorListener(val sourceLines: List<Int>) : BaseErrorListener() {
     private val errors = mutableListOf<SnippetTransformationError>()
     override fun syntaxError(recognizer: Recognizer<*, *>?, offendingSymbol: Any?, line: Int, charPositionInLine: Int, msg: String, e: RecognitionException?) {
         // Decrement line number by 1 to account for added braces
-        errors.add(SnippetTransformationError( line - 1, charPositionInLine, msg))
+        var actualLine = line - 1
+        var actualCharPositionInLine = charPositionInLine
+        var actualMsg = msg
+
+        // HACK to repair broken error message at end of input
+        if (actualLine - 1 == sourceLines.size && actualCharPositionInLine == 0 && msg == "missing ';' at '}'") {
+            actualLine -= 1
+            actualCharPositionInLine = sourceLines[actualLine - 1] + 1
+            actualMsg = "missing ';'"
+        }
+
+        errors.add(SnippetTransformationError(actualLine, actualCharPositionInLine, actualMsg))
     }
     fun check() {
         if (errors.size > 0) {
@@ -68,12 +79,12 @@ class SnippetErrorListener : BaseErrorListener() {
     }
 }
 
-
 @Throws(SnippetTransformationFailed::class)
 fun Source.Companion.transformSnippet(originalSource: String, indent: Int = 4): Snippet {
     require(originalSource.isNotEmpty())
 
-    val errorListener = SnippetErrorListener()
+    val sourceLines = originalSource.lines().map { it.trim().length }
+    val errorListener = SnippetErrorListener(sourceLines)
     val charStream = CharStreams.fromString("{\n$originalSource\n}")
     val snippetLexer = SnippetLexer(charStream)
     snippetLexer.removeErrorListeners()

@@ -40,8 +40,7 @@ i++
 """.trim())
         }
         exception.errors shouldHaveSize 1
-        exception should haveParseErrorOnLine(13)
-
+        exception should haveParseErrorOnLine(12)
     }
     "should identify multiple parse errors in a broken snippet" {
         val exception = shouldThrow<SnippetTransformationFailed> {
@@ -63,7 +62,7 @@ i++
         }
         exception.errors shouldHaveSize 2
         exception should haveParseErrorOnLine(1)
-        exception should haveParseErrorOnLine(14)
+        exception should haveParseErrorOnLine(13)
     }
     "should be able to reconstruct original sources using entry map" {
         val snippet = """
