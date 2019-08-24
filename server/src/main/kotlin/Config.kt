@@ -13,10 +13,15 @@ object Limits : ConfigSpec() {
         val timeout by optional(Sandbox.ExecutionArguments.DEFAULT_TIMEOUT)
         val permissions by optional(SourceExecutionArguments.REQUIRED_PERMISSIONS.toList().map { PermissionAdapter().permissionToJson(it) })
         val maxExtraThreads by optional(Sandbox.ExecutionArguments.DEFAULT_MAX_EXTRA_THREADS)
+        object ClassLoaderConfiguration : ConfigSpec() {
+            val whitelistedClasses by optional(Sandbox.ClassLoaderConfiguration.DEFAULT_WHITELISTED_CLASSES)
+            val blacklistedClasses by optional(Sandbox.ClassLoaderConfiguration.DEFAULT_BLACKLISTED_CLASSES)
+            val unsafeExceptions by optional(Sandbox.ClassLoaderConfiguration.DEFAULT_UNSAFE_EXCEPTIONS)
+        }
     }
 }
 val config = Config { addSpec(Limits) }.let {
-    if (File("config.yaml").exists()) {
+    if (File("config.yaml").exists() && File("config.yaml").length() > 0) {
         it.from.yaml.file("config.yaml")
     } else {
         it

@@ -20,9 +20,9 @@ private typealias SandboxCallableArguments<T> = (Pair<ClassLoader, (() -> Unit) 
 
 object Sandbox {
     class ClassLoaderConfiguration(
-            val whitelistedClasses: Set<String> = setOf(),
+            val whitelistedClasses: Set<String> = DEFAULT_WHITELISTED_CLASSES,
             blacklistedClasses: Set<String> = DEFAULT_BLACKLISTED_CLASSES,
-            unsafeExceptions: Set<String> = setOf()
+            unsafeExceptions: Set<String> = DEFAULT_UNSAFE_EXCEPTIONS
     ) {
         val blacklistedClasses = blacklistedClasses.union(PERMANENTLY_BLACKLISTED_CLASSES)
         val unsafeExceptions = unsafeExceptions.union(ALWAYS_UNSAFE_EXCEPTIONS)
@@ -42,7 +42,9 @@ object Sandbox {
             }
         }
         companion object {
+            val DEFAULT_WHITELISTED_CLASSES = setOf<String>()
             val DEFAULT_BLACKLISTED_CLASSES = setOf("java.lang.reflect.")
+            val DEFAULT_UNSAFE_EXCEPTIONS = setOf<String>()
             val PERMANENTLY_BLACKLISTED_CLASSES = setOf("edu.illinois.cs.cs125.jeed.", "org.objectweb.asm.", "java.lang.invoke.MethodHandles")
             val ALWAYS_UNSAFE_EXCEPTIONS = setOf("java.lang.Error")
         }

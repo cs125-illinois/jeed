@@ -1,8 +1,13 @@
 package edu.illinois.cs.cs125.jeed.server
 
+import com.uchuhimo.konf.Config
+import com.uchuhimo.konf.source.yaml
+import edu.illinois.cs.cs125.jeed.core.Sandbox
+import edu.illinois.cs.cs125.jeed.core.moshi.PermissionJson
 import io.kotlintest.assertions.ktor.shouldHaveStatus
-import io.kotlintest.matchers.beOfType
-import io.kotlintest.should
+import io.kotlintest.matchers.collections.shouldHaveSize
+import io.kotlintest.matchers.numerics.shouldBeExactly
+import io.kotlintest.shouldBe
 import io.kotlintest.specs.StringSpec
 import io.ktor.application.Application
 import io.ktor.http.HttpMethod
@@ -12,8 +17,30 @@ import io.ktor.server.testing.setBody
 import io.ktor.server.testing.withTestApplication
 
 class TestConfig : StringSpec({
-    "should load the configuration correctly" {
-        config[Limits.Execution.timeout] should  beOfType<Long>()
+    "should load defaults correctly" {
+        config[Limits.Execution.timeout] shouldBeExactly Sandbox.ExecutionArguments.DEFAULT_TIMEOUT
+    }
+    "should load simple configuration from a file" {
+        val config = Config { addSpec(Limits) }.from.yaml.string("""
+limits:
+  execution:
+    timeout: 10000
+        """.trim())
+        config[Limits.Execution.timeout] shouldBeExactly 10000L
+    }
+    "should load complex configuration from a file" {
+        val config = Config { addSpec(Limits) }.from.yaml.string("""
+limits:
+  execution:
+    permissions:
+      - klass: java.lang.RuntimePermission
+        name: createClassLoader
+    timeout: 10000
+        """.trim())
+
+        config[Limits.Execution.timeout] shouldBeExactly 10000L
+        config[Limits.Execution.permissions] shouldHaveSize 1
+        config[Limits.Execution.permissions][0] shouldBe PermissionJson("java.lang.RuntimePermission", "createClassLoader", null)
     }
     "should reject snippet request with too long timeout" {
         withTestApplication(Application::jeed) {
