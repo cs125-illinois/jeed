@@ -191,7 +191,7 @@ object Sandbox {
                 val executionEnded = Instant.now()
                 release(confinedTask)
 
-                val executionResult = TaskResults<T>(
+                val executionResult = TaskResults(
                         taskResult.returned, taskResult.threw, taskResult.timeout,
                         confinedTask.outputLines,
                         confinedTask.permissionRequests,

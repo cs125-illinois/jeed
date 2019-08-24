@@ -85,4 +85,51 @@ class TestConfig : StringSpec({
             }
         }
     }
+    "   should reject snippet request with too many permissions" {
+        withTestApplication(Application::jeed) {
+            handleRequest(HttpMethod.Post, "/") {
+                addHeader("content-type", "application/json")
+                setBody("""
+{
+  "snippet": "System.out.println(\"Here\");",
+  "tasks": [ "execute" ],
+  "arguments": {
+    "execution": {
+      "permissions": [{
+        "klass": "java.lang.RuntimePermission",
+        "name": "accessDeclaredMembers"
+      }, {
+        "klass": "java.lang.reflect.ReflectPermission",
+        "name": "suppressAccessChecks"
+      }]
+    }
+  }
+}""".trim())
+            }.apply {
+                response.shouldHaveStatus(HttpStatusCode.OK.value)
+            }
+
+            handleRequest(HttpMethod.Post, "/") {
+                addHeader("content-type", "application/json")
+                setBody("""
+{
+  "snippet": "System.out.println(\"Here\");",
+  "tasks": [ "execute" ],
+  "arguments": {
+    "execution": {
+      "permissions": [{
+        "klass": "java.lang.RuntimePermission",
+        "name": "createClassLoader"
+      }, {
+        "klass": "java.lang.reflect.ReflectPermission",
+        "name": "suppressAccessChecks"
+      }]
+    }
+  }
+}""".trim())
+            }.apply {
+                response.shouldHaveStatus(HttpStatusCode.BadRequest.value)
+            }
+        }
+    }
 })

@@ -7,6 +7,7 @@ import com.squareup.moshi.JsonAdapter
 import com.squareup.moshi.Moshi
 import com.squareup.moshi.ToJson
 import edu.illinois.cs.cs125.jeed.core.*
+import edu.illinois.cs.cs125.jeed.core.moshi.PermissionAdapter
 import edu.illinois.cs.cs125.jeed.server.moshi.Adapters
 import edu.illinois.cs.cs125.jeed.core.moshi.Adapters as JeedAdapters
 import kotlinx.coroutines.*
@@ -42,6 +43,12 @@ class Job(
             if (arguments?.execution?.maxExtraThreads != null) {
                 require(arguments.execution.maxExtraThreads <= config[Limits.Execution.maxExtraThreads]) {
                     "maxExtraThreads of ${arguments.execution.maxExtraThreads} is too large (> ${config[Limits.Execution.maxExtraThreads]}"
+                }
+            }
+            if (arguments?.execution?.permissions != null) {
+                val allowedPermissions = config[Limits.Execution.permissions].map { PermissionAdapter().permissionFromJson(it) }.toSet()
+                require(allowedPermissions.containsAll(arguments.execution.permissions)) {
+                    "task is requesting unallowed permissions"
                 }
             }
         }

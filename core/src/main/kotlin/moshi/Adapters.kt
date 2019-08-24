@@ -87,15 +87,15 @@ class TemplatingFailedAdapter {
     }
 }
 
-data class PermissionJson(val type: String, val name: String, val actions: String?)
+data class PermissionJson(val klass: String, val name: String, val actions: String?)
 class PermissionAdapter {
     @FromJson fun permissionFromJson(permissionJson: PermissionJson): Permission {
-        val klass = Class.forName("java.security.${permissionJson.type}")
+        val klass = Class.forName(permissionJson.klass)
         val constructor = klass.getConstructor(String::class.java, String::class.java)
         return constructor.newInstance(permissionJson.name, permissionJson.actions) as Permission
     }
     @ToJson fun permissionToJson(permission: Permission): PermissionJson {
-        return PermissionJson(permission.javaClass.name.split(".").last(), permission.name, permission.actions)
+        return PermissionJson(permission.javaClass.name, permission.name, permission.actions)
     }
 }
 data class ThrowableJson(val klass: String, val message: String?)
