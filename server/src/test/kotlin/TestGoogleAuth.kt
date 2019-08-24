@@ -1,7 +1,6 @@
 package edu.illinois.cs.cs125.jeed.server
 
 import io.kotlintest.Spec
-import io.kotlintest.TestCase
 import io.kotlintest.assertions.ktor.shouldHaveStatus
 import io.kotlintest.specs.StringSpec
 import io.ktor.application.Application
@@ -13,10 +12,10 @@ import io.ktor.server.testing.withTestApplication
 
 class TestGoogleAuth : StringSpec() {
     override fun beforeSpec(spec: Spec) {
-        configuration[TopLevel.auth] = setOf("google")
+        configuration[Auth.none] = false
     }
     override fun afterSpec(spec: Spec) {
-        configuration[TopLevel.auth] = setOf("none", "google")
+        configuration[Auth.none] = true
     }
 
     init {

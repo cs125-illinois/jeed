@@ -9,6 +9,12 @@ import edu.illinois.cs.cs125.jeed.core.SourceExecutionArguments
 import edu.illinois.cs.cs125.jeed.core.moshi.PermissionAdapter
 import java.io.File
 
+object Auth : ConfigSpec() {
+    val none by optional(true)
+    object Google : ConfigSpec() {
+        val hostedDomain by optional("")
+    }
+}
 object Limits : ConfigSpec() {
     object Execution : ConfigSpec() {
         val timeout by optional(Sandbox.ExecutionArguments.DEFAULT_TIMEOUT)
@@ -21,12 +27,9 @@ object Limits : ConfigSpec() {
         }
     }
 }
-object TopLevel : ConfigSpec("") {
-    val auth by optional(setOf("none", "google"))
-}
 
 val configuration = Config {
-    addSpec(TopLevel)
+    addSpec(Auth)
     addSpec(Limits)
 }.let {
     if (File("config.yaml").exists() && File("config.yaml").length() > 0) {

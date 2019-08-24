@@ -90,13 +90,15 @@ class Job(
             if (googleTokenVerifier != null && authToken != null) {
                 val idToken = googleTokenVerifier.verify(authToken)
                 if (idToken != null) {
+                    if (configuration[Auth.Google.hostedDomain] != "") {
+                        require(idToken.payload.hostedDomain == configuration[Auth.Google.hostedDomain])
+                    }
                     email = idToken.payload.email
                 }
             }
         } catch (e: IllegalArgumentException) { }
 
-        if (email == null && !("none" in configuration[TopLevel.auth])) {
-            println("Here")
+        if (email == null && !configuration[Auth.none]) {
             val message = if (authToken == null) {
                 "authentication required by authentication token missing"
             } else {
