@@ -112,7 +112,7 @@ limits:
             }
         }
     }
-    "   should reject snippet request with too many permissions" {
+    "should reject snippet request with too many permissions" {
         withTestApplication(Application::jeed) {
             handleRequest(HttpMethod.Post, "/") {
                 addHeader("content-type", "application/json")
@@ -151,6 +151,47 @@ limits:
         "klass": "java.lang.reflect.ReflectPermission",
         "name": "suppressAccessChecks"
       }]
+    }
+  }
+}""".trim())
+            }.apply {
+                response.shouldHaveStatus(HttpStatusCode.BadRequest.value)
+            }
+        }
+    }
+    "f:should reject snippet request attempting to remove blacklisted classes" {
+        withTestApplication(Application::jeed) {
+            handleRequest(HttpMethod.Post, "/") {
+                addHeader("content-type", "application/json")
+                setBody("""
+{
+  "snippet": "System.out.println(\"Here\");",
+  "tasks": [ "execute" ],
+  "arguments": {
+    "execution": {
+      "classLoaderConfiguration": {
+        "blacklistedClasses": [
+          "java.lang.reflect."
+        ]
+      }
+    }
+  }
+}""".trim())
+            }.apply {
+                response.shouldHaveStatus(HttpStatusCode.OK.value)
+            }
+
+            handleRequest(HttpMethod.Post, "/") {
+                addHeader("content-type", "application/json")
+                setBody("""
+{
+  "snippet": "System.out.println(\"Here\");",
+  "tasks": [ "execute" ],
+  "arguments": {
+    "execution": {
+      "classLoaderConfiguration": {
+        "blacklistedClasses": []
+      }
     }
   }
 }""".trim())

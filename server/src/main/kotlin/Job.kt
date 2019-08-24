@@ -37,18 +37,38 @@ class Job(
         if (Task.execute in tasks) {
             if (arguments?.execution?.timeout != null) {
                 require(arguments.execution.timeout <= config[Limits.Execution.timeout]) {
-                    "timeout of ${arguments.execution.timeout} too long (> ${config[Limits.Execution.timeout]})"
+                    "job timeout of ${arguments.execution.timeout} too long (> ${config[Limits.Execution.timeout]})"
                 }
             }
             if (arguments?.execution?.maxExtraThreads != null) {
                 require(arguments.execution.maxExtraThreads <= config[Limits.Execution.maxExtraThreads]) {
-                    "maxExtraThreads of ${arguments.execution.maxExtraThreads} is too large (> ${config[Limits.Execution.maxExtraThreads]}"
+                    "job maxExtraThreads of ${arguments.execution.maxExtraThreads} is too large (> ${config[Limits.Execution.maxExtraThreads]}"
                 }
             }
             if (arguments?.execution?.permissions != null) {
                 val allowedPermissions = config[Limits.Execution.permissions].map { PermissionAdapter().permissionFromJson(it) }.toSet()
                 require(allowedPermissions.containsAll(arguments.execution.permissions)) {
-                    "task is requesting unallowed permissions"
+                    "job is requesting unallowed permissions"
+                }
+            }
+            if (arguments?.execution?.classLoaderConfiguration != null) {
+                if (arguments.execution.classLoaderConfiguration?.blacklistedClasses != null) {
+                    val blacklistedClasses = config[Limits.Execution.ClassLoaderConfiguration.blacklistedClasses]
+                    require(arguments.execution.classLoaderConfiguration.blacklistedClasses.containsAll(blacklistedClasses)) {
+                        "job is trying to remove blacklisted classes"
+                    }
+                }
+                if (arguments.execution.classLoaderConfiguration?.whitelistedClasses != null) {
+                    val whitelistedClasses = config[Limits.Execution.ClassLoaderConfiguration.whitelistedClasses]
+                    require(arguments.execution.classLoaderConfiguration.whitelistedClasses.containsAll(whitelistedClasses)) {
+                        "job is trying to add whitelisted classes"
+                    }
+                }
+                if (arguments.execution.classLoaderConfiguration?.unsafeExceptions != null) {
+                    val unsafeExceptions = config[Limits.Execution.ClassLoaderConfiguration.unsafeExceptions]
+                    require(arguments.execution.classLoaderConfiguration.unsafeExceptions.containsAll(unsafeExceptions)) {
+                        "job is trying to remove unsafe exceptions"
+                    }
                 }
             }
         }
