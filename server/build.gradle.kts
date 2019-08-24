@@ -20,6 +20,9 @@ dependencies {
     implementation("com.squareup.moshi:moshi:1.8.0")
     implementation("com.ryanharter.ktor:ktor-moshi:1.0.1")
     implementation("ch.qos.logback:logback-classic:1.2.3")
+    implementation("com.uchuhimo:konf-core:0.15.1")
+    implementation("com.uchuhimo:konf-yaml:0.15.1")
+    implementation("io.github.microutils:kotlin-logging:1.7.6")
 
     val kotlintestVersion = "3.4.0"
     testImplementation("io.kotlintest:kotlintest-runner-junit5:$kotlintestVersion")

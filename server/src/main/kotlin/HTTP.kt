@@ -11,15 +11,16 @@ import io.ktor.application.call
 import io.ktor.application.install
 import io.ktor.features.CORS
 import io.ktor.features.ContentNegotiation
-import io.ktor.http.HttpMethod
 import io.ktor.http.HttpStatusCode
 import io.ktor.request.receive
 import io.ktor.response.respond
 import io.ktor.routing.get
-import io.ktor.routing.options
 import io.ktor.routing.post
 import io.ktor.routing.routing
-import java.lang.IllegalArgumentException
+import mu.KotlinLogging
+
+@Suppress("UNUSED")
+private val logger = KotlinLogging.logger {}
 
 fun Application.jeed() {
     install(CORS) {
@@ -40,8 +41,10 @@ fun Application.jeed() {
                 val job = call.receive<Job>()
                 call.respond(job.run())
             } catch (e: JsonEncodingException) {
+                logger.debug(e.toString())
                 call.respond(HttpStatusCode.BadRequest)
             } catch (e: JsonDataException) {
+                logger.debug(e.toString())
                 call.respond(HttpStatusCode.BadRequest)
             }
         }

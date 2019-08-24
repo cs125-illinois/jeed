@@ -32,6 +32,19 @@ class Job(
         if (snippet != null) { tasksToRun.add(Task.snippet) }
         if (templates != null) { tasksToRun.add(Task.template) }
         tasks = tasksToRun.toSet()
+
+        if (Task.execute in tasks) {
+            if (arguments?.execution?.timeout != null) {
+                require(arguments.execution.timeout <= config[Limits.Execution.timeout]) {
+                    "timeout of ${arguments.execution.timeout} too long (> ${config[Limits.Execution.timeout]})"
+                }
+            }
+            if (arguments?.execution?.maxExtraThreads != null) {
+                require(arguments.execution.maxExtraThreads <= config[Limits.Execution.maxExtraThreads]) {
+                    "maxExtraThreads of ${arguments.execution.maxExtraThreads} is too large (> ${config[Limits.Execution.maxExtraThreads]}"
+                }
+            }
+        }
     }
     suspend fun run(): Result {
         currentStatus.counts.submittedJobs++

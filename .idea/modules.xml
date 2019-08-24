@@ -2,7 +2,7 @@
 <project version="4">
   <component name="ProjectModuleManager">
     <modules>
-      <module fileurl="file://$PROJECT_DIR$/.idea/modules/jeed.iml" filepath="$PROJECT_DIR$/.idea/modules/jeed.iml" />
+      <module fileurl="file://$PROJECT_DIR$/.idea/jeed.iml" filepath="$PROJECT_DIR$/.idea/jeed.iml" />
       <module fileurl="file://$PROJECT_DIR$/.idea/modules/core/jeed.core.iml" filepath="$PROJECT_DIR$/.idea/modules/core/jeed.core.iml" />
       <module fileurl="file://$PROJECT_DIR$/.idea/modules/core/jeed.core.main.iml" filepath="$PROJECT_DIR$/.idea/modules/core/jeed.core.main.iml" />
       <module fileurl="file://$PROJECT_DIR$/.idea/modules/core/jeed.core.test.iml" filepath="$PROJECT_DIR$/.idea/modules/core/jeed.core.test.iml" />
