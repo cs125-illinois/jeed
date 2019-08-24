@@ -1,5 +1,8 @@
 package edu.illinois.cs.cs125.jeed.server
 
+import com.google.api.client.googleapis.auth.oauth2.GoogleIdTokenVerifier
+import com.google.api.client.http.javanet.NetHttpTransport
+import com.google.api.client.json.jackson2.JacksonFactory
 import com.mongodb.MongoClient
 import com.mongodb.MongoClientURI
 import com.squareup.moshi.FromJson
@@ -11,68 +14,98 @@ import edu.illinois.cs.cs125.jeed.core.moshi.PermissionAdapter
 import edu.illinois.cs.cs125.jeed.server.moshi.Adapters
 import edu.illinois.cs.cs125.jeed.core.moshi.Adapters as JeedAdapters
 import kotlinx.coroutines.*
+import org.apache.http.auth.AuthenticationException
 import org.bson.BsonDocument
+import java.lang.IllegalArgumentException
 import java.time.Instant
+import java.util.*
 
 class Job(
         val source: Map<String, String>?,
         val templates: Map<String, String>?,
         val snippet: String?,
         passedTasks: Set<Task>,
-        arguments: TaskArguments?
+        arguments: TaskArguments?,
+        val authToken: String?
 ) {
     val tasks: Set<Task>
     val arguments = arguments ?: TaskArguments()
 
+    var email: String? = null
+
     init {
         require(!(source != null && snippet != null)) { "can't create task with both source and snippet" }
-        if (templates != null) { require(source != null) { "can't use both templates and snippet mode" }}
+        if (templates != null) {
+            require(source != null) { "can't use both templates and snippet mode" }
+        }
 
         val tasksToRun = passedTasks.toMutableSet()
-        if (tasksToRun.contains(Task.execute)) { tasksToRun.add(Task.compile) }
-        if (snippet != null) { tasksToRun.add(Task.snippet) }
-        if (templates != null) { tasksToRun.add(Task.template) }
+        if (tasksToRun.contains(Task.execute)) {
+            tasksToRun.add(Task.compile)
+        }
+        if (snippet != null) {
+            tasksToRun.add(Task.snippet)
+        }
+        if (templates != null) {
+            tasksToRun.add(Task.template)
+        }
         tasks = tasksToRun.toSet()
 
         if (Task.execute in tasks) {
             if (arguments?.execution?.timeout != null) {
-                require(arguments.execution.timeout <= config[Limits.Execution.timeout]) {
-                    "job timeout of ${arguments.execution.timeout} too long (> ${config[Limits.Execution.timeout]})"
+                require(arguments.execution.timeout <= configuration[Limits.Execution.timeout]) {
+                    "job timeout of ${arguments.execution.timeout} too long (> ${configuration[Limits.Execution.timeout]})"
                 }
             }
             if (arguments?.execution?.maxExtraThreads != null) {
-                require(arguments.execution.maxExtraThreads <= config[Limits.Execution.maxExtraThreads]) {
-                    "job maxExtraThreads of ${arguments.execution.maxExtraThreads} is too large (> ${config[Limits.Execution.maxExtraThreads]}"
+                require(arguments.execution.maxExtraThreads <= configuration[Limits.Execution.maxExtraThreads]) {
+                    "job maxExtraThreads of ${arguments.execution.maxExtraThreads} is too large (> ${configuration[Limits.Execution.maxExtraThreads]}"
                 }
             }
             if (arguments?.execution?.permissions != null) {
-                val allowedPermissions = config[Limits.Execution.permissions].map { PermissionAdapter().permissionFromJson(it) }.toSet()
+                val allowedPermissions = configuration[Limits.Execution.permissions].map { PermissionAdapter().permissionFromJson(it) }.toSet()
                 require(allowedPermissions.containsAll(arguments.execution.permissions)) {
                     "job is requesting unallowed permissions"
                 }
             }
             if (arguments?.execution?.classLoaderConfiguration != null) {
-                if (arguments.execution.classLoaderConfiguration?.blacklistedClasses != null) {
-                    val blacklistedClasses = config[Limits.Execution.ClassLoaderConfiguration.blacklistedClasses]
-                    require(arguments.execution.classLoaderConfiguration.blacklistedClasses.containsAll(blacklistedClasses)) {
-                        "job is trying to remove blacklisted classes"
-                    }
+                val blacklistedClasses = configuration[Limits.Execution.ClassLoaderConfiguration.blacklistedClasses]
+                require(arguments.execution.classLoaderConfiguration.blacklistedClasses.containsAll(blacklistedClasses)) {
+                    "job is trying to remove blacklisted classes"
                 }
-                if (arguments.execution.classLoaderConfiguration?.whitelistedClasses != null) {
-                    val whitelistedClasses = config[Limits.Execution.ClassLoaderConfiguration.whitelistedClasses]
-                    require(arguments.execution.classLoaderConfiguration.whitelistedClasses.containsAll(whitelistedClasses)) {
-                        "job is trying to add whitelisted classes"
-                    }
+                val whitelistedClasses = configuration[Limits.Execution.ClassLoaderConfiguration.whitelistedClasses]
+                require(arguments.execution.classLoaderConfiguration.whitelistedClasses.containsAll(whitelistedClasses)) {
+                    "job is trying to add whitelisted classes"
                 }
-                if (arguments.execution.classLoaderConfiguration?.unsafeExceptions != null) {
-                    val unsafeExceptions = config[Limits.Execution.ClassLoaderConfiguration.unsafeExceptions]
-                    require(arguments.execution.classLoaderConfiguration.unsafeExceptions.containsAll(unsafeExceptions)) {
-                        "job is trying to remove unsafe exceptions"
-                    }
+                val unsafeExceptions = configuration[Limits.Execution.ClassLoaderConfiguration.unsafeExceptions]
+                require(arguments.execution.classLoaderConfiguration.unsafeExceptions.containsAll(unsafeExceptions)) {
+                    "job is trying to remove unsafe exceptions"
                 }
             }
         }
     }
+
+    fun authenticate() {
+        try {
+            if (googleTokenVerifier != null && authToken != null) {
+                val idToken = googleTokenVerifier.verify(authToken)
+                if (idToken != null) {
+                    email = idToken.payload.email
+                }
+            }
+        } catch (e: IllegalArgumentException) { }
+
+        if (email == null && !("none" in configuration[TopLevel.auth])) {
+            println("Here")
+            val message = if (authToken == null) {
+                "authentication required by authentication token missing"
+            } else {
+                "authentication failure"
+            }
+            throw AuthenticationException(message)
+        }
+    }
+
     suspend fun run(): Result {
         currentStatus.counts.submittedJobs++
 
@@ -118,18 +151,19 @@ class Job(
             val templates: Map<String, String>?,
             val snippet: String?,
             val tasks: Set<Task>,
-            val arguments: TaskArguments?
+            val arguments: TaskArguments?,
+            val authToken: String?
     )
     class JobAdapter {
         @FromJson
         fun jobFromJson(jobJson: JobJson): Job {
             assert(!(jobJson.source != null && jobJson.snippet != null)) { "can't set both snippet and sources" }
-            return Job(jobJson.source, jobJson.templates, jobJson.snippet, jobJson.tasks, jobJson.arguments)
+            return Job(jobJson.source, jobJson.templates, jobJson.snippet, jobJson.tasks, jobJson.arguments, jobJson.authToken)
         }
         @ToJson
         fun jobToJson(job: Job): JobJson {
             assert(!(job.source != null && job.snippet != null)) { "can't set both snippet and sources" }
-            return JobJson(job.source, job.templates, job.snippet, job.tasks, job.arguments)
+            return JobJson(job.source, job.templates, job.snippet, job.tasks, job.arguments, job.authToken)
         }
     }
     companion object {
@@ -138,6 +172,12 @@ class Job(
             val database = uri.database ?: assert {"MONGO must specify database to use" }
             val collection = System.getenv("MONGO_COLLECTION") ?: "jeed"
             MongoClient(uri).getDatabase(database).getCollection(collection, BsonDocument::class.java)
+        }
+
+        val googleTokenVerifier = System.getenv("GOOGLE_CLIENT_ID")?.run {
+            GoogleIdTokenVerifier.Builder(NetHttpTransport(), JacksonFactory())
+                    .setAudience(Collections.singletonList(System.getenv("GOOGLE_CLIENT_ID")))
+                    .build()
         }
     }
 }

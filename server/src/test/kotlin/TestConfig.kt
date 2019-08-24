@@ -18,10 +18,13 @@ import io.ktor.server.testing.withTestApplication
 
 class TestConfig : StringSpec({
     "should load defaults correctly" {
-        config[Limits.Execution.timeout] shouldBeExactly Sandbox.ExecutionArguments.DEFAULT_TIMEOUT
+        configuration[Limits.Execution.timeout] shouldBeExactly Sandbox.ExecutionArguments.DEFAULT_TIMEOUT
     }
     "should load simple configuration from a file" {
         val config = Config { addSpec(Limits) }.from.yaml.string("""
+auth:
+  - google
+semester: Spring2019
 limits:
   execution:
     timeout: 10000
@@ -52,7 +55,7 @@ limits:
   "tasks": [ "execute" ],
   "arguments": {
     "execution": {
-      "timeout": "${ config[Limits.Execution.timeout] }"
+      "timeout": "${ configuration[Limits.Execution.timeout] }"
     }
   }
 }""".trim())
@@ -68,7 +71,7 @@ limits:
   "tasks": [ "execute" ],
   "arguments": {
     "execution": {
-      "timeout": "${ config[Limits.Execution.timeout] + 1 }"
+      "timeout": "${ configuration[Limits.Execution.timeout] + 1 }"
     }
   }
 }""".trim())
@@ -87,7 +90,7 @@ limits:
   "tasks": [ "execute" ],
   "arguments": {
     "execution": {
-      "maxExtraThreads": "${ config[Limits.Execution.maxExtraThreads] }"
+      "maxExtraThreads": "${ configuration[Limits.Execution.maxExtraThreads] }"
     }
   }
 }""".trim())
@@ -103,7 +106,7 @@ limits:
   "tasks": [ "execute" ],
   "arguments": {
     "execution": {
-      "maxExtraThreads": "${ config[Limits.Execution.maxExtraThreads] + 1 }"
+      "maxExtraThreads": "${ configuration[Limits.Execution.maxExtraThreads] + 1 }"
     }
   }
 }""".trim())
@@ -159,7 +162,7 @@ limits:
             }
         }
     }
-    "f:should reject snippet request attempting to remove blacklisted classes" {
+    "should reject snippet request attempting to remove blacklisted classes" {
         withTestApplication(Application::jeed) {
             handleRequest(HttpMethod.Post, "/") {
                 addHeader("content-type", "application/json")

@@ -1,8 +1,6 @@
 package edu.illinois.cs.cs125.jeed.server
 
 import com.ryanharter.ktor.moshi.moshi
-import com.squareup.moshi.JsonDataException
-import com.squareup.moshi.JsonEncodingException
 import edu.illinois.cs.cs125.jeed.server.moshi.Adapters
 import edu.illinois.cs.cs125.jeed.core.moshi.Adapters as JeedAdapters
 import io.ktor.application.Application
@@ -18,6 +16,7 @@ import io.ktor.routing.get
 import io.ktor.routing.post
 import io.ktor.routing.routing
 import mu.KotlinLogging
+import org.apache.http.auth.AuthenticationException
 
 @Suppress("UNUSED")
 private val logger = KotlinLogging.logger {}
@@ -37,13 +36,25 @@ fun Application.jeed() {
             call.respond(currentStatus)
         }
         post("/") {
-            try {
-                val job = call.receive<Job>()
-                call.respond(job.run())
-            } catch (e: JsonEncodingException) {
+            val job = try {
+                call.receive<Job>()
+            } catch (e: Exception) {
                 logger.debug(e.toString())
                 call.respond(HttpStatusCode.BadRequest)
-            } catch (e: JsonDataException) {
+                return@post
+            }
+
+            try {
+                job.authenticate()
+            } catch (e: AuthenticationException) {
+                logger.debug(e.toString())
+                call.respond(HttpStatusCode.Unauthorized)
+                return@post
+            }
+
+            try {
+                call.respond(job.run())
+            } catch (e: Exception) {
                 logger.debug(e.toString())
                 call.respond(HttpStatusCode.BadRequest)
             }

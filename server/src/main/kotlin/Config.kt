@@ -2,6 +2,7 @@ package edu.illinois.cs.cs125.jeed.server
 
 import com.uchuhimo.konf.Config
 import com.uchuhimo.konf.ConfigSpec
+import com.uchuhimo.konf.source.base.toHierarchicalMap
 import com.uchuhimo.konf.source.yaml
 import edu.illinois.cs.cs125.jeed.core.Sandbox
 import edu.illinois.cs.cs125.jeed.core.SourceExecutionArguments
@@ -20,7 +21,14 @@ object Limits : ConfigSpec() {
         }
     }
 }
-val config = Config { addSpec(Limits) }.let {
+object TopLevel : ConfigSpec("") {
+    val auth by optional(setOf("none", "google"))
+}
+
+val configuration = Config {
+    addSpec(TopLevel)
+    addSpec(Limits)
+}.let {
     if (File("config.yaml").exists() && File("config.yaml").length() > 0) {
         it.from.yaml.file("config.yaml")
     } else {

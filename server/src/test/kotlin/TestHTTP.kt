@@ -67,6 +67,16 @@ public class Main {
             }
         }
     }
+    "should reject unauthorized request" {
+        withTestApplication(Application::jeed) {
+            handleRequest(HttpMethod.Post, "/") {
+                addHeader("content-type", "application/json")
+                setBody("broken")
+            }.apply {
+                response.shouldHaveStatus(HttpStatusCode.BadRequest.value)
+            }
+        }
+    }
     "should reject bad request" {
         withTestApplication(Application::jeed) {
             handleRequest(HttpMethod.Post, "/") {
@@ -83,6 +93,7 @@ public class Main {
                 addHeader("content-type", "application/json")
             }.apply {
                 response.shouldHaveStatus(HttpStatusCode.OK.value)
+                println(response.content.toString())
             }
         }
     }
