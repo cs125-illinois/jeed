@@ -3,7 +3,7 @@ import React, { Component } from 'react'
 import Children from 'react-children-utilities'
 import SyntaxHighlighter from 'react-syntax-highlighter'
 import { github } from 'react-syntax-highlighter/dist/esm/styles/hljs'
-import { JeedResult, jeedWrapper } from 'jeed'
+import { jeedWrapper, JeedResult } from 'jeed'
 
 import { Box, Container, IconButton, CircularProgress, Tooltip } from '@material-ui/core/'
 import PlayCircleFilled from '@material-ui/icons/PlayCircleFilled'
@@ -27,7 +27,7 @@ class Code extends Component {
   }
 
   render () {
-    const { connected } = this.props.jeed
+    const { connected, reconnect } = this.props.jeed
     let button
     if (connected === true) {
       button =
@@ -38,8 +38,10 @@ class Code extends Component {
         </Tooltip>
     } else if (connected === false) {
       button =
-        <Tooltip title="Not Connected">
-          <Warning color="error" size="small" />
+        <Tooltip title="Not Connected (Click to Retry)">
+          <IconButton size="small" edge="end" onClick={() => { reconnect() }}>
+            <Warning color="error" size="small" />
+          </IconButton>
         </Tooltip>
     } else {
       button =
@@ -49,17 +51,22 @@ class Code extends Component {
     }
 
     return (
-      <Box style={{ position: 'relative' }}>
-        <Box style={{ position: 'absolute', bottom: 0, right: 2 }}>
-          { button }
+      <Box>
+        <Box style={{ position: 'relative' }}>
+          <Box style={{ position: 'absolute', bottom: 0, right: 2 }}>
+              { button }
+          </Box>
+          <SyntaxHighlighter language="java" style={github}>{ this.source }</SyntaxHighlighter>
         </Box>
-				<SyntaxHighlighter language="java" style={github}>{ this.source }</SyntaxHighlighter>
-        <JeedResult backend={backend} job={this.job} />
-			</Box>
+        <Box>
+          <JeedResult jeed={ this.props.jeed } job={ this.job } />
+        </Box>
+      </Box>
     )
   }
 }
-const JeedCode = jeedWrapper(Code)
+
+const JeedCode = jeedWrapper(backend)(Code)
 
 export default class App extends Component {
   render () {

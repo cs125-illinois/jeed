@@ -1,38 +1,63 @@
 import React, { Component } from 'react'
 
+import EventEmitter from 'events'
 import axios from 'axios'
 
 const backends = {}
-function jeedWrapper (WrappedComponent) {
-  class JeedWrapper extends Component {
-    constructor (props) {
-      super(props)
-      this.state = { config: null, connected: null }
-    }
 
-    componentDidMount() {
-      const { backend } = this.props
-      if (!(backend in backends)) {
-        backends[backend] = axios.get(backend)
-      }
-      backends[backend].then(config => {
-        this.setState({ config, connected: true })
-      }).catch(() => {
-        this.setState({ connected: false })
-      })
-    }
-
-    render () {
-      return <WrappedComponent jeed={this.state} { ...this.props } />
+function monitorBackend (backend) {
+  if (!(backend in backends)) {
+    backends[backend] = {
+      connected: null,
+      config: null,
+      events: new EventEmitter()
     }
   }
+  checkBackend(backend)
+  return backends[backend]
+}
 
-  JeedWrapper.displayName =
-    `JeedWrapper(${
-      WrappedComponent.displayName || WrappedComponent.name || 'Component'
-    })`
+function checkBackend (backend) {
+  console.debug(`checking ${ backend }`)
+  axios.get(backend).then(config => {
+    console.debug(`${ backend } connected`)
+    backends[backend].config = config
+    backends[backend].connected = true
+    backends[backend].events.emit('updated', backends[backend])
+  }).catch(() => {
+    console.debug(`${ backend } still not connected`)
+    backends[backend].config = null
+    backends[backend].connected = false
+    backends[backend].events.emit('updated', backends[backend])
+  })
+}
 
-  return JeedWrapper
+function jeedWrapper (backend) {
+  return (WrappedComponent) => {
+    class JeedWrapper extends Component {
+      constructor (props) {
+        super(props)
+        this.state = { config: null, connected: null }
+        this.reconnect = () => { checkBackend(backend) }
+      }
+
+      componentDidMount() {
+        const { config, connected, events } = monitorBackend(backend)
+        this.setState({ config, connected })
+        events.on('updated', ({ config, connected }) => {
+          this.setState({ config, connected })
+        })
+      }
+
+      render () {
+        return <WrappedComponent jeed={{...this.state, backend, reconnect: this.reconnect }} { ...this.props } />
+      }
+    }
+
+    JeedWrapper.displayName = `JeedWrapper(${ WrappedComponent.displayName || WrappedComponent.name || 'Component' })`
+
+    return JeedWrapper
+  }
 }
 
 function run (backend, job) {
@@ -48,14 +73,14 @@ function run (backend, job) {
   }
 }
 
-class Result extends Component {
+class JeedResult extends Component {
   constructor(props) {
     super(props)
     this.state = { request: null, result: null, err: null, completed: false }
   }
 
   componentDidUpdate() {
-    const { config } = this.props.jeed
+    const { config, backend } = this.props.jeed
     if (!config) {
       return
     }
@@ -63,13 +88,14 @@ class Result extends Component {
       return
     }
 
-    const { backend, job } = this.props
+    const { job } = this.props
     const request = run (backend, job)
 
     this.setState({ request })
     request.response.then(response => {
       this.setState({ result: response.data, completed: true })
     }).catch(err => {
+      checkBackend(backend)
       this.setState({ err, completed: true })
     })
   }
@@ -145,11 +171,9 @@ ${ errorCount } error${ errorCount > 1 ? "s" : "" }`
 
   return (
     <pre>
-        { JSON.stringify(result, null, 2) }<br />
         { output }
     </pre>)
 }
 
-const JeedResult = jeedWrapper(Result)
-export { JeedResult, jeedWrapper }
+export { jeedWrapper, JeedResult }
 
