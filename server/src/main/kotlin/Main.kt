@@ -13,7 +13,7 @@ import java.net.URI
 private val logger = KotlinLogging.logger {}
 
 fun main() {
-    logger.warn(configuration.toJson.toText())
+    logger.info(configuration.toJson.toText())
 
     System.getenv("HTTP")?.run {
         val uri = URI(this)
