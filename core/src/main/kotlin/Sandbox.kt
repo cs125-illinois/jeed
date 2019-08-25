@@ -10,6 +10,7 @@ import java.lang.reflect.InvocationTargetException
 import java.security.*
 import java.time.Duration
 import java.time.Instant
+import java.util.*
 import java.util.concurrent.*
 import kotlin.reflect.jvm.javaMethod
 
@@ -260,6 +261,57 @@ object Sandbox {
             permissionRequests.add(TaskResults.PermissionRequest(permission, granted))
             if (!granted && throwException) {
                 throw SecurityException()
+            }
+        }
+
+        private val ourStdout = object : OutputStream() {
+            override fun write(int: Int) {
+                redirectedWrite(int, TaskResults.OutputLine.Console.STDOUT)
+            }
+        }
+        private val ourStderr = object : OutputStream() {
+            override fun write(int: Int) {
+                redirectedWrite(int, TaskResults.OutputLine.Console.STDERR)
+            }
+        }
+        val printStreams: Map<TaskResults.OutputLine.Console, PrintStream> = mapOf(
+                TaskResults.OutputLine.Console.STDOUT to PrintStream(ourStdout),
+                TaskResults.OutputLine.Console.STDERR to PrintStream(ourStderr)
+        )
+        private fun redirectedWrite(int: Int, console: TaskResults.OutputLine.Console) {
+            if (shuttingDown) {
+                return
+            }
+
+            val currentLine = currentLines.getOrPut(console, { CurrentLine() })
+            when (val char = int.toChar()) {
+                '\n' -> {
+                    if (outputLines.size < maxOutputLines) {
+                        outputLines.add(
+                                TaskResults.OutputLine(
+                                        console,
+                                        currentLine.line.toString(),
+                                        currentLine.started,
+                                        currentLine.startedThread
+                                )
+                        )
+                    } else {
+                        outputTruncated = true
+                    }
+                    currentLines.remove(console)
+
+                    if (redirectingOutput) {
+                        redirectedOutputLines[console]?.append(currentLine.line.toString())
+                    }
+                }
+                '\r' -> {
+                    // Ignore - results will contain Unix line endings only
+                }
+                else -> {
+                    if (!outputTruncated) {
+                        currentLine.line.append(char)
+                    }
+                }
             }
         }
     }
@@ -612,43 +664,6 @@ object Sandbox {
         System.setSecurityManager(SandboxSecurityManager)
     }
 
-    private fun redirectedWrite(int: Int, console: TaskResults.OutputLine.Console) {
-        val confinedTask = confinedTaskByThreadGroup() ?: return defaultWrite(int, console)
-        if (confinedTask.shuttingDown) {
-            return
-        }
-
-        val currentLine = confinedTask.currentLines.getOrPut(console, { ConfinedTask.CurrentLine() })
-        when (val char = int.toChar()) {
-            '\n' -> {
-                if (confinedTask.outputLines.size < confinedTask.maxOutputLines) {
-                    confinedTask.outputLines.add(
-                            TaskResults.OutputLine(
-                                    console,
-                                    currentLine.line.toString(),
-                                    currentLine.started,
-                                    currentLine.startedThread
-                            )
-                    )
-                } else {
-                    confinedTask.outputTruncated = true
-                }
-                confinedTask.currentLines.remove(console)
-
-                if (confinedTask.redirectingOutput) {
-                    confinedTask.redirectedOutputLines[console]?.append(currentLine.line.toString())
-                }
-            }
-            '\r' -> {
-                // Ignore - results will contain Unix line endings only
-            }
-            else -> {
-                if (!confinedTask.outputTruncated) {
-                    currentLine.line.append(char)
-                }
-            }
-        }
-    }
     private fun defaultWrite(int: Int, console: TaskResults.OutputLine.Console) {
         when (console) {
             TaskResults.OutputLine.Console.STDOUT -> originalStdout.write(int)
@@ -677,17 +692,171 @@ object Sandbox {
 
     private var originalStdout = System.out
     private var originalStderr = System.err
+
+    private var originalPrintStreams: Map<TaskResults.OutputLine.Console, PrintStream> = mapOf(
+            TaskResults.OutputLine.Console.STDOUT to originalStdout,
+            TaskResults.OutputLine.Console.STDERR to originalStderr
+    )
+
+    /*
+     * Obviously this requires some explanation. One of the saddest pieces of code I've ever written...
+     *
+     * The problem is that System.out is a PrintStream. And, internally, it passes content through several buffered
+     * streams before it gets to the output stream that you pass.
+     *
+     * This becomes a problem once you have to kill off runaway threads. If a thread exits uncleanly,
+     * it can leave content somewhere in the buffers hidden by the PrintStream. Which is then spewed out at whoever
+     * happens to use the stream next. Not OK.
+     *
+     * Our original plan was to have _one_ PrintStream (per console) that sent all output to a shared OutputStream
+     * and then separate it there by thread group. This is much, much cleaner since you only have to override the
+     * OutputStream public interface which is one function. (See the code above on the ConfinedTask class.) But again,
+     * this fails in the presence of unclean exits.
+     *
+     * Note that the problem here isn't really with concurrency: it's with unclean exit. Concurrency just means that
+     * you don't know whose output stream might be poluted by the garbage left over if you share a PrintStream.
+     *
+     * So the "solution" is to create one PrintStream per confined task. This works because unclean exit just leaves
+     * detritus in that thread group's PrintStream which is eventually cleaned up and destroyed.
+     *
+     * But the result is that you have to implement the entire PrintStream public API. Leaving anything out means that
+     * stuff doesn't get forwarded, and we have to make sure that nothing is shared.
+     *
+     * Hence this sadness.
+     *
+     * PS: also fuck you Java for leaving me no choice but to resort to this. There are a half-dozen different terrible
+     * design decisions that led us to this place. Please do better next time.
+     */
+    private val nullOutputStream = object : OutputStream() { override fun write(b: Int) { } }
+    private class RedirectingPrintStream(val console: TaskResults.OutputLine.Console) : PrintStream(nullOutputStream) {
+        override fun append(char: Char): PrintStream {
+            val confinedTask = confinedTaskByThreadGroup() ?: return (originalPrintStreams[console] ?: error("console should exist")).append(char)
+            return (confinedTask.printStreams[console] ?: error("console should exist")).append(char)
+        }
+        override fun append(charSequence: CharSequence): PrintStream {
+            val confinedTask = confinedTaskByThreadGroup() ?: return (originalPrintStreams[console] ?: error("console should exist")).append(charSequence)
+            return (confinedTask.printStreams[console] ?: error("console should exist")).append(charSequence)
+        }
+        override fun append(charSequence: CharSequence, start: Int, end: Int): PrintStream {
+            val confinedTask = confinedTaskByThreadGroup() ?: return (originalPrintStreams[console] ?: error("console should exist")).append(charSequence, start, end)
+            return (confinedTask.printStreams[console] ?: error("console should exist")).append(charSequence, start, end)
+        }
+        override fun close() {
+            val confinedTask = confinedTaskByThreadGroup() ?: return (originalPrintStreams[console] ?: error("console should exist")).close()
+            (confinedTask.printStreams[console] ?: error("console should exist")).close()
+        }
+        override fun flush() {
+            val confinedTask = confinedTaskByThreadGroup() ?: return (originalPrintStreams[console] ?: error("console should exist")).flush()
+            (confinedTask.printStreams[console] ?: error("console should exist")).flush()
+        }
+        override fun format(locale: Locale, format: String, vararg args: Any): PrintStream {
+            val confinedTask = confinedTaskByThreadGroup() ?: return (originalPrintStreams[console] ?: error("console should exist")).format(locale, format, args)
+            return (confinedTask.printStreams[console] ?: error("console should exist")).format(locale, format, args)
+        }
+        override fun format(format: String, vararg args: Any): PrintStream {
+            val confinedTask = confinedTaskByThreadGroup() ?: return (originalPrintStreams[console] ?: error("console should exist")).format(format, args)
+            return (confinedTask.printStreams[console] ?: error("console should exist")).format(format, args)
+        }
+        override fun print(boolean: Boolean) {
+            val confinedTask = confinedTaskByThreadGroup() ?: return (originalPrintStreams[console] ?: error("console should exist")).print(boolean)
+            (confinedTask.printStreams[console] ?: error("console should exist")).print(boolean)
+        }
+        override fun print(char: Char) {
+            val confinedTask = confinedTaskByThreadGroup() ?: return (originalPrintStreams[console] ?: error("console should exist")).print(char)
+            (confinedTask.printStreams[console] ?: error("console should exist")).print(char)
+        }
+        override fun print(charArray: CharArray) {
+            val confinedTask = confinedTaskByThreadGroup() ?: return (originalPrintStreams[console] ?: error("console should exist")).print(charArray)
+            (confinedTask.printStreams[console] ?: error("console should exist")).print(charArray)
+        }
+        override fun print(double: Double) {
+            val confinedTask = confinedTaskByThreadGroup() ?: return (originalPrintStreams[console] ?: error("console should exist")).print(double)
+            (confinedTask.printStreams[console] ?: error("console should exist")).print(double)
+        }
+        override fun print(float: Float) {
+            val confinedTask = confinedTaskByThreadGroup() ?: return (originalPrintStreams[console] ?: error("console should exist")).print(float)
+            (confinedTask.printStreams[console] ?: error("console should exist")).print(float)
+        }
+        override fun print(int: Int) {
+            val confinedTask = confinedTaskByThreadGroup() ?: return (originalPrintStreams[console] ?: error("console should exist")).print(int)
+            (confinedTask.printStreams[console] ?: error("console should exist")).print(int)
+        }
+        override fun print(long: Long) {
+            val confinedTask = confinedTaskByThreadGroup() ?: return (originalPrintStreams[console] ?: error("console should exist")).print(long)
+            (confinedTask.printStreams[console] ?: error("console should exist")).print(long)
+        }
+        override fun print(any: Any) {
+            val confinedTask = confinedTaskByThreadGroup() ?: return (originalPrintStreams[console] ?: error("console should exist")).print(any)
+            (confinedTask.printStreams[console] ?: error("console should exist")).print(any)
+        }
+        override fun print(string: String) {
+            val confinedTask = confinedTaskByThreadGroup() ?: return (originalPrintStreams[console] ?: error("console should exist")).print(string)
+            (confinedTask.printStreams[console] ?: error("console should exist")).print(string)
+        }
+        override fun printf(locale: Locale, format: String, vararg args: Any): PrintStream {
+            val confinedTask = confinedTaskByThreadGroup() ?: return (originalPrintStreams[console] ?: error("console should exist")).printf(locale, format, args)
+            return (confinedTask.printStreams[console] ?: error("console should exist")).printf(locale, format, args)
+        }
+        override fun printf(format: String, vararg args: Any): PrintStream {
+            val confinedTask = confinedTaskByThreadGroup() ?: return (originalPrintStreams[console] ?: error("console should exist")).printf(format, args)
+            return (confinedTask.printStreams[console] ?: error("console should exist")).printf(format, args)
+        }
+        override fun println() {
+            val confinedTask = confinedTaskByThreadGroup() ?: return (originalPrintStreams[console] ?: error("console should exist")).println()
+            (confinedTask.printStreams[console] ?: error("console should exist")).println()
+        }
+        override fun println(boolean: Boolean) {
+            val confinedTask = confinedTaskByThreadGroup() ?: return (originalPrintStreams[console] ?: error("console should exist")).println(boolean)
+            (confinedTask.printStreams[console] ?: error("console should exist")).println(boolean)
+        }
+        override fun println(char: Char) {
+            val confinedTask = confinedTaskByThreadGroup() ?: return (originalPrintStreams[console] ?: error("console should exist")).println(char)
+            (confinedTask.printStreams[console] ?: error("console should exist")).println(char)
+        }
+        override fun println(charArray: CharArray) {
+            val confinedTask = confinedTaskByThreadGroup() ?: return (originalPrintStreams[console] ?: error("console should exist")).println(charArray)
+            (confinedTask.printStreams[console] ?: error("console should exist")).println(charArray)
+        }
+        override fun println(double: Double) {
+            val confinedTask = confinedTaskByThreadGroup() ?: return (originalPrintStreams[console] ?: error("console should exist")).println(double)
+            (confinedTask.printStreams[console] ?: error("console should exist")).println(double)
+        }
+        override fun println(float: Float) {
+            val confinedTask = confinedTaskByThreadGroup() ?: return (originalPrintStreams[console] ?: error("console should exist")).println(float)
+            (confinedTask.printStreams[console] ?: error("console should exist")).println(float)
+        }
+        override fun println(int: Int) {
+            val confinedTask = confinedTaskByThreadGroup() ?: return (originalPrintStreams[console] ?: error("console should exist")).println(int)
+            (confinedTask.printStreams[console] ?: error("console should exist")).println(int)
+        }
+        override fun println(long: Long) {
+            val confinedTask = confinedTaskByThreadGroup() ?: return (originalPrintStreams[console] ?: error("console should exist")).println(long)
+            (confinedTask.printStreams[console] ?: error("console should exist")).println(long)
+        }
+        override fun println(any: Any) {
+            val confinedTask = confinedTaskByThreadGroup() ?: return (originalPrintStreams[console] ?: error("console should exist")).println(any)
+            (confinedTask.printStreams[console] ?: error("console should exist")).println(any)
+        }
+        override fun println(string: String) {
+            val confinedTask = confinedTaskByThreadGroup() ?: return (originalPrintStreams[console] ?: error("console should exist")).println(string)
+            (confinedTask.printStreams[console] ?: error("console should exist")).println(string)
+        }
+        override fun write(byteArray: ByteArray, off: Int, len: Int) {
+            val confinedTask = confinedTaskByThreadGroup() ?: return (originalPrintStreams[console] ?: error("console should exist")).write(byteArray, off, len)
+            (confinedTask.printStreams[console] ?: error("console should exist")).write(byteArray, off, len)
+        }
+        override fun write(int: Int) {
+            val confinedTask = confinedTaskByThreadGroup() ?: return (originalPrintStreams[console] ?: error("console should exist")).write(int)
+            (confinedTask.printStreams[console] ?: error("console should exist")).write(int)
+        }
+        override fun write(byteArray: ByteArray) {
+            val confinedTask = confinedTaskByThreadGroup() ?: return (originalPrintStreams[console] ?: error("console should exist")).write(byteArray)
+            (confinedTask.printStreams[console] ?: error("console should exist")).write(byteArray)
+        }
+    }
     init {
-        System.setOut(PrintStream(object : OutputStream() {
-            override fun write(int: Int) {
-                redirectedWrite(int, TaskResults.OutputLine.Console.STDOUT)
-            }
-        }))
-        System.setErr(PrintStream(object : OutputStream() {
-            override fun write(int: Int) {
-                redirectedWrite(int, TaskResults.OutputLine.Console.STDERR)
-            }
-        }))
+        System.setOut(RedirectingPrintStream(TaskResults.OutputLine.Console.STDOUT))
+        System.setErr(RedirectingPrintStream(TaskResults.OutputLine.Console.STDERR))
         // Try to silence ThreadDeath error messages. Not sure this works but it can't hurt.
         Thread.setDefaultUncaughtExceptionHandler { _, _ ->  }
     }

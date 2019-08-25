@@ -2,6 +2,7 @@ package edu.illinois.cs.cs125.jeed.core.sandbox
 
 import edu.illinois.cs.cs125.jeed.core.*
 import io.kotlintest.matchers.collections.shouldContain
+import io.kotlintest.matchers.collections.shouldHaveSize
 import io.kotlintest.matchers.numerics.shouldBeExactly
 import io.kotlintest.should
 import io.kotlintest.shouldBe
@@ -363,17 +364,34 @@ while (true) {
 }
             """.trim()).compile().execute(SourceExecutionArguments(maxExtraThreads=256, timeout=1000L))
     }
-    "f:should recover from excessive console printing" {
-        val result = Source.transformSnippet("""
-for (long i = 0; i < 10000000L; i++) {
-    System.out.println(i);
-}
-""".trim()).compile().execute(SourceExecutionArguments(timeout=1000L))
+    "should recover from excessive console printing" {
+        for (i in 0..32) {
+            val result = Source.transformSnippet("""
+    for (long i = 0; i < 10000000L; i++) {
+        System.out.println(i);
+    }
+    """.trim()).compile().execute(SourceExecutionArguments(timeout = 100L))
 
-        result.outputLines[0].line shouldBe "0"
-        result.outputLines[Sandbox.ExecutionArguments.DEFAULT_MAX_OUTPUT_LINES - 1].line shouldBe (Sandbox.ExecutionArguments.DEFAULT_MAX_OUTPUT_LINES - 1).toString()
-        result.outputLines.size shouldBeExactly Sandbox.ExecutionArguments.DEFAULT_MAX_OUTPUT_LINES
-        result.outputTruncated shouldBe true
+            result.outputLines[0].line shouldBe "0"
+            result.outputLines[Sandbox.ExecutionArguments.DEFAULT_MAX_OUTPUT_LINES - 1].line shouldBe (Sandbox.ExecutionArguments.DEFAULT_MAX_OUTPUT_LINES - 1).toString()
+            result.outputLines shouldHaveSize Sandbox.ExecutionArguments.DEFAULT_MAX_OUTPUT_LINES
+            result.outputTruncated shouldBe true
+        }
+    }
+    "should print correctly in parallel using coroutines" {
+        (0..8).toList().map { value ->
+            async {
+                Pair(Source.transformSnippet("""
+for (int i = 0; i < (($value + 10) * 10000); i++) {
+    System.out.println($value);
+}
+                    """.trim()).compile().execute(SourceExecutionArguments(timeout = 100L)), value)
+            }
+        }.map { it ->
+            val (result, value) = it.await()
+            result.stdoutLines shouldHaveSize Sandbox.ExecutionArguments.DEFAULT_MAX_OUTPUT_LINES
+            result.stdoutLines.all { it.line.trim() == value.toString() } shouldBe true
+        }
     }
     "should survive a very large class file" {
         // TODO: What's the right behavior here?
