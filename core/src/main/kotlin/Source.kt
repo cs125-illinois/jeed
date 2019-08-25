@@ -146,11 +146,38 @@ data class TaskError(val error: Throwable) {
     }
 }
 
-fun Exception.getStackTraceAsString(): String {
+fun Throwable.getStackTraceAsString(): String {
     val stringWriter = StringWriter()
     val printWriter = PrintWriter(stringWriter)
     this.printStackTrace(printWriter)
     return stringWriter.toString()
+}
+
+val stackTraceLineRegex = Regex("""^at (\w+)\.(\w+)\((\w*):(\d+)\)$""")
+fun Throwable.getStackTraceForSource(source: Source): String {
+    val originalStackTrace = this.getStackTraceAsString().lines().toMutableList()
+    val firstLine = originalStackTrace.removeAt(0)
+
+    val betterStackTrace = mutableListOf<String>("""Exception in thread "main" $firstLine""")
+    for (line in originalStackTrace) {
+        if (line.trim().startsWith("""at java.base/jdk.internal.reflect.NativeMethodAccessorImpl.invoke0(Native Method)""")) {
+            break
+        }
+        if (!(source is Snippet)) {
+            betterStackTrace.add(line)
+            continue
+        }
+        val parsedLine = stackTraceLineRegex.find(line.trim())
+        if (parsedLine == null) {
+            betterStackTrace.add(line)
+            continue
+        }
+        val (klass, method, name, line) = parsedLine.destructured
+        val originalLocation = SourceLocation(name, line.toInt(), 0)
+        val correctLocation = source.mapLocation(originalLocation)
+        betterStackTrace.add("  at line ${correctLocation.line}")
+    }
+    return betterStackTrace.joinToString(separator = "\n")
 }
 fun Method.getQualifiedName(): String { return "$name(${parameters.joinToString(separator = ", ")})" }
 

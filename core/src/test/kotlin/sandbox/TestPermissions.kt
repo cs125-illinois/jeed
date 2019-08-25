@@ -329,7 +329,7 @@ public class Example {
     }
 }
 """.trim()
-        )).compile().execute(SourceExecutionArguments("Example"))
+        )).compile().execute(SourceExecutionArguments("Example", maxOutputLines = 10240))
         System.gc()
         executionResult.outputLines shouldHaveSize 10000
         executionResult.outputLines.all { (_, line) -> line.trim().equals("Example") } shouldBe true

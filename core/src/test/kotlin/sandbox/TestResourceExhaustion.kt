@@ -2,6 +2,7 @@ package edu.illinois.cs.cs125.jeed.core.sandbox
 
 import edu.illinois.cs.cs125.jeed.core.*
 import io.kotlintest.matchers.collections.shouldContain
+import io.kotlintest.matchers.numerics.shouldBeExactly
 import io.kotlintest.should
 import io.kotlintest.shouldBe
 import io.kotlintest.shouldNot
@@ -361,6 +362,16 @@ while (true) {
     } catch (Throwable e) {}
 }
             """.trim()).compile().execute(SourceExecutionArguments(maxExtraThreads=256, timeout=1000L))
+    }
+    "should recover from excessive console printing" {
+        val result = Source.transformSnippet("""
+for (long i = 0; i < 10000000L; i++) {
+    System.out.println(i);
+}
+""".trim()).compile().execute(SourceExecutionArguments(timeout=1000L))
+
+        result.outputLines.size shouldBeExactly Sandbox.ExecutionArguments.DEFAULT_MAX_OUTPUT_LINES + 1
+        result.outputLines.last().line shouldBe DEFAULT_CONSOLE_OVERFLOW_MESSAGE
     }
     "should survive a very large class file" {
         // TODO: What's the right behavior here?

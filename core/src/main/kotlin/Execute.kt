@@ -12,11 +12,13 @@ class SourceExecutionArguments(
         timeout: Long = DEFAULT_TIMEOUT,
         permissions: Set<Permission> = REQUIRED_PERMISSIONS,
         maxExtraThreads: Int = DEFAULT_MAX_EXTRA_THREADS,
+        maxOutputLines: Int = DEFAULT_MAX_OUTPUT_LINES,
         classLoaderConfiguration: Sandbox.ClassLoaderConfiguration = Sandbox.ClassLoaderConfiguration()
 ): Sandbox.ExecutionArguments(
         timeout,
         permissions.union(REQUIRED_PERMISSIONS),
         maxExtraThreads,
+        maxOutputLines,
         classLoaderConfiguration
 ) {
     companion object {

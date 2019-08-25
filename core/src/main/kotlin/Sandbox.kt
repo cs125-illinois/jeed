@@ -18,6 +18,8 @@ private val logger = KotlinLogging.logger {}
 
 private typealias SandboxCallableArguments<T> = (Pair<ClassLoader, (() -> Unit) -> Pair<String, String>>)->T
 
+const val DEFAULT_CONSOLE_OVERFLOW_MESSAGE = "(additional console output not shown)"
+
 object Sandbox {
     class ClassLoaderConfiguration(
             val whitelistedClasses: Set<String> = DEFAULT_WHITELISTED_CLASSES,
@@ -53,11 +55,13 @@ object Sandbox {
             val timeout: Long = DEFAULT_TIMEOUT,
             val permissions: Set<Permission> = setOf(),
             val maxExtraThreads: Int = DEFAULT_MAX_EXTRA_THREADS,
+            val maxOutputLines: Int = DEFAULT_MAX_OUTPUT_LINES,
             val classLoaderConfiguration: ClassLoaderConfiguration = ClassLoaderConfiguration()
     ) {
         companion object {
             const val DEFAULT_TIMEOUT = 100L
             const val DEFAULT_MAX_EXTRA_THREADS = 0
+            const val DEFAULT_MAX_OUTPUT_LINES = 1024
             val DEFAULT_BLACKLISTED_CLASSES = setOf("java.lang.reflect.")
         }
     }
@@ -224,6 +228,7 @@ object Sandbox {
             accessControlContext = AccessControlContext(arrayOf(ProtectionDomain(null, permissions)))
         }
         val maxExtraThreads: Int = executionArguments.maxExtraThreads
+        val maxOutputLines: Int = executionArguments.maxOutputLines
 
         @Volatile
         var shuttingDown: Boolean = false
@@ -318,7 +323,7 @@ object Sandbox {
 
         for (console in TaskResults.OutputLine.Console.values()) {
             val currentLine = confinedTask.currentLines[console] ?: continue
-            if (currentLine.line.isNotEmpty()) {
+            if (currentLine.line.isNotEmpty() && confinedTask.outputLines.size < confinedTask.maxOutputLines) {
                 confinedTask.outputLines.add(
                         TaskResults.OutputLine(
                                 console,
@@ -605,14 +610,25 @@ object Sandbox {
         val currentLine = confinedTask.currentLines.getOrPut(console, { ConfinedTask.CurrentLine() })
         when (val char = int.toChar()) {
             '\n' -> {
-                confinedTask.outputLines.add(
-                        TaskResults.OutputLine(
-                                console,
-                                currentLine.line.toString(),
-                                currentLine.started,
-                                currentLine.startedThread
-                        )
-                )
+                if (confinedTask.outputLines.size < confinedTask.maxOutputLines) {
+                    confinedTask.outputLines.add(
+                            TaskResults.OutputLine(
+                                    console,
+                                    currentLine.line.toString(),
+                                    currentLine.started,
+                                    currentLine.startedThread
+                            )
+                    )
+                } else if (confinedTask.outputLines.size == confinedTask.maxOutputLines) {
+                    confinedTask.outputLines.add(
+                            TaskResults.OutputLine(
+                                    TaskResults.OutputLine.Console.STDERR,
+                                    DEFAULT_CONSOLE_OVERFLOW_MESSAGE,
+                                    currentLine.started,
+                                    currentLine.startedThread
+                            )
+                    )
+                }
                 confinedTask.currentLines.remove(console)
 
                 if (confinedTask.redirectingOutput) {
