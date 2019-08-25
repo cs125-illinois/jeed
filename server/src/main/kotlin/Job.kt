@@ -14,11 +14,15 @@ import edu.illinois.cs.cs125.jeed.core.moshi.PermissionAdapter
 import edu.illinois.cs.cs125.jeed.server.moshi.Adapters
 import edu.illinois.cs.cs125.jeed.core.moshi.Adapters as JeedAdapters
 import kotlinx.coroutines.*
+import mu.KotlinLogging
 import org.apache.http.auth.AuthenticationException
 import org.bson.BsonDocument
 import java.lang.IllegalArgumentException
 import java.time.Instant
 import java.util.*
+
+@Suppress("UNUSED")
+private val logger = KotlinLogging.logger {}
 
 class Job(
         val source: Map<String, String>?,
@@ -60,6 +64,11 @@ class Job(
             if (arguments?.execution?.maxExtraThreads != null) {
                 require(arguments.execution.maxExtraThreads <= configuration[Limits.Execution.maxExtraThreads]) {
                     "job maxExtraThreads of ${arguments.execution.maxExtraThreads} is too large (> ${configuration[Limits.Execution.maxExtraThreads]}"
+                }
+            }
+            if (arguments?.execution?.maxOutputLines != null) {
+                require(arguments.execution.maxOutputLines <= configuration[Limits.Execution.maxOutputLines]) {
+                    "job maxOutputLines of ${arguments.execution.maxOutputLines} is too large (> ${configuration[Limits.Execution.maxOutputLines]}"
                 }
             }
             if (arguments?.execution?.permissions != null) {
@@ -131,6 +140,9 @@ class Job(
 
             if (tasks.contains(Task.execute)) {
                 result.completed.execution = result.completed.compilation?.execute(arguments.execution)
+                if (result.completed.execution?.threw != null) {
+                    result.failed.execution = result.completed.execution!!.threw!!.getStackTraceForSource(actualSource)
+                }
             }
         } catch (templatingFailed: TemplatingFailed) {
             result.failed.template = templatingFailed
@@ -138,6 +150,8 @@ class Job(
             result.failed.snippet = snippetFailed
         } catch (compilationFailed: CompilationFailed) {
             result.failed.compilation = compilationFailed
+        } catch (e: Exception) {
+            logger.error(e.toString())
         } finally {
             currentStatus.counts.completedJobs++
             result.interval = Interval(started, Instant.now())
@@ -245,5 +259,6 @@ class CompletedTasks(
 class FailedTasks(
         var snippet: SnippetTransformationFailed? = null,
         var template: TemplatingFailed? = null,
-        var compilation: CompilationFailed? = null
+        var compilation: CompilationFailed? = null,
+        var execution: String? = null
 )
