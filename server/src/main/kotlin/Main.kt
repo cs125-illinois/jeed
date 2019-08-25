@@ -1,12 +1,20 @@
 package edu.illinois.cs.cs125.jeed.server
 
+import com.uchuhimo.konf.source.base.toHierarchicalMap
+import com.uchuhimo.konf.source.json.toJson
 import io.ktor.application.Application
 import io.ktor.server.engine.embeddedServer
 import io.ktor.server.netty.Netty
+import mu.KotlinLogging
 import java.lang.AssertionError
 import java.net.URI
 
+@Suppress("UNUSED")
+private val logger = KotlinLogging.logger {}
+
 fun main() {
+    logger.warn(configuration.toJson.toText())
+
     System.getenv("HTTP")?.run {
         val uri = URI(this)
         assert(uri.scheme == "http")
