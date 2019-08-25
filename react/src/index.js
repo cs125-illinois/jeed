@@ -3,11 +3,11 @@ import React, { Component } from 'react'
 import axios from 'axios'
 
 const backends = {}
-function jeedBackendWrapper (WrappedComponent) {
-  class JeedBackendWrapper extends Component {
+function jeedWrapper (WrappedComponent) {
+  class JeedWrapper extends Component {
     constructor (props) {
       super(props)
-      this.state = { config: null }
+      this.state = { config: null, connected: null }
     }
 
     componentDidMount() {
@@ -16,7 +16,9 @@ function jeedBackendWrapper (WrappedComponent) {
         backends[backend] = axios.get(backend)
       }
       backends[backend].then(config => {
-        this.setState({ config })
+        this.setState({ config, connected: true })
+      }).catch(() => {
+        this.setState({ connected: false })
       })
     }
 
@@ -25,12 +27,12 @@ function jeedBackendWrapper (WrappedComponent) {
     }
   }
 
-  JeedBackendWrapper.displayName =
-    `JeedBackendWrapper(${
+  JeedWrapper.displayName =
+    `JeedWrapper(${
       WrappedComponent.displayName || WrappedComponent.name || 'Component'
     })`
 
-  return JeedBackendWrapper
+  return JeedWrapper
 }
 
 function run (backend, job) {
@@ -46,7 +48,7 @@ function run (backend, job) {
   }
 }
 
-class JeedResultInner extends Component {
+class Result extends Component {
   constructor(props) {
     super(props)
     this.state = { request: null, result: null, err: null, completed: false }
@@ -80,17 +82,7 @@ class JeedResultInner extends Component {
   }
 
   render() {
-    const { config } = this.props.jeed
     const { result, err } = this.state
-
-    if (!config) {
-      const { Connecting } = this.props
-      return ( Connecting || <div>Connecting...</div> )
-    }
-    if (!result) {
-      const { Running } = this.props
-      return ( Running || <div>Running...</div> )
-    }
     const Output = this.props.output || TerminalOutput
     return ( <Output job={ this.props.job } { ...this.state } /> )
   }
@@ -98,8 +90,11 @@ class JeedResultInner extends Component {
 
 const TerminalOutput = (props) => {
   const { job, result } = props
-  let output = ""
+  if (!result) {
+    return null
+  }
 
+  let output = ""
   if (result.failed.snippet) {
     const { errors } = result.failed.snippet
     output += errors.map(error => {
@@ -155,6 +150,6 @@ ${ errorCount } error${ errorCount > 1 ? "s" : "" }`
     </pre>)
 }
 
-const JeedResult = jeedBackendWrapper(JeedResultInner)
-export { JeedResult }
+const JeedResult = jeedWrapper(Result)
+export { JeedResult, jeedWrapper }
 

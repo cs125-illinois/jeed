@@ -1,50 +1,75 @@
 import React, { Component } from 'react'
 
 import Children from 'react-children-utilities'
+import SyntaxHighlighter from 'react-syntax-highlighter'
+import { github } from 'react-syntax-highlighter/dist/esm/styles/hljs'
+import { JeedResult, jeedWrapper } from 'jeed'
 
-import { JeedResult } from 'jeed'
-
-import Container from '@material-ui/core/Container'
+import { Box, Container, IconButton, CircularProgress, Tooltip } from '@material-ui/core/'
+import PlayCircleFilled from '@material-ui/icons/PlayCircleFilled'
+import Warning from '@material-ui/icons/Warning'
 
 const backend = process.env.REACT_APP_JEED_BACKEND
 
-class JeedDiv extends Component {
+class Code extends Component {
   constructor(props) {
     super(props)
+
     this.state = { clicked: false }
+
     this.source = Children.onlyText(this.props.children).trim() + "\n"
-    this.job = {
-      tasks: props.tasks || [ "execute" ],
-    }
+    this.job = { tasks: props.tasks || [ "execute" ] }
     if (props.snippet) {
       this.job.snippet = this.source
     } else {
-      const filename = props.filename || "Example.java"
-      this.job.sources = {
-        filename: this.source
-      }
+      this.job.sources = { [props.filename || "Example.java"]: this.source }
     }
   }
+
   render () {
+    const { connected } = this.props.jeed
+    let button
+    if (connected === true) {
+      button =
+        <Tooltip title="Run">
+          <IconButton size="small" edge="end">
+            <PlayCircleFilled size="small" color="primary" />
+          </IconButton>
+        </Tooltip>
+    } else if (connected === false) {
+      button =
+        <Tooltip title="Not Connected">
+          <Warning color="error" size="small" />
+        </Tooltip>
+    } else {
+      button =
+        <Tooltip title="Connecting...">
+          <CircularProgress size={20} style={{ marginBottom: 2 }}/>
+        </Tooltip>
+    }
+
     return (
-      <div>
-        <pre><code>{ this.source }</code></pre>
-        <pre><code>{ JSON.stringify(this.job, null, 2) }</code></pre>
+      <Box style={{ position: 'relative' }}>
+        <Box style={{ position: 'absolute', bottom: 0, right: 2 }}>
+          { button }
+        </Box>
+				<SyntaxHighlighter language="java" style={github}>{ this.source }</SyntaxHighlighter>
         <JeedResult backend={backend} job={this.job} />
-      </div>
+			</Box>
     )
   }
 }
+const JeedCode = jeedWrapper(Code)
 
 export default class App extends Component {
   render () {
     return (
       <Container maxWidth="md">
-        <JeedDiv snippet="true">{`
+        <JeedCode snippet="true">{`
 for (long i = 0; i < 10000000L; i++) {
   System.out.println(i);
 }
-        `}</JeedDiv>
+        `}</JeedCode>
       </Container>
     )
   }
