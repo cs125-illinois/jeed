@@ -7,7 +7,7 @@ function jeedBackendWrapper (WrappedComponent) {
   class JeedBackendWrapper extends Component {
     constructor (props) {
       super(props)
-      this.state = { connected: false, config: null }
+      this.state = { config: null }
     }
 
     componentDidMount() {
@@ -16,13 +16,12 @@ function jeedBackendWrapper (WrappedComponent) {
         backends[backend] = axios.get(backend)
       }
       backends[backend].then(config => {
-        this.setState({ connected: true, config })
+        this.setState({ config })
       })
     }
 
     render () {
-      const { connected, config } = this.state
-      return <WrappedComponent connected={connected} config={config} { ...this.props } />
+      return <WrappedComponent jeed={this.state} { ...this.props } />
     }
   }
 
@@ -41,7 +40,8 @@ class JeedResultInner extends Component {
   }
 
   componentDidUpdate() {
-    if (!this.props.connected) {
+    const { config } = this.props.jeed
+    if (!config) {
       return
     }
     if (this.state.request) {
@@ -67,10 +67,10 @@ class JeedResultInner extends Component {
   }
 
   render() {
-    const { connected, config } = this.props
+    const { config } = this.props.jeed
     const { result } = this.state
 
-    if (!connected) {
+    if (!config) {
       const { connecting } = this.props
       return ( connecting || <div>Connecting...</div> )
     }

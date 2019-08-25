@@ -1,5 +1,5 @@
 {
-  "name": "jeed",
+  "name": "jeed-react-component",
   "private": true,
   "main": "dist/index.js",
   "module": "dist/index.es.js",
