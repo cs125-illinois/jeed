@@ -5,7 +5,7 @@ import SyntaxHighlighter from 'react-syntax-highlighter'
 import { github } from 'react-syntax-highlighter/dist/esm/styles/hljs'
 import { jeedWrapper, JeedResult } from 'jeed'
 
-import { Box, Container, IconButton, CircularProgress, Tooltip } from '@material-ui/core/'
+import { Box, Container, IconButton, CircularProgress, Tooltip, Paper } from '@material-ui/core/'
 import PlayCircleFilled from '@material-ui/icons/PlayCircleFilled'
 import Warning from '@material-ui/icons/Warning'
 
@@ -18,7 +18,7 @@ class Code extends Component {
     this.state = { clicked: false }
 
     this.source = Children.onlyText(this.props.children).trim() + "\n"
-    this.job = { tasks: props.tasks || [ "execute" ] }
+    this.job = { label: "test", tasks: props.tasks || [ "execute" ] }
     if (props.snippet) {
       this.job.snippet = this.source
     } else {
@@ -51,17 +51,19 @@ class Code extends Component {
     }
 
     return (
-      <Box>
+      <Paper>
         <Box style={{ position: 'relative' }}>
           <Box style={{ position: 'absolute', bottom: 0, right: 2 }}>
               { button }
           </Box>
           <SyntaxHighlighter language="java" style={github}>{ this.source }</SyntaxHighlighter>
         </Box>
-        <Box>
-          <JeedResult jeed={ this.props.jeed } job={ this.job } />
+        <Box style={{ maxHeight: 200, overflowY: 'scroll' }}>
+          <pre style={{ padding: 4 }}>
+            <JeedResult jeed={ this.props.jeed } job={ this.job } />
+          </pre>
         </Box>
-      </Box>
+      </Paper>
     )
   }
 }
@@ -73,8 +75,10 @@ export default class App extends Component {
     return (
       <Container maxWidth="md">
         <JeedCode snippet="true">{`
+import java.util.Random;
+int value = new Random().nextInt();
 for (long i = 0; i < 10000000L; i++) {
-  System.out.println(i);
+  System.out.println(i + " " + value);
 }
         `}</JeedCode>
       </Container>

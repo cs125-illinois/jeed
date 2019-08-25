@@ -30,7 +30,8 @@ class Job(
         val snippet: String?,
         passedTasks: Set<Task>,
         arguments: TaskArguments?,
-        val authToken: String?
+        val authToken: String?,
+        val label: String
 ) {
     val tasks: Set<Task>
     val arguments = arguments ?: TaskArguments()
@@ -168,18 +169,19 @@ class Job(
             val snippet: String?,
             val tasks: Set<Task>,
             val arguments: TaskArguments?,
-            val authToken: String?
+            val authToken: String?,
+            val label: String
     )
     class JobAdapter {
         @FromJson
         fun jobFromJson(jobJson: JobJson): Job {
             assert(!(jobJson.source != null && jobJson.snippet != null)) { "can't set both snippet and sources" }
-            return Job(jobJson.source, jobJson.templates, jobJson.snippet, jobJson.tasks, jobJson.arguments, jobJson.authToken)
+            return Job(jobJson.source, jobJson.templates, jobJson.snippet, jobJson.tasks, jobJson.arguments, jobJson.authToken, jobJson.label)
         }
         @ToJson
         fun jobToJson(job: Job): JobJson {
             assert(!(job.source != null && job.snippet != null)) { "can't set both snippet and sources" }
-            return JobJson(job.source, job.templates, job.snippet, job.tasks, job.arguments, job.authToken)
+            return JobJson(job.source, job.templates, job.snippet, job.tasks, job.arguments, job.authToken, job.label)
         }
     }
     companion object {

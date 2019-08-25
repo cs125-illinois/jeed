@@ -120,6 +120,8 @@ const TerminalOutput = (props) => {
     return null
   }
 
+  console.debug(result)
+
   let output = ""
   if (result.failed.snippet) {
     const { errors } = result.failed.snippet
@@ -169,10 +171,7 @@ ${ errorCount } error${ errorCount > 1 ? "s" : "" }`
     }
   }
 
-  return (
-    <pre>
-        { output }
-    </pre>)
+  return ( <div>{ output }</div> )
 }
 
 export { jeedWrapper, JeedResult }

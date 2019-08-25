@@ -74,7 +74,8 @@ object Sandbox {
             val permissionRequests: MutableList<PermissionRequest> = mutableListOf(),
             val interval: Interval,
             val executionInterval: Interval,
-            @Transient val sandboxedClassLoader: SandboxedClassLoader? = null
+            @Transient val sandboxedClassLoader: SandboxedClassLoader? = null,
+            val outputTruncated: Boolean
     ) {
         data class OutputLine (val console: Console, val line: String, val timestamp: Instant, val thread: Long) {
             enum class Console(val fd: Int) { STDOUT(1), STDERR(2) }
@@ -203,7 +204,8 @@ object Sandbox {
                         confinedTask.permissionRequests,
                         Interval(confinedTask.started, Instant.now()),
                         Interval(executionStarted, executionEnded),
-                        sandboxedClassLoader
+                        sandboxedClassLoader,
+                        confinedTask.outputTruncated
                 )
                 runBlocking { resultChannel.send(ExecutorResult(executionResult, Exception())) }
             } catch (e: Throwable) {
@@ -233,6 +235,7 @@ object Sandbox {
         @Volatile
         var shuttingDown: Boolean = false
 
+        var outputTruncated: Boolean = false
         val currentLines: MutableMap<TaskResults.OutputLine.Console, CurrentLine> = mutableMapOf()
         val outputLines: MutableList<TaskResults.OutputLine> = mutableListOf()
 
@@ -321,17 +324,20 @@ object Sandbox {
             assert(threadGroup.isDestroyed)
         }
 
-        for (console in TaskResults.OutputLine.Console.values()) {
-            val currentLine = confinedTask.currentLines[console] ?: continue
-            if (currentLine.line.isNotEmpty() && confinedTask.outputLines.size < confinedTask.maxOutputLines) {
-                confinedTask.outputLines.add(
-                        TaskResults.OutputLine(
-                                console,
-                                currentLine.line.toString(),
-                                currentLine.started,
-                                currentLine.startedThread
-                        )
-                )
+
+        if (!confinedTask.outputTruncated) {
+            for (console in TaskResults.OutputLine.Console.values()) {
+                val currentLine = confinedTask.currentLines[console] ?: continue
+                if (currentLine.line.isNotEmpty()) {
+                    confinedTask.outputLines.add(
+                            TaskResults.OutputLine(
+                                    console,
+                                    currentLine.line.toString(),
+                                    currentLine.started,
+                                    currentLine.startedThread
+                            )
+                    )
+                }
             }
         }
 
@@ -451,7 +457,9 @@ object Sandbox {
         fun checkException(throwable: Throwable) {
             val confinedTask = confinedTaskByThreadGroup()
                     ?: error("only confined tasks should call this method")
-            if (confinedTask.shuttingDown) throw ThreadDeath()
+            if (confinedTask.shuttingDown) {
+                throw ThreadDeath()
+            }
             // This check is required because of how we handle finally blocks
             if (confinedTask.classLoader.unsafeExceptionClasses.any { it.isAssignableFrom(throwable.javaClass) }) {
                 throw(throwable)
@@ -606,6 +614,9 @@ object Sandbox {
 
     private fun redirectedWrite(int: Int, console: TaskResults.OutputLine.Console) {
         val confinedTask = confinedTaskByThreadGroup() ?: return defaultWrite(int, console)
+        if (confinedTask.shuttingDown) {
+            return
+        }
 
         val currentLine = confinedTask.currentLines.getOrPut(console, { ConfinedTask.CurrentLine() })
         when (val char = int.toChar()) {
@@ -619,15 +630,8 @@ object Sandbox {
                                     currentLine.startedThread
                             )
                     )
-                } else if (confinedTask.outputLines.size == confinedTask.maxOutputLines) {
-                    confinedTask.outputLines.add(
-                            TaskResults.OutputLine(
-                                    TaskResults.OutputLine.Console.STDERR,
-                                    DEFAULT_CONSOLE_OVERFLOW_MESSAGE,
-                                    currentLine.started,
-                                    currentLine.startedThread
-                            )
-                    )
+                } else {
+                    confinedTask.outputTruncated = true
                 }
                 confinedTask.currentLines.remove(console)
 
@@ -639,7 +643,9 @@ object Sandbox {
                 // Ignore - results will contain Unix line endings only
             }
             else -> {
-                currentLine.line.append(char)
+                if (!confinedTask.outputTruncated) {
+                    currentLine.line.append(char)
+                }
             }
         }
     }
@@ -673,10 +679,14 @@ object Sandbox {
     private var originalStderr = System.err
     init {
         System.setOut(PrintStream(object : OutputStream() {
-            override fun write(int: Int) { redirectedWrite(int, TaskResults.OutputLine.Console.STDOUT) }
+            override fun write(int: Int) {
+                redirectedWrite(int, TaskResults.OutputLine.Console.STDOUT)
+            }
         }))
         System.setErr(PrintStream(object : OutputStream() {
-            override fun write(int: Int) { redirectedWrite(int, TaskResults.OutputLine.Console.STDERR) }
+            override fun write(int: Int) {
+                redirectedWrite(int, TaskResults.OutputLine.Console.STDERR)
+            }
         }))
         // Try to silence ThreadDeath error messages. Not sure this works but it can't hurt.
         Thread.setDefaultUncaughtExceptionHandler { _, _ ->  }

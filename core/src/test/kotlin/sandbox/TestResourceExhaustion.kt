@@ -363,15 +363,17 @@ while (true) {
 }
             """.trim()).compile().execute(SourceExecutionArguments(maxExtraThreads=256, timeout=1000L))
     }
-    "should recover from excessive console printing" {
+    "f:should recover from excessive console printing" {
         val result = Source.transformSnippet("""
 for (long i = 0; i < 10000000L; i++) {
     System.out.println(i);
 }
 """.trim()).compile().execute(SourceExecutionArguments(timeout=1000L))
 
-        result.outputLines.size shouldBeExactly Sandbox.ExecutionArguments.DEFAULT_MAX_OUTPUT_LINES + 1
-        result.outputLines.last().line shouldBe DEFAULT_CONSOLE_OVERFLOW_MESSAGE
+        result.outputLines[0].line shouldBe "0"
+        result.outputLines[Sandbox.ExecutionArguments.DEFAULT_MAX_OUTPUT_LINES - 1].line shouldBe (Sandbox.ExecutionArguments.DEFAULT_MAX_OUTPUT_LINES - 1).toString()
+        result.outputLines.size shouldBeExactly Sandbox.ExecutionArguments.DEFAULT_MAX_OUTPUT_LINES
+        result.outputTruncated shouldBe true
     }
     "should survive a very large class file" {
         // TODO: What's the right behavior here?

@@ -1,6 +1,7 @@
 plugins {
     kotlin("jvm")
     kotlin("kapt")
+    application
     id("com.github.johnrengelman.shadow") version "5.1.0"
 }
 tasks.test {
@@ -29,6 +30,9 @@ dependencies {
     testImplementation("io.kotlintest:kotlintest-runner-junit5:$kotlintestVersion")
     testImplementation("io.kotlintest:kotlintest-assertions-ktor:$kotlintestVersion")
     testImplementation("io.ktor:ktor-server-test-host:$ktorVersion")
+}
+application {
+    mainClassName = "edu.illinois.cs.cs125.jeed.server.MainKt"
 }
 tasks.jar {
     manifest {
