@@ -141,6 +141,20 @@ public class Main {
         executionMainResult shouldNot haveTimedOut()
         executionMainResult should haveStdout("Here")
     }
+    "should special case main with string array" {
+        val executionMainResult = Source(mapOf(
+                "Main.java" to """
+public class Main {
+    public static void main(String[] unused) {
+        var i = 0;
+        System.out.println("Here");
+    }
+}
+                """.trim())).compile().execute(SourceExecutionArguments(method = "main(String[])"))
+        executionMainResult should haveCompleted()
+        executionMainResult shouldNot haveTimedOut()
+        executionMainResult should haveStdout("Here")
+    }
     "should execute multiple sources with dependencies" {
         val executionMainResult = Source(mapOf(
                 "Main.java" to """

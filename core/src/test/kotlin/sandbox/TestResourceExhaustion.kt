@@ -4,6 +4,7 @@ import edu.illinois.cs.cs125.jeed.core.*
 import io.kotlintest.matchers.collections.shouldContain
 import io.kotlintest.matchers.collections.shouldHaveSize
 import io.kotlintest.matchers.numerics.shouldBeExactly
+import io.kotlintest.matchers.numerics.shouldBeGreaterThan
 import io.kotlintest.should
 import io.kotlintest.shouldBe
 import io.kotlintest.shouldNot
@@ -375,7 +376,7 @@ while (true) {
             result.outputLines[0].line shouldBe "0"
             result.outputLines[Sandbox.ExecutionArguments.DEFAULT_MAX_OUTPUT_LINES - 1].line shouldBe (Sandbox.ExecutionArguments.DEFAULT_MAX_OUTPUT_LINES - 1).toString()
             result.outputLines shouldHaveSize Sandbox.ExecutionArguments.DEFAULT_MAX_OUTPUT_LINES
-            result.outputTruncated shouldBe true
+            result.truncatedLines shouldBeGreaterThan 0
         }
     }
     "should print correctly in parallel using coroutines" {

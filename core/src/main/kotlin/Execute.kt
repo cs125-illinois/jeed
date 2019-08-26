@@ -41,7 +41,12 @@ suspend fun CompiledSource.execute(
 
     return Sandbox.execute(classLoader, executionArguments) { (classLoader) ->
         try {
-            classLoader.findClassMethod(executionArguments.klass, executionArguments.method).invoke(null)
+            val method = classLoader.findClassMethod(executionArguments.klass, executionArguments.method)
+            if (method.parameterTypes.size == 0) {
+                method.invoke(null)
+            } else {
+                method.invoke(null, null)
+            }
         } catch (e: InvocationTargetException) {
             throw(e.cause ?: e)
         }
@@ -54,6 +59,13 @@ fun ClassLoader.findClassMethod(
         name: String = SourceExecutionArguments.DEFAULT_METHOD
 ): Method {
     return loadClass(klass).declaredMethods.find { method ->
+        if (name == "main(String[])"
+                && Modifier.isStatic(method.modifiers)
+                && Modifier.isPublic(method.modifiers)
+                && method.parameterTypes.size == 1
+                && method.parameterTypes[0].canonicalName == "java.lang.String[]") {
+            return@find true
+        }
         if (!Modifier.isStatic(method.modifiers)
                 || !Modifier.isPublic(method.modifiers)
                 || method.parameterTypes.isNotEmpty()) {
