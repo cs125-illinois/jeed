@@ -160,7 +160,9 @@ class Job(
             currentStatus.counts.completedJobs++
             result.interval = Interval(started, Instant.now())
             if (mongoCollection != null) {
-                GlobalScope.launch { mongoCollection.insertOne(BsonDocument.parse(result.json)) }
+                GlobalScope.launch {
+                    mongoCollection.insertOne(BsonDocument.parse(result.json))
+                }
             }
             return result
         }
@@ -184,7 +186,7 @@ class Job(
         @ToJson
         fun jobToJson(job: Job): JobJson {
             assert(!(job.source != null && job.snippet != null)) { "can't set both snippet and sources" }
-            return JobJson(job.source, job.templates, job.snippet, job.tasks, job.arguments, job.authToken, job.label)
+            return JobJson(job.source?.mapKeys { (name, _) -> name.removeSuffix(".java") }, job.templates, job.snippet, job.tasks, job.arguments, null, job.label)
         }
     }
     companion object {
@@ -216,6 +218,7 @@ class TaskArguments(
 )
 
 class Result(val job: Job) {
+    val email = job.email
     val status = currentStatus
     val completed: CompletedTasks = CompletedTasks()
     val failed: FailedTasks = FailedTasks()
@@ -225,6 +228,7 @@ class Result(val job: Job) {
         get() = resultAdapter.toJson(this)
 
     data class ResultJson(
+            val email: String?,
             val job: Job,
             val status: Status,
             val completed: CompletedTasks,
@@ -236,11 +240,25 @@ class Result(val job: Job) {
         @Suppress("UNUSED_PARAMETER")
         @FromJson
         fun resultFromJson(resultJson: ResultJson): Result {
-            throw Exception("Can't convert JSON to Result")
+            val result = Result(resultJson.job)
+
+            result.completed.snippet = resultJson.completed.snippet
+            result.completed.compilation = resultJson.completed.compilation
+            result.completed.template = resultJson.completed.template
+            result.completed.execution = resultJson.completed.execution
+
+            result.failed.snippet = resultJson.failed.snippet
+            result.failed.compilation = resultJson.failed.compilation
+            result.failed.template = resultJson.failed.template
+            result.failed.execution = resultJson.failed.execution
+
+            result.interval = resultJson.interval
+
+            return result
         }
         @ToJson
         fun resultToJson(result: Result): ResultJson {
-            return ResultJson(result.job, result.status, result.completed, result.failed, result.interval)
+            return ResultJson(result.email, result.job, result.status, result.completed, result.failed, result.interval)
         }
     }
 

@@ -4,7 +4,8 @@
             <pattern>%d{HH:mm:ss.SSS} [%thread] %-5level %logger{36} - %msg%n</pattern>
         </encoder>
     </appender>
-    <root level="info">
+    <logger name="edu.illinois.cs.cs125.jeed" level="info" />
+    <root level="warn">
         <appender-ref ref="STDOUT" />
     </root>
 </configuration>

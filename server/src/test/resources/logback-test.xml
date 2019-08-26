@@ -5,7 +5,7 @@
         </encoder>
     </appender>
     <logger name="edu.illinois.cs.cs125.jeed" level="debug" />
-    <root level="warn">
+    <root level="info">
         <appender-ref ref="STDOUT" />
     </root>
 </configuration>
