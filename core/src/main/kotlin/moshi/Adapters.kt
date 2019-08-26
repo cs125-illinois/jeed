@@ -125,7 +125,8 @@ data class TaskResultsJson(
         val outputLines: MutableList<Sandbox.TaskResults.OutputLine> = mutableListOf(),
         val permissionRequests: MutableList<Sandbox.TaskResults.PermissionRequest> = mutableListOf(),
         val interval: Interval,
-        val executionInterval: Interval
+        val executionInterval: Interval,
+        val truncatedLines: Int
 )
 class TaskResultsAdapter {
     @Throws(Exception::class)
@@ -143,7 +144,8 @@ class TaskResultsAdapter {
                 taskResults.outputLines,
                 taskResults.permissionRequests,
                 taskResults.interval,
-                taskResults.executionInterval
+                taskResults.executionInterval,
+                taskResults.truncatedLines
         )
     }
 }

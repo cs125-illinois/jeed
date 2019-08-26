@@ -4,8 +4,7 @@ import EventEmitter from 'events'
 import axios from 'axios'
 
 const backends = {}
-
-function monitorBackend (backend) {
+function monitor (backend) {
   if (!(backend in backends)) {
     backends[backend] = {
       connected: null,
@@ -13,51 +12,20 @@ function monitorBackend (backend) {
       events: new EventEmitter()
     }
   }
-  checkBackend(backend)
+  connect(backend)
   return backends[backend]
 }
 
-function checkBackend (backend) {
-  console.debug(`checking ${ backend }`)
+function connect (backend) {
   axios.get(backend).then(config => {
-    console.debug(`${ backend } connected`)
     backends[backend].config = config
     backends[backend].connected = true
     backends[backend].events.emit('updated', backends[backend])
   }).catch(() => {
-    console.debug(`${ backend } still not connected`)
     backends[backend].config = null
     backends[backend].connected = false
     backends[backend].events.emit('updated', backends[backend])
   })
-}
-
-function jeedWrapper (backend) {
-  return (WrappedComponent) => {
-    class JeedWrapper extends Component {
-      constructor (props) {
-        super(props)
-        this.state = { config: null, connected: null }
-        this.reconnect = () => { checkBackend(backend) }
-      }
-
-      componentDidMount() {
-        const { config, connected, events } = monitorBackend(backend)
-        this.setState({ config, connected })
-        events.on('updated', ({ config, connected }) => {
-          this.setState({ config, connected })
-        })
-      }
-
-      render () {
-        return <WrappedComponent jeed={{...this.state, backend, reconnect: this.reconnect }} { ...this.props } />
-      }
-    }
-
-    JeedWrapper.displayName = `JeedWrapper(${ WrappedComponent.displayName || WrappedComponent.name || 'Component' })`
-
-    return JeedWrapper
-  }
 }
 
 function run (backend, job) {
@@ -73,48 +41,38 @@ function run (backend, job) {
   }
 }
 
-class JeedResult extends Component {
-  constructor(props) {
-    super(props)
-    this.state = { request: null, result: null, err: null, completed: false }
-  }
+export default function (backend) {
+  return (WrappedComponent) => {
+    class JeedWrapper extends Component {
+      constructor (props) {
+        super(props)
+        this.state = { config: null, connected: null }
+        this.reconnect = () => { connect(backend) }
+        this.run = (job) => { return run(backend, job) }
+      }
 
-  componentDidUpdate() {
-    const { config, backend } = this.props.jeed
-    if (!config) {
-      return
+      componentDidMount() {
+        const { config, connected, events } = monitor(backend)
+        this.setState({ config, connected })
+        events.on('updated', ({ config, connected }) => {
+          this.setState({ config, connected })
+        })
+      }
+
+      render () {
+        return <WrappedComponent jeed={{
+          ...this.state, reconnect: this.reconnect, run: this.run
+        }} { ...this.props } />
+      }
     }
-    if (this.state.request) {
-      return
-    }
 
-    const { job } = this.props
-    const request = run (backend, job)
+    JeedWrapper.displayName = `JeedWrapper(${ WrappedComponent.displayName || WrappedComponent.name || 'Component' })`
 
-    this.setState({ request })
-    request.response.then(response => {
-      this.setState({ result: response.data, completed: true })
-    }).catch(err => {
-      checkBackend(backend)
-      this.setState({ err, completed: true })
-    })
-  }
-
-  componentWillUnmount() {
-    if (!this.state.request || this.state.completed) {
-      return
-    }
-    this.state.request.cancel()
-  }
-
-  render() {
-    const { result, err } = this.state
-    const Output = this.props.output || TerminalOutput
-    return ( <Output job={ this.props.job } { ...this.state } /> )
+    return JeedWrapper
   }
 }
 
-const TerminalOutput = (props) => {
+export const TerminalOutput = (props) => {
   const { job, result } = props
   if (!result) {
     return null
@@ -165,14 +123,18 @@ ${ errorCount } error${ errorCount > 1 ? "s" : "" }`
 
   if (Object.keys(result.failed).length === 0) {
     if (result.completed.execution) {
-      output += result.completed.execution.outputLines.map(outputLine => {
+      const { execution } = result.completed
+      output += execution.outputLines.map(outputLine => {
         return outputLine.line
       }).join("\n")
+      if (execution.timeout) {
+        output += "\n(Program Timed Out)"
+      }
+      if (execution.truncatedLines > 0) {
+        output += `\n(${ execution.truncatedLines } lines were truncated)`
+      }
     }
   }
 
   return ( <div>{ output }</div> )
 }
-
-export { jeedWrapper, JeedResult }
-

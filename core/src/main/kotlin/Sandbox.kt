@@ -76,7 +76,7 @@ object Sandbox {
             val interval: Interval,
             val executionInterval: Interval,
             @Transient val sandboxedClassLoader: SandboxedClassLoader? = null,
-            val outputTruncated: Boolean
+            val truncatedLines: Int
     ) {
         data class OutputLine (val console: Console, val line: String, val timestamp: Instant, val thread: Long) {
             enum class Console(val fd: Int) { STDOUT(1), STDERR(2) }
@@ -206,7 +206,7 @@ object Sandbox {
                         Interval(confinedTask.started, Instant.now()),
                         Interval(executionStarted, executionEnded),
                         sandboxedClassLoader,
-                        confinedTask.outputTruncated
+                        confinedTask.truncatedLines
                 )
                 runBlocking { resultChannel.send(ExecutorResult(executionResult, Exception())) }
             } catch (e: Throwable) {
@@ -236,7 +236,7 @@ object Sandbox {
         @Volatile
         var shuttingDown: Boolean = false
 
-        var outputTruncated: Boolean = false
+        var truncatedLines: Int = 0
         val currentLines: MutableMap<TaskResults.OutputLine.Console, CurrentLine> = mutableMapOf()
         val outputLines: MutableList<TaskResults.OutputLine> = mutableListOf()
 
@@ -296,7 +296,7 @@ object Sandbox {
                                 )
                         )
                     } else {
-                        outputTruncated = true
+                        truncatedLines += 1
                     }
                     currentLines.remove(console)
 
@@ -308,7 +308,7 @@ object Sandbox {
                     // Ignore - results will contain Unix line endings only
                 }
                 else -> {
-                    if (!outputTruncated) {
+                    if (truncatedLines == 0) {
                         currentLine.line.append(char)
                     }
                 }
@@ -377,7 +377,7 @@ object Sandbox {
         }
 
 
-        if (!confinedTask.outputTruncated) {
+        if (confinedTask.truncatedLines == 0) {
             for (console in TaskResults.OutputLine.Console.values()) {
                 val currentLine = confinedTask.currentLines[console] ?: continue
                 if (currentLine.line.isNotEmpty()) {

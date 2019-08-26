@@ -212,10 +212,8 @@ class TaskArguments(
         val execution: SourceExecutionArguments = SourceExecutionArguments()
 )
 
-class Result(job: Job) {
+class Result(val job: Job) {
     val status = currentStatus
-    val tasks = job.tasks
-    val arguments = job.arguments
     val completed: CompletedTasks = CompletedTasks()
     val failed: FailedTasks = FailedTasks()
     lateinit var interval: Interval
@@ -224,9 +222,8 @@ class Result(job: Job) {
         get() = resultAdapter.toJson(this)
 
     data class ResultJson(
+            val job: Job,
             val status: Status,
-            val tasks: Set<Task>,
-            val arguments: TaskArguments,
             val completed: CompletedTasks,
             val failed: FailedTasks,
             val interval: Interval
@@ -240,7 +237,7 @@ class Result(job: Job) {
         }
         @ToJson
         fun resultToJson(result: Result): ResultJson {
-            return ResultJson(result.status, result.tasks, result.arguments, result.completed, result.failed, result.interval)
+            return ResultJson(result.job, result.status, result.completed, result.failed, result.interval)
         }
     }
 
