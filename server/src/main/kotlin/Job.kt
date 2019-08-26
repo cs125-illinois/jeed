@@ -106,7 +106,10 @@ class Job(
                     email = idToken.payload.email
                 }
             }
-        } catch (e: IllegalArgumentException) { }
+        } catch (e: IllegalArgumentException) {
+        } catch (e: Exception) {
+            logger.warn(e.toString())
+        }
 
         if (email == null && !configuration[Auth.none]) {
             val message = if (authToken == null) {
