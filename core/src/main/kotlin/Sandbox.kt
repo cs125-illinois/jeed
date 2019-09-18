@@ -729,129 +729,103 @@ object Sandbox {
      */
     private val nullOutputStream = object : OutputStream() { override fun write(b: Int) { } }
     private class RedirectingPrintStream(val console: TaskResults.OutputLine.Console) : PrintStream(nullOutputStream) {
+        private val taskPrintStream: PrintStream
+            get() {
+                val confinedTask = confinedTaskByThreadGroup() ?: return (originalPrintStreams[console] ?: error("original console should exist"))
+                return confinedTask.printStreams[console] ?: error("confined console should exist")
+            }
         override fun append(char: Char): PrintStream {
-            val confinedTask = confinedTaskByThreadGroup() ?: return (originalPrintStreams[console] ?: error("console should exist")).append(char)
-            return (confinedTask.printStreams[console] ?: error("console should exist")).append(char)
+            return taskPrintStream.append(char)
         }
-        override fun append(charSequence: CharSequence): PrintStream {
-            val confinedTask = confinedTaskByThreadGroup() ?: return (originalPrintStreams[console] ?: error("console should exist")).append(charSequence)
-            return (confinedTask.printStreams[console] ?: error("console should exist")).append(charSequence)
+        override fun append(charSequence: CharSequence?): PrintStream {
+            return taskPrintStream.append(charSequence)
         }
-        override fun append(charSequence: CharSequence, start: Int, end: Int): PrintStream {
-            val confinedTask = confinedTaskByThreadGroup() ?: return (originalPrintStreams[console] ?: error("console should exist")).append(charSequence, start, end)
-            return (confinedTask.printStreams[console] ?: error("console should exist")).append(charSequence, start, end)
+        override fun append(charSequence: CharSequence?, start: Int, end: Int): PrintStream {
+            return taskPrintStream.append(charSequence, start, end)
         }
         override fun close() {
-            val confinedTask = confinedTaskByThreadGroup() ?: return (originalPrintStreams[console] ?: error("console should exist")).close()
-            (confinedTask.printStreams[console] ?: error("console should exist")).close()
+            taskPrintStream.close()
         }
         override fun flush() {
-            val confinedTask = confinedTaskByThreadGroup() ?: return (originalPrintStreams[console] ?: error("console should exist")).flush()
-            (confinedTask.printStreams[console] ?: error("console should exist")).flush()
+            taskPrintStream.flush()
         }
-        override fun format(locale: Locale, format: String, vararg args: Any): PrintStream {
-            val confinedTask = confinedTaskByThreadGroup() ?: return (originalPrintStreams[console] ?: error("console should exist")).format(locale, format, args)
-            return (confinedTask.printStreams[console] ?: error("console should exist")).format(locale, format, args)
+        override fun format(locale: Locale?, format: String, vararg args: Any?): PrintStream {
+            return taskPrintStream.format(locale, format, *args)
         }
-        override fun format(format: String, vararg args: Any): PrintStream {
-            val confinedTask = confinedTaskByThreadGroup() ?: return (originalPrintStreams[console] ?: error("console should exist")).format(format, args)
-            return (confinedTask.printStreams[console] ?: error("console should exist")).format(format, args)
+        override fun format(format: String, vararg args: Any?): PrintStream {
+            return taskPrintStream.format(format, *args)
         }
         override fun print(boolean: Boolean) {
-            val confinedTask = confinedTaskByThreadGroup() ?: return (originalPrintStreams[console] ?: error("console should exist")).print(boolean)
-            (confinedTask.printStreams[console] ?: error("console should exist")).print(boolean)
+            taskPrintStream.print(boolean)
         }
         override fun print(char: Char) {
-            val confinedTask = confinedTaskByThreadGroup() ?: return (originalPrintStreams[console] ?: error("console should exist")).print(char)
-            (confinedTask.printStreams[console] ?: error("console should exist")).print(char)
+            taskPrintStream.print(char)
         }
         override fun print(charArray: CharArray) {
-            val confinedTask = confinedTaskByThreadGroup() ?: return (originalPrintStreams[console] ?: error("console should exist")).print(charArray)
-            (confinedTask.printStreams[console] ?: error("console should exist")).print(charArray)
+            taskPrintStream.print(charArray)
         }
         override fun print(double: Double) {
-            val confinedTask = confinedTaskByThreadGroup() ?: return (originalPrintStreams[console] ?: error("console should exist")).print(double)
-            (confinedTask.printStreams[console] ?: error("console should exist")).print(double)
+            taskPrintStream.print(double)
         }
         override fun print(float: Float) {
-            val confinedTask = confinedTaskByThreadGroup() ?: return (originalPrintStreams[console] ?: error("console should exist")).print(float)
-            (confinedTask.printStreams[console] ?: error("console should exist")).print(float)
+            taskPrintStream.print(float)
         }
         override fun print(int: Int) {
-            val confinedTask = confinedTaskByThreadGroup() ?: return (originalPrintStreams[console] ?: error("console should exist")).print(int)
-            (confinedTask.printStreams[console] ?: error("console should exist")).print(int)
+            taskPrintStream.print(int)
         }
         override fun print(long: Long) {
-            val confinedTask = confinedTaskByThreadGroup() ?: return (originalPrintStreams[console] ?: error("console should exist")).print(long)
-            (confinedTask.printStreams[console] ?: error("console should exist")).print(long)
+            taskPrintStream.print(long)
         }
-        override fun print(any: Any) {
-            val confinedTask = confinedTaskByThreadGroup() ?: return (originalPrintStreams[console] ?: error("console should exist")).print(any)
-            (confinedTask.printStreams[console] ?: error("console should exist")).print(any)
+        override fun print(any: Any?) {
+            taskPrintStream.print(any)
         }
-        override fun print(string: String) {
-            val confinedTask = confinedTaskByThreadGroup() ?: return (originalPrintStreams[console] ?: error("console should exist")).print(string)
-            (confinedTask.printStreams[console] ?: error("console should exist")).print(string)
+        override fun print(string: String?) {
+            taskPrintStream.print(string)
         }
-        override fun printf(locale: Locale, format: String, vararg args: Any): PrintStream {
-            val confinedTask = confinedTaskByThreadGroup() ?: return (originalPrintStreams[console] ?: error("console should exist")).printf(locale, format, args)
-            return (confinedTask.printStreams[console] ?: error("console should exist")).printf(locale, format, args)
+        override fun printf(locale: Locale?, format: String, vararg args: Any?): PrintStream {
+            return taskPrintStream.printf(locale, format, *args)
         }
-        override fun printf(format: String, vararg args: Any): PrintStream {
-            val confinedTask = confinedTaskByThreadGroup() ?: return (originalPrintStreams[console] ?: error("console should exist")).printf(format, args)
-            return (confinedTask.printStreams[console] ?: error("console should exist")).printf(format, args)
+        override fun printf(format: String, vararg args: Any?): PrintStream {
+            return taskPrintStream.printf(format, *args)
         }
         override fun println() {
-            val confinedTask = confinedTaskByThreadGroup() ?: return (originalPrintStreams[console] ?: error("console should exist")).println()
-            (confinedTask.printStreams[console] ?: error("console should exist")).println()
+            taskPrintStream.println()
         }
         override fun println(boolean: Boolean) {
-            val confinedTask = confinedTaskByThreadGroup() ?: return (originalPrintStreams[console] ?: error("console should exist")).println(boolean)
-            (confinedTask.printStreams[console] ?: error("console should exist")).println(boolean)
+            taskPrintStream.println(boolean)
         }
         override fun println(char: Char) {
-            val confinedTask = confinedTaskByThreadGroup() ?: return (originalPrintStreams[console] ?: error("console should exist")).println(char)
-            (confinedTask.printStreams[console] ?: error("console should exist")).println(char)
+            taskPrintStream.println(char)
         }
         override fun println(charArray: CharArray) {
-            val confinedTask = confinedTaskByThreadGroup() ?: return (originalPrintStreams[console] ?: error("console should exist")).println(charArray)
-            (confinedTask.printStreams[console] ?: error("console should exist")).println(charArray)
+            taskPrintStream.println(charArray)
         }
         override fun println(double: Double) {
-            val confinedTask = confinedTaskByThreadGroup() ?: return (originalPrintStreams[console] ?: error("console should exist")).println(double)
-            (confinedTask.printStreams[console] ?: error("console should exist")).println(double)
+            taskPrintStream.println(double)
         }
         override fun println(float: Float) {
-            val confinedTask = confinedTaskByThreadGroup() ?: return (originalPrintStreams[console] ?: error("console should exist")).println(float)
-            (confinedTask.printStreams[console] ?: error("console should exist")).println(float)
+            taskPrintStream.println(float)
         }
         override fun println(int: Int) {
-            val confinedTask = confinedTaskByThreadGroup() ?: return (originalPrintStreams[console] ?: error("console should exist")).println(int)
-            (confinedTask.printStreams[console] ?: error("console should exist")).println(int)
+            taskPrintStream.println(int)
         }
         override fun println(long: Long) {
-            val confinedTask = confinedTaskByThreadGroup() ?: return (originalPrintStreams[console] ?: error("console should exist")).println(long)
-            (confinedTask.printStreams[console] ?: error("console should exist")).println(long)
+            taskPrintStream.println(long)
         }
-        override fun println(any: Any) {
-            val confinedTask = confinedTaskByThreadGroup() ?: return (originalPrintStreams[console] ?: error("console should exist")).println(any)
-            (confinedTask.printStreams[console] ?: error("console should exist")).println(any)
+        override fun println(any: Any?) {
+            taskPrintStream.println(any)
         }
-        override fun println(string: String) {
-            val confinedTask = confinedTaskByThreadGroup() ?: return (originalPrintStreams[console] ?: error("console should exist")).println(string)
-            (confinedTask.printStreams[console] ?: error("console should exist")).println(string)
+        override fun println(string: String?) {
+            taskPrintStream.println(string)
         }
         override fun write(byteArray: ByteArray, off: Int, len: Int) {
-            val confinedTask = confinedTaskByThreadGroup() ?: return (originalPrintStreams[console] ?: error("console should exist")).write(byteArray, off, len)
-            (confinedTask.printStreams[console] ?: error("console should exist")).write(byteArray, off, len)
+            taskPrintStream.write(byteArray, off, len)
         }
         override fun write(int: Int) {
-            val confinedTask = confinedTaskByThreadGroup() ?: return (originalPrintStreams[console] ?: error("console should exist")).write(int)
-            (confinedTask.printStreams[console] ?: error("console should exist")).write(int)
+            taskPrintStream.write(int)
         }
         override fun write(byteArray: ByteArray) {
-            val confinedTask = confinedTaskByThreadGroup() ?: return (originalPrintStreams[console] ?: error("console should exist")).write(byteArray)
-            (confinedTask.printStreams[console] ?: error("console should exist")).write(byteArray)
+            taskPrintStream.write(byteArray)
         }
     }
     init {

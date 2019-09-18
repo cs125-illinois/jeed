@@ -106,4 +106,14 @@ System.err.println("There");
         executionResult should haveStdout("Here")
         executionResult should haveStderr("There")
     }
+    "should handle null print arguments" {
+        val executionResult = Source.transformSnippet("""
+int[] output = null;
+System.out.println(output);
+            """.trim()).compile().execute()
+        executionResult should haveCompleted()
+        executionResult shouldNot haveTimedOut()
+        executionResult should haveStdout("null")
+        executionResult should haveStderr("")
+    }
 })
