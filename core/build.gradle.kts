@@ -9,7 +9,7 @@ plugins {
 }
 
 group = "com.github.cs125-illinois"
-version = "1.0.0"
+version = "2019.9.0"
 
 tasks.test {
     useJUnitPlatform()
@@ -20,8 +20,8 @@ dependencies {
     antlr("org.antlr:antlr4:4.7.2")
 
     implementation(kotlin("stdlib"))
-    implementation("org.jetbrains.kotlinx:kotlinx-coroutines-core:1.3.0-RC2")
-    implementation("com.puppycrawl.tools:checkstyle:8.23")
+    implementation("org.jetbrains.kotlinx:kotlinx-coroutines-core:1.3.1")
+    implementation("com.puppycrawl.tools:checkstyle:8.24")
     implementation("org.jetbrains.kotlin:kotlin-reflect:1.3.50")
     implementation("com.github.jknack:handlebars:4.1.2")
     implementation("com.squareup.moshi:moshi:1.8.0")
@@ -31,7 +31,7 @@ dependencies {
     implementation("ch.qos.logback:logback-classic:1.2.3")
     implementation("io.github.microutils:kotlin-logging:1.7.6")
 
-    testImplementation("io.kotlintest:kotlintest-runner-junit5:3.4.0")
+    testImplementation("io.kotlintest:kotlintest-runner-junit5:3.4.1")
 }
 tasks.generateGrammarSource {
     outputDirectory = File(projectDir, "src/main/java/edu/illinois/cs/cs125/jeed/core/antlr")

@@ -15,6 +15,9 @@ import java.io.File
 @Suppress("UNUSED")
 private val logger = KotlinLogging.logger {}
 
+data class CheckstyleArguments(
+        val sources: Set<String>? = null
+)
 class CheckstyleError(
         val severity: String,
         location: SourceLocation,
@@ -79,7 +82,8 @@ val defaultChecker = run {
     ConfiguredChecker(object : Any() {}::class.java.getResource("/checkstyle/default.xml").readText())
 }
 
-fun Source.checkstyle(names: Set<String> = this.sources.keys.toSet()): CheckstyleResults {
+fun Source.checkstyle(checktyleArguments: CheckstyleArguments = CheckstyleArguments()): CheckstyleResults {
+    val names = checktyleArguments.sources ?: sources.keys
     return CheckstyleResults(defaultChecker.check(this.sources.filter { names.contains(it.key) }).mapValues {
         it.value.map { error ->
             CheckstyleError(error.severity, this.mapLocation(error.location), error.message)

@@ -140,6 +140,10 @@ class Job(
                 result.completed.snippet
             } ?: check { "should have a source" }
 
+            if (tasks.contains(Task.checkstyle)) {
+                result.completed.checkstyle = actualSource.checkstyle()
+            }
+
             result.completed.compilation = actualSource.compile(arguments.compilation)
 
             if (tasks.contains(Task.execute)) {
@@ -210,7 +214,8 @@ enum class Task(val task: String) {
     snippet("snippet"),
     compile("compile"),
     execute("execute"),
-    template("template")
+    template("template"),
+    checkstyle("checkstyle")
 }
 class TaskArguments(
         val compilation: CompilationArguments = CompilationArguments(),
@@ -273,6 +278,7 @@ class Result(val job: Job) {
 class CompletedTasks(
         var snippet: Snippet? = null,
         var template: TemplatedSource? = null,
+        var checkstyle: CheckstyleResults? = null,
         var compilation: CompiledSource? = null,
         var execution: Sandbox.TaskResults<out Any?>? = null
 )

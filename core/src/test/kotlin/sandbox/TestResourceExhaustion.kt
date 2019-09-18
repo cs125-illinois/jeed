@@ -3,7 +3,6 @@ package edu.illinois.cs.cs125.jeed.core.sandbox
 import edu.illinois.cs.cs125.jeed.core.*
 import io.kotlintest.matchers.collections.shouldContain
 import io.kotlintest.matchers.collections.shouldHaveSize
-import io.kotlintest.matchers.numerics.shouldBeExactly
 import io.kotlintest.matchers.numerics.shouldBeGreaterThan
 import io.kotlintest.should
 import io.kotlintest.shouldBe

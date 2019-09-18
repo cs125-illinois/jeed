@@ -158,12 +158,12 @@ fun Throwable.getStackTraceForSource(source: Source): String {
     val originalStackTrace = this.getStackTraceAsString().lines().toMutableList()
     val firstLine = originalStackTrace.removeAt(0)
 
-    val betterStackTrace = mutableListOf<String>("""Exception in thread "main" $firstLine""")
+    val betterStackTrace = mutableListOf("""Exception in thread "main" $firstLine""")
     for (line in originalStackTrace) {
         if (line.trim().startsWith("""at java.base/jdk.internal.reflect.NativeMethodAccessorImpl.invoke0(Native Method)""")) {
             break
         }
-        if (!(source is Snippet)) {
+        if (source !is Snippet) {
             betterStackTrace.add(line)
             continue
         }
@@ -172,8 +172,8 @@ fun Throwable.getStackTraceForSource(source: Source): String {
             betterStackTrace.add(line)
             continue
         }
-        val (klass, method, name, line) = parsedLine.destructured
-        val originalLocation = SourceLocation(name, line.toInt(), 0)
+        val (_, _, name, correctLine) = parsedLine.destructured
+        val originalLocation = SourceLocation(name, correctLine.toInt(), 0)
         val correctLocation = source.mapLocation(originalLocation)
         betterStackTrace.add("  at line ${correctLocation.line}")
     }

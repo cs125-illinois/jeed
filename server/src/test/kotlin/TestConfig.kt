@@ -51,6 +51,7 @@ limits:
                 addHeader("content-type", "application/json")
                 setBody("""
 {
+  "label": "test",
   "snippet": "System.out.println(\"Here\");",
   "tasks": [ "execute" ],
   "arguments": {
@@ -67,6 +68,7 @@ limits:
                 addHeader("content-type", "application/json")
                 setBody("""
 {
+  "label": "test",
   "snippet": "System.out.println(\"Here\");",
   "tasks": [ "execute" ],
   "arguments": {
@@ -86,6 +88,7 @@ limits:
                 addHeader("content-type", "application/json")
                 setBody("""
 {
+  "label": "test",
   "snippet": "System.out.println(\"Here\");",
   "tasks": [ "execute" ],
   "arguments": {
@@ -102,6 +105,7 @@ limits:
                 addHeader("content-type", "application/json")
                 setBody("""
 {
+  "label": "test",
   "snippet": "System.out.println(\"Here\");",
   "tasks": [ "execute" ],
   "arguments": {
@@ -121,6 +125,7 @@ limits:
                 addHeader("content-type", "application/json")
                 setBody("""
 {
+  "label": "test",
   "snippet": "System.out.println(\"Here\");",
   "tasks": [ "execute" ],
   "arguments": {
@@ -143,6 +148,7 @@ limits:
                 addHeader("content-type", "application/json")
                 setBody("""
 {
+  "label": "test",
   "snippet": "System.out.println(\"Here\");",
   "tasks": [ "execute" ],
   "arguments": {
@@ -168,6 +174,7 @@ limits:
                 addHeader("content-type", "application/json")
                 setBody("""
 {
+  "label": "test",
   "snippet": "System.out.println(\"Here\");",
   "tasks": [ "execute" ],
   "arguments": {
@@ -188,6 +195,7 @@ limits:
                 addHeader("content-type", "application/json")
                 setBody("""
 {
+  "label": "test",
   "snippet": "System.out.println(\"Here\");",
   "tasks": [ "execute" ],
   "arguments": {

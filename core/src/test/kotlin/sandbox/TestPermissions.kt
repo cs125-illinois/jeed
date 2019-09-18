@@ -332,7 +332,7 @@ public class Example {
         )).compile().execute(SourceExecutionArguments("Example", maxOutputLines = 10240))
         System.gc()
         executionResult.outputLines shouldHaveSize 10000
-        executionResult.outputLines.all { (_, line) -> line.trim().equals("Example") } shouldBe true
+        executionResult.outputLines.all { (_, line) -> line.trim() == "Example" } shouldBe true
     }
     "should not allow LambdaMetafactory to escape the sandbox" {
         val executionResult = Source.transformSnippet("""

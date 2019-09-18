@@ -2,7 +2,6 @@ package edu.illinois.cs.cs125.jeed.server
 
 import com.uchuhimo.konf.Config
 import com.uchuhimo.konf.ConfigSpec
-import com.uchuhimo.konf.source.base.toHierarchicalMap
 import com.uchuhimo.konf.source.yaml
 import edu.illinois.cs.cs125.jeed.core.Sandbox
 import edu.illinois.cs.cs125.jeed.core.SourceExecutionArguments

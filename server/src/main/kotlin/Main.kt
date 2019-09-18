@@ -10,6 +10,10 @@ import java.net.URI
 @Suppress("UNUSED")
 private val logger = KotlinLogging.logger {}
 
+val VERSION: String = java.util.Properties().also {
+    it.load((object : Any() {}).javaClass.getResourceAsStream("/version.properties"))
+}.getProperty("version")
+
 fun main() {
     logger.info(configuration.toJson.toText())
 

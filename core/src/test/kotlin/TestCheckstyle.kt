@@ -1,6 +1,7 @@
 package edu.illinois.cs.cs125.jeed.core
 
 import io.kotlintest.specs.StringSpec
+import io.kotlintest.matchers.collections.shouldHaveSize
 import io.kotlintest.*
 
 class TestCheckstyle : StringSpec({
@@ -58,6 +59,36 @@ add(i, y);
 
         checkstyleErrors should haveCheckstyleErrors()
         checkstyleErrors should haveCheckstyleErrorAt(line=4)
+    }
+    "it should check all sources by default" {
+        val checkstyleErrors = Source(mapOf(
+                "First.java" to """
+public class First{
+}
+                """.trim(),
+                "Second.java" to """
+public class Second {
+}
+                """.trim()
+        )).checkstyle()
+
+        checkstyleErrors should haveCheckstyleErrors()
+        checkstyleErrors.errors.values.flatten() shouldHaveSize 1
+        checkstyleErrors should haveCheckstyleErrorAt(source="First.java", line=1)
+    }
+    "it should ignore sources not configured to check" {
+        val checkstyleErrors = Source(mapOf(
+                "First.java" to """
+public class First{
+}
+                """.trim(),
+                "Second.java" to """
+public class Second {
+}
+                """.trim()
+        )).checkstyle(CheckstyleArguments(sources = setOf("Second.java")))
+
+        checkstyleErrors shouldNot haveCheckstyleErrors()
     }
 })
 

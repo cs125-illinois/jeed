@@ -16,6 +16,7 @@ class TestHTTP : StringSpec({
                 addHeader("content-type", "application/json")
                 setBody("""
 {
+  "label": "test",
   "snippet": "System.out.println(\"Here\");",
   "tasks": [ "execute" ]
 }""".trim())
@@ -30,6 +31,7 @@ class TestHTTP : StringSpec({
                 addHeader("content-type", "application/json")
                 setBody("""
 {
+  "label": "test",
   "source": {
     "Main.java": "
 public class Main {
@@ -50,6 +52,7 @@ public class Main {
                 addHeader("content-type", "application/json")
                 setBody("""
 {
+  "label": "test",
   "templates": {
     "Main.hbs": "
 public class Main {

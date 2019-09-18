@@ -25,6 +25,7 @@ class TestGoogleAuth : StringSpec() {
                     addHeader("content-type", "application/json")
                     setBody("""
 {
+  "label": "test",
   "snippet": "System.out.println(\"Here\");",
   "tasks": [ "execute" ]
 }""".trim())
@@ -39,6 +40,7 @@ class TestGoogleAuth : StringSpec() {
                     addHeader("content-type", "application/json")
                     setBody("""
 {
+  "label": "test",
   "authToken": "blahblah",
   "snippet": "System.out.println(\"Here\");",
   "tasks": [ "execute" ]
