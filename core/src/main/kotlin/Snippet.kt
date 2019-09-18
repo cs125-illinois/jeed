@@ -40,7 +40,7 @@ class Snippet(
         fun mapLocation(input: SourceLocation, remappedLineMapping: Map<Int, RemappedLine>): SourceLocation {
             check(input.source == SNIPPET_SOURCE)
             val remappedLineInfo = remappedLineMapping[input.line]
-            check(remappedLineInfo != null)
+            check(remappedLineInfo != null) { "can't remap line ${input.line}: ${remappedLineMapping.keys.joinToString(separator = ",")}" }
             return SourceLocation(SNIPPET_SOURCE, remappedLineInfo.sourceLineNumber, input.column - remappedLineInfo.addedIndentation)
         }
     }
@@ -78,9 +78,11 @@ class SnippetErrorListener(val sourceLines: List<Int>) : BaseErrorListener() {
         }
     }
 }
-
+data class SnippetArguments(
+        val indent: Int = 4
+)
 @Throws(SnippetTransformationFailed::class)
-fun Source.Companion.transformSnippet(originalSource: String, indent: Int = 4): Snippet {
+fun Source.Companion.transformSnippet(originalSource: String, snippetArguments: SnippetArguments = SnippetArguments()): Snippet {
     require(originalSource.isNotEmpty())
 
     val sourceLines = originalSource.lines().map { it.trim().length }
@@ -178,12 +180,12 @@ fun Source.Companion.transformSnippet(originalSource: String, indent: Int = 4): 
         val lineNumber = i + 1
         if (contentMapping[lineNumber]?.startsWith(("method")) == true) {
             val indentToUse = if ((contentMapping[lineNumber] == "method.start") && !line.contains("""\bstatic\b""".toRegex())) {
-                methodDeclarations.add(" ".repeat(indent) + "static")
+                methodDeclarations.add(" ".repeat(snippetArguments.indent) + "static")
                 currentOutputLineNumber++
                 // Adding indentation preserves checkstyle processing
-                indent * 2
+                snippetArguments.indent * 2
             } else {
-                indent
+                snippetArguments.indent
             }
             methodDeclarations.add(" ".repeat(indentToUse) + line)
             assert(!remappedLineMapping.containsKey(currentOutputLineNumber))
@@ -200,9 +202,9 @@ fun Source.Companion.transformSnippet(originalSource: String, indent: Int = 4): 
     originalSource.lines().forEachIndexed { i, line ->
         val lineNumber = i + 1
         if (!contentMapping.containsKey(lineNumber)) {
-            looseCode.add(" ".repeat(indent * 2) + line)
+            looseCode.add(" ".repeat(snippetArguments.indent * 2) + line)
             assert(!remappedLineMapping.containsKey(currentOutputLineNumber))
-            remappedLineMapping[currentOutputLineNumber] = Snippet.RemappedLine(lineNumber, currentOutputLineNumber, indent * 2)
+            remappedLineMapping[currentOutputLineNumber] = Snippet.RemappedLine(lineNumber, currentOutputLineNumber, snippetArguments.indent * 2)
             currentOutputLineNumber++
         }
     }
@@ -222,11 +224,11 @@ fun Source.Companion.transformSnippet(originalSource: String, indent: Int = 4): 
     if (methodDeclarations.size > 0) {
         rewrittenSource += methodDeclarations.joinToString(separator = "\n", postfix = "\n")
     }
-    rewrittenSource += """${" ".repeat(indent)}public static void $snippetMainMethodName() throws Exception {""" + "\n"
+    rewrittenSource += """${" ".repeat(snippetArguments.indent)}public static void $snippetMainMethodName() throws Exception {""" + "\n"
     if (looseCode.size > 0) {
         rewrittenSource += looseCode.joinToString(separator = "\n", postfix = "\n")
     }
-    rewrittenSource += """${" ".repeat(indent)}}""" + "\n}"
+    rewrittenSource += """${" ".repeat(snippetArguments.indent)}}""" + "\n}"
 
     // Add final two braces
     currentOutputLineNumber += 1

@@ -11,6 +11,7 @@ val Adapters = setOf(
         SnippetTransformationErrorAdapter(),
         SnippetTransformationFailedAdapter(),
         CompilationFailedAdapter(),
+        CheckstyleFailedAdapter(),
         CompiledSourceAdapter(),
         TemplatingErrorAdapter(),
         TemplatingFailedAdapter(),
@@ -20,6 +21,18 @@ val Adapters = setOf(
         TaskResultsAdapter()
 )
 
+data class CheckstyleFailedJson(val errors: List<CheckstyleError>)
+class CheckstyleFailedAdapter {
+    @FromJson
+    fun checkstyleFailedFromJson(checkstyleFailedJson: CheckstyleFailedJson): CheckstyleFailed {
+        return CheckstyleFailed(checkstyleFailedJson.errors)
+    }
+    @Suppress("UNCHECKED_CAST")
+    @ToJson
+    fun checkstyleFailedToJson(checkstyleFailed: CheckstyleFailed): CheckstyleFailedJson {
+        return CheckstyleFailedJson(checkstyleFailed.errors as List<CheckstyleError>)
+    }
+}
 data class CompilationFailedJson(val errors: List<CompilationFailed.CompilationError>)
 class CompilationFailedAdapter {
     @FromJson
@@ -86,7 +99,6 @@ class TemplatingFailedAdapter {
         return TemplatingFailedJson(templatingFailed.errors as List<TemplatingError>)
     }
 }
-
 data class PermissionJson(val klass: String, val name: String, val actions: String?)
 class PermissionAdapter {
     @FromJson fun permissionFromJson(permissionJson: PermissionJson): Permission {

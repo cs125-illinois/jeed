@@ -46,6 +46,27 @@ public class Main {
             }
         }
     }
+    "should accept good source checkstyle request" {
+        withTestApplication(Application::jeed) {
+            handleRequest(HttpMethod.Post, "/") {
+                addHeader("content-type", "application/json")
+                setBody("""
+{
+  "label": "test",
+  "source": {
+    "Main.java": "
+public class Main {
+    public static void main() {
+        System.out.println(\"Here\");
+    }
+}"},
+  "tasks": [ "checkstyle", "execute" ]
+}""".trim())
+            }.apply {
+                response.shouldHaveStatus(HttpStatusCode.OK.value)
+            }
+        }
+    }
     "should accept good templated source request" {
         withTestApplication(Application::jeed) {
             handleRequest(HttpMethod.Post, "/") {
@@ -63,7 +84,7 @@ public class Main {
   "source": {
     "Main.java": "System.out.println(\"Here\");"
   },
-  "tasks": [ "execute" ]
+  "tasks": [ "template", "execute" ]
 }""".trim())
             }.apply {
                 response.shouldHaveStatus(HttpStatusCode.OK.value)

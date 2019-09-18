@@ -16,14 +16,19 @@ import java.io.File
 private val logger = KotlinLogging.logger {}
 
 data class CheckstyleArguments(
-        val sources: Set<String>? = null
+        val sources: Set<String>? = null,
+        val failOnError: Boolean = false
 )
 class CheckstyleError(
         val severity: String,
         location: SourceLocation,
         message: String
 ) : SourceError(location, message)
-
+class CheckstyleFailed(errors: List<CheckstyleError>) : JeedError(errors) {
+    override fun toString(): String {
+        return "checkstyle errors were encountered: ${errors.joinToString(separator = ",")}"
+    }
+}
 data class CheckstyleResults(val errors: Map<String, List<CheckstyleError>>)
 class ConfiguredChecker(configurationString: String) {
     val checker: Checker
@@ -81,12 +86,21 @@ fun Checker.processString(name: String, source: String): List<CheckstyleError> {
 val defaultChecker = run {
     ConfiguredChecker(object : Any() {}::class.java.getResource("/checkstyle/default.xml").readText())
 }
-
-fun Source.checkstyle(checktyleArguments: CheckstyleArguments = CheckstyleArguments()): CheckstyleResults {
-    val names = checktyleArguments.sources ?: sources.keys
-    return CheckstyleResults(defaultChecker.check(this.sources.filter { names.contains(it.key) }).mapValues {
+@Throws(CheckstyleFailed::class)
+fun Source.checkstyle(checkstyleArguments: CheckstyleArguments = CheckstyleArguments()): CheckstyleResults {
+    val names = checkstyleArguments.sources ?: sources.keys
+    val checkstyleResults = CheckstyleResults(defaultChecker.check(this.sources.filter { names.contains(it.key) }).mapValues {
         it.value.map { error ->
             CheckstyleError(error.severity, this.mapLocation(error.location), error.message)
+        }.sortedBy { error ->
+            error.location.line
         }
     })
+    val checkstyleErrors = checkstyleResults.errors
+            .flatMap { it.value }
+            .sortedWith(compareBy({it.location.source}, {it.location.line}))
+    if (checkstyleArguments.failOnError && checkstyleErrors.isNotEmpty()) {
+        throw CheckstyleFailed(checkstyleErrors)
+    }
+    return checkstyleResults
 }

@@ -90,6 +90,29 @@ public class Second {
 
         checkstyleErrors shouldNot haveCheckstyleErrors()
     }
+    "it should check indentation properly" {
+        val checkstyleErrors = Source.transformSnippet("""
+public int add(int a, int b) {
+   return a + b;
+ }
+""".trim()).checkstyle()
+        checkstyleErrors should haveCheckstyleErrors()
+        checkstyleErrors.errors.values.flatten() shouldHaveSize 2
+        checkstyleErrors should haveCheckstyleErrorAt(line=2)
+        checkstyleErrors should haveCheckstyleErrorAt(line=3)
+    }
+    "it should throw when configured" {
+    val checkstyleError = shouldThrow<CheckstyleFailed> {
+            Source.transformSnippet("""
+public int add(int a,int b) {
+    return a+ b;
+}
+""".trim()).checkstyle(CheckstyleArguments(failOnError = true))
+        }
+        checkstyleError.errors shouldHaveSize 2
+        checkstyleError.errors[0].location.line shouldBe 1
+        checkstyleError.errors[1].location.line shouldBe 2
+    }
 })
 
 fun haveCheckstyleErrors() = object : Matcher<CheckstyleResults> {

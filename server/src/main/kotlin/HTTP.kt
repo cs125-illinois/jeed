@@ -24,6 +24,7 @@ private val logger = KotlinLogging.logger {}
 fun Application.jeed() {
     install(CORS) {
         anyHost()
+        allowNonSimpleContentTypes = true
     }
     install(ContentNegotiation) {
         moshi {

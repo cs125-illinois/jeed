@@ -136,15 +136,15 @@ class Job(
                     result.completed.template
                 }
             } else {
-                result.completed.snippet = Source.transformSnippet(snippet ?: assert { "should have a snippet" })
+                result.completed.snippet = Source.transformSnippet(snippet ?: assert { "should have a snippet" }, arguments.snippet)
                 result.completed.snippet
             } ?: check { "should have a source" }
 
-            if (tasks.contains(Task.checkstyle)) {
-                result.completed.checkstyle = actualSource.checkstyle()
-            }
-
             result.completed.compilation = actualSource.compile(arguments.compilation)
+
+            if (tasks.contains(Task.checkstyle)) {
+                result.completed.checkstyle = actualSource.checkstyle(arguments.checkstyle)
+            }
 
             if (tasks.contains(Task.execute)) {
                 result.completed.execution = result.completed.compilation?.execute(arguments.execution)
@@ -158,8 +158,11 @@ class Job(
             result.failed.snippet = snippetFailed
         } catch (compilationFailed: CompilationFailed) {
             result.failed.compilation = compilationFailed
+        } catch (checkstyleFailed: CheckstyleFailed) {
+            result.failed.checkstyle = checkstyleFailed
         } catch (e: Exception) {
             logger.error(e.toString())
+            e.printStackTrace()
         } finally {
             currentStatus.counts.completedJobs++
             result.interval = Interval(started, Instant.now())
@@ -211,14 +214,16 @@ class Job(
 
 @Suppress("EnumEntryName")
 enum class Task(val task: String) {
+    template("template"),
     snippet("snippet"),
     compile("compile"),
-    execute("execute"),
-    template("template"),
-    checkstyle("checkstyle")
+    checkstyle("checkstyle"),
+    execute("execute")
 }
 class TaskArguments(
+        val snippet: SnippetArguments = SnippetArguments(),
         val compilation: CompilationArguments = CompilationArguments(),
+        val checkstyle: CheckstyleArguments = CheckstyleArguments(),
         val execution: SourceExecutionArguments = SourceExecutionArguments()
 )
 
@@ -278,13 +283,14 @@ class Result(val job: Job) {
 class CompletedTasks(
         var snippet: Snippet? = null,
         var template: TemplatedSource? = null,
-        var checkstyle: CheckstyleResults? = null,
         var compilation: CompiledSource? = null,
+        var checkstyle: CheckstyleResults? = null,
         var execution: Sandbox.TaskResults<out Any?>? = null
 )
 class FailedTasks(
-        var snippet: SnippetTransformationFailed? = null,
         var template: TemplatingFailed? = null,
+        var snippet: SnippetTransformationFailed? = null,
         var compilation: CompilationFailed? = null,
+        var checkstyle: CheckstyleFailed? = null,
         var execution: String? = null
 )

@@ -9,7 +9,7 @@ plugins {
 }
 
 group = "com.github.cs125-illinois"
-version = "2019.9.0"
+version = "2019.9.1"
 
 tasks.test {
     useJUnitPlatform()
