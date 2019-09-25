@@ -1,7 +1,8 @@
+import org.jetbrains.kotlin.cli.jvm.compiler.KotlinCoreEnvironment
 import java.util.*
 
 group = "edu.illinois.cs.cs125"
-version = "2019.9.1"
+version = "2019.9.2"
 
 plugins {
     kotlin("jvm")
@@ -9,10 +10,6 @@ plugins {
     application
     id("com.github.johnrengelman.shadow") version "5.1.0"
     id("com.palantir.docker") version "0.22.1"
-}
-tasks.test {
-    useJUnitPlatform()
-    systemProperties["logback.configurationFile"] = File(projectDir, "src/test/resources/logback-test.xml").absolutePath
 }
 dependencies {
     val ktorVersion = "1.2.4"
@@ -43,7 +40,13 @@ application {
 }
 docker {
     name = "cs125/jeed"
+    tag("latest", "cs125/jeed:latest")
+    tag(version.toString(), "cs125/jeed:$version")
     files(tasks["shadowJar"].outputs)
+}
+tasks.test {
+    useJUnitPlatform()
+    systemProperties["logback.configurationFile"] = File(projectDir, "src/test/resources/logback-test.xml").absolutePath
 }
 tasks.jar {
     manifest {

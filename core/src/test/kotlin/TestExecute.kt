@@ -52,9 +52,11 @@ System.out.println("Main");
         executeMainResult should haveCompleted()
         executeMainResult should haveOutput("Main")
 
-        shouldThrow<ClassNotFoundException> {
+        val executionFailed = shouldThrow<ExecutionFailed> {
             compiledSource.execute(SourceExecutionArguments(klass = "Baz"))
         }
+        executionFailed.classNotFound shouldNotBe null
+        executionFailed.methodNotFound shouldBe null
     }
     "should execute the right method in snippets that include multiple method definitions" {
         val compiledSource = Source.transformSnippet("""
@@ -87,9 +89,11 @@ private static void foo() {
 System.out.println("main");
             """.trim()).compile()
 
-        shouldThrow<MethodNotFoundException> {
+        val executionFailed = shouldThrow<ExecutionFailed> {
             compiledSource.execute(SourceExecutionArguments(method = "foo()"))
         }
+        executionFailed.methodNotFound shouldNotBe null
+        executionFailed.classNotFound shouldBe null
 
         val executeMainResult = compiledSource.execute(SourceExecutionArguments(method = "main()"))
         executeMainResult should haveCompleted()
@@ -103,9 +107,11 @@ public void foo() {
 System.out.println("main");
             """.trim()).compile()
 
-        shouldThrow<MethodNotFoundException> {
+        val executionFailed = shouldThrow<ExecutionFailed> {
             compiledSource.execute(SourceExecutionArguments(method = "foo()"))
         }
+        executionFailed.methodNotFound shouldNotBe null
+        executionFailed.classNotFound shouldBe null
 
         val executeMainResult = compiledSource.execute(SourceExecutionArguments(method = "main()"))
         executeMainResult should haveCompleted()
@@ -119,9 +125,11 @@ public static void foo(int i) {
 System.out.println("main");
             """.trim()).compile()
 
-        shouldThrow<MethodNotFoundException> {
+        val executionFailed = shouldThrow<ExecutionFailed> {
             compiledSource.execute(SourceExecutionArguments(method = "foo()"))
         }
+        executionFailed.methodNotFound shouldNotBe null
+        executionFailed.classNotFound shouldBe null
 
         val executeMainResult = compiledSource.execute(SourceExecutionArguments(method = "main()"))
         executeMainResult should haveCompleted()
@@ -177,22 +185,26 @@ public class Foo {
         executionMainResult should haveStdout("Foo")
     }
     "should throw missing class exceptions correctly" {
-        shouldThrow<ClassNotFoundException> {
+        val executionFailed = shouldThrow<ExecutionFailed> {
             Source.transformSnippet("""
 int i = 0;
 i++;
 System.out.println(i);
             """.trim()).compile().execute(SourceExecutionArguments(klass = "Test"))
         }
+        executionFailed.classNotFound shouldNotBe null
+        executionFailed.methodNotFound shouldBe null
     }
     "should throw missing method exceptions correctly" {
-        shouldThrow<MethodNotFoundException> {
+        val executionFailed = shouldThrow<ExecutionFailed> {
             Source.transformSnippet("""
 int i = 0;
 i++;
 System.out.println(i);
             """.trim()).compile().execute(SourceExecutionArguments(method = "test"))
         }
+        executionFailed.methodNotFound shouldNotBe null
+        executionFailed.classNotFound shouldBe null
     }
     "should import libraries properly" {
         val executionResult = Source.transformSnippet("""

@@ -15,8 +15,7 @@ spec:
     spec:
       containers:
       - name: jeed
-        image: cs125/jeed
-        imagePullPolicy: Always
+        image: cs125/jeed:2019.9.2
         ports:
         - containerPort: 3000
         env:

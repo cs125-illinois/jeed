@@ -31,8 +31,21 @@ class SourceExecutionArguments(
     }
 }
 
-class MethodNotFoundException(message: String) : Exception(message)
-@Throws(ClassNotFoundException::class, MethodNotFoundException::class)
+class ExecutionFailed(
+        val classNotFound: ClassMissingException? = null,
+        val methodNotFound: MethodNotFoundException? = null,
+        val threw: String? = null
+) : Exception() {
+    class ClassMissingException(val klass: String, message: String?): Exception(message)
+    class MethodNotFoundException(val method: String, message: String) : Exception(message)
+
+    constructor(classMissing: ClassMissingException): this(classMissing, null, null)
+    constructor(methodNotFound: MethodNotFoundException) : this(null, methodNotFound, null)
+    constructor(throwable: Throwable): this (null, null, throwable.getStackTraceAsString())
+}
+
+
+@Throws(ExecutionFailed::class)
 suspend fun CompiledSource.execute(
       executionArguments: SourceExecutionArguments = SourceExecutionArguments()
 ): Sandbox.TaskResults<out Any?> {
@@ -42,7 +55,7 @@ suspend fun CompiledSource.execute(
     return Sandbox.execute(classLoader, executionArguments) { (classLoader) ->
         try {
             val method = classLoader.findClassMethod(executionArguments.klass, executionArguments.method)
-            if (method.parameterTypes.size == 0) {
+            if (method.parameterTypes.isEmpty()) {
                 method.invoke(null)
             } else {
                 method.invoke(null, null)
@@ -53,24 +66,31 @@ suspend fun CompiledSource.execute(
     }
 }
 
-@Throws(ClassNotFoundException::class, MethodNotFoundException::class)
+@Throws(ExecutionFailed::class)
 fun ClassLoader.findClassMethod(
         klass: String = SourceExecutionArguments.DEFAULT_KLASS,
         name: String = SourceExecutionArguments.DEFAULT_METHOD
 ): Method {
-    return loadClass(klass).declaredMethods.find { method ->
-        if (name == "main(String[])"
-                && Modifier.isStatic(method.modifiers)
-                && Modifier.isPublic(method.modifiers)
-                && method.parameterTypes.size == 1
-                && method.parameterTypes[0].canonicalName == "java.lang.String[]") {
-            return@find true
-        }
-        if (!Modifier.isStatic(method.modifiers)
-                || !Modifier.isPublic(method.modifiers)
-                || method.parameterTypes.isNotEmpty()) {
-            return@find false
-        }
-        method.getQualifiedName() == name
-    } ?: throw MethodNotFoundException("Cannot locate public static no-argument method $name in $klass")
+    try {
+        return loadClass(klass).declaredMethods.find { method ->
+            if (name == "main(String[])"
+                    && method.name == "main"
+                    && Modifier.isStatic(method.modifiers)
+                    && Modifier.isPublic(method.modifiers)
+                    && method.parameterTypes.size == 1
+                    && method.parameterTypes[0].canonicalName == "java.lang.String[]") {
+                return@find true
+            }
+            if (!Modifier.isStatic(method.modifiers)
+                    || !Modifier.isPublic(method.modifiers)
+                    || method.parameterTypes.isNotEmpty()) {
+                return@find false
+            }
+            method.getQualifiedName() == name
+        } ?: throw ExecutionFailed.MethodNotFoundException(name, "Cannot locate public static no-argument method $name in $klass")
+    } catch (methodNotFoundException: ExecutionFailed.MethodNotFoundException) {
+        throw ExecutionFailed(methodNotFoundException)
+    } catch (classNotFoundException: ClassNotFoundException) {
+        throw ExecutionFailed(ExecutionFailed.ClassMissingException(klass, classNotFoundException.message))
+    }
 }

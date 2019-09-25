@@ -132,8 +132,7 @@ class Job(
                 if (templates == null) {
                     Source(source)
                 } else {
-                    result.completed.template = Source.fromTemplates(source, templates)
-                    result.completed.template
+                    Source.fromTemplates(source, templates).also { result.completed.template = it }
                 }
             } else {
                 result.completed.snippet = Source.transformSnippet(snippet ?: assert { "should have a snippet" }, arguments.snippet)
@@ -149,7 +148,7 @@ class Job(
             if (tasks.contains(Task.execute)) {
                 result.completed.execution = result.completed.compilation?.execute(arguments.execution)
                 if (result.completed.execution?.threw != null) {
-                    result.failed.execution = result.completed.execution!!.threw!!.getStackTraceForSource(actualSource)
+                    result.failed.execution = ExecutionFailed(result.completed.execution!!.threw!!)
                 }
             }
         } catch (templatingFailed: TemplatingFailed) {
@@ -160,6 +159,8 @@ class Job(
             result.failed.compilation = compilationFailed
         } catch (checkstyleFailed: CheckstyleFailed) {
             result.failed.checkstyle = checkstyleFailed
+        } catch (executionFailed: ExecutionFailed) {
+            result.failed.execution = executionFailed
         } catch (e: Exception) {
             logger.error(e.toString())
             e.printStackTrace()
@@ -292,5 +293,5 @@ class FailedTasks(
         var snippet: SnippetTransformationFailed? = null,
         var compilation: CompilationFailed? = null,
         var checkstyle: CheckstyleFailed? = null,
-        var execution: String? = null
+        var execution: ExecutionFailed? = null
 )
