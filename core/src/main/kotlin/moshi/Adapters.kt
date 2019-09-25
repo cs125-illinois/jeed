@@ -17,7 +17,6 @@ val Adapters = setOf(
         TemplatingFailedAdapter(),
         PermissionAdapter(),
         ThrowableAdapter(),
-        ClassNotFoundAdapter(),
         InstantAdapter(),
         TaskResultsAdapter()
 )
@@ -121,18 +120,6 @@ class ThrowableAdapter {
     }
     @ToJson fun throwableToJson(throwable: Throwable): ThrowableJson {
         return ThrowableJson(throwable::class.java.typeName, throwable.message)
-    }
-}
-data class ClassNotFoundJson(val klass: String)
-class ClassNotFoundAdapter {
-    @Throws(Exception::class)
-    @Suppress("UNUSED_PARAMETER")
-    @FromJson
-    fun classNotFoundFromJson(unused: ClassNotFoundJson): ClassNotFoundException {
-        throw Exception("Can't convert JSON to ClassNotFoundException")
-    }
-    @ToJson fun classNotFoundToJson(classNotFoundException: ClassNotFoundException): ClassNotFoundJson {
-        return ClassNotFoundJson(classNotFoundException::class.java.typeName)
     }
 }
 class InstantAdapter {
