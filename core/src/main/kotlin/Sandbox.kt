@@ -2,7 +2,6 @@ package edu.illinois.cs.cs125.jeed.core
 
 import kotlinx.coroutines.*
 import kotlinx.coroutines.channels.Channel
-import mu.KotlinLogging
 import org.objectweb.asm.*
 import org.objectweb.asm.util.TraceClassVisitor
 import java.io.*
@@ -13,9 +12,6 @@ import java.time.Instant
 import java.util.*
 import java.util.concurrent.*
 import kotlin.reflect.jvm.javaMethod
-
-@Suppress("UNUSED")
-private val logger = KotlinLogging.logger {}
 
 private typealias SandboxCallableArguments<T> = (Pair<ClassLoader, (() -> Unit) -> Pair<String, String>>)->T
 

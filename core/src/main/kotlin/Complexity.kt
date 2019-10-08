@@ -1,11 +1,7 @@
 package edu.illinois.cs.cs125.jeed.core
 
 import edu.illinois.cs.cs125.jeed.core.antlr.*
-import mu.KotlinLogging
 import org.antlr.v4.runtime.tree.ParseTreeWalker
-
-@Suppress("UNUSED")
-private val logger = KotlinLogging.logger {}
 
 val basicComplexityTokens = listOf(JavaLexer.FOR, JavaLexer.WHILE, JavaLexer.DO, JavaLexer.THROW)
 val complexityExpressionBOPs = listOf(JavaLexer.AND, JavaLexer.OR, JavaLexer.QUESTION)

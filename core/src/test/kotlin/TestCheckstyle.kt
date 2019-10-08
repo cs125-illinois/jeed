@@ -73,7 +73,7 @@ public class Second {
         )).checkstyle()
 
         checkstyleErrors should haveCheckstyleErrors()
-        checkstyleErrors.errors.values.flatten() shouldHaveSize 1
+        checkstyleErrors.errors shouldHaveSize 1
         checkstyleErrors should haveCheckstyleErrorAt(source="First.java", line=1)
     }
     "it should ignore sources not configured to check" {
@@ -97,7 +97,7 @@ public int add(int a, int b) {
  }
 """.trim()).checkstyle()
         checkstyleErrors should haveCheckstyleErrors()
-        checkstyleErrors.errors.values.flatten() shouldHaveSize 2
+        checkstyleErrors.errors shouldHaveSize 2
         checkstyleErrors should haveCheckstyleErrorAt(line=2)
         checkstyleErrors should haveCheckstyleErrorAt(line=3)
     }
@@ -117,14 +117,14 @@ public int add(int a,int b) {
 
 fun haveCheckstyleErrors() = object : Matcher<CheckstyleResults> {
     override fun test(value: CheckstyleResults): MatcherResult {
-        return MatcherResult(value.errors.values.flatten().isNotEmpty(),
+        return MatcherResult(value.errors.isNotEmpty(),
                 "should have checkstyle errors",
                 "should have checkstyle errors")
     }
 }
 fun haveCheckstyleErrorAt(source: String = SNIPPET_SOURCE, line: Int) = object : Matcher<CheckstyleResults> {
     override fun test(value: CheckstyleResults): MatcherResult {
-        return MatcherResult(value.errors.values.flatten().any { it.location.source == source && it.location.line == line },
+        return MatcherResult(value.errors.any { it.location.source == source && it.location.line == line },
                 "should have checkstyle error on line $line",
                 "should not have checkstyle error on line $line")
     }

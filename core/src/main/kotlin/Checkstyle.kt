@@ -7,13 +7,9 @@ import com.puppycrawl.tools.checkstyle.PropertiesExpander
 import com.puppycrawl.tools.checkstyle.api.FileSetCheck
 import com.puppycrawl.tools.checkstyle.api.FileText
 import com.puppycrawl.tools.checkstyle.api.SeverityLevel
-import mu.KotlinLogging
 import org.xml.sax.InputSource
 import java.io.ByteArrayInputStream
 import java.io.File
-
-@Suppress("UNUSED")
-private val logger = KotlinLogging.logger {}
 
 data class CheckstyleArguments(
         val sources: Set<String>? = null,
@@ -29,7 +25,7 @@ class CheckstyleFailed(errors: List<CheckstyleError>) : JeedError(errors) {
         return "checkstyle errors were encountered: ${errors.joinToString(separator = ",")}"
     }
 }
-data class CheckstyleResults(val errors: Map<String, List<CheckstyleError>>)
+data class CheckstyleResults(val errors: List<CheckstyleError>)
 class ConfiguredChecker(configurationString: String) {
     val checker: Checker
     init {
@@ -89,18 +85,12 @@ val defaultChecker = run {
 @Throws(CheckstyleFailed::class)
 fun Source.checkstyle(checkstyleArguments: CheckstyleArguments = CheckstyleArguments()): CheckstyleResults {
     val names = checkstyleArguments.sources ?: sources.keys
-    val checkstyleResults = CheckstyleResults(defaultChecker.check(this.sources.filter { names.contains(it.key) }).mapValues {
-        it.value.map { error ->
-            CheckstyleError(error.severity, this.mapLocation(error.location), error.message)
-        }.sortedBy { error ->
-            error.location.line
-        }
-    })
-    val checkstyleErrors = checkstyleResults.errors
-            .flatMap { it.value }
-            .sortedWith(compareBy({it.location.source}, {it.location.line}))
-    if (checkstyleArguments.failOnError && checkstyleErrors.isNotEmpty()) {
-        throw CheckstyleFailed(checkstyleErrors)
+    val checkstyleResults = defaultChecker.check(this.sources.filter { names.contains(it.key) }).values.flatten().map {
+        CheckstyleError(it.severity, this.mapLocation(it.location), it.message)
+    }.sortedWith(compareBy({it.location.source}, {it.location.line}))
+
+    if (checkstyleArguments.failOnError && checkstyleResults.any { it.severity == "error" }) {
+        throw CheckstyleFailed(checkstyleResults)
     }
-    return checkstyleResults
+    return CheckstyleResults(checkstyleResults)
 }

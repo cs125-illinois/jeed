@@ -2,11 +2,15 @@ package edu.illinois.cs.cs125.jeed.core
 
 import edu.illinois.cs.cs125.jeed.core.antlr.JavaLexer
 import edu.illinois.cs.cs125.jeed.core.antlr.JavaParser
+import mu.KotlinLogging
 import org.antlr.v4.runtime.*
 import java.io.PrintWriter
 import java.io.StringWriter
 import java.lang.reflect.Method
 import java.time.Instant
+
+@Suppress("UNUSED")
+val logger = KotlinLogging.logger {}
 
 open class Source(
         val sources: Map<String, String>,

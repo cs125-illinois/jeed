@@ -1,11 +1,7 @@
 package edu.illinois.cs.cs125.jeed.core
 
 import edu.illinois.cs.cs125.jeed.core.antlr.*
-import mu.KotlinLogging
 import org.antlr.v4.runtime.*
-
-@Suppress("UNUSED")
-private val logger = KotlinLogging.logger {}
 
 const val SNIPPET_SOURCE = ""
 

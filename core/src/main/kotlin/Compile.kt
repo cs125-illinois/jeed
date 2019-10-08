@@ -1,7 +1,9 @@
 package edu.illinois.cs.cs125.jeed.core
 
-import mu.KotlinLogging
-import java.io.*
+import java.io.ByteArrayInputStream
+import java.io.ByteArrayOutputStream
+import java.io.InputStream
+import java.io.OutputStream
 import java.net.URI
 import java.nio.charset.Charset
 import java.security.AccessController
@@ -9,9 +11,6 @@ import java.security.PrivilegedAction
 import java.time.Instant
 import java.util.*
 import javax.tools.*
-
-@Suppress("UNUSED")
-private val logger = KotlinLogging.logger {}
 
 private val systemCompiler = ToolProvider.getSystemJavaCompiler() ?: error("systemCompiler not found: you are probably running a JRE, not a JDK")
 
