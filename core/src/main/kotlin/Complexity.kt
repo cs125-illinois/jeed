@@ -28,9 +28,9 @@ class ClassComplexity(
             }
         } catch (e: Exception) {
             if (name[0].isUpperCase()) {
-                error("class $name not found")
+                error("class $name not found: ${classes.keys}")
             } else {
-                error("method $name not found")
+                error("method $name not found: ${methods.keys}")
             }
         }
     }
@@ -190,7 +190,7 @@ class ComplexityResult(val source: Source, entry: Map.Entry<String, String>) : J
         assert(currentMethodReturnType != null)
         assert(currentMethodParameters != null)
 
-        val fullName = "$currentMethodName(${currentMethodParameters?.joinToString(separator = ", ")})"
+        val fullName = "$currentMethodName(${currentMethodParameters?.joinToString(separator = ",")})"
         val methodComplexity = if (source is Snippet && source.looseCodeMethodName == fullName) {
             val snippetMethodComplexity = MethodComplexity("", source.snippetRange)
             // We add "throws Exception" to the main method wrapping loose code for snippets.
@@ -223,11 +223,10 @@ class ComplexityResult(val source: Source, entry: Map.Entry<String, String>) : J
             currentMethod.complexity++
         }
 
-        // if statements add a number of paths equal to the number of arms
+        // if statements only ever add one unit of complexity. If no else is present then we either enter the condition
+        // or not, adding one path. If else is present then we either take the condition or the else, adding one path.
         if (firstToken.type == JavaLexer.IF) {
-            val statementLength = ctx.childCount
-            assert(statementLength % 2 == 0)
-            currentMethod.complexity += statementLength / 2
+            currentMethod.complexity++
         }
 
     }
@@ -286,15 +285,14 @@ class ComplexityResult(val source: Source, entry: Map.Entry<String, String>) : J
 }
 
 class ComplexityResults(@Transient val source: Source, val results: Map<String, Map<String, ClassComplexity>>) {
-    fun lookup(path: String): ComplexityValue {
+    fun lookup(path: String, filename: String = ""): ComplexityValue {
         return try {
             val components = path.split(".").toMutableList()
 
-            val resultSource = if (source is Snippet) {
-                results[""]
-            } else {
-                results[components.removeAt(0)]
-            } ?: error("")
+            if (source is Snippet) {
+                require(filename == "") { "filename cannot be set for snippet lookups" }
+            }
+            val resultSource = results[filename] ?: error("results does not contain key $filename")
 
             var currentComplexity = if (source is Snippet) {
                 val rootComplexity = resultSource[""] ?: error("")
@@ -319,8 +317,8 @@ class ComplexityResults(@Transient val source: Source, val results: Map<String, 
 }
 
 @Throws(JavaParsingException::class)
-fun Source.complexity(names: Set<String> = this.sources.keys.toSet()): ComplexityResults {
-    return ComplexityResults(this, this.sources.filter {
+fun Source.complexity(names: Set<String> = sources.keys.toSet()): ComplexityResults {
+    return ComplexityResults(this, sources.filter {
         names.contains(it.key)
     }.mapValues {
         ComplexityResult(this, it).results
