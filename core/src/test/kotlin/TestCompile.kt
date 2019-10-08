@@ -107,7 +107,7 @@ public class Test {
         compiledSource should haveDefinedExactlyTheseClasses(setOf("Test"))
         compiledSource should haveProvidedThisManyClasses(0)
     }
-    "f:should compile sources that use Java 12 features" {
+    "should compile sources that use Java 12 features" {
         val compiledSource = Source(mapOf(
                 "Test.java" to """
 public class Test {
@@ -128,7 +128,7 @@ public class Test {
         compiledSource should haveDefinedExactlyTheseClasses(setOf("Test"))
         compiledSource should haveProvidedThisManyClasses(0)
     }
-    "f:should compile sources that use Java 13 features" {
+    "should compile sources that use Java 13 features" {
         val compiledSource = Source(mapOf(
                 "Test.java" to """
 public class Test {

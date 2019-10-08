@@ -239,7 +239,7 @@ public class Main {
         executionResult should haveCompleted()
         executionResult should haveStdout("Inner")
     }
-    "f:should execute sources that use Java 12 features" {
+    "should execute sources that use Java 12 features" {
         val executionResult = Source(mapOf(
                 "Main.java" to """
 public class Main {
@@ -260,7 +260,7 @@ public class Main {
         executionResult should haveCompleted()
         executionResult should haveStdout("works")
     }
-    "f:should execute sources that use Java 13 features" {
+    "should execute sources that use Java 13 features" {
         val executionResult = Source(mapOf(
                 "Main.java" to """
 public class Main {
