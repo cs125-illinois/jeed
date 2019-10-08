@@ -1,21 +1,22 @@
 <component name="ProjectRunConfigurationManager">
-  <configuration default="false" name="Test server:HTTP" type="JUnit" factoryName="JUnit">
-    <module name="jeed.server.test" />
-    <extension name="coverage">
-      <pattern>
-        <option name="PATTERN" value="edu.illinois.cs.cs125.jeed.server.*" />
-        <option name="ENABLED" value="true" />
-      </pattern>
-    </extension>
-    <option name="PACKAGE_NAME" value="" />
-    <option name="MAIN_CLASS_NAME" value="edu.illinois.cs.cs125.jeed.server.TestHTTP" />
-    <option name="METHOD_NAME" value="" />
-    <option name="TEST_OBJECT" value="class" />
-    <option name="VM_PARAMETERS" value="-ea -Xmx1G" />
-    <option name="PARAMETERS" value="" />
-    <option name="WORKING_DIRECTORY" value="%MODULE_WORKING_DIR%" />
-    <method v="2">
-      <option name="Make" enabled="true" />
-    </method>
+  <configuration default="false" name="Test server:HTTP" type="GradleRunConfiguration" factoryName="Gradle">
+    <ExternalSystemSettings>
+      <option name="executionName" />
+      <option name="externalProjectPath" value="$PROJECT_DIR$" />
+      <option name="externalSystemIdString" value="GRADLE" />
+      <option name="scriptParameters" value="--tests &quot;edu.illinois.cs.cs125.jeed.server.TestHTTP&quot;" />
+      <option name="taskDescriptions">
+        <list />
+      </option>
+      <option name="taskNames">
+        <list>
+          <option value=":server:cleanTest" />
+          <option value=":server:test" />
+        </list>
+      </option>
+      <option name="vmOptions" value="" />
+    </ExternalSystemSettings>
+    <GradleScriptDebugEnabled>false</GradleScriptDebugEnabled>
+    <method v="2" />
   </configuration>
 </component>

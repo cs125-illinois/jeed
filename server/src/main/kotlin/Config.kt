@@ -8,10 +8,23 @@ import edu.illinois.cs.cs125.jeed.core.SourceExecutionArguments
 import edu.illinois.cs.cs125.jeed.core.moshi.PermissionAdapter
 import java.io.File
 
+const val DEFAULT_HTTP = "http://0.0.0.0:8888"
+const val NAME = "jeed"
+
+object TopLevel : ConfigSpec("") {
+    val http by optional(DEFAULT_HTTP)
+    val semester by optional<String?>(null)
+    val mongodb by optional<String?>(null)
+    object Mongo : ConfigSpec() {
+        val collection by optional(NAME)
+    }
+}
+
 object Auth : ConfigSpec() {
     val none by optional(true)
     object Google : ConfigSpec() {
         val hostedDomain by optional("")
+        val clientID by optional<String?>(null)
     }
 }
 object Limits : ConfigSpec() {
@@ -29,6 +42,7 @@ object Limits : ConfigSpec() {
 }
 
 val configuration = Config {
+    addSpec(TopLevel)
     addSpec(Auth)
     addSpec(Limits)
 }.let {
@@ -37,4 +51,4 @@ val configuration = Config {
     } else {
         it
     }
-}
+}.from.env()

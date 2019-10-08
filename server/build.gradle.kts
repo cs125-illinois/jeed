@@ -12,7 +12,7 @@ plugins {
     id("com.palantir.docker") version "0.22.1"
 }
 dependencies {
-    val ktorVersion = "1.2.4"
+    val ktorVersion = "1.2.5"
 
     kapt("com.squareup.moshi:moshi-kotlin-codegen:1.8.0")
 
@@ -20,16 +20,16 @@ dependencies {
     implementation(kotlin("stdlib"))
     implementation("io.ktor:ktor-server-netty:$ktorVersion")
     implementation("org.mongodb:mongodb-driver:3.11.0")
-    implementation("org.jetbrains.kotlinx:kotlinx-coroutines-core:1.3.1")
+    implementation("org.jetbrains.kotlinx:kotlinx-coroutines-core:1.3.2")
     implementation("com.squareup.moshi:moshi:1.8.0")
     implementation("com.ryanharter.ktor:ktor-moshi:1.0.1")
     implementation("ch.qos.logback:logback-classic:1.2.3")
     implementation("com.uchuhimo:konf-core:0.20.0")
     implementation("com.uchuhimo:konf-yaml:0.20.0")
     implementation("io.github.microutils:kotlin-logging:1.7.6")
-    implementation("com.google.api-client:google-api-client:1.30.3")
+    implementation("com.google.api-client:google-api-client:1.30.4")
 
-    val kotlintestVersion = "3.4.1"
+    val kotlintestVersion = "3.4.2"
     testImplementation("io.kotlintest:kotlintest-runner-junit5:$kotlintestVersion")
     testImplementation("io.kotlintest:kotlintest-assertions-ktor:$kotlintestVersion")
     testImplementation("io.ktor:ktor-server-test-host:$ktorVersion")
@@ -47,6 +47,7 @@ docker {
 tasks.test {
     useJUnitPlatform()
     systemProperties["logback.configurationFile"] = File(projectDir, "src/test/resources/logback-test.xml").absolutePath
+    environment["MONGODB"] = "mongodb://localhost:27018/cs125"
 }
 tasks.jar {
     manifest {

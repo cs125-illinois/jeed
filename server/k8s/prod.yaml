@@ -15,12 +15,12 @@ spec:
     spec:
       containers:
       - name: jeed
-        image: cs125/jeed:2019.9.2
+        image: cs125/jeed:2019.10.1
         ports:
-        - containerPort: 3000
+        - containerPort: 8888
         env:
         - name: HTTP
-          value: http://0.0.0.0:3000
+          value: http://0.0.0.0:8888
         - name: MONGO
           valueFrom:
             secretKeyRef:
@@ -42,7 +42,7 @@ spec:
   ports:
   - name: http
     port: 80
-    targetPort: 3000
+    targetPort: 8888
   selector:
     app: jeed
 ---

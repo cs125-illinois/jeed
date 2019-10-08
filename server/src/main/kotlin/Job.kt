@@ -1,10 +1,7 @@
 package edu.illinois.cs.cs125.jeed.server
 
 import com.google.api.client.googleapis.auth.oauth2.GoogleIdTokenVerifier
-import com.google.api.client.http.javanet.NetHttpTransport
-import com.google.api.client.json.jackson2.JacksonFactory
-import com.mongodb.MongoClient
-import com.mongodb.MongoClientURI
+import com.mongodb.client.MongoCollection
 import com.squareup.moshi.FromJson
 import com.squareup.moshi.JsonAdapter
 import com.squareup.moshi.Moshi
@@ -14,15 +11,10 @@ import edu.illinois.cs.cs125.jeed.core.moshi.PermissionAdapter
 import edu.illinois.cs.cs125.jeed.server.moshi.Adapters
 import edu.illinois.cs.cs125.jeed.core.moshi.Adapters as JeedAdapters
 import kotlinx.coroutines.*
-import mu.KotlinLogging
 import org.apache.http.auth.AuthenticationException
 import org.bson.BsonDocument
 import java.lang.IllegalArgumentException
 import java.time.Instant
-import java.util.*
-
-@Suppress("UNUSED")
-private val logger = KotlinLogging.logger {}
 
 class Job(
         val source: Map<String, String>?,
@@ -31,7 +23,8 @@ class Job(
         passedTasks: Set<Task>,
         arguments: TaskArguments?,
         val authToken: String?,
-        val label: String
+        val label: String,
+        val waitForSave: Boolean = false
 ) {
     val tasks: Set<Task>
     val arguments = arguments ?: TaskArguments()
@@ -39,7 +32,7 @@ class Job(
     var email: String? = null
 
     init {
-        require(!(source != null && snippet != null)) { "can't create task with both source and snippet" }
+        require(!(source != null && snippet != null)) { "can't create task with both sources and snippet" }
         if (templates != null) {
             require(source != null) { "can't use both templates and snippet mode" }
         }
@@ -98,12 +91,11 @@ class Job(
     fun authenticate() {
         try {
             if (googleTokenVerifier != null && authToken != null) {
-                val idToken = googleTokenVerifier.verify(authToken)
-                if (idToken != null) {
+                googleTokenVerifier?.verify(authToken)?.let {
                     if (configuration[Auth.Google.hostedDomain] != "") {
-                        require(idToken.payload.hostedDomain == configuration[Auth.Google.hostedDomain])
+                        require(it.payload.hostedDomain == configuration[Auth.Google.hostedDomain])
                     }
-                    email = idToken.payload.email
+                    email = it.payload.email
                 }
             }
         } catch (e: IllegalArgumentException) {
@@ -168,8 +160,17 @@ class Job(
             currentStatus.counts.completedJobs++
             result.interval = Interval(started, Instant.now())
             if (mongoCollection != null) {
-                GlobalScope.launch {
-                    mongoCollection.insertOne(BsonDocument.parse(result.json))
+                val resultSave = GlobalScope.async {
+                    try {
+                        println(result.json)
+                        mongoCollection?.insertOne(BsonDocument.parse(result.json))
+                        currentStatus.counts.savedJobs++
+                    } catch (e: Exception) {
+                        logger.error("Saving job failed: $e")
+                    }
+                }
+                if (waitForSave) {
+                    resultSave.await()
                 }
             }
             return result
@@ -177,39 +178,30 @@ class Job(
     }
 
     class JobJson(
-            val source: Map<String, String>?,
-            val templates: Map<String, String>?,
+            val sources: List<FlatSource>?,
+            val templates: List<FlatSource>?,
             val snippet: String?,
             val tasks: Set<Task>,
             val arguments: TaskArguments?,
             val authToken: String?,
-            val label: String
+            val label: String,
+            val waitForSave: Boolean
     )
     class JobAdapter {
         @FromJson
         fun jobFromJson(jobJson: JobJson): Job {
-            assert(!(jobJson.source != null && jobJson.snippet != null)) { "can't set both snippet and sources" }
-            return Job(jobJson.source, jobJson.templates, jobJson.snippet, jobJson.tasks, jobJson.arguments, jobJson.authToken, jobJson.label)
+            assert(!(jobJson.sources != null && jobJson.snippet != null)) { "can't set both snippet and sources" }
+            return Job(jobJson.sources?.toSource(), jobJson.templates?.toSource(), jobJson.snippet, jobJson.tasks, jobJson.arguments, jobJson.authToken, jobJson.label, jobJson.waitForSave)
         }
         @ToJson
         fun jobToJson(job: Job): JobJson {
             assert(!(job.source != null && job.snippet != null)) { "can't set both snippet and sources" }
-            return JobJson(job.source?.mapKeys { (name, _) -> name.removeSuffix(".java") }, job.templates, job.snippet, job.tasks, job.arguments, null, job.label)
+            return JobJson(job.source?.toFlatSources(), job.templates?.toFlatSources(), job.snippet, job.tasks, job.arguments, null, job.label, job.waitForSave)
         }
     }
     companion object {
-        val mongoCollection = System.getenv("MONGO")?.run {
-            val uri = MongoClientURI(this)
-            val database = uri.database ?: assert {"MONGO must specify database to use" }
-            val collection = System.getenv("MONGO_COLLECTION") ?: "jeed"
-            MongoClient(uri).getDatabase(database).getCollection(collection, BsonDocument::class.java)
-        }
-
-        val googleTokenVerifier = System.getenv("GOOGLE_CLIENT_ID")?.run {
-            GoogleIdTokenVerifier.Builder(NetHttpTransport(), JacksonFactory())
-                    .setAudience(Collections.singletonList(System.getenv("GOOGLE_CLIENT_ID")))
-                    .build()
-        }
+        var mongoCollection: MongoCollection<BsonDocument>? = null
+        var googleTokenVerifier: GoogleIdTokenVerifier? = null
     }
 }
 
@@ -295,3 +287,12 @@ class FailedTasks(
         var checkstyle: CheckstyleFailed? = null,
         var execution: ExecutionFailed? = null
 )
+
+data class FlatSource(val path: String, val contents: String)
+fun List<FlatSource>.toSource(): Map<String, String> {
+    require(this.map { it.path }.distinct().size == this.size) { "duplicate paths in source list" }
+    return this.map { it.path to it.contents }.toMap()
+}
+fun Map<String, String>.toFlatSources(): List<FlatSource> {
+    return this.map { FlatSource(it.key, it.value) }
+}

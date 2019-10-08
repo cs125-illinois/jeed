@@ -17,7 +17,6 @@ class TestGoogleAuth : StringSpec() {
     override fun afterSpec(spec: Spec) {
         configuration[Auth.none] = true
     }
-
     init {
         "should reject request without token" {
             withTestApplication(Application::jeed) {

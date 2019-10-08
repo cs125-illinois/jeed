@@ -15,11 +15,7 @@ import io.ktor.response.respond
 import io.ktor.routing.get
 import io.ktor.routing.post
 import io.ktor.routing.routing
-import mu.KotlinLogging
 import org.apache.http.auth.AuthenticationException
-
-@Suppress("UNUSED")
-private val logger = KotlinLogging.logger {}
 
 fun Application.jeed() {
     install(CORS) {
