@@ -3,7 +3,6 @@ package edu.illinois.cs.cs125.jeed.core
 import kotlinx.coroutines.*
 import kotlinx.coroutines.channels.Channel
 import org.objectweb.asm.*
-import org.objectweb.asm.util.TraceClassVisitor
 import java.io.*
 import java.lang.reflect.InvocationTargetException
 import java.security.*
@@ -14,8 +13,6 @@ import java.util.concurrent.*
 import kotlin.reflect.jvm.javaMethod
 
 private typealias SandboxCallableArguments<T> = (Pair<ClassLoader, (() -> Unit) -> Pair<String, String>>)->T
-
-const val DEFAULT_CONSOLE_OVERFLOW_MESSAGE = "(additional console output not shown)"
 
 object Sandbox {
     class ClassLoaderConfiguration(
@@ -59,7 +56,6 @@ object Sandbox {
             const val DEFAULT_TIMEOUT = 100L
             const val DEFAULT_MAX_EXTRA_THREADS = 0
             const val DEFAULT_MAX_OUTPUT_LINES = 1024
-            val DEFAULT_BLACKLISTED_CLASSES = setOf("java.lang.reflect.")
         }
     }
 
@@ -75,7 +71,7 @@ object Sandbox {
             val truncatedLines: Int
     ) {
         data class OutputLine (val console: Console, val line: String, val timestamp: Instant, val thread: Long) {
-            enum class Console(val fd: Int) { STDOUT(1), STDERR(2) }
+            enum class Console { STDOUT, STDERR }
         }
         data class PermissionRequest(val permission: Permission, val granted: Boolean)
 
@@ -97,7 +93,7 @@ object Sandbox {
             get() { return Duration.between(interval.start, interval.end) }
     }
 
-    val BLACKLISTED_PERMISSIONS = setOf(
+    private val BLACKLISTED_PERMISSIONS = setOf(
             // Suggestions from here: https://github.com/pro-grade/pro-grade/issues/31.
             RuntimePermission("createClassLoader"),
             RuntimePermission("accessClassInPackage.sun"),
@@ -119,8 +115,6 @@ object Sandbox {
             RuntimePermission("modifyThread"),
             RuntimePermission("modifyThreadGroup")
     )
-    val PERMANENTLY_BLACKLISTED_CLASSES = setOf("edu.illinois.cs.cs125.jeed.", "org.objectweb.asm.*")
-    val ALWAYS_UNSAFE_EXCEPTIONS = setOf("java.lang.Error")
 
     suspend fun <T> execute(
             sandboxedClassLoader: SandboxedClassLoader,
@@ -160,13 +154,6 @@ object Sandbox {
                 threadPool = Executors.newFixedThreadPool(Runtime.getRuntime().availableProcessors()) ?: error("thread pool should be available")
             }
             threadPool!!.submit(task)
-        }
-    }
-    @JvmStatic
-    fun shutdownThreadPool() {
-        synchronized(threadPoolSynclock) {
-            threadPool?.shutdownNow()
-            threadPool = null
         }
     }
 
@@ -250,8 +237,6 @@ object Sandbox {
                 val startedThread: Long = Thread.currentThread().id
         )
         val started: Instant = Instant.now()
-        lateinit var interval: Interval
-        lateinit var executionInterval: Interval
 
         fun addPermissionRequest(permission: Permission, granted: Boolean, throwException: Boolean = true) {
             permissionRequests.add(TaskResults.PermissionRequest(permission, granted))
@@ -415,8 +400,8 @@ object Sandbox {
             sandboxableClassLoader: SandboxableClassLoader,
             classLoaderConfiguration: ClassLoaderConfiguration
     ) : ClassLoader(sandboxableClassLoader.classLoader.parent), EnumerableClassLoader {
-        val whitelistedClasses = classLoaderConfiguration.whitelistedClasses
-        val blacklistedClasses = classLoaderConfiguration.blacklistedClasses
+        private val whitelistedClasses = classLoaderConfiguration.whitelistedClasses
+        private val blacklistedClasses = classLoaderConfiguration.blacklistedClasses
         val unsafeExceptionClasses: Set<Class<*>> = classLoaderConfiguration.unsafeExceptions.map { name ->
             val klass = Class.forName(name) ?: error("$name does not refer to a Java class")
             require(Throwable::class.java.isAssignableFrom(klass)) { "$name does not refer to a Java Throwable" }
@@ -427,7 +412,7 @@ object Sandbox {
         override val providedClasses: MutableSet<String> = mutableSetOf()
         override val loadedClasses: MutableSet<String> = mutableSetOf()
 
-        val knownClasses: Map<String, ByteArray>
+        private val knownClasses: Map<String, ByteArray>
         init {
             knownClasses = sandboxableClassLoader.bytecodeForClasses.mapValues { (_, unsafeByteArray) ->
                 RewriteTryCatchFinally.rewrite(unsafeByteArray, unsafeExceptionClasses)
@@ -445,8 +430,8 @@ object Sandbox {
             }
         }
 
-        val filter = whitelistedClasses.isNotEmpty() || blacklistedClasses.isNotEmpty()
-        val isWhiteList = whitelistedClasses.isNotEmpty()
+        private val filter = whitelistedClasses.isNotEmpty() || blacklistedClasses.isNotEmpty()
+        private val isWhiteList = whitelistedClasses.isNotEmpty()
         private fun delegateClass(name: String): Class<*> {
             val klass = super.loadClass(name)
             loadedClasses.add(name)
@@ -517,7 +502,7 @@ object Sandbox {
         fun rewrite(originalByteArray: ByteArray, unsafeExceptionClasses: Set<Class<*>>): ByteArray {
             val classReader = ClassReader(originalByteArray)
             val classWriter = ClassWriter(classReader, ClassWriter.COMPUTE_MAXS)
-            val ourVisitor = object : ClassVisitor(Opcodes.ASM5, classWriter) {
+            val ourVisitor = object : ClassVisitor(Opcodes.ASM7, classWriter) {
                 override fun visitMethod(access: Int, name: String, descriptor: String, signature: String?, exceptions: Array<out String>?): MethodVisitor? {
                     return if (name == "finalize" && descriptor == "()V") {
                         null // Drop the finalizer
@@ -534,7 +519,7 @@ object Sandbox {
         private class OurMethodVisitor(
                 val unsafeExceptionClasses: Set<Class<*>>,
                 methodVisitor: MethodVisitor
-        ) : MethodVisitor(Opcodes.ASM5, methodVisitor) {
+        ) : MethodVisitor(Opcodes.ASM7, methodVisitor) {
             private val labelsToRewrite: MutableSet<Label> = mutableSetOf()
             private var rewroteLabel = false
 
@@ -574,15 +559,6 @@ object Sandbox {
                 super.visitEnd()
             }
         }
-    }
-
-    private fun classByteArrayToString(byteArray: ByteArray): String {
-        val classReader = ClassReader(byteArray)
-        val stringWriter = StringWriter()
-        val printWriter = PrintWriter(stringWriter)
-        val traceVisitor = TraceClassVisitor(printWriter)
-        classReader.accept(traceVisitor, 0)
-        return stringWriter.toString()
     }
 
     val systemSecurityManager: SecurityManager? = System.getSecurityManager()
@@ -660,13 +636,6 @@ object Sandbox {
         System.setSecurityManager(SandboxSecurityManager)
     }
 
-    private fun defaultWrite(int: Int, console: TaskResults.OutputLine.Console) {
-        when (console) {
-            TaskResults.OutputLine.Console.STDOUT -> originalStdout.write(int)
-            TaskResults.OutputLine.Console.STDERR -> originalStderr.write(int)
-        }
-    }
-
     @JvmStatic
     fun redirectOutput(block: () -> Unit): Pair<String, String> {
         val confinedTask = confinedTaskByThreadGroup() ?: check { "should only be used from a confined task" }
@@ -710,7 +679,7 @@ object Sandbox {
      * this fails in the presence of unclean exits.
      *
      * Note that the problem here isn't really with concurrency: it's with unclean exit. Concurrency just means that
-     * you don't know whose output stream might be poluted by the garbage left over if you share a PrintStream.
+     * you don't know whose output stream might be polluted by the garbage left over if you share a PrintStream.
      *
      * So the "solution" is to create one PrintStream per confined task. This works because unclean exit just leaves
      * detritus in that thread group's PrintStream which is eventually cleaned up and destroyed.

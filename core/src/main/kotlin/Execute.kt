@@ -34,10 +34,10 @@ class SourceExecutionArguments(
 class ExecutionFailed(
         val classNotFound: ClassMissingException? = null,
         val methodNotFound: MethodNotFoundException? = null,
-        val threw: String? = null
+        @Suppress("unused") val threw: String? = null
 ) : Exception() {
-    class ClassMissingException(val klass: String, message: String?): Exception(message)
-    class MethodNotFoundException(val method: String, message: String) : Exception(message)
+    class ClassMissingException(@Suppress("unused") val klass: String, message: String?): Exception(message)
+    class MethodNotFoundException(@Suppress("unused") val method: String, message: String) : Exception(message)
 
     constructor(classMissing: ClassMissingException): this(classMissing, null, null)
     constructor(methodNotFound: MethodNotFoundException) : this(null, methodNotFound, null)

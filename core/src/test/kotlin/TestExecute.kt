@@ -239,6 +239,48 @@ public class Main {
         executionResult should haveCompleted()
         executionResult should haveStdout("Inner")
     }
+    "f:should execute sources that use Java 12 features" {
+        val executionResult = Source(mapOf(
+                "Main.java" to """
+public class Main {
+    public static String testYieldKeyword(int switchArg) {
+        return switch (switchArg) {
+            case 1, 2 -> "works";
+            case 3 -> "oh boy";
+            default -> "testing";
+        };
+    }
+    public static void main() {
+        System.out.println(testYieldKeyword(1));
+    }
+}
+                """.trim()
+        )).compile().execute()
+
+        executionResult should haveCompleted()
+        executionResult should haveStdout("works")
+    }
+    "f:should execute sources that use Java 13 features" {
+        val executionResult = Source(mapOf(
+                "Main.java" to """
+public class Main {
+    public static String testYieldKeyword(int switchArg) {
+        return switch (switchArg) {
+            case 1, 2: yield "works";
+            case 3: yield "oh boy";
+            default: yield "testing";
+        };
+    }
+    public static void main() {
+        System.out.println(testYieldKeyword(0));
+    }
+}
+                """.trim()
+        )).compile().execute()
+
+        executionResult should haveCompleted()
+        executionResult should haveStdout("testing")
+    }
 })
 
 fun haveCompleted() = object : Matcher<Sandbox.TaskResults<out Any?>> {

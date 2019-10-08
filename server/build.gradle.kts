@@ -2,7 +2,7 @@ import org.jetbrains.kotlin.cli.jvm.compiler.KotlinCoreEnvironment
 import java.util.*
 
 group = "edu.illinois.cs.cs125"
-version = "2019.10.1"
+version = "2019.10.2"
 
 plugins {
     kotlin("jvm")
@@ -46,6 +46,7 @@ docker {
 }
 tasks.test {
     useJUnitPlatform()
+    jvmArgs("-ea", "-Xmx1G", "--enable-preview")
     systemProperties["logback.configurationFile"] = File(projectDir, "src/test/resources/logback-test.xml").absolutePath
     environment["MONGODB"] = "mongodb://localhost:27018/cs125"
 }

@@ -70,11 +70,11 @@ open class Source(
 }
 
 class JavaParseError(location: SourceLocation, message: String) : SourceError(location, message)
-class UnsafeCatchError(location: SourceLocation, message: String) : SourceError(location, message)
 class JavaParsingException(errors: List<SourceError>) : JeedError(errors)
 
 class JavaErrorListener(val source: Source, entry: Map.Entry<String, String>) : BaseErrorListener() {
     private val name = entry.key
+    @Suppress("unused")
     private val contents = entry.value
 
     private val errors = mutableListOf<JavaParseError>()
@@ -110,13 +110,13 @@ data class SourceRange(
 
 open class LocatedClass(
         val name: String,
-        val range: SourceRange,
+        @Suppress("unused") val range: SourceRange,
         val classes: MutableMap<String, LocatedClass> = mutableMapOf(),
         val methods: MutableMap<String, LocatedMethod> = mutableMapOf()
 )
 open class LocatedMethod(
         val name: String,
-        val range: SourceRange,
+        @Suppress("unused") val range: SourceRange,
         var classes: MutableMap<String, LocatedClass> = mutableMapOf()
 )
 
@@ -136,20 +136,6 @@ abstract class JeedError(val errors: List<SourceError>) : Exception() {
 }
 data class Interval(val start: Instant, val end: Instant)
 
-data class TaskError(val error: Throwable) {
-    val stackTrace: String
-    init {
-        val stringWriter = StringWriter()
-        val printWriter = PrintWriter(stringWriter)
-        error.printStackTrace(printWriter)
-        stackTrace = stringWriter.toString()
-    }
-
-    override fun toString(): String {
-        return error.toString()
-    }
-}
-
 fun Throwable.getStackTraceAsString(): String {
     val stringWriter = StringWriter()
     val printWriter = PrintWriter(stringWriter)
@@ -158,6 +144,7 @@ fun Throwable.getStackTraceAsString(): String {
 }
 
 val stackTraceLineRegex = Regex("""^at (\w+)\.(\w+)\((\w*):(\d+)\)$""")
+@Suppress("unused")
 fun Throwable.getStackTraceForSource(source: Source): String {
     val originalStackTrace = this.getStackTraceAsString().lines().toMutableList()
     val firstLine = originalStackTrace.removeAt(0)

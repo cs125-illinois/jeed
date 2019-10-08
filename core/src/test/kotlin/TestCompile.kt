@@ -107,6 +107,48 @@ public class Test {
         compiledSource should haveDefinedExactlyTheseClasses(setOf("Test"))
         compiledSource should haveProvidedThisManyClasses(0)
     }
+    "f:should compile sources that use Java 12 features" {
+        val compiledSource = Source(mapOf(
+                "Test.java" to """
+public class Test {
+    public static String testYieldKeyword(int switchArg) {
+        return switch (switchArg) {
+            case 1, 2 -> "works";
+            case 3 -> "oh boy";
+            default -> "testing";
+        };
+    }
+    public static void main() {
+        System.out.println(testYieldKeyword(1));
+    }
+}
+                """.trim()
+        )).compile()
+
+        compiledSource should haveDefinedExactlyTheseClasses(setOf("Test"))
+        compiledSource should haveProvidedThisManyClasses(0)
+    }
+    "f:should compile sources that use Java 13 features" {
+        val compiledSource = Source(mapOf(
+                "Test.java" to """
+public class Test {
+    public static String testYieldKeyword(int switchArg) {
+        return switch (switchArg) {
+            case 1, 2: yield "works";
+            case 3: yield "oh boy";
+            default: yield "testing";
+        };
+    }
+    public static void main() {
+        System.out.println(testYieldKeyword(1));
+    }
+}
+                """.trim()
+        )).compile()
+
+        compiledSource should haveDefinedExactlyTheseClasses(setOf("Test"))
+        compiledSource should haveProvidedThisManyClasses(0)
+    }
     "should compile sources that use inner classes" {
         val compiledSource = Source(mapOf(
                 "Test.java" to """

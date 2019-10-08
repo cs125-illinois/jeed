@@ -9,11 +9,11 @@ plugins {
 }
 
 group = "com.github.cs125-illinois"
-version = "2019.10.1"
+version = "2019.10.2"
 
 tasks.test {
     useJUnitPlatform()
-    jvmArgs("-ea", "-Xmx1G")
+    jvmArgs("-ea", "-Xmx1G", "--enable-preview")
     systemProperties["logback.configurationFile"] = File(projectDir, "src/test/resources/logback-test.xml").absolutePath
 }
 dependencies {

@@ -55,6 +55,7 @@ class MethodComplexity(
 
 class ComplexityResult(val source: Source, entry: Map.Entry<String, String>) : JavaParserBaseListener() {
     private val name = entry.key
+    @Suppress("unused")
     private val contents = entry.value
 
     private var complexityStack: MutableList<ComplexityValue> = mutableListOf()

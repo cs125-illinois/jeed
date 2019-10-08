@@ -27,7 +27,7 @@ class CheckstyleFailed(errors: List<CheckstyleError>) : JeedError(errors) {
 }
 data class CheckstyleResults(val errors: List<CheckstyleError>)
 class ConfiguredChecker(configurationString: String) {
-    val checker: Checker
+    private val checker: Checker
     init {
         val configuration = ConfigurationLoader.loadConfiguration(
                 InputSource(ByteArrayInputStream(configurationString.toByteArray(Charsets.UTF_8))),

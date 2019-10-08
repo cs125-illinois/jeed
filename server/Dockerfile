@@ -1,4 +1,4 @@
-FROM openjdk:10.0.2-13-jdk-slim
+FROM openjdk:13-jdk-slim
 WORKDIR /
 COPY *.jar jeed.jar
-ENTRYPOINT java -jar jeed.jar
+ENTRYPOINT java --enable-preview -jar jeed.jar

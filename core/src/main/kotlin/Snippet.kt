@@ -51,7 +51,7 @@ class SnippetTransformationError(
 }
 class SnippetTransformationFailed(errors: List<SnippetTransformationError>) : JeedError(errors)
 
-class SnippetErrorListener(val sourceLines: List<Int>) : BaseErrorListener() {
+class SnippetErrorListener(private val sourceLines: List<Int>) : BaseErrorListener() {
     private val errors = mutableListOf<SnippetTransformationError>()
     override fun syntaxError(recognizer: Recognizer<*, *>?, offendingSymbol: Any?, line: Int, charPositionInLine: Int, msg: String, e: RecognitionException?) {
         // Decrement line number by 1 to account for added braces

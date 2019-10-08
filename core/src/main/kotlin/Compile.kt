@@ -13,16 +13,19 @@ import java.util.*
 import javax.tools.*
 
 private val systemCompiler = ToolProvider.getSystemJavaCompiler() ?: error("systemCompiler not found: you are probably running a JRE, not a JDK")
+val systemCompilerName = systemCompiler.sourceVersions.max().toString()
 
 data class CompilationArguments(
         val wError: Boolean = DEFAULT_WERROR,
         val Xlint: String = DEFAULT_XLINT,
+        val previewLevel: Int? = DEFAULT_PREVIEW_LEVEL,
         @Transient val parentFileManager: JavaFileManager? = null,
         @Transient val parentClassLoader: ClassLoader? = null
 ) {
     companion object {
         const val DEFAULT_WERROR = false
         const val DEFAULT_XLINT = "all"
+        const val DEFAULT_PREVIEW_LEVEL = 13
     }
 }
 class CompilationFailed(errors: List<CompilationError>) : JeedError(errors) {
@@ -37,9 +40,10 @@ class CompiledSource(
         val messages: List<CompilationMessage>,
         val interval: Interval,
         @Transient val classLoader: JeedClassLoader,
-        @Transient val fileManager: JeedFileManager
+        @Transient val fileManager: JeedFileManager,
+        @Suppress("unused") val compilerName: String = systemCompilerName
 ) {
-    class CompilationMessage(val kind: String, location: SourceLocation, message: String) : SourceError(location, message)
+    class CompilationMessage(@Suppress("unused") val kind: String, location: SourceLocation, message: String) : SourceError(location, message)
 }
 @Throws(CompilationFailed::class)
 private fun compile(
@@ -56,12 +60,18 @@ private fun compile(
 
     val options = mutableSetOf<String>()
     options.add("-Xlint:${compilationArguments.Xlint}")
+
+    if (compilationArguments.previewLevel != null) {
+        options.addAll(listOf("--enable-preview", "--release", compilationArguments.previewLevel.toString()))
+    }
+
     systemCompiler.getTask(null, fileManager, results, options.toList(), null, units).call()
     fileManager.close()
 
     val errors = results.diagnostics.filter {
         it.kind == Diagnostic.Kind.ERROR || (it.kind == Diagnostic.Kind.WARNING && compilationArguments.wError)
     }.map {
+        println(it)
         val originalLocation = SourceLocation(it.source.name, it.lineNumber.toInt(), it.columnNumber.toInt())
         val remappedLocation = source.mapLocation(originalLocation)
         CompilationFailed.CompilationError(remappedLocation, it.getMessage(Locale.US))
@@ -176,7 +186,7 @@ class JeedFileManager(parentFileManager: JavaFileManager) : ForwardingJavaFileMa
     }
 }
 
-class JeedClassLoader(val fileManager: JeedFileManager, parentClassLoader: ClassLoader?)
+class JeedClassLoader(private val fileManager: JeedFileManager, parentClassLoader: ClassLoader?)
     : ClassLoader(parentClassLoader), Sandbox.SandboxableClassLoader, Sandbox.EnumerableClassLoader {
 
     override val bytecodeForClasses = fileManager.bytecodeForPaths.mapKeys { pathToClassName(it.key) }.toMap()
