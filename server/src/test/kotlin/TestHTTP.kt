@@ -140,7 +140,7 @@ public static void main() {
                 }
             }
         }
-        "f:should reject mapped source request" {
+        "should reject mapped source request" {
             withTestApplication(Application::jeed) {
                 handleRequest(HttpMethod.Post, "/") {
                     addHeader("content-type", "application/json")

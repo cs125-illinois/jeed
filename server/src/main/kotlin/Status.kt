@@ -7,6 +7,7 @@ import java.time.Instant
 @JsonClass(generateAdapter = true)
 class Status(
         val started: Instant = Instant.now(),
+        var lastJob: Instant? = null,
         val versions: Versions = Versions(JEED_VERSION, VERSION),
         val counts: Counts = Counts()
 ) {

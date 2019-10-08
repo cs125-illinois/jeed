@@ -21,12 +21,12 @@ spec:
         env:
         - name: HTTP
           value: http://0.0.0.0:8888
-        - name: MONGO
+        - name: MONGODB
           valueFrom:
             secretKeyRef:
               name: mongo
               key: MONGO
-        - name: GOOGLE_CLIENT_ID
+        - name: AUTH_GOOGLE_CLIENTID
           valueFrom:
             secretKeyRef:
               name: google-client-id

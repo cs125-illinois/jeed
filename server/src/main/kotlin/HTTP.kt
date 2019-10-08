@@ -16,6 +16,7 @@ import io.ktor.routing.get
 import io.ktor.routing.post
 import io.ktor.routing.routing
 import org.apache.http.auth.AuthenticationException
+import java.time.Instant
 
 fun Application.jeed() {
     install(CORS) {
@@ -50,7 +51,9 @@ fun Application.jeed() {
             }
 
             try {
-                call.respond(job.run())
+                val result = job.run()
+                currentStatus.lastJob = Instant.now()
+                call.respond(result)
             } catch (e: Exception) {
                 logger.debug(e.toString())
                 call.respond(HttpStatusCode.BadRequest)
