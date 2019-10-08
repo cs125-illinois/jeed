@@ -5,7 +5,7 @@ import io.kotlintest.matchers.collections.shouldHaveSize
 import io.kotlintest.*
 
 class TestCheckstyle : StringSpec({
-    "it should check strings without errors" {
+    "should check strings without errors" {
         val checkstyleResult = Source.transformSnippet("""
 int i = 0;
 """.trim()).checkstyle()
@@ -21,7 +21,7 @@ int y =1;
         checkstyleErrors should haveCheckstyleErrors()
         checkstyleErrors should haveCheckstyleErrorAt(line=2)
     }
-    "it should identify checkstyle errors in snippet results" {
+    "should identify checkstyle errors in snippet results" {
         val checkstyleErrors = Source.transformSnippet("""
 int i = 0;
 int y = 1;
@@ -34,7 +34,7 @@ add(i, y);
         checkstyleErrors should haveCheckstyleErrors()
         checkstyleErrors should haveCheckstyleErrorAt(line=4)
     }
-    "it should identify checkstyle errors in snippet static results" {
+    "should identify checkstyle errors in snippet static results" {
         val checkstyleErrors = Source.transformSnippet("""
 int i = 0;
 int y = 1;
@@ -47,7 +47,7 @@ add(i, y);
         checkstyleErrors should haveCheckstyleErrors()
         checkstyleErrors should haveCheckstyleErrorAt(line=4)
     }
-    "it should identify checkstyle errors in snippet results with modifiers" {
+    "should identify checkstyle errors in snippet results with modifiers" {
         val checkstyleErrors = Source.transformSnippet("""
 int i = 0;
 int y = 1;
@@ -60,7 +60,7 @@ add(i, y);
         checkstyleErrors should haveCheckstyleErrors()
         checkstyleErrors should haveCheckstyleErrorAt(line=4)
     }
-    "it should check all sources by default" {
+    "should check all sources by default" {
         val checkstyleErrors = Source(mapOf(
                 "First.java" to """
 public class First{
@@ -76,7 +76,7 @@ public class Second {
         checkstyleErrors.errors shouldHaveSize 1
         checkstyleErrors should haveCheckstyleErrorAt(source="First.java", line=1)
     }
-    "it should ignore sources not configured to check" {
+    "should ignore sources not configured to check" {
         val checkstyleErrors = Source(mapOf(
                 "First.java" to """
 public class First{
@@ -90,7 +90,7 @@ public class Second {
 
         checkstyleErrors shouldNot haveCheckstyleErrors()
     }
-    "it should check indentation properly" {
+    "should check indentation properly" {
         val checkstyleErrors = Source.transformSnippet("""
 public int add(int a, int b) {
    return a + b;
@@ -101,7 +101,7 @@ public int add(int a, int b) {
         checkstyleErrors should haveCheckstyleErrorAt(line=2)
         checkstyleErrors should haveCheckstyleErrorAt(line=3)
     }
-    "it should throw when configured" {
+    "should throw when configured" {
     val checkstyleError = shouldThrow<CheckstyleFailed> {
             Source.transformSnippet("""
 public int add(int a,int b) {
@@ -112,6 +112,27 @@ public int add(int a,int b) {
         checkstyleError.errors shouldHaveSize 2
         checkstyleError.errors[0].location.line shouldBe 1
         checkstyleError.errors[1].location.line shouldBe 2
+    }
+    // TODO: Update if and when checkstyle supports switch expressions
+    "!should not fail on new Java features" {
+        val checkstyleResult = Source(mapOf(
+                "Test.java" to """
+public class Test {
+    public static String testYieldKeyword(int switchArg) {
+        return switch (switchArg) {
+            case 1, 2: yield "works";
+            case 3: yield "oh boy";
+            default: yield "testing";
+        };
+    }
+    public static void main() {
+        System.out.println(testYieldKeyword(1));
+    }
+}
+                """.trim()
+        )).checkstyle()
+
+        checkstyleResult shouldNot haveCheckstyleErrors()
     }
 })
 

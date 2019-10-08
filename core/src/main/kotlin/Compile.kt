@@ -71,7 +71,6 @@ private fun compile(
     val errors = results.diagnostics.filter {
         it.kind == Diagnostic.Kind.ERROR || (it.kind == Diagnostic.Kind.WARNING && compilationArguments.wError)
     }.map {
-        println(it)
         val originalLocation = SourceLocation(it.source.name, it.lineNumber.toInt(), it.columnNumber.toInt())
         val remappedLocation = source.mapLocation(originalLocation)
         CompilationFailed.CompilationError(remappedLocation, it.getMessage(Locale.US))

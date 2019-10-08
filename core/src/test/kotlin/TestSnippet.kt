@@ -96,6 +96,18 @@ if (i > 2) {
         """.trim())
         }
     }
+    // TODO: Update if and when ANTLR4 grammar is updated
+    "!should parse Java 13 constructs in snippets" {
+        Source.transformSnippet("""
+static String test(int arg) {
+  switch (arg) {
+      case 0 -> "test";
+      default -> "whatever";
+  }
+}
+System.out.println(test(0));
+        """.trim())
+    }
 })
 
 fun haveParseErrorOnLine(line: Int) = object : Matcher<SnippetTransformationFailed> {
