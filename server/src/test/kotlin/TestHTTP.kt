@@ -140,6 +140,30 @@ public static void main() {
                 }
             }
         }
+        "f:should reject mapped source request" {
+            withTestApplication(Application::jeed) {
+                handleRequest(HttpMethod.Post, "/") {
+                    addHeader("content-type", "application/json")
+                    setBody("""
+{
+"label": "test",
+"source": {
+  "Main.java": " 
+public class Main {
+  public static void main() {
+    System.out.println(\"Here\");
+  }
+}"
+},
+"tasks": [ "execute" ],
+"waitForSave": true
+}""".trim())
+                }
+            }.apply {
+                response.shouldHaveStatus(HttpStatusCode.BadRequest.value)
+                Job.mongoCollection?.countDocuments() shouldBe 0
+            }
+        }
         "should reject unauthorized request" {
             withTestApplication(Application::jeed) {
                 handleRequest(HttpMethod.Post, "/") {

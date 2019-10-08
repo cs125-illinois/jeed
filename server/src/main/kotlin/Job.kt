@@ -162,7 +162,6 @@ class Job(
             if (mongoCollection != null) {
                 val resultSave = GlobalScope.async {
                     try {
-                        println(result.json)
                         mongoCollection?.insertOne(BsonDocument.parse(result.json))
                         currentStatus.counts.savedJobs++
                     } catch (e: Exception) {
@@ -191,6 +190,7 @@ class Job(
         @FromJson
         fun jobFromJson(jobJson: JobJson): Job {
             assert(!(jobJson.sources != null && jobJson.snippet != null)) { "can't set both snippet and sources" }
+            assert(jobJson.sources != null || jobJson.snippet != null) { "must set either sources or snippet" }
             return Job(jobJson.sources?.toSource(), jobJson.templates?.toSource(), jobJson.snippet, jobJson.tasks, jobJson.arguments, jobJson.authToken, jobJson.label, jobJson.waitForSave)
         }
         @ToJson
