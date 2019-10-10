@@ -13,7 +13,11 @@ version = "2019.10.2"
 
 tasks.test {
     useJUnitPlatform()
-    jvmArgs("-ea", "-Xmx1G", "--enable-preview")
+    if (JavaVersion.current() >= JavaVersion.VERSION_11) {
+        jvmArgs("-ea", "-Xmx1G", "--enable-preview")
+    } else {
+        jvmArgs("-ea", "-Xmx1G")
+    }
     systemProperties["logback.configurationFile"] = File(projectDir, "src/test/resources/logback-test.xml").absolutePath
 }
 dependencies {

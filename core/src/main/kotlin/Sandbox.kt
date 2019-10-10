@@ -1,9 +1,12 @@
 package edu.illinois.cs.cs125.jeed.core
 
-import kotlinx.coroutines.*
 import kotlinx.coroutines.channels.Channel
+import kotlinx.coroutines.coroutineScope
+import kotlinx.coroutines.runBlocking
 import org.objectweb.asm.*
-import java.io.*
+import java.io.FilePermission
+import java.io.OutputStream
+import java.io.PrintStream
 import java.lang.reflect.InvocationTargetException
 import java.security.*
 import java.time.Duration
@@ -154,6 +157,15 @@ object Sandbox {
                 threadPool = Executors.newFixedThreadPool(Runtime.getRuntime().availableProcessors()) ?: error("thread pool should be available")
             }
             threadPool!!.submit(task)
+        }
+    }
+
+    @Suppress("unused")
+    @JvmStatic
+    fun shutdownThreadPool() {
+        synchronized(threadPoolSynclock) {
+            threadPool?.shutdownNow()
+            threadPool = null
         }
     }
 
@@ -412,7 +424,8 @@ object Sandbox {
         override val providedClasses: MutableSet<String> = mutableSetOf()
         override val loadedClasses: MutableSet<String> = mutableSetOf()
 
-        private val knownClasses: Map<String, ByteArray>
+        @Suppress("MemberVisibilityCanBePrivate")
+        val knownClasses: Map<String, ByteArray>
         init {
             knownClasses = sandboxableClassLoader.bytecodeForClasses.mapValues { (_, unsafeByteArray) ->
                 RewriteTryCatchFinally.rewrite(unsafeByteArray, unsafeExceptionClasses)

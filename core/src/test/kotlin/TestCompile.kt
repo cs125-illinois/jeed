@@ -17,8 +17,7 @@ class TestCompile : StringSpec({
 int i = 0;
 private static int main() {
     return 0;
-}
-        """.trim()).compile()
+}""".trim()).compile()
 
         compiledSource should haveDefinedExactlyTheseClasses(setOf("Main"))
         compiledSource should haveProvidedThisManyClasses(0)
@@ -30,7 +29,7 @@ public class Foo {
     int i;
 }
 Foo foo = new Foo();
-        """.trim()).compile()
+""".trim()).compile()
 
         compiledSource should haveDefinedExactlyTheseClasses(setOf("Main", "Foo"))
         compiledSource should haveProvidedThisManyClasses(0)
@@ -71,8 +70,7 @@ public class Test {}
                 "me/Me.java" to """
 package me;
 public class Me {}
-                """.trim()
-        )).compile()
+""".trim())).compile()
 
         compiledSource should haveDefinedExactlyTheseClasses(setOf("test.Test", "me.Me"))
         compiledSource should haveProvidedThisManyClasses(0)
@@ -83,12 +81,11 @@ public class Me {}
 package test;
 import me.Me;
 public class Test extends Me {}
-                """.trim(),
+""".trim(),
                 "me/Me.java" to """
 package me;
 public class Me {}
-                """.trim()
-        )).compile()
+""".trim())).compile()
 
         compiledSource should haveDefinedExactlyTheseClasses(setOf("test.Test", "me.Me"))
         compiledSource should haveProvidedThisManyClasses(0)
@@ -100,51 +97,7 @@ public class Test {
     public static void main() {
         var i = 0;
     }
-}
-                """.trim()
-        )).compile()
-
-        compiledSource should haveDefinedExactlyTheseClasses(setOf("Test"))
-        compiledSource should haveProvidedThisManyClasses(0)
-    }
-    "should compile sources that use Java 12 features" {
-        val compiledSource = Source(mapOf(
-                "Test.java" to """
-public class Test {
-    public static String testYieldKeyword(int switchArg) {
-        return switch (switchArg) {
-            case 1, 2 -> "works";
-            case 3 -> "oh boy";
-            default -> "testing";
-        };
-    }
-    public static void main() {
-        System.out.println(testYieldKeyword(1));
-    }
-}
-                """.trim()
-        )).compile()
-
-        compiledSource should haveDefinedExactlyTheseClasses(setOf("Test"))
-        compiledSource should haveProvidedThisManyClasses(0)
-    }
-    "should compile sources that use Java 13 features" {
-        val compiledSource = Source(mapOf(
-                "Test.java" to """
-public class Test {
-    public static String testYieldKeyword(int switchArg) {
-        return switch (switchArg) {
-            case 1, 2: yield "works";
-            case 3: yield "oh boy";
-            default: yield "testing";
-        };
-    }
-    public static void main() {
-        System.out.println(testYieldKeyword(1));
-    }
-}
-                """.trim()
-        )).compile()
+}""".trim())).compile()
 
         compiledSource should haveDefinedExactlyTheseClasses(setOf("Test"))
         compiledSource should haveProvidedThisManyClasses(0)
@@ -160,9 +113,7 @@ public class Test {
     public static void main() {
         Test test = new Test();
     }
-}
-                """.trim()
-        )).compile()
+}""".trim())).compile()
 
         compiledSource should haveDefinedExactlyTheseClasses(setOf("Test", "Test\$Inner"))
         compiledSource should haveProvidedThisManyClasses(0)
@@ -177,7 +128,7 @@ public class Test {
             Source.transformSnippet("""
 int i = a;
 Foo f = new Foo();
-            """.trim()).compile()
+""".trim()).compile()
         }
 
         failedCompilation should haveCompilationErrorAt(line=1)
@@ -192,7 +143,7 @@ public void foo() {
 public class Bar { }
 int i = a;
 Foo f = new Foo();
-            """.trim()).compile()
+""".trim()).compile()
         }
 
         failedCompilation should haveCompilationErrorAt(line=5)
@@ -203,7 +154,7 @@ Foo f = new Foo();
 import java.util.List;
 import java.util.ArrayList;
 List test = new ArrayList();
-        """.trim()).compile()
+""".trim()).compile()
 
         compiledSource.messages shouldHaveSize 2
         compiledSource should haveCompilationMessageAt(line=3)
@@ -213,7 +164,7 @@ List test = new ArrayList();
 import java.util.List;
 import java.util.ArrayList;
 List test = new ArrayList();
-        """.trim()).compile(CompilationArguments(Xlint = "none"))
+""".trim()).compile(CompilationArguments(Xlint = "none"))
 
         compiledSource.messages shouldHaveSize 0
     }
@@ -223,7 +174,7 @@ List test = new ArrayList();
 import java.util.List;
 import java.util.ArrayList;
 List test = new ArrayList();
-            """.trim()).compile(CompilationArguments(wError = true))
+""".trim()).compile(CompilationArguments(wError = true))
         }
 
         exception should haveCompilationErrorAt(line=3)
@@ -234,7 +185,7 @@ class Test {}
 class Me {}
 Test test = new Test();
 Me me = new Me();
-        """.trim()).compile()
+""".trim()).compile()
 
         compiledSource should haveDefinedExactlyTheseClasses(setOf("Test", "Me", "Main"))
         compiledSource should haveProvidedThisManyClasses(0)
@@ -282,7 +233,7 @@ import java.util.List;
 import java.util.ArrayList;
 
 List list = new ArrayList();
-        """.trim()).compile()
+""".trim()).compile()
 
         compiledSource should haveDefinedExactlyTheseClasses(setOf("Main"))
         compiledSource should haveProvidedThisManyClasses(0)
@@ -292,7 +243,7 @@ List list = new ArrayList();
 import com.puppycrawl.tools.checkstyle.Checker;
 
 System.out.println(new Checker());
-        """.trim()).compile()
+""".trim()).compile()
         compiledSource should haveDefinedExactlyTheseClasses(setOf("Main"))
     }
     "should compile with classes from .class files" {
@@ -300,8 +251,54 @@ System.out.println(new Checker());
 import edu.illinois.cs.cs125.testingjeed.importable.*;
 
 Widget w = new Widget();
-        """.trim()).compile()
+""".trim()).compile()
         compiledSource should haveDefinedExactlyTheseClasses(setOf("Main"))
+    }
+    "should compile sources that use Java 12 features" {
+        if (systemCompilerVersion < 12) {
+            // throw SkipTestException("Cannot run this test until Java 12")
+        } else {
+            val compiledSource = Source(mapOf(
+                    "Test.java" to """
+public class Test {
+    public static String testYieldKeyword(int switchArg) {
+        return switch (switchArg) {
+            case 1, 2 -> "works";
+            case 3 -> "oh boy";
+            default -> "testing";
+        };
+    }
+    public static void main() {
+        System.out.println(testYieldKeyword(1));
+    }
+}""".trim())).compile()
+
+            compiledSource should haveDefinedExactlyTheseClasses(setOf("Test"))
+            compiledSource should haveProvidedThisManyClasses(0)
+        }
+    }
+    "should compile sources that use Java 13 features" {
+        if (systemCompilerVersion < 12) {
+            // throw SkipTestException("Cannot run this test until Java 13")
+        } else {
+            val compiledSource = Source(mapOf(
+                    "Test.java" to """
+public class Test {
+    public static String testYieldKeyword(int switchArg) {
+        return switch (switchArg) {
+            case 1, 2: yield "works";
+            case 3: yield "oh boy";
+            default: yield "testing";
+        };
+    }
+    public static void main() {
+        System.out.println(testYieldKeyword(1));
+    }
+}""".trim())).compile()
+
+            compiledSource should haveDefinedExactlyTheseClasses(setOf("Test"))
+            compiledSource should haveProvidedThisManyClasses(0)
+        }
     }
 })
 
@@ -320,20 +317,6 @@ fun haveCompilationMessageAt(source: String = SNIPPET_SOURCE, line: Int) = objec
                 value.messages.any { it.location.source == source && it.location.line == line },
                 "should have compilation message on line $line",
                 "should not have compilation message on line $line"
-        )
-    }
-}
-fun <T> haveDefinedThisManyClasses(count: Int) = object : Matcher<T> {
-    override fun test(value: T): MatcherResult {
-        val definedClassCount = when (value) {
-            is CompiledSource -> value.classLoader.definedClasses.size
-            is Sandbox.TaskResults<*> -> value.sandboxedClassLoader?.definedClasses?.size
-            else -> error("invalid type")
-        }
-        return MatcherResult(
-                definedClassCount == count,
-                "should have defined $count classes (found $definedClassCount)",
-                "should not have defined $count classes"
         )
     }
 }

@@ -240,8 +240,11 @@ public class Main {
         executionResult should haveStdout("Inner")
     }
     "should execute sources that use Java 12 features" {
-        val executionResult = Source(mapOf(
-                "Main.java" to """
+        if (systemCompilerVersion < 12) {
+            // throw SkipTestException("Cannot run this test until Java 12")
+        } else {
+            val executionResult = Source(mapOf(
+                    "Main.java" to """
 public class Main {
     public static String testYieldKeyword(int switchArg) {
         return switch (switchArg) {
@@ -255,14 +258,18 @@ public class Main {
     }
 }
                 """.trim()
-        )).compile().execute()
+            )).compile().execute()
 
-        executionResult should haveCompleted()
-        executionResult should haveStdout("works")
+            executionResult should haveCompleted()
+            executionResult should haveStdout("works")
+        }
     }
     "should execute sources that use Java 13 features" {
-        val executionResult = Source(mapOf(
-                "Main.java" to """
+        if (systemCompilerVersion < 13) {
+            // throw SkipTestException("Cannot run this test until Java 13")
+        } else {
+            val executionResult = Source(mapOf(
+                    "Main.java" to """
 public class Main {
     public static String testYieldKeyword(int switchArg) {
         return switch (switchArg) {
@@ -276,10 +283,11 @@ public class Main {
     }
 }
                 """.trim()
-        )).compile().execute()
+            )).compile().execute()
 
-        executionResult should haveCompleted()
-        executionResult should haveStdout("testing")
+            executionResult should haveCompleted()
+            executionResult should haveStdout("testing")
+        }
     }
 })
 

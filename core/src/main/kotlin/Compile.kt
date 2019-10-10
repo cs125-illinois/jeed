@@ -14,18 +14,20 @@ import javax.tools.*
 
 private val systemCompiler = ToolProvider.getSystemJavaCompiler() ?: error("systemCompiler not found: you are probably running a JRE, not a JDK")
 val systemCompilerName = systemCompiler.sourceVersions.max().toString()
+val systemCompilerVersion = systemCompilerName.let {
+    try { it.split("_")[1].toInt() } catch (e: Exception) { 10 }
+}
 
 data class CompilationArguments(
         val wError: Boolean = DEFAULT_WERROR,
         val Xlint: String = DEFAULT_XLINT,
-        val previewLevel: Int? = DEFAULT_PREVIEW_LEVEL,
         @Transient val parentFileManager: JavaFileManager? = null,
         @Transient val parentClassLoader: ClassLoader? = null
 ) {
     companion object {
         const val DEFAULT_WERROR = false
         const val DEFAULT_XLINT = "all"
-        const val DEFAULT_PREVIEW_LEVEL = 13
+        const val PREVIEW_STARTED = 11
     }
 }
 class CompilationFailed(errors: List<CompilationError>) : JeedError(errors) {
@@ -61,8 +63,8 @@ private fun compile(
     val options = mutableSetOf<String>()
     options.add("-Xlint:${compilationArguments.Xlint}")
 
-    if (compilationArguments.previewLevel != null) {
-        options.addAll(listOf("--enable-preview", "--release", compilationArguments.previewLevel.toString()))
+    if (systemCompilerVersion >= CompilationArguments.PREVIEW_STARTED) {
+        options.addAll(listOf("--enable-preview", "--release", systemCompilerVersion.toString()))
     }
 
     systemCompiler.getTask(null, fileManager, results, options.toList(), null, units).call()
