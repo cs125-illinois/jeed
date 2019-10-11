@@ -36,7 +36,9 @@ class ConfiguredChecker(configurationString: String) {
         ) ?: error("could not create checkstyle configuration")
 
         val checkerClass = Checker::class.java
-        checker = PackageObjectFactory(checkerClass.packageName, checkerClass.classLoader).createModule(configuration.name) as Checker
+        checker = PackageObjectFactory(
+                checkerClass.packageName, checkerClass.classLoader
+        ).createModule(configuration.name) as Checker
         checker.setModuleClassLoader(checkerClass.classLoader)
         checker.configure(configuration)
     }
@@ -59,6 +61,7 @@ fun Checker.processString(name: String, source: String): List<CheckstyleError> {
     assert(checks.isNotEmpty())
 
     val results: MutableSet<CheckstyleError> = mutableSetOf()
+    @Suppress("TooGenericExceptionCaught")
     try {
         checks.map {
             it.process(file, contents)
@@ -87,7 +90,7 @@ fun Source.checkstyle(checkstyleArguments: CheckstyleArguments = CheckstyleArgum
     val names = checkstyleArguments.sources ?: sources.keys
     val checkstyleResults = defaultChecker.check(this.sources.filter { names.contains(it.key) }).values.flatten().map {
         CheckstyleError(it.severity, this.mapLocation(it.location), it.message)
-    }.sortedWith(compareBy({it.location.source}, {it.location.line}))
+    }.sortedWith(compareBy({ it.location.source }, { it.location.line }))
 
     if (checkstyleArguments.failOnError && checkstyleResults.any { it.severity == "error" }) {
         throw CheckstyleFailed(checkstyleResults)

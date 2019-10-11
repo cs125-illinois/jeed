@@ -6,12 +6,13 @@ plugins {
     kotlin("kapt") version kotlinVersion apply false
     maven
     id("com.github.ben-manes.versions") version "0.25.0"
+    id("io.gitlab.arturbosch.detekt") version "1.1.1"
 }
 allprojects {
     repositories {
         mavenCentral()
         jcenter()
-        maven(url="https://jitpack.io")
+        maven(url = "https://jitpack.io")
     }
     tasks.withType<KotlinCompile> {
         val javaVersion = JavaVersion.VERSION_1_8.toString()
@@ -39,4 +40,9 @@ tasks.dependencyUpdates {
             }
         }
     }
+}
+detekt {
+    toolVersion = "1.1.1"
+    input = files("core/src/main/kotlin", "server/src/main/kotlin")
+    config = files("config/detekt/detekt.yml")
 }
