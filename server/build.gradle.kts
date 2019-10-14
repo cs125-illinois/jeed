@@ -2,7 +2,7 @@ import org.jetbrains.kotlin.cli.jvm.compiler.KotlinCoreEnvironment
 import java.util.*
 
 group = "edu.illinois.cs.cs125"
-version = "2019.10.5"
+version = "2019.10.6"
 
 plugins {
     kotlin("jvm")
