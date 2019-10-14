@@ -2,7 +2,7 @@ import org.jetbrains.kotlin.cli.jvm.compiler.KotlinCoreEnvironment
 import java.util.*
 
 group = "edu.illinois.cs.cs125"
-version = "2019.10.3"
+version = "2019.10.4"
 
 plugins {
     kotlin("jvm")
@@ -19,7 +19,7 @@ dependencies {
     implementation(project(":core"))
     implementation(kotlin("stdlib"))
     implementation("io.ktor:ktor-server-netty:$ktorVersion")
-    implementation("org.mongodb:mongodb-driver:3.11.0")
+    implementation("org.mongodb:mongodb-driver:3.11.1")
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-core:1.3.2")
     implementation("com.squareup.moshi:moshi:1.8.0")
     implementation("com.ryanharter.ktor:ktor-moshi:1.0.1")
