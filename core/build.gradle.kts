@@ -50,6 +50,6 @@ task("createProperties") {
         val properties = Properties().also {
             it["version"] = project.version.toString()
         }
-        File(projectDir, "src/main/resources/version.properties").printWriter().use { properties.store(it, null) }
+        File(projectDir, "src/main/resources/core_version.properties").printWriter().use { properties.store(it, null) }
     }
 }

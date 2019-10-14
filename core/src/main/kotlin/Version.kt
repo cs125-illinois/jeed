@@ -4,7 +4,7 @@ import java.util.*
 
 val version = run {
     try {
-        val versionFile = object : Any() {}::class.java.getResource("/version.properties")
+        val versionFile = object : Any() {}::class.java.getResource("/core_version.properties")
         Properties().also { it.load(versionFile.openStream()) }["version"] as String
     } catch (e: Exception) {
         println(e)
