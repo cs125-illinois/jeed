@@ -25,13 +25,13 @@ dependencies {
 
     implementation(kotlin("stdlib"))
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-core:1.3.2")
-    implementation("com.puppycrawl.tools:checkstyle:8.25")
+    implementation("com.puppycrawl.tools:checkstyle:8.26")
     implementation("org.jetbrains.kotlin:kotlin-reflect:1.3.50")
     implementation("com.github.jknack:handlebars:4.1.2")
-    implementation("com.squareup.moshi:moshi:1.8.0")
+    implementation("com.squareup.moshi:moshi:1.9.1")
     implementation("org.ow2.asm:asm:7.2")
     implementation("org.ow2.asm:asm-util:7.2")
-    implementation("org.slf4j:slf4j-api:1.7.28")
+    implementation("org.slf4j:slf4j-api:1.7.29")
     implementation("ch.qos.logback:logback-classic:1.2.3")
     implementation("io.github.microutils:kotlin-logging:1.7.6")
 

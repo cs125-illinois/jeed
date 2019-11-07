@@ -14,20 +14,20 @@ plugins {
 dependencies {
     val ktorVersion = "1.2.5"
 
-    kapt("com.squareup.moshi:moshi-kotlin-codegen:1.8.0")
+    kapt("com.squareup.moshi:moshi-kotlin-codegen:1.9.1")
 
     implementation(project(":core"))
     implementation(kotlin("stdlib"))
     implementation("io.ktor:ktor-server-netty:$ktorVersion")
-    implementation("org.mongodb:mongodb-driver:3.11.1")
+    implementation("org.mongodb:mongodb-driver:3.11.2")
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-core:1.3.2")
-    implementation("com.squareup.moshi:moshi:1.8.0")
+    implementation("com.squareup.moshi:moshi:1.9.1")
     implementation("com.ryanharter.ktor:ktor-moshi:1.0.1")
     implementation("ch.qos.logback:logback-classic:1.2.3")
     implementation("com.uchuhimo:konf-core:0.20.0")
     implementation("com.uchuhimo:konf-yaml:0.20.0")
     implementation("io.github.microutils:kotlin-logging:1.7.6")
-    implementation("com.google.api-client:google-api-client:1.30.4")
+    implementation("com.google.api-client:google-api-client:1.30.5")
 
     val kotlintestVersion = "3.4.2"
     testImplementation("io.kotlintest:kotlintest-runner-junit5:$kotlintestVersion")
