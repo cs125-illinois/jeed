@@ -14,12 +14,17 @@ val logger = KotlinLogging.logger {}
 
 open class Source(
         val sources: Map<String, String>,
-        checkSourceNames: (Map<String, String>) -> Unit = ::defaultCheckSourceNames,
+        checkSourceNames: (Map<String, String>) -> FileType = ::defaultCheckSourceNames,
         @Transient val sourceMappingFunction: (SourceLocation) -> SourceLocation = { it }
 ) {
+    enum class FileType(val type: String) {
+        JAVA("Java"),
+        KOTLIN("Kotlin")
+    }
+    val type: FileType
     init {
         require(sources.keys.isNotEmpty())
-        checkSourceNames(sources)
+        type = checkSourceNames(sources)
     }
     fun mapLocation(input: SourceLocation): SourceLocation {
         return sourceMappingFunction(input)
@@ -58,12 +63,27 @@ open class Source(
         }
 
     companion object {
-        private fun defaultCheckSourceNames(sources: Map<String, String>) {
+        private fun defaultCheckSourceNames(sources: Map<String, String>): FileType {
             sources.keys.forEach { name ->
                 require(name.isNotBlank()) { "filename cannot be blank" }
-                val filename = name.split("/").last()
-                require(filename.endsWith(".java")) { "filename must end with .java" }
-                require(filename[0].isUpperCase()) { "filename must begin with an uppercase letter" }
+            }
+            val extensions = sources.keys.map { name ->
+                name.split("/").last().split(".").last()
+            }.distinct()
+            require(extensions.size == 1) {
+                "mixed sources are not supported: found ${ extensions.joinToString() }"
+            }
+            return when (extensions[0]) {
+                "java" -> {
+                    sources.keys.forEach { name ->
+                        require(name.split("/").last()[0].isUpperCase()) {
+                            "Java filenames must begin with an uppercase character"
+                        }
+                    }
+                    FileType.JAVA
+                }
+                "kt" -> FileType.KOTLIN
+                else -> require { "can't compile files with extension: ${extensions[0]}" }
             }
         }
     }

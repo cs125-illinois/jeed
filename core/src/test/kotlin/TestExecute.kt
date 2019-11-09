@@ -289,6 +289,33 @@ public class Main {
             executionResult should haveStdout("testing")
         }
     }
+    "should execute simple Kotlin sources" {
+        val executionMainResult = Source(mapOf(
+                "Main.kt" to """
+fun main() {
+  println("Here")
+}
+                """.trim())).kompile().execute()
+        executionMainResult should haveCompleted()
+        executionMainResult shouldNot haveTimedOut()
+        executionMainResult should haveStdout("Here")
+    }
+    "should execute simple multiple Kotlin sources" {
+        val executionMainResult = Source(mapOf(
+                "Main.kt" to """
+fun main() {
+  println(test())
+}
+                """.trim(),
+                "Test.kt" to """
+fun test(): List<String> {
+  return listOf("test", "me")
+}
+                """.trimIndent())).kompile().execute()
+        executionMainResult should haveCompleted()
+        executionMainResult shouldNot haveTimedOut()
+        executionMainResult should haveStdout("""[test, me]""")
+    }
 })
 
 fun haveCompleted() = object : Matcher<Sandbox.TaskResults<out Any?>> {

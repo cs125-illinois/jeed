@@ -1,9 +1,7 @@
 package edu.illinois.cs.cs125.jeed.core
 
-import java.io.ByteArrayInputStream
-import java.io.ByteArrayOutputStream
-import java.io.InputStream
-import java.io.OutputStream
+import org.jetbrains.kotlin.codegen.GeneratedClassLoader
+import java.io.*
 import java.net.URI
 import java.nio.charset.Charset
 import java.security.AccessController
@@ -35,13 +33,14 @@ data class CompilationArguments(
         const val PREVIEW_STARTED = 11
     }
 }
-class CompilationFailed(errors: List<CompilationError>) : JeedError(errors) {
-    class CompilationError(location: SourceLocation, message: String) : SourceError(location, message)
 
+class CompilationError(location: SourceLocation, message: String) : SourceError(location, message)
+class CompilationFailed(errors: List<CompilationError>) : JeedError(errors) {
     override fun toString(): String {
         return "compilation errors were encountered: ${errors.joinToString(separator = ",")}"
     }
 }
+class CompilationMessage(@Suppress("unused") val kind: String, location: SourceLocation, message: String) : SourceError(location, message)
 class CompiledSource(
         val source: Source,
         val messages: List<CompilationMessage>,
@@ -49,13 +48,7 @@ class CompiledSource(
         @Transient val classLoader: JeedClassLoader,
         @Transient val fileManager: JeedFileManager,
         @Suppress("unused") val compilerName: String = systemCompilerName
-) {
-    class CompilationMessage(
-            @Suppress("unused") val kind: String,
-            location: SourceLocation,
-            message: String
-    ) : SourceError(location, message)
-}
+)
 @Throws(CompilationFailed::class)
 private fun compile(
         source: Source,
@@ -63,6 +56,8 @@ private fun compile(
         parentFileManager: JavaFileManager? = compilationArguments.parentFileManager,
         parentClassLoader: ClassLoader? = compilationArguments.parentClassLoader ?: ClassLoader.getSystemClassLoader()
 ): CompiledSource {
+    require(source.type == Source.FileType.JAVA) { "Java compiler needs Java sources" }
+
     val started = Instant.now()
 
     val units = source.sources.entries.map { Unit(it) }
@@ -88,7 +83,7 @@ private fun compile(
     }.map {
         val originalLocation = SourceLocation(it.source.name, it.lineNumber.toInt(), it.columnNumber.toInt())
         val remappedLocation = source.mapLocation(originalLocation)
-        CompilationFailed.CompilationError(remappedLocation, it.getMessage(Locale.US))
+        CompilationError(remappedLocation, it.getMessage(Locale.US))
     }
     if (errors.isNotEmpty()) {
         throw CompilationFailed(errors)
@@ -97,7 +92,7 @@ private fun compile(
     val messages = results.diagnostics.map {
         val originalLocation = SourceLocation(it.source.name, it.lineNumber.toInt(), it.columnNumber.toInt())
         val remappedLocation = source.mapLocation(originalLocation)
-        CompiledSource.CompilationMessage(it.kind.toString(), remappedLocation, it.getMessage(Locale.US))
+        CompilationMessage(it.kind.toString(), remappedLocation, it.getMessage(Locale.US))
     }
     val classLoader = AccessController.doPrivileged(PrivilegedAction<JeedClassLoader> {
         JeedClassLoader(fileManager, parentClassLoader)
@@ -126,28 +121,44 @@ fun Source.compileWith(
 
 private class Unit(val entry: Map.Entry<String, String>) :
         SimpleJavaFileObject(URI(entry.key), JavaFileObject.Kind.SOURCE) {
-    override fun isNameCompatible(simpleName: String?, kind: JavaFileObject.Kind?): Boolean { return true }
+    override fun isNameCompatible(simpleName: String?, kind: JavaFileObject.Kind?): Boolean {
+        return kind != JavaFileObject.Kind.SOURCE || (simpleName != "module-info" && simpleName != "package-info")
+    }
     override fun getCharContent(ignoreEncodingErrors: Boolean): CharSequence { return entry.value }
     override fun toString(): String { return entry.key }
 }
 
-private class Results : DiagnosticListener<JavaFileObject> {
+class Results : DiagnosticListener<JavaFileObject> {
     val diagnostics = mutableListOf<Diagnostic<out JavaFileObject>>()
     override fun report(diagnostic: Diagnostic<out JavaFileObject>) { diagnostics.add(diagnostic) }
 }
 
+fun classNameToPathWithClass(className: String): String { return className.replace(".", "/") + ".class" }
 fun classNameToPath(className: String): String { return className.replace(".", "/") }
-fun pathToClassName(path: String): String { return path.replace("/", ".") }
+fun pathToClassName(path: String): String { return path.removeSuffix(".class").replace("/", ".") }
 
 class JeedFileManager(parentFileManager: JavaFileManager) :
         ForwardingJavaFileManager<JavaFileManager>(parentFileManager) {
     private val classFiles: MutableMap<String, JavaFileObject> = mutableMapOf()
 
-    private class ByteSource(path: String, kind: JavaFileObject.Kind) :
-            SimpleJavaFileObject(URI.create("bytearray:///$path${kind.extension}"), JavaFileObject.Kind.CLASS) {
+    private class ByteSource(path: String):
+            SimpleJavaFileObject(URI.create("bytearray:///$path"), JavaFileObject.Kind.CLASS) {
+        init {
+            check(path.endsWith(".class")) { "incorrect suffix for ByteSource path: $path" }
+        }
         val buffer: ByteArrayOutputStream = ByteArrayOutputStream()
         override fun openInputStream(): InputStream { return ByteArrayInputStream(buffer.toByteArray()) }
         override fun openOutputStream(): OutputStream { return buffer }
+    }
+
+    constructor(parentFileManager: JavaFileManager, generatedClassLoader: GeneratedClassLoader): this(parentFileManager) {
+        generatedClassLoader.allGeneratedFiles.filter {
+            ".${File(it.relativePath).extension}" == JavaFileObject.Kind.CLASS.extension
+        }.forEach {
+            classFiles[it.relativePath] = ByteSource(it.relativePath).also { simpleJavaFileObject ->
+                simpleJavaFileObject.openOutputStream().write(it.asByteArray())
+            }
+        }
     }
 
     val bytecodeForPaths: Map<String, ByteArray>
@@ -163,14 +174,14 @@ class JeedFileManager(parentFileManager: JavaFileManager) :
             kind: JavaFileObject.Kind?,
             sibling: FileObject?
     ): JavaFileObject {
-        val classPath = classNameToPath(className)
+        val classPath = classNameToPathWithClass(className)
         return when {
             location != StandardLocation.CLASS_OUTPUT -> super.getJavaFileForOutput(location, className, kind, sibling)
             kind != JavaFileObject.Kind.CLASS -> throw UnsupportedOperationException()
             else -> {
-                val simpleJavaFileObject = ByteSource(classPath, kind)
-                classFiles[classPath] = simpleJavaFileObject
-                simpleJavaFileObject
+                ByteSource(classPath).also {
+                    classFiles[classPath] = it
+                }
             }
         }
     }
@@ -182,7 +193,7 @@ class JeedFileManager(parentFileManager: JavaFileManager) :
         return if (location != StandardLocation.CLASS_OUTPUT) {
             super.getJavaFileForInput(location, className, kind)
         } else {
-            classFiles[classNameToPath(className)]
+            classFiles[classNameToPathWithClass(className)]
         }
     }
     override fun list(

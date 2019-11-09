@@ -33,7 +33,7 @@ class CheckstyleFailedAdapter {
         return CheckstyleFailedJson(checkstyleFailed.errors as List<CheckstyleError>)
     }
 }
-data class CompilationFailedJson(val errors: List<CompilationFailed.CompilationError>)
+data class CompilationFailedJson(val errors: List<CompilationError>)
 class CompilationFailedAdapter {
     @FromJson
     fun compilationFailedFromJson(compilationFailedJson: CompilationFailedJson): CompilationFailed {
@@ -42,11 +42,11 @@ class CompilationFailedAdapter {
     @Suppress("UNCHECKED_CAST")
     @ToJson
     fun compilationFailedToJson(compilationFailed: CompilationFailed): CompilationFailedJson {
-        return CompilationFailedJson(compilationFailed.errors as List<CompilationFailed.CompilationError>)
+        return CompilationFailedJson(compilationFailed.errors as List<CompilationError>)
     }
 }
 data class CompiledSourceJson(
-        val messages: List<CompiledSource.CompilationMessage>,
+        val messages: List<CompilationMessage>,
         val interval: Interval
 )
 class CompiledSourceAdapter {

@@ -18,6 +18,7 @@ class Snippet(
         {
             require(sources.keys.size == 1) { "snippets should only provide a single source file" }
             require(sources.keys.first() == "") { "snippets should use a blank string as their filename" }
+            FileType.JAVA
         },
         { mapLocation(it, remappedLineMapping) }
 ) {

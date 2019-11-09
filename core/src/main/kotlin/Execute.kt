@@ -7,7 +7,7 @@ import java.lang.reflect.ReflectPermission
 import java.security.Permission
 
 class SourceExecutionArguments(
-        val klass: String = DEFAULT_KLASS,
+        var klass: String? = null,
         val method: String = DEFAULT_METHOD,
         timeout: Long = DEFAULT_TIMEOUT,
         permissions: Set<Permission> = REQUIRED_PERMISSIONS,
@@ -49,12 +49,19 @@ class ExecutionFailed(
 suspend fun CompiledSource.execute(
       executionArguments: SourceExecutionArguments = SourceExecutionArguments()
 ): Sandbox.TaskResults<out Any?> {
+    if (executionArguments.klass == null) {
+        executionArguments.klass = when (this.source.type) {
+            Source.FileType.JAVA -> "Main"
+            Source.FileType.KOTLIN -> "MainKt"
+        }
+    }
+
     // Fail fast if the class or method don't exist
-    classLoader.findClassMethod(executionArguments.klass, executionArguments.method)
+    classLoader.findClassMethod(executionArguments.klass!!, executionArguments.method)
 
     return Sandbox.execute(classLoader, executionArguments) { (classLoader) ->
         try {
-            val method = classLoader.findClassMethod(executionArguments.klass, executionArguments.method)
+            val method = classLoader.findClassMethod(executionArguments.klass!!, executionArguments.method)
             if (method.parameterTypes.isEmpty()) {
                 method.invoke(null)
             } else {
