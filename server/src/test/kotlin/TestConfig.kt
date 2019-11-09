@@ -53,7 +53,7 @@ limits:
 {
   "label": "test",
   "snippet": "System.out.println(\"Here\");",
-  "tasks": [ "execute" ],
+  "tasks": [ "compile", "execute" ],
   "arguments": {
     "execution": {
       "timeout": "${ configuration[Limits.Execution.timeout] }"
@@ -70,7 +70,7 @@ limits:
 {
   "label": "test",
   "snippet": "System.out.println(\"Here\");",
-  "tasks": [ "execute" ],
+  "tasks": [ "compile", "execute" ],
   "arguments": {
     "execution": {
       "timeout": "${ configuration[Limits.Execution.timeout] + 1 }"
@@ -90,7 +90,7 @@ limits:
 {
   "label": "test",
   "snippet": "System.out.println(\"Here\");",
-  "tasks": [ "execute" ],
+  "tasks": [ "compile", "execute" ],
   "arguments": {
     "execution": {
       "maxExtraThreads": "${ configuration[Limits.Execution.maxExtraThreads] }"
@@ -107,7 +107,7 @@ limits:
 {
   "label": "test",
   "snippet": "System.out.println(\"Here\");",
-  "tasks": [ "execute" ],
+  "tasks": [ "compile", "execute" ],
   "arguments": {
     "execution": {
       "maxExtraThreads": "${ configuration[Limits.Execution.maxExtraThreads] + 1 }"
@@ -127,7 +127,7 @@ limits:
 {
   "label": "test",
   "snippet": "System.out.println(\"Here\");",
-  "tasks": [ "execute" ],
+  "tasks": [ "compile", "execute" ],
   "arguments": {
     "execution": {
       "permissions": [{
@@ -150,7 +150,7 @@ limits:
 {
   "label": "test",
   "snippet": "System.out.println(\"Here\");",
-  "tasks": [ "execute" ],
+  "tasks": [ "compile", "execute" ],
   "arguments": {
     "execution": {
       "permissions": [{
@@ -176,7 +176,7 @@ limits:
 {
   "label": "test",
   "snippet": "System.out.println(\"Here\");",
-  "tasks": [ "execute" ],
+  "tasks": [ "compile", "execute" ],
   "arguments": {
     "execution": {
       "classLoaderConfiguration": {
@@ -197,7 +197,7 @@ limits:
 {
   "label": "test",
   "snippet": "System.out.println(\"Here\");",
-  "tasks": [ "execute" ],
+  "tasks": [ "compile", "execute" ],
   "arguments": {
     "execution": {
       "classLoaderConfiguration": {

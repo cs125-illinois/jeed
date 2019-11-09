@@ -44,7 +44,7 @@ class TestHTTP : StringSpec() {
 {
 "label": "test",
 "snippet": "System.out.println(\"Here\");",
-"tasks": [ "execute" ],
+"tasks": [ "compile", "execute" ],
 "waitForSave": true
 }""".trim())
                 }.apply {
@@ -71,7 +71,33 @@ public class Main {
 }"
   }
 ],
-"tasks": [ "execute" ],
+"tasks": [ "compile", "execute" ],
+"waitForSave": true
+}""".trim())
+                }.apply {
+                    response.shouldHaveStatus(HttpStatusCode.OK.value)
+                    Job.mongoCollection?.countDocuments() shouldBe 1
+                }
+            }
+        }
+        "should accept good kotlin source request" {
+            withTestApplication(Application::jeed) {
+                handleRequest(HttpMethod.Post, "/") {
+                    addHeader("content-type", "application/json")
+                    setBody("""
+{
+"label": "test",
+"sources": [
+  {
+    "path": "Main.kt",
+    "contents": " 
+
+fun main() {
+  println(\"Here\");
+}"
+  }
+],
+"tasks": [ "kompile", "execute" ],
 "waitForSave": true
 }""".trim())
                 }.apply {
@@ -98,7 +124,7 @@ public static void main() {
 }"
   }
 ],
-"tasks": [ "checkstyle", "execute" ],
+"tasks": [ "checkstyle", "compile", "execute" ],
 "waitForSave": true
 }""".trim())
                 }.apply {
@@ -131,7 +157,7 @@ public static void main() {
     "contents": "System.out.println(\"Here\");"
   }
 ],
-"tasks": [ "template", "execute" ],
+"tasks": [ "template", "compile", "execute" ],
 "waitForSave": true
 }""".trim())
                 }.apply {
@@ -155,7 +181,7 @@ public class Main {
   }
 }"
 },
-"tasks": [ "execute" ],
+"tasks": [ "compile", "execute" ],
 "waitForSave": true
 }""".trim())
                 }

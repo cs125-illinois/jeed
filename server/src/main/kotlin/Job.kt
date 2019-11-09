@@ -2,10 +2,9 @@ package edu.illinois.cs.cs125.jeed.server
 
 import com.google.api.client.googleapis.auth.oauth2.GoogleIdTokenVerifier
 import com.mongodb.client.MongoCollection
-import com.squareup.moshi.FromJson
 import com.squareup.moshi.JsonAdapter
 import com.squareup.moshi.Moshi
-import com.squareup.moshi.ToJson
+import com.squareup.moshi.kotlin.reflect.KotlinJsonAdapterFactory
 import edu.illinois.cs.cs125.jeed.core.*
 import edu.illinois.cs.cs125.jeed.core.moshi.PermissionAdapter
 import edu.illinois.cs.cs125.jeed.server.moshi.Adapters
@@ -15,6 +14,23 @@ import org.apache.http.auth.AuthenticationException
 import org.bson.BsonDocument
 import java.lang.IllegalArgumentException
 import java.time.Instant
+
+@Suppress("EnumEntryName")
+enum class Task {
+    template,
+    snippet,
+    compile,
+    kompile,
+    checkstyle,
+    execute
+}
+class TaskArguments(
+        val snippet: SnippetArguments = SnippetArguments(),
+        val compilation: CompilationArguments = CompilationArguments(),
+        val kompilation: KompilationArguments = KompilationArguments(),
+        val checkstyle: CheckstyleArguments = CheckstyleArguments(),
+        val execution: SourceExecutionArguments = SourceExecutionArguments()
+)
 
 class Job(
         val source: Map<String, String>?,
@@ -39,7 +55,12 @@ class Job(
 
         val tasksToRun = passedTasks.toMutableSet()
         if (tasksToRun.contains(Task.execute)) {
-            tasksToRun.add(Task.compile)
+            require (tasksToRun.contains(Task.compile) || tasksToRun.contains(Task.kompile)) {
+                "must compile code before execution"
+            }
+        }
+        require(!(tasksToRun.containsAll(setOf(Task.compile, Task.kompile)))) {
+            "can't compile code as both Java and Kotlin"
         }
         if (snippet != null) {
             tasksToRun.add(Task.snippet)
@@ -131,7 +152,11 @@ class Job(
                 result.completed.snippet
             } ?: check { "should have a source" }
 
-            result.completed.compilation = actualSource.compile(arguments.compilation)
+            if (tasks.contains(Task.compile)) {
+                result.completed.compilation = actualSource.compile(arguments.compilation)
+            } else {
+                result.completed.kompilation = actualSource.kompile(arguments.kompilation)
+            }
 
             if (tasks.contains(Task.checkstyle)) {
                 result.completed.checkstyle = actualSource.checkstyle(arguments.checkstyle)
@@ -148,7 +173,11 @@ class Job(
         } catch (snippetFailed: SnippetTransformationFailed) {
             result.failed.snippet = snippetFailed
         } catch (compilationFailed: CompilationFailed) {
-            result.failed.compilation = compilationFailed
+            if (tasks.contains(Task.compile)) {
+                result.failed.compilation = compilationFailed
+            } else if (tasks.contains(Task.kompile)) {
+                result.failed.kompilation = compilationFailed
+            }
         } catch (checkstyleFailed: CheckstyleFailed) {
             result.failed.checkstyle = checkstyleFailed
         } catch (executionFailed: ExecutionFailed) {
@@ -176,49 +205,11 @@ class Job(
         }
     }
 
-    class JobJson(
-            val sources: List<FlatSource>?,
-            val templates: List<FlatSource>?,
-            val snippet: String?,
-            val tasks: Set<Task>,
-            val arguments: TaskArguments?,
-            val authToken: String?,
-            val label: String,
-            val waitForSave: Boolean
-    )
-    class JobAdapter {
-        @FromJson
-        fun jobFromJson(jobJson: JobJson): Job {
-            assert(!(jobJson.sources != null && jobJson.snippet != null)) { "can't set both snippet and sources" }
-            assert(jobJson.sources != null || jobJson.snippet != null) { "must set either sources or snippet" }
-            return Job(jobJson.sources?.toSource(), jobJson.templates?.toSource(), jobJson.snippet, jobJson.tasks, jobJson.arguments, jobJson.authToken, jobJson.label, jobJson.waitForSave)
-        }
-        @ToJson
-        fun jobToJson(job: Job): JobJson {
-            assert(!(job.source != null && job.snippet != null)) { "can't set both snippet and sources" }
-            return JobJson(job.source?.toFlatSources(), job.templates?.toFlatSources(), job.snippet, job.tasks, job.arguments, null, job.label, job.waitForSave)
-        }
-    }
     companion object {
         var mongoCollection: MongoCollection<BsonDocument>? = null
         var googleTokenVerifier: GoogleIdTokenVerifier? = null
     }
 }
-
-@Suppress("EnumEntryName")
-enum class Task(val task: String) {
-    template("template"),
-    snippet("snippet"),
-    compile("compile"),
-    checkstyle("checkstyle"),
-    execute("execute")
-}
-class TaskArguments(
-        val snippet: SnippetArguments = SnippetArguments(),
-        val compilation: CompilationArguments = CompilationArguments(),
-        val checkstyle: CheckstyleArguments = CheckstyleArguments(),
-        val execution: SourceExecutionArguments = SourceExecutionArguments()
-)
 
 class Result(val job: Job) {
     val email = job.email
@@ -230,45 +221,11 @@ class Result(val job: Job) {
     val json: String
         get() = resultAdapter.toJson(this)
 
-    data class ResultJson(
-            val email: String?,
-            val job: Job,
-            val status: Status,
-            val completed: CompletedTasks,
-            val failed: FailedTasks,
-            val interval: Interval
-    )
-    class ResultAdapter {
-        @Throws(Exception::class)
-        @Suppress("UNUSED_PARAMETER")
-        @FromJson
-        fun resultFromJson(resultJson: ResultJson): Result {
-            val result = Result(resultJson.job)
-
-            result.completed.snippet = resultJson.completed.snippet
-            result.completed.compilation = resultJson.completed.compilation
-            result.completed.template = resultJson.completed.template
-            result.completed.execution = resultJson.completed.execution
-
-            result.failed.snippet = resultJson.failed.snippet
-            result.failed.compilation = resultJson.failed.compilation
-            result.failed.template = resultJson.failed.template
-            result.failed.execution = resultJson.failed.execution
-
-            result.interval = resultJson.interval
-
-            return result
-        }
-        @ToJson
-        fun resultToJson(result: Result): ResultJson {
-            return ResultJson(result.email, result.job, result.status, result.completed, result.failed, result.interval)
-        }
-    }
-
     companion object {
         val resultAdapter: JsonAdapter<Result> = Moshi.Builder().let { builder ->
             Adapters.forEach { builder.add(it) }
             JeedAdapters.forEach { builder.add(it) }
+            builder.add(KotlinJsonAdapterFactory())
             builder.build().adapter(Result::class.java)
         }
     }
@@ -277,6 +234,7 @@ class CompletedTasks(
         var snippet: Snippet? = null,
         var template: TemplatedSource? = null,
         var compilation: CompiledSource? = null,
+        var kompilation: CompiledSource? = null,
         var checkstyle: CheckstyleResults? = null,
         var execution: Sandbox.TaskResults<out Any?>? = null
 )
@@ -284,6 +242,7 @@ class FailedTasks(
         var template: TemplatingFailed? = null,
         var snippet: SnippetTransformationFailed? = null,
         var compilation: CompilationFailed? = null,
+        var kompilation: CompilationFailed? = null,
         var checkstyle: CheckstyleFailed? = null,
         var execution: ExecutionFailed? = null
 )

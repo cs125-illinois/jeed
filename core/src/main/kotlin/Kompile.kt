@@ -4,6 +4,7 @@ import com.intellij.openapi.util.Disposer
 import com.intellij.psi.PsiFileFactory
 import com.intellij.psi.impl.PsiFileFactoryImpl
 import com.intellij.testFramework.LightVirtualFile
+import com.squareup.moshi.JsonClass
 import io.github.classgraph.ClassGraph
 import org.jetbrains.kotlin.cli.common.CLIConfigurationKeys
 import org.jetbrains.kotlin.cli.common.arguments.K2JVMCompilerArguments
@@ -26,20 +27,25 @@ import java.util.*
 import javax.tools.ToolProvider
 
 private val classpath = ClassGraph().classpathFiles.joinToString(separator = ":")
+
+@JsonClass(generateAdapter = true)
 data class KompilationArguments(
-        val wError: Boolean = KompilationArguments.DEFAULT_WERROR,
         @Transient val parentClassLoader: ClassLoader = ClassLoader.getSystemClassLoader(),
-        val arguments: K2JVMCompilerArguments = K2JVMCompilerArguments()
+        val verbose: Boolean = DEFAULT_VERBOSE,
+        val allWarningsAsErrors: Boolean = DEFAULT_ALLWARNINGSASERRORS
 ) {
+    val arguments: K2JVMCompilerArguments = K2JVMCompilerArguments()
     init {
         arguments.classpath = classpath
-        arguments.allWarningsAsErrors = wError
 
-        arguments.verbose = false
+        arguments.verbose = verbose
+        arguments.allWarningsAsErrors = allWarningsAsErrors
+
         arguments.noStdlib = true
     }
     companion object {
-        const val DEFAULT_WERROR = false
+        const val DEFAULT_VERBOSE = false
+        const val DEFAULT_ALLWARNINGSASERRORS = false
     }
 }
 

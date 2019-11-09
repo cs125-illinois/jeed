@@ -37,7 +37,7 @@ class ExecutionFailed(
         @Suppress("unused") val threw: String? = null
 ) : Exception() {
     class ClassMissingException(@Suppress("unused") val klass: String, message: String?): Exception(message)
-    class MethodNotFoundException(@Suppress("unused") val method: String, message: String) : Exception(message)
+    class MethodNotFoundException(@Suppress("unused") val method: String, message: String?) : Exception(message)
 
     constructor(classMissing: ClassMissingException): this(classMissing, null, null)
     constructor(methodNotFound: MethodNotFoundException) : this(null, methodNotFound, null)

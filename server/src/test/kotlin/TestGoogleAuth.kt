@@ -26,7 +26,7 @@ class TestGoogleAuth : StringSpec() {
 {
   "label": "test",
   "snippet": "System.out.println(\"Here\");",
-  "tasks": [ "execute" ]
+  "tasks": [ "compile", "execute" ]
 }""".trim())
                 }.apply {
                     response.shouldHaveStatus(HttpStatusCode.Unauthorized.value)
@@ -42,7 +42,7 @@ class TestGoogleAuth : StringSpec() {
   "label": "test",
   "authToken": "blahblah",
   "snippet": "System.out.println(\"Here\");",
-  "tasks": [ "execute" ]
+  "tasks": [ "compile", "execute" ]
 }""".trim())
                 }.apply {
                     response.shouldHaveStatus(HttpStatusCode.Unauthorized.value)

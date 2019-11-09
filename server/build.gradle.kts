@@ -1,4 +1,3 @@
-import org.jetbrains.kotlin.cli.jvm.compiler.KotlinCoreEnvironment
 import java.util.*
 
 group = "edu.illinois.cs.cs125"
@@ -21,7 +20,7 @@ dependencies {
     implementation("io.ktor:ktor-server-netty:$ktorVersion")
     implementation("org.mongodb:mongodb-driver:3.11.2")
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-core:1.3.2")
-    implementation("com.squareup.moshi:moshi:1.9.1")
+    implementation("com.squareup.moshi:moshi-kotlin:1.9.1")
     implementation("com.ryanharter.ktor:ktor-moshi:1.0.1")
     implementation("ch.qos.logback:logback-classic:1.2.3")
     implementation("com.uchuhimo:konf-core:0.20.0")
@@ -52,7 +51,7 @@ tasks.test {
         jvmArgs("-ea", "-Xmx1G")
     }
     systemProperties["logback.configurationFile"] = File(projectDir, "src/test/resources/logback-test.xml").absolutePath
-    environment["MONGODB"] = "mongodb://localhost:27018/cs125"
+    environment["MONGODB"] = "mongodb://localhost:27038/cs125"
 }
 tasks.jar {
     manifest {

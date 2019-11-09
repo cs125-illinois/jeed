@@ -12,7 +12,9 @@ class Status(
         val versions: Versions = Versions(JEED_VERSION, VERSION, COMPILER_NAME),
         val counts: Counts = Counts()
 ) {
+    @JsonClass(generateAdapter = true)
     data class Versions(val jeed: String, val server: String, val compiler: String)
+    @JsonClass(generateAdapter = true)
     data class Counts(var submittedJobs: Int = 0, var completedJobs: Int = 0, var savedJobs: Int = 0)
 }
 val currentStatus = Status()
