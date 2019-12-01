@@ -9,7 +9,7 @@ plugins {
 }
 
 group = "com.github.cs125-illinois"
-version = "2019.10.2"
+version = "2019.12.1"
 
 tasks.test {
     useJUnitPlatform()
@@ -25,17 +25,17 @@ dependencies {
 
     implementation(kotlin("stdlib"))
     implementation(kotlin("compiler"))
-    implementation("org.jetbrains.kotlinx:kotlinx-coroutines-core:1.3.2")
-    implementation("com.puppycrawl.tools:checkstyle:8.26")
-    implementation("org.jetbrains.kotlin:kotlin-reflect:1.3.50")
+    implementation("org.jetbrains.kotlinx:kotlinx-coroutines-core:1.3.2-1.3.60")
+    implementation("com.puppycrawl.tools:checkstyle:8.27")
+    implementation("org.jetbrains.kotlin:kotlin-reflect:1.3.61")
     implementation("com.github.jknack:handlebars:4.1.2")
-    implementation("com.squareup.moshi:moshi:1.9.1")
+    implementation("com.squareup.moshi:moshi:1.9.2")
     implementation("org.ow2.asm:asm:7.2")
     implementation("org.ow2.asm:asm-util:7.2")
     implementation("org.slf4j:slf4j-api:1.7.29")
     implementation("ch.qos.logback:logback-classic:1.2.3")
-    implementation("io.github.microutils:kotlin-logging:1.7.6")
-    implementation("io.github.classgraph:classgraph:4.8.53")
+    implementation("io.github.microutils:kotlin-logging:1.7.8")
+    implementation("io.github.classgraph:classgraph:4.8.58")
 
     testImplementation("io.kotlintest:kotlintest-runner-junit5:3.4.2")
 }

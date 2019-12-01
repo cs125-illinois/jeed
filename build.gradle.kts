@@ -1,12 +1,12 @@
 import org.jetbrains.kotlin.gradle.tasks.KotlinCompile
 
 plugins {
-    val kotlinVersion = "1.3.50"
+    val kotlinVersion = "1.3.61"
     kotlin("jvm") version kotlinVersion apply false
     kotlin("kapt") version kotlinVersion apply false
     maven
     id("com.github.ben-manes.versions") version "0.27.0"
-    id("io.gitlab.arturbosch.detekt") version "1.1.1"
+    id("io.gitlab.arturbosch.detekt") version "1.2.1"
 }
 allprojects {
     repositories {
