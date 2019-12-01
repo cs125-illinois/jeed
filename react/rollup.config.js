@@ -1,13 +1,10 @@
 import babel from 'rollup-plugin-babel'
-/*
-import commonjs from 'rollup-plugin-commonjs'
-*/
+import builtins from 'rollup-plugin-node-builtins'
 import external from 'rollup-plugin-peer-deps-external'
-  /*
-import resolve from 'rollup-plugin-node-resolve'
-import url from 'rollup-plugin-url'
-import svgr from '@svgr/rollup'
-*/
+// import commonjs from 'rollup-plugin-commonjs'
+// import resolve from 'rollup-plugin-node-resolve'
+// import svgr from '@svgr/rollup'
+// import url from 'rollup-plugin-url'
 
 import pkg from './package.json'
 
@@ -26,15 +23,12 @@ export default {
     }
   ],
   plugins: [
-    external(),
-    /*
-    url(),
-    svgr(),
-    */
     babel({ exclude: 'node_modules/**' }),
-    /*
-    resolve(),
-    commonjs()
-    */
+    builtins(),
+    external(),
+    // url(),
+    // svgr(),
+    // resolve(),
+    // commonjs()
   ]
 }

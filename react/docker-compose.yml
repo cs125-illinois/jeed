@@ -1,0 +1,26 @@
+version: "2"
+networks:
+  jeed:
+    driver: bridge
+services:
+  jeed:
+    image: "cs125/jeed"
+    depends_on:
+      - mongodb
+    ports:
+      - "8488:8888"
+    networks:
+      - jeed
+    environment:
+      - "MONGODB=mongodb://mongodb/cs125"
+  mongodb:
+    image: "bitnami/mongodb:4.0"
+    ports:
+      - "27118:27017"
+    volumes:
+      - "mongodb_data:/bitnami"
+    networks:
+      - jeed
+volumes:
+  mongodb_data:
+    driver: local
