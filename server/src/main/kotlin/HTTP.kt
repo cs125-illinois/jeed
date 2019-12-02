@@ -39,7 +39,7 @@ fun Application.jeed() {
             val job = try {
                 call.receive<Job>()
             } catch (e: Exception) {
-                logger.debug(e.toString())
+                logger.warn(e.toString())
                 call.respond(HttpStatusCode.BadRequest)
                 return@post
             }
@@ -47,7 +47,7 @@ fun Application.jeed() {
             try {
                 job.authenticate()
             } catch (e: AuthenticationException) {
-                logger.debug(e.toString())
+                logger.warn(e.toString())
                 call.respond(HttpStatusCode.Unauthorized)
                 return@post
             }
@@ -57,7 +57,7 @@ fun Application.jeed() {
                 currentStatus.lastJob = Instant.now()
                 call.respond(result)
             } catch (e: Exception) {
-                logger.debug(e.toString())
+                logger.warn(e.toString())
                 call.respond(HttpStatusCode.BadRequest)
             }
         }
