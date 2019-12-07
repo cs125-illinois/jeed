@@ -14,3 +14,4 @@
 out/
 build/
 test-output/
+/email.txt
