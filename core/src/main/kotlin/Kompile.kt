@@ -1,9 +1,9 @@
 package edu.illinois.cs.cs125.jeed.core
 
-import com.intellij.openapi.util.Disposer
-import com.intellij.psi.PsiFileFactory
-import com.intellij.psi.impl.PsiFileFactoryImpl
-import com.intellij.testFramework.LightVirtualFile
+import org.jetbrains.kotlin.com.intellij.openapi.util.Disposer
+import org.jetbrains.kotlin.com.intellij.psi.PsiFileFactory
+import org.jetbrains.kotlin.com.intellij.psi.impl.PsiFileFactoryImpl
+import org.jetbrains.kotlin.com.intellij.testFramework.LightVirtualFile
 import com.squareup.moshi.JsonClass
 import io.github.classgraph.ClassGraph
 import org.jetbrains.kotlin.cli.common.CLIConfigurationKeys
