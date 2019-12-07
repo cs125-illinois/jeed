@@ -63,28 +63,34 @@ open class Source(
         }
 
     companion object {
+        private fun filenameToFileType(filename: String): FileType {
+            return when (val extension = filename.split("/").last().split(".").last()) {
+                "java" -> FileType.JAVA
+                "kt" -> FileType.KOTLIN
+                else -> require { "invalid extension: $extension" }
+            }
+        }
+        fun filenamesToFileTypes(filenames: Set<String>): List<FileType> {
+            return filenames.map { filename ->
+                filenameToFileType(filename)
+            }.distinct()
+        }
         private fun defaultCheckSourceNames(sources: Map<String, String>): FileType {
             sources.keys.forEach { name ->
                 require(name.isNotBlank()) { "filename cannot be blank" }
             }
-            val extensions = sources.keys.map { name ->
-                name.split("/").last().split(".").last()
-            }.distinct()
-            require(extensions.size == 1) {
-                "mixed sources are not supported: found ${ extensions.joinToString() }"
+            val fileTypes = filenamesToFileTypes(sources.keys)
+            require(fileTypes.size == 1) {
+                "mixed sources are not supported: found ${ fileTypes.joinToString() }"
             }
-            return when (extensions[0]) {
-                "java" -> {
-                    sources.keys.forEach { name ->
-                        require(name.split("/").last()[0].isUpperCase()) {
-                            "Java filenames must begin with an uppercase character"
-                        }
+            if (fileTypes.contains(FileType.JAVA)) {
+                sources.keys.filter { filenameToFileType(it) == FileType.JAVA }.forEach { name ->
+                    require(name.split("/").last()[0].isUpperCase()) {
+                        "Java filenames must begin with an uppercase character"
                     }
-                    FileType.JAVA
                 }
-                "kt" -> FileType.KOTLIN
-                else -> require { "can't compile files with extension: ${extensions[0]}" }
             }
+            return fileTypes.first()
         }
     }
 }

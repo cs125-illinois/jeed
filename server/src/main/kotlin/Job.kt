@@ -38,7 +38,7 @@ class Job(
         val snippet: String?,
         passedTasks: Set<Task>,
         arguments: TaskArguments?,
-        val authToken: String?,
+        @Suppress("MemberVisibilityCanBePrivate") val authToken: String?,
         val label: String,
         val waitForSave: Boolean = false
 ) {
@@ -48,12 +48,20 @@ class Job(
     var email: String? = null
 
     init {
+        val tasksToRun = passedTasks.toMutableSet()
+
         require(!(source != null && snippet != null)) { "can't create task with both sources and snippet" }
         if (templates != null) {
             require(source != null) { "can't use both templates and snippet mode" }
         }
+        if (source != null) {
+            val fileTypes = Source.filenamesToFileTypes(source.keys)
+            require(fileTypes.size == 1) { "can't compile mixed Java and Kotlin sources" }
+            if (tasksToRun.contains(Task.checkstyle)) {
+                require(fileTypes[0] == Source.FileType.JAVA) { "can't run checkstyle on Kotlin sources" }
+            }
+        }
 
-        val tasksToRun = passedTasks.toMutableSet()
         if (tasksToRun.contains(Task.execute)) {
             require (tasksToRun.contains(Task.compile) || tasksToRun.contains(Task.kompile)) {
                 "must compile code before execution"
@@ -89,7 +97,7 @@ class Job(
             if (arguments?.execution?.permissions != null) {
                 val allowedPermissions = configuration[Limits.Execution.permissions].map { PermissionAdapter().permissionFromJson(it) }.toSet()
                 require(allowedPermissions.containsAll(arguments.execution.permissions)) {
-                    "job is requesting unallowed permissions"
+                    "job is requesting unavailable permissions"
                 }
             }
             if (arguments?.execution?.classLoaderConfiguration != null) {
@@ -159,6 +167,7 @@ class Job(
             }
 
             if (tasks.contains(Task.checkstyle)) {
+                check(actualSource.type == Source.FileType.JAVA) { "can't run checkstyle on non-Java sources" }
                 result.completed.checkstyle = actualSource.checkstyle(arguments.checkstyle)
             }
 
@@ -182,9 +191,6 @@ class Job(
             result.failed.checkstyle = checkstyleFailed
         } catch (executionFailed: ExecutionFailed) {
             result.failed.execution = executionFailed
-        } catch (e: Exception) {
-            logger.error(e.toString())
-            e.printStackTrace()
         } finally {
             currentStatus.counts.completedJobs++
             result.interval = Interval(started, Instant.now())

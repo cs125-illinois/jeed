@@ -133,6 +133,31 @@ public static void main() {
                 }
             }
         }
+        "should reject checkstyle request for non-Java sources" {
+            withTestApplication(Application::jeed) {
+                handleRequest(HttpMethod.Post, "/") {
+                    addHeader("content-type", "application/json")
+                    setBody("""
+{
+"label": "test",
+"sources": [
+  {
+    "path": "Main.kt",
+    "contents": "
+fun main() {
+  println(\"Here\");
+}"
+  }
+],
+"tasks": [ "checkstyle", "kompile", "execute" ],
+"waitForSave": true
+}""".trim())
+                }.apply {
+                    response.shouldHaveStatus(HttpStatusCode.BadRequest.value)
+                    Job.mongoCollection?.countDocuments() shouldBe 0
+                }
+            }
+        }
         "should accept good templated source request" {
             withTestApplication(Application::jeed) {
                 handleRequest(HttpMethod.Post, "/") {
