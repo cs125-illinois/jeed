@@ -37,6 +37,7 @@ dependencies {
     implementation("ch.qos.logback:logback-classic:1.2.3")
     implementation("io.github.microutils:kotlin-logging:1.7.8")
     implementation("io.github.classgraph:classgraph:4.8.58")
+    implementation("net.java.dev.jna:jna:5.5.0")
 
     testImplementation("io.kotlintest:kotlintest-runner-junit5:3.4.2")
 }

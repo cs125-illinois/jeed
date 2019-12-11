@@ -172,7 +172,11 @@ class Job(
             }
 
             if (tasks.contains(Task.execute)) {
-                result.completed.execution = result.completed.compilation?.execute(arguments.execution)
+                if (tasks.contains(Task.compile)) {
+                    result.completed.execution = result.completed.compilation?.execute(arguments.execution)
+                } else if (tasks.contains(Task.kompile)) {
+                    result.completed.execution = result.completed.kompilation?.execute(arguments.execution)
+                }
                 if (result.completed.execution?.threw != null) {
                     result.failed.execution = ExecutionFailed(result.completed.execution!!.threw!!)
                 }
