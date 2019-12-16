@@ -57,3 +57,9 @@ task("createProperties") {
         File(projectDir, "src/main/resources/core_version.properties").printWriter().use { properties.store(it, null) }
     }
 }
+val sourcesJar by tasks.registering(Jar::class) {
+    from(sourceSets.main.get().allSource)
+}
+artifacts {
+    archives(sourcesJar)
+}
