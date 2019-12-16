@@ -11,15 +11,6 @@ plugins {
 group = "com.github.cs125-illinois"
 version = "2019.12.2"
 
-tasks.test {
-    useJUnitPlatform()
-    if (JavaVersion.current() >= JavaVersion.VERSION_11) {
-        jvmArgs("-ea", "-Xmx1G", "--enable-preview")
-    } else {
-        jvmArgs("-ea", "-Xmx1G")
-    }
-    systemProperties["logback.configurationFile"] = File(projectDir, "src/test/resources/logback-test.xml").absolutePath
-}
 dependencies {
     antlr("org.antlr:antlr4:4.7.2")
 
@@ -40,6 +31,15 @@ dependencies {
     implementation("net.java.dev.jna:jna:5.5.0")
 
     testImplementation("io.kotlintest:kotlintest-runner-junit5:3.4.2")
+}
+tasks.test {
+    useJUnitPlatform()
+    if (JavaVersion.current() >= JavaVersion.VERSION_11) {
+        jvmArgs("-ea", "-Xmx1G", "--enable-preview")
+    } else {
+        jvmArgs("-ea", "-Xmx1G")
+    }
+    systemProperties["logback.configurationFile"] = File(projectDir, "src/test/resources/logback-test.xml").absolutePath
 }
 tasks.generateGrammarSource {
     outputDirectory = File(projectDir, "src/main/java/edu/illinois/cs/cs125/jeed/core/antlr")
