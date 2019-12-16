@@ -18,7 +18,7 @@ import java.util.*
 val logger = KotlinLogging.logger {}
 
 val VERSION: String = Properties().also {
-    it.load((object : Any() {}).javaClass.getResourceAsStream("/version.properties"))
+    it.load((object : Any() {}).javaClass.getResourceAsStream("/edu.illinois.cs.cs125.jeed.server.version"))
 }.getProperty("version")
 
 fun main() {

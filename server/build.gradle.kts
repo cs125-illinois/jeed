@@ -18,8 +18,8 @@ dependencies {
     implementation(project(":core"))
     implementation(kotlin("stdlib"))
     implementation("io.ktor:ktor-server-netty:$ktorVersion")
-    implementation("org.mongodb:mongodb-driver:3.11.2")
-    implementation("org.jetbrains.kotlinx:kotlinx-coroutines-core:1.3.2-1.3.60")
+    implementation("org.mongodb:mongodb-driver:3.12.0")
+    implementation("org.jetbrains.kotlinx:kotlinx-coroutines-core:1.3.3")
     implementation("com.squareup.moshi:moshi-kotlin:1.9.2")
     implementation("com.ryanharter.ktor:ktor-moshi:1.0.1")
     implementation("ch.qos.logback:logback-classic:1.2.3")
@@ -63,7 +63,7 @@ task("createProperties") {
         val properties = Properties().also {
             it["version"] = project.version.toString()
         }
-        File(projectDir, "src/main/resources/version.properties").printWriter().use { properties.store(it, null) }
+        File(projectDir, "src/main/resources/edu.illinois.cs.cs125.jeed.server.version").printWriter().use { properties.store(it, null) }
     }
 }
 tasks.processResources {

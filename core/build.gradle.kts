@@ -9,7 +9,7 @@ plugins {
 }
 
 group = "com.github.cs125-illinois"
-version = "2019.12.2"
+version = "2019.12.3"
 
 dependencies {
     antlr("org.antlr:antlr4:4.7.2")
@@ -17,7 +17,7 @@ dependencies {
     implementation(kotlin("stdlib"))
     implementation(kotlin("compiler-embeddable"))
 
-    implementation("org.jetbrains.kotlinx:kotlinx-coroutines-core:1.3.2-1.3.60")
+    implementation("org.jetbrains.kotlinx:kotlinx-coroutines-core:1.3.3")
     implementation("com.puppycrawl.tools:checkstyle:8.27")
     implementation("org.jetbrains.kotlin:kotlin-reflect:1.3.61")
     implementation("com.github.jknack:handlebars:4.1.2")
@@ -54,6 +54,6 @@ task("createProperties") {
         val properties = Properties().also {
             it["version"] = project.version.toString()
         }
-        File(projectDir, "src/main/resources/core_version.properties").printWriter().use { properties.store(it, null) }
+        File(projectDir, "src/main/resources/edu.illinois.cs.cs125.jeed.core.version").printWriter().use { properties.store(it, null) }
     }
 }
