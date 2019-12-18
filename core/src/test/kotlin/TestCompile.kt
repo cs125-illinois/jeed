@@ -1,9 +1,9 @@
 package edu.illinois.cs.cs125.jeed.core
 
-import io.kotlintest.specs.StringSpec
 import io.kotlintest.*
 import io.kotlintest.matchers.collections.shouldHaveSize
 import io.kotlintest.matchers.numerics.shouldBeGreaterThan
+import io.kotlintest.specs.StringSpec
 
 class TestCompile : StringSpec({
     "should compile simple snippets" {
@@ -121,7 +121,7 @@ public class Test {
     "should identify compilation errors in simple snippets" {
         val failedCompilation = shouldThrow<CompilationFailed> { Source.transformSnippet("int i = a;").compile() }
 
-        failedCompilation should haveCompilationErrorAt(line=1)
+        failedCompilation should haveCompilationErrorAt(line = 1)
     }
     "should identify multiple compilation errors in simple snippets" {
         val failedCompilation = shouldThrow<CompilationFailed> {
@@ -131,8 +131,8 @@ Foo f = new Foo();
 """.trim()).compile()
         }
 
-        failedCompilation should haveCompilationErrorAt(line=1)
-        failedCompilation should haveCompilationErrorAt(line=2)
+        failedCompilation should haveCompilationErrorAt(line = 1)
+        failedCompilation should haveCompilationErrorAt(line = 2)
     }
     "should identify multiple compilation errors in reordered simple snippets" {
         val failedCompilation = shouldThrow<CompilationFailed> {
@@ -146,8 +146,8 @@ Foo f = new Foo();
 """.trim()).compile()
         }
 
-        failedCompilation should haveCompilationErrorAt(line=5)
-        failedCompilation should haveCompilationErrorAt(line=6)
+        failedCompilation should haveCompilationErrorAt(line = 5)
+        failedCompilation should haveCompilationErrorAt(line = 6)
     }
     "should identify warnings in snippets" {
         val compiledSource = Source.transformSnippet("""
@@ -157,7 +157,7 @@ List test = new ArrayList();
 """.trim()).compile()
 
         compiledSource.messages shouldHaveSize 2
-        compiledSource should haveCompilationMessageAt(line=3)
+        compiledSource should haveCompilationMessageAt(line = 3)
     }
     "should not identify warnings in snippets when warnings are disabled" {
         val compiledSource = Source.transformSnippet("""
@@ -177,7 +177,7 @@ List test = new ArrayList();
 """.trim()).compile(CompilationArguments(wError = true))
         }
 
-        exception should haveCompilationErrorAt(line=3)
+        exception should haveCompilationErrorAt(line = 3)
     }
     "should enumerate and load classes correctly after execution" {
         val compiledSource = Source.transformSnippet("""

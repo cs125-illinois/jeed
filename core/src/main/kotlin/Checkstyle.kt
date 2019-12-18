@@ -8,20 +8,20 @@ import com.puppycrawl.tools.checkstyle.api.FileSetCheck
 import com.puppycrawl.tools.checkstyle.api.FileText
 import com.puppycrawl.tools.checkstyle.api.SeverityLevel
 import com.squareup.moshi.JsonClass
-import org.xml.sax.InputSource
 import java.io.ByteArrayInputStream
 import java.io.File
+import org.xml.sax.InputSource
 
 @JsonClass(generateAdapter = true)
 data class CheckstyleArguments(
-        val sources: Set<String>? = null,
-        val failOnError: Boolean = false
+    val sources: Set<String>? = null,
+    val failOnError: Boolean = false
 )
 @JsonClass(generateAdapter = true)
 class CheckstyleError(
-        val severity: String,
-        location: SourceLocation,
-        message: String
+    val severity: String,
+    location: SourceLocation,
+    message: String
 ) : SourceError(location, message)
 class CheckstyleFailed(errors: List<CheckstyleError>) : JeedError(errors) {
     override fun toString(): String {

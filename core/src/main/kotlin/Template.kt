@@ -4,9 +4,9 @@ import com.github.jknack.handlebars.Handlebars
 import com.github.jknack.handlebars.HandlebarsException
 
 class TemplatedSource(
-        sources: Map<String, String>,
-        val originalSources: Map<String, String>,
-        @Transient private val remappedLineMapping: Map<String, RemappedLines>
+    sources: Map<String, String>,
+    val originalSources: Map<String, String>,
+    @Transient private val remappedLineMapping: Map<String, RemappedLines>
 ) : Source(sources, sourceMappingFunction = { mapLocation(it, remappedLineMapping) }) {
     data class RemappedLines(val start: Int, val end: Int, val addedIndentation: Int = 0)
     companion object {
@@ -29,17 +29,17 @@ private val TEMPLATE_START = """\{\{\{\s*contents\s*}}}""".toRegex()
 private val LEADING_WHITESPACE = """^\s*""".toRegex()
 
 class TemplatingError(
-        name: String,
-        line: Int,
-        column: Int,
-        message: String
+    name: String,
+    line: Int,
+    column: Int,
+    message: String
 ) : SourceError(SourceLocation(name, line, column), message)
 class TemplatingFailed(errors: List<TemplatingError>) : JeedError(errors)
 
 @Throws(TemplatingFailed::class)
 fun Source.Companion.fromTemplates(sources: Map<String, String>, templates: Map<String, String>): TemplatedSource {
     require(templates.keys.all { it.endsWith(".hbs") }) { "template names in map should end with .hbs" }
-    require(sources.keys.map { it.removeSuffix(".java") }.containsAll(templates.keys.map { it.removeSuffix(".hbs")})) { "templates map contains keys not present in source map" }
+    require(sources.keys.map { it.removeSuffix(".java") }.containsAll(templates.keys.map { it.removeSuffix(".hbs") })) { "templates map contains keys not present in source map" }
 
     val templatingErrors = mutableListOf<TemplatingError>()
 
@@ -48,7 +48,7 @@ fun Source.Companion.fromTemplates(sources: Map<String, String>, templates: Map<
         val templateName = "${name.removeSuffix(".java")}.hbs"
         val templateSource = templates[templateName] ?: return@mapValues source
 
-        val contentsLines = templateSource.lines().mapIndexed{ lineNumber, line ->
+        val contentsLines = templateSource.lines().mapIndexed { lineNumber, line ->
             Pair(lineNumber, line)
         }.filter { (_, line) ->
             line.contains(TEMPLATE_START)

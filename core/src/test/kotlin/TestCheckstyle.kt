@@ -1,8 +1,8 @@
 package edu.illinois.cs.cs125.jeed.core
 
-import io.kotlintest.specs.StringSpec
-import io.kotlintest.matchers.collections.shouldHaveSize
 import io.kotlintest.*
+import io.kotlintest.matchers.collections.shouldHaveSize
+import io.kotlintest.specs.StringSpec
 
 class TestCheckstyle : StringSpec({
     "should check strings without errors" {
@@ -19,7 +19,7 @@ int y =1;
 """.trim()).checkstyle()
 
         checkstyleErrors should haveCheckstyleErrors()
-        checkstyleErrors should haveCheckstyleErrorAt(line=2)
+        checkstyleErrors should haveCheckstyleErrorAt(line = 2)
     }
     "should identify checkstyle errors in snippet results" {
         val checkstyleErrors = Source.transformSnippet("""
@@ -32,7 +32,7 @@ add(i, y);
 """.trim()).checkstyle()
 
         checkstyleErrors should haveCheckstyleErrors()
-        checkstyleErrors should haveCheckstyleErrorAt(line=4)
+        checkstyleErrors should haveCheckstyleErrorAt(line = 4)
     }
     "should identify checkstyle errors in snippet static results" {
         val checkstyleErrors = Source.transformSnippet("""
@@ -45,7 +45,7 @@ add(i, y);
 """.trim()).checkstyle()
 
         checkstyleErrors should haveCheckstyleErrors()
-        checkstyleErrors should haveCheckstyleErrorAt(line=4)
+        checkstyleErrors should haveCheckstyleErrorAt(line = 4)
     }
     "should identify checkstyle errors in snippet results with modifiers" {
         val checkstyleErrors = Source.transformSnippet("""
@@ -58,7 +58,7 @@ add(i, y);
 """.trim()).checkstyle()
 
         checkstyleErrors should haveCheckstyleErrors()
-        checkstyleErrors should haveCheckstyleErrorAt(line=4)
+        checkstyleErrors should haveCheckstyleErrorAt(line = 4)
     }
     "should check all sources by default" {
         val checkstyleErrors = Source(mapOf(
@@ -74,7 +74,7 @@ public class Second {
 
         checkstyleErrors should haveCheckstyleErrors()
         checkstyleErrors.errors shouldHaveSize 1
-        checkstyleErrors should haveCheckstyleErrorAt(source="First.java", line=1)
+        checkstyleErrors should haveCheckstyleErrorAt(source = "First.java", line = 1)
     }
     "should ignore sources not configured to check" {
         val checkstyleErrors = Source(mapOf(
@@ -98,8 +98,8 @@ public int add(int a, int b) {
 """.trim()).checkstyle()
         checkstyleErrors should haveCheckstyleErrors()
         checkstyleErrors.errors shouldHaveSize 2
-        checkstyleErrors should haveCheckstyleErrorAt(line=2)
-        checkstyleErrors should haveCheckstyleErrorAt(line=3)
+        checkstyleErrors should haveCheckstyleErrorAt(line = 2)
+        checkstyleErrors should haveCheckstyleErrorAt(line = 3)
     }
     "should throw when configured" {
     val checkstyleError = shouldThrow<CheckstyleFailed> {

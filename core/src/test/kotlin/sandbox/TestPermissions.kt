@@ -83,7 +83,7 @@ System.out.println(System.getProperty("file.separator"));
     "should allow snippets to read system properties if allowed" {
         val executionResult = Source.transformSnippet("""
 System.out.println(System.getProperty("file.separator"));
-        """.trim()).compile().execute(SourceExecutionArguments(permissions=setOf(PropertyPermission("*", "read"))))
+        """.trim()).compile().execute(SourceExecutionArguments(permissions = setOf(PropertyPermission("*", "read"))))
 
         executionResult should haveCompleted()
         executionResult.permissionDenied shouldBe false
@@ -98,7 +98,7 @@ System.out.println(System.getProperty("file.separator"));
         failedExecution.permissionDenied shouldBe true
 
         val successfulExecution = compiledSource.execute(
-                SourceExecutionArguments(permissions=setOf(PropertyPermission("*", "read"))
+                SourceExecutionArguments(permissions = setOf(PropertyPermission("*", "read"))
                 ))
         successfulExecution should haveCompleted()
         successfulExecution.permissionDenied shouldBe false
@@ -137,7 +137,7 @@ try {
         failedExecutionResult shouldNot haveCompleted()
         failedExecutionResult.permissionDenied shouldBe true
 
-        val successfulExecutionResult = compiledSource.execute(SourceExecutionArguments(maxExtraThreads=1))
+        val successfulExecutionResult = compiledSource.execute(SourceExecutionArguments(maxExtraThreads = 1))
         successfulExecutionResult.permissionDenied shouldBe false
         successfulExecutionResult should haveCompleted()
         successfulExecutionResult should haveOutput("Started\nEnded")
@@ -147,7 +147,7 @@ try {
             Source.transformSnippet("""
 System.exit(3);
             """.trim()).compile().execute(
-                    SourceExecutionArguments(permissions=setOf(RuntimePermission("exitVM")))
+                    SourceExecutionArguments(permissions = setOf(RuntimePermission("exitVM")))
             )
         }
     }

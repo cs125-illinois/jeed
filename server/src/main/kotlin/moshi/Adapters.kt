@@ -3,7 +3,6 @@ package edu.illinois.cs.cs125.jeed.server.moshi
 import com.squareup.moshi.FromJson
 import com.squareup.moshi.JsonClass
 import com.squareup.moshi.ToJson
-import com.squareup.moshi.kotlin.reflect.KotlinJsonAdapterFactory
 import edu.illinois.cs.cs125.jeed.core.*
 import edu.illinois.cs.cs125.jeed.core.moshi.TemplatedSourceResult
 import edu.illinois.cs.cs125.jeed.server.*
@@ -17,14 +16,14 @@ val Adapters = setOf(
 
 @JsonClass(generateAdapter = true)
 class JobJson(
-        val sources: List<FlatSource>?,
-        val templates: List<FlatSource>?,
-        val snippet: String?,
-        val tasks: Set<Task>,
-        val arguments: TaskArguments?,
-        val authToken: String?,
-        val label: String,
-        val waitForSave: Boolean = false
+    val sources: List<FlatSource>?,
+    val templates: List<FlatSource>?,
+    val snippet: String?,
+    val tasks: Set<Task>,
+    val arguments: TaskArguments?,
+    val authToken: String?,
+    val label: String,
+    val waitForSave: Boolean = false
 )
 
 class JobAdapter {
@@ -44,14 +43,14 @@ class JobAdapter {
 
 @JsonClass(generateAdapter = true)
 data class ResultJson(
-        val email: String?,
-        val job: Job,
-        val status: Status,
-        val completed: CompletedTasks,
-        val completedTasks: Set<Task>,
-        val failed: FailedTasks,
-        val failedTasks: Set<Task>,
-        val interval: Interval
+    val email: String?,
+    val job: Job,
+    val status: Status,
+    val completed: CompletedTasks,
+    val completedTasks: Set<Task>,
+    val failed: FailedTasks,
+    val failedTasks: Set<Task>,
+    val interval: Interval
 )
 
 class ResultAdapter {

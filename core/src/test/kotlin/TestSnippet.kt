@@ -1,8 +1,8 @@
 package edu.illinois.cs.cs125.jeed.core
 
-import io.kotlintest.specs.StringSpec
 import io.kotlintest.*
 import io.kotlintest.matchers.collections.shouldHaveSize
+import io.kotlintest.specs.StringSpec
 
 class TestSnippet : StringSpec({
   "should parse snippets" {

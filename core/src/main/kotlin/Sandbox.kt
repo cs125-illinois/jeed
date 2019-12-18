@@ -1,10 +1,6 @@
 package edu.illinois.cs.cs125.jeed.core
 
 import com.squareup.moshi.JsonClass
-import kotlinx.coroutines.channels.Channel
-import kotlinx.coroutines.coroutineScope
-import kotlinx.coroutines.runBlocking
-import org.objectweb.asm.*
 import java.io.FilePermission
 import java.io.OutputStream
 import java.io.PrintStream
@@ -15,26 +11,30 @@ import java.time.Instant
 import java.util.*
 import java.util.concurrent.*
 import kotlin.reflect.jvm.javaMethod
+import kotlinx.coroutines.channels.Channel
+import kotlinx.coroutines.coroutineScope
+import kotlinx.coroutines.runBlocking
+import org.objectweb.asm.*
 
-private typealias SandboxCallableArguments<T> = (Pair<ClassLoader, (() -> Unit) -> Pair<String, String>>)->T
+private typealias SandboxCallableArguments<T> = (Pair<ClassLoader, (() -> Unit) -> Pair<String, String>>) -> T
 
 object Sandbox {
     @JsonClass(generateAdapter = true)
     class ClassLoaderConfiguration(
-            val whitelistedClasses: Set<String> = DEFAULT_WHITELISTED_CLASSES,
-            blacklistedClasses: Set<String> = DEFAULT_BLACKLISTED_CLASSES,
-            unsafeExceptions: Set<String> = DEFAULT_UNSAFE_EXCEPTIONS
+        val whitelistedClasses: Set<String> = DEFAULT_WHITELISTED_CLASSES,
+        blacklistedClasses: Set<String> = DEFAULT_BLACKLISTED_CLASSES,
+        unsafeExceptions: Set<String> = DEFAULT_UNSAFE_EXCEPTIONS
     ) {
         val blacklistedClasses = blacklistedClasses.union(PERMANENTLY_BLACKLISTED_CLASSES)
         val unsafeExceptions = unsafeExceptions.union(ALWAYS_UNSAFE_EXCEPTIONS)
         init {
-            require(!whitelistedClasses.any {whitelistedClass ->
+            require(!whitelistedClasses.any { whitelistedClass ->
                 PERMANENTLY_BLACKLISTED_CLASSES.any { blacklistedClass -> whitelistedClass.startsWith(blacklistedClass) }
             }) {
                 "attempt to allow access to unsafe classes"
             }
-            require(!(whitelistedClasses.isNotEmpty()
-                    && blacklistedClasses.minus(PERMANENTLY_BLACKLISTED_CLASSES.union(DEFAULT_BLACKLISTED_CLASSES)).isNotEmpty())) {
+            require(!(whitelistedClasses.isNotEmpty() &&
+                    blacklistedClasses.minus(PERMANENTLY_BLACKLISTED_CLASSES.union(DEFAULT_BLACKLISTED_CLASSES)).isNotEmpty())) {
                 "can't set both a class whitelist and blacklist"
             }
             unsafeExceptions.forEach { name ->
@@ -51,11 +51,11 @@ object Sandbox {
         }
     }
     open class ExecutionArguments(
-            val timeout: Long = DEFAULT_TIMEOUT,
-            val permissions: Set<Permission> = setOf(),
-            val maxExtraThreads: Int = DEFAULT_MAX_EXTRA_THREADS,
-            val maxOutputLines: Int = DEFAULT_MAX_OUTPUT_LINES,
-            val classLoaderConfiguration: ClassLoaderConfiguration = ClassLoaderConfiguration()
+        val timeout: Long = DEFAULT_TIMEOUT,
+        val permissions: Set<Permission> = setOf(),
+        val maxExtraThreads: Int = DEFAULT_MAX_EXTRA_THREADS,
+        val maxOutputLines: Int = DEFAULT_MAX_OUTPUT_LINES,
+        val classLoaderConfiguration: ClassLoaderConfiguration = ClassLoaderConfiguration()
     ) {
         companion object {
             const val DEFAULT_TIMEOUT = 100L
@@ -65,18 +65,18 @@ object Sandbox {
     }
 
     class TaskResults<T>(
-            val returned: T?,
-            val threw: Throwable?,
-            val timeout: Boolean,
-            val outputLines: MutableList<OutputLine> = mutableListOf(),
-            val permissionRequests: MutableList<PermissionRequest> = mutableListOf(),
-            val interval: Interval,
-            val executionInterval: Interval,
-            @Transient val sandboxedClassLoader: SandboxedClassLoader? = null,
-            val truncatedLines: Int
+        val returned: T?,
+        val threw: Throwable?,
+        val timeout: Boolean,
+        val outputLines: MutableList<OutputLine> = mutableListOf(),
+        val permissionRequests: MutableList<PermissionRequest> = mutableListOf(),
+        val interval: Interval,
+        val executionInterval: Interval,
+        @Transient val sandboxedClassLoader: SandboxedClassLoader? = null,
+        val truncatedLines: Int
     ) {
         @JsonClass(generateAdapter = true)
-        data class OutputLine (val console: Console, val line: String, val timestamp: Instant, val thread: Long) {
+        data class OutputLine(val console: Console, val line: String, val timestamp: Instant, val thread: Long) {
             enum class Console { STDOUT, STDERR }
         }
         @JsonClass(generateAdapter = true)
@@ -124,9 +124,9 @@ object Sandbox {
     )
 
     suspend fun <T> execute(
-            sandboxedClassLoader: SandboxedClassLoader,
-            executionArguments: ExecutionArguments,
-            callable: SandboxCallableArguments<T>
+        sandboxedClassLoader: SandboxedClassLoader,
+        executionArguments: ExecutionArguments,
+        callable: SandboxCallableArguments<T>
     ): TaskResults<out T?> {
         require(executionArguments.permissions.intersect(BLACKLISTED_PERMISSIONS).isEmpty()) {
             "attempt to allow unsafe permissions"
@@ -142,9 +142,9 @@ object Sandbox {
     }
 
     suspend fun <T> execute(
-            sandboxableClassLoader: SandboxableClassLoader = EmptyClassLoader,
-            executionArguments: ExecutionArguments = ExecutionArguments(),
-            callable: SandboxCallableArguments<T>
+        sandboxableClassLoader: SandboxableClassLoader = EmptyClassLoader,
+        executionArguments: ExecutionArguments = ExecutionArguments(),
+        callable: SandboxCallableArguments<T>
     ): TaskResults<out T?> {
         val sandboxedClassLoader = SandboxedClassLoader(sandboxableClassLoader, executionArguments.classLoaderConfiguration)
         return execute(sandboxedClassLoader, executionArguments, callable)
@@ -175,11 +175,11 @@ object Sandbox {
 
     private data class ExecutorResult<T>(val taskResults: TaskResults<T>?, val executionException: Throwable)
     private class Executor<T>(
-            val callable: SandboxCallableArguments<T>,
-            val sandboxedClassLoader: SandboxedClassLoader,
-            val executionArguments: ExecutionArguments,
-            val resultChannel: Channel<ExecutorResult<T>>
-    ): Callable<Any> {
+        val callable: SandboxCallableArguments<T>,
+        val sandboxedClassLoader: SandboxedClassLoader,
+        val executionArguments: ExecutionArguments,
+        val resultChannel: Channel<ExecutorResult<T>>
+    ) : Callable<Any> {
         private data class TaskResult<T>(val returned: T, val threw: Throwable? = null, val timeout: Boolean = false)
 
         override fun call() {
@@ -217,10 +217,10 @@ object Sandbox {
     }
 
     private class ConfinedTask<T> (
-            val classLoader: SandboxedClassLoader,
-            val task: FutureTask<T>,
-            val thread: Thread,
-            executionArguments: ExecutionArguments
+        val classLoader: SandboxedClassLoader,
+        val task: FutureTask<T>,
+        val thread: Thread,
+        executionArguments: ExecutionArguments
     ) {
         val threadGroup = thread.threadGroup ?: error("thread should be in thread group")
         val accessControlContext: AccessControlContext
@@ -248,9 +248,9 @@ object Sandbox {
         val permissionRequests: MutableList<TaskResults.PermissionRequest> = mutableListOf()
 
         data class CurrentLine(
-                var started: Instant = Instant.now(),
-                val line: StringBuilder = StringBuilder(),
-                val startedThread: Long = Thread.currentThread().id
+            var started: Instant = Instant.now(),
+            val line: StringBuilder = StringBuilder(),
+            val startedThread: Long = Thread.currentThread().id
         )
         val started: Instant = Instant.now()
 
@@ -320,9 +320,9 @@ object Sandbox {
 
     @Synchronized
     private fun <T> confine(
-            callable: SandboxCallableArguments<T>,
-            sandboxedClassLoader: SandboxedClassLoader,
-            executionArguments: ExecutionArguments
+        callable: SandboxCallableArguments<T>,
+        sandboxedClassLoader: SandboxedClassLoader,
+        executionArguments: ExecutionArguments
     ): ConfinedTask<T> {
         val threadGroup = object : ThreadGroup("Sandbox") {
             override fun uncaughtException(t: Thread?, e: Throwable?) { }
@@ -373,7 +373,6 @@ object Sandbox {
             assert(threadGroup.isDestroyed)
         }
 
-
         if (confinedTask.truncatedLines == 0) {
             for (console in TaskResults.OutputLine.Console.values()) {
                 val currentLine = confinedTask.currentLines[console] ?: continue
@@ -394,9 +393,9 @@ object Sandbox {
     }
 
     private class SandboxedCallable<T>(
-            val callable: SandboxCallableArguments<T>,
-            val sandboxedClassLoader: SandboxedClassLoader
-    ): Callable<T> {
+        val callable: SandboxCallableArguments<T>,
+        val sandboxedClassLoader: SandboxedClassLoader
+    ) : Callable<T> {
         override fun call(): T {
             return callable(Pair(sandboxedClassLoader, Sandbox::redirectOutput))
         }
@@ -413,8 +412,8 @@ object Sandbox {
     }
 
     class SandboxedClassLoader(
-            sandboxableClassLoader: SandboxableClassLoader,
-            classLoaderConfiguration: ClassLoaderConfiguration
+        sandboxableClassLoader: SandboxableClassLoader,
+        classLoaderConfiguration: ClassLoaderConfiguration
     ) : ClassLoader(sandboxableClassLoader.classLoader.parent), EnumerableClassLoader {
         private val whitelistedClasses = classLoaderConfiguration.whitelistedClasses
         private val blacklistedClasses = classLoaderConfiguration.blacklistedClasses
@@ -534,8 +533,8 @@ object Sandbox {
         }
 
         private class OurMethodVisitor(
-                val unsafeExceptionClasses: Set<Class<*>>,
-                methodVisitor: MethodVisitor
+            val unsafeExceptionClasses: Set<Class<*>>,
+            methodVisitor: MethodVisitor
         ) : MethodVisitor(Opcodes.ASM7, methodVisitor) {
             private val labelsToRewrite: MutableSet<Label> = mutableSetOf()
             private var rewroteLabel = false
@@ -565,7 +564,7 @@ object Sandbox {
                 super.visitFrame(type, numLocal, local, numStack, stack)
                 if (nextLabel != null) {
                     super.visitInsn(Opcodes.DUP)
-                    super.visitMethodInsn(Opcodes.INVOKESTATIC, checkClassName, checkMethodName, checkMethodDescription,false)
+                    super.visitMethodInsn(Opcodes.INVOKESTATIC, checkClassName, checkMethodName, checkMethodDescription, false)
                     rewroteLabel = true
                     labelsToRewrite.remove(nextLabel ?: error("nextLabel changed"))
                     nextLabel = null
@@ -814,7 +813,7 @@ object Sandbox {
         System.setOut(RedirectingPrintStream(TaskResults.OutputLine.Console.STDOUT))
         System.setErr(RedirectingPrintStream(TaskResults.OutputLine.Console.STDERR))
         // Try to silence ThreadDeath error messages. Not sure this works but it can't hurt.
-        Thread.setDefaultUncaughtExceptionHandler { _, _ ->  }
+        Thread.setDefaultUncaughtExceptionHandler { _, _ -> }
     }
 }
 

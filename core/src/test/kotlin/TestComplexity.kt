@@ -1,7 +1,7 @@
 package edu.illinois.cs.cs125.jeed.core
 
-import io.kotlintest.specs.StringSpec
 import io.kotlintest.*
+import io.kotlintest.specs.StringSpec
 
 class TestComplexity : StringSpec({
     "should calculate complexity for snippets" {

@@ -1,8 +1,8 @@
 package edu.illinois.cs.cs125.jeed.server
 
 import com.ryanharter.ktor.moshi.moshi
-import edu.illinois.cs.cs125.jeed.server.moshi.Adapters
 import edu.illinois.cs.cs125.jeed.core.moshi.Adapters as JeedAdapters
+import edu.illinois.cs.cs125.jeed.server.moshi.Adapters
 import io.ktor.application.Application
 import io.ktor.application.ApplicationCallPipeline
 import io.ktor.application.call
@@ -15,8 +15,8 @@ import io.ktor.response.respond
 import io.ktor.routing.get
 import io.ktor.routing.post
 import io.ktor.routing.routing
-import org.apache.http.auth.AuthenticationException
 import java.time.Instant
+import org.apache.http.auth.AuthenticationException
 
 @Suppress("ComplexMethod")
 fun Application.jeed() {

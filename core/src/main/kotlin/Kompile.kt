@@ -1,11 +1,11 @@
 package edu.illinois.cs.cs125.jeed.core
 
-import org.jetbrains.kotlin.com.intellij.openapi.util.Disposer
-import org.jetbrains.kotlin.com.intellij.psi.PsiFileFactory
-import org.jetbrains.kotlin.com.intellij.psi.impl.PsiFileFactoryImpl
-import org.jetbrains.kotlin.com.intellij.testFramework.LightVirtualFile
 import com.squareup.moshi.JsonClass
 import io.github.classgraph.ClassGraph
+import java.nio.charset.Charset
+import java.time.Instant
+import java.util.*
+import javax.tools.ToolProvider
 import org.jetbrains.kotlin.cli.common.CLIConfigurationKeys
 import org.jetbrains.kotlin.cli.common.arguments.K2JVMCompilerArguments
 import org.jetbrains.kotlin.cli.common.messages.CompilerMessageLocation
@@ -16,23 +16,23 @@ import org.jetbrains.kotlin.cli.jvm.compiler.KotlinCoreEnvironment
 import org.jetbrains.kotlin.cli.jvm.compiler.KotlinToJVMBytecodeCompiler
 import org.jetbrains.kotlin.cli.jvm.configureExplicitContentRoots
 import org.jetbrains.kotlin.codegen.GeneratedClassLoader
+import org.jetbrains.kotlin.com.intellij.openapi.util.Disposer
+import org.jetbrains.kotlin.com.intellij.psi.PsiFileFactory
+import org.jetbrains.kotlin.com.intellij.psi.impl.PsiFileFactoryImpl
+import org.jetbrains.kotlin.com.intellij.testFramework.LightVirtualFile
 import org.jetbrains.kotlin.config.CommonConfigurationKeys
 import org.jetbrains.kotlin.config.CompilerConfiguration
 import org.jetbrains.kotlin.idea.KotlinLanguage
 import org.jetbrains.kotlin.metadata.jvm.deserialization.JvmProtoBufUtil
 import org.jetbrains.kotlin.psi.KtFile
-import java.nio.charset.Charset
-import java.time.Instant
-import java.util.*
-import javax.tools.ToolProvider
 
 private val classpath = ClassGraph().classpathFiles.joinToString(separator = ":")
 
 @JsonClass(generateAdapter = true)
 data class KompilationArguments(
-        @Transient val parentClassLoader: ClassLoader = ClassLoader.getSystemClassLoader(),
-        val verbose: Boolean = DEFAULT_VERBOSE,
-        val allWarningsAsErrors: Boolean = DEFAULT_ALLWARNINGSASERRORS
+    @Transient val parentClassLoader: ClassLoader = ClassLoader.getSystemClassLoader(),
+    val verbose: Boolean = DEFAULT_VERBOSE,
+    val allWarningsAsErrors: Boolean = DEFAULT_ALLWARNINGSASERRORS
 ) {
     val arguments: K2JVMCompilerArguments = K2JVMCompilerArguments()
     init {
@@ -57,9 +57,9 @@ private class JeedMessageCollector(val source: Source, val allWarningsAsErrors: 
     }
     val errors: List<CompilationError>
         get() = messages.filter {
-            it.kind == CompilerMessageSeverity.ERROR.presentableName
-                    || allWarningsAsErrors && (it.kind == CompilerMessageSeverity.WARNING.presentableName
-                        || it.kind == CompilerMessageSeverity.STRONG_WARNING.presentableName)
+            it.kind == CompilerMessageSeverity.ERROR.presentableName ||
+                    allWarningsAsErrors && (it.kind == CompilerMessageSeverity.WARNING.presentableName ||
+                        it.kind == CompilerMessageSeverity.STRONG_WARNING.presentableName)
         }.map {
             CompilationError(it.location, it.message)
         }
@@ -80,7 +80,8 @@ private class JeedMessageCollector(val source: Source, val allWarningsAsErrors: 
 
 @Throws(CompilationFailed::class)
 private fun kompile(
-        kompilationArguments: KompilationArguments, source: Source
+    kompilationArguments: KompilationArguments,
+    source: Source
 ): CompiledSource {
     require(source.type == Source.FileType.KOTLIN) { "Kotlin compiler needs Kotlin sources" }
 

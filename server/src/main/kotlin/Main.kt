@@ -12,10 +12,10 @@ import edu.illinois.cs.cs125.jeed.server.moshi.Adapters as Adapters
 import io.ktor.application.Application
 import io.ktor.server.engine.embeddedServer
 import io.ktor.server.netty.Netty
-import mu.KotlinLogging
-import org.bson.BsonDocument
 import java.net.URI
 import java.util.*
+import mu.KotlinLogging
+import org.bson.BsonDocument
 
 @Suppress("UNUSED")
 val logger = KotlinLogging.logger {}
@@ -36,7 +36,7 @@ fun main() {
 
     configuration[TopLevel.mongodb]?.let {
         val mongoUri = MongoClientURI(it)
-        val database = mongoUri.database ?: require {"MONGO must specify database to use" }
+        val database = mongoUri.database ?: require { "MONGO must specify database to use" }
         val collection = configuration[TopLevel.Mongo.collection]
         Job.mongoCollection = MongoClient(mongoUri).getDatabase(database).getCollection(collection, BsonDocument::class.java)
     }
@@ -46,7 +46,7 @@ fun main() {
                 .build()
     }
 
-    embeddedServer(Netty, host=httpUri.host, port=httpUri.port, module=Application::jeed).start(wait = true)
+    embeddedServer(Netty, host = httpUri.host, port = httpUri.port, module = Application::jeed).start(wait = true)
 }
 
 fun assert(block: () -> String): Nothing { throw AssertionError(block()) }

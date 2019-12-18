@@ -13,10 +13,11 @@ interface ComplexityValue {
 
 @Suppress("UNCHECKED_CAST")
 class ClassComplexity(
-        name: String, range: SourceRange,
-        methods: MutableMap<String, MethodComplexity> = mutableMapOf(),
-        classes: MutableMap<String, ClassComplexity> = mutableMapOf(),
-        override var complexity: Int = 0
+    name: String,
+    range: SourceRange,
+    methods: MutableMap<String, MethodComplexity> = mutableMapOf(),
+    classes: MutableMap<String, ClassComplexity> = mutableMapOf(),
+    override var complexity: Int = 0
 ) : LocatedClass(name, range, classes as MutableMap<String, LocatedClass>, methods as MutableMap<String, LocatedMethod>), ComplexityValue {
     override fun lookup(name: String): ComplexityValue {
         check(name.isNotEmpty())
@@ -38,9 +39,10 @@ class ClassComplexity(
 
 @Suppress("UNCHECKED_CAST")
 class MethodComplexity(
-        name: String, range: SourceRange,
-        classes: MutableMap<String, ClassComplexity> = mutableMapOf(),
-        override var complexity: Int = 1
+    name: String,
+    range: SourceRange,
+    classes: MutableMap<String, ClassComplexity> = mutableMapOf(),
+    override var complexity: Int = 1
 ) : LocatedMethod(name, range, classes as MutableMap<String, LocatedClass>), ComplexityValue {
     override fun lookup(name: String): ComplexityValue {
         check(name.isNotEmpty())
@@ -228,7 +230,6 @@ class ComplexityResult(val source: Source, entry: Map.Entry<String, String>) : J
         if (firstToken.type == JavaLexer.IF) {
             currentMethod.complexity++
         }
-
     }
     override fun enterExpression(ctx: JavaParser.ExpressionContext) {
         assert(complexityStack.isNotEmpty())

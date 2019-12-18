@@ -6,11 +6,11 @@ import com.squareup.moshi.JsonAdapter
 import com.squareup.moshi.JsonClass
 import edu.illinois.cs.cs125.jeed.core.*
 import edu.illinois.cs.cs125.jeed.core.moshi.*
+import java.lang.IllegalArgumentException
+import java.time.Instant
 import kotlinx.coroutines.*
 import org.apache.http.auth.AuthenticationException
 import org.bson.BsonDocument
-import java.lang.IllegalArgumentException
-import java.time.Instant
 
 @Suppress("EnumEntryName", "EnumNaming")
 enum class Task {
@@ -24,22 +24,22 @@ enum class Task {
 
 @JsonClass(generateAdapter = true)
 class TaskArguments(
-        val snippet: SnippetArguments = SnippetArguments(),
-        val compilation: CompilationArguments = CompilationArguments(),
-        val kompilation: KompilationArguments = KompilationArguments(),
-        val checkstyle: CheckstyleArguments = CheckstyleArguments(),
-        val execution: SourceExecutionArguments = SourceExecutionArguments()
+    val snippet: SnippetArguments = SnippetArguments(),
+    val compilation: CompilationArguments = CompilationArguments(),
+    val kompilation: KompilationArguments = KompilationArguments(),
+    val checkstyle: CheckstyleArguments = CheckstyleArguments(),
+    val execution: SourceExecutionArguments = SourceExecutionArguments()
 )
 
 class Job(
-        val source: Map<String, String>?,
-        val templates: Map<String, String>?,
-        val snippet: String?,
-        passedTasks: Set<Task>,
-        arguments: TaskArguments?,
-        @Suppress("MemberVisibilityCanBePrivate") val authToken: String?,
-        val label: String,
-        val waitForSave: Boolean = false
+    val source: Map<String, String>?,
+    val templates: Map<String, String>?,
+    val snippet: String?,
+    passedTasks: Set<Task>,
+    arguments: TaskArguments?,
+    @Suppress("MemberVisibilityCanBePrivate") val authToken: String?,
+    val label: String,
+    val waitForSave: Boolean = false
 ) {
     val tasks: Set<Task>
     val arguments = arguments ?: TaskArguments()
@@ -271,22 +271,22 @@ class Result(val job: Job) {
 
 @JsonClass(generateAdapter = true)
 class CompletedTasks(
-        var snippet: Snippet? = null,
-        var template: TemplatedSourceResult? = null,
-        var compilation: CompiledSourceResult? = null,
-        var kompilation: CompiledSourceResult? = null,
-        var checkstyle: CheckstyleResults? = null,
-        var execution: TaskResults? = null
+    var snippet: Snippet? = null,
+    var template: TemplatedSourceResult? = null,
+    var compilation: CompiledSourceResult? = null,
+    var kompilation: CompiledSourceResult? = null,
+    var checkstyle: CheckstyleResults? = null,
+    var execution: TaskResults? = null
 )
 
 @JsonClass(generateAdapter = true)
 class FailedTasks(
-        var template: TemplatingFailed? = null,
-        var snippet: SnippetTransformationFailed? = null,
-        var compilation: CompilationFailed? = null,
-        var kompilation: CompilationFailed? = null,
-        var checkstyle: CheckstyleFailed? = null,
-        var execution: ExecutionFailedResult? = null
+    var template: TemplatingFailed? = null,
+    var snippet: SnippetTransformationFailed? = null,
+    var compilation: CompilationFailed? = null,
+    var kompilation: CompilationFailed? = null,
+    var checkstyle: CheckstyleFailed? = null,
+    var execution: ExecutionFailedResult? = null
 )
 
 @JsonClass(generateAdapter = true)

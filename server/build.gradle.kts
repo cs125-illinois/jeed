@@ -1,7 +1,7 @@
 import java.util.*
 
 group = "edu.illinois.cs.cs125"
-version = "2019.12.5"
+version = "2019.12.6"
 
 plugins {
     kotlin("jvm")
@@ -9,6 +9,7 @@ plugins {
     application
     id("com.github.johnrengelman.shadow") version "5.2.0"
     id("com.palantir.docker") version "0.22.1"
+    id("org.jmailen.kotlinter")
 }
 dependencies {
     val ktorVersion = "1.2.6"

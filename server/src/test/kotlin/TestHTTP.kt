@@ -9,16 +9,16 @@ import io.kotlintest.specs.StringSpec
 import io.ktor.application.Application
 import io.ktor.http.HttpMethod
 import io.ktor.http.HttpStatusCode
-import io.ktor.server.testing.withTestApplication
 import io.ktor.server.testing.handleRequest
 import io.ktor.server.testing.setBody
+import io.ktor.server.testing.withTestApplication
 import org.bson.BsonDocument
 
 class TestHTTP : StringSpec() {
     override fun beforeSpec(spec: Spec) {
         configuration[TopLevel.mongodb]?.let {
             val mongoUri = MongoClientURI(it)
-            val database = mongoUri.database ?: require {"MONGO must specify database to use" }
+            val database = mongoUri.database ?: require { "MONGO must specify database to use" }
             val collection = "${configuration[TopLevel.Mongo.collection]}-test"
             Job.mongoCollection = MongoClient(mongoUri)
                     .getDatabase(database)

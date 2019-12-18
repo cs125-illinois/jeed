@@ -366,4 +366,3 @@ fun haveStderr(output: String) = object : Matcher<Sandbox.TaskResults<out Any?>>
         )
     }
 }
-

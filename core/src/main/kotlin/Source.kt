@@ -3,20 +3,20 @@ package edu.illinois.cs.cs125.jeed.core
 import com.squareup.moshi.JsonClass
 import edu.illinois.cs.cs125.jeed.core.antlr.JavaLexer
 import edu.illinois.cs.cs125.jeed.core.antlr.JavaParser
-import mu.KotlinLogging
-import org.antlr.v4.runtime.*
 import java.io.PrintWriter
 import java.io.StringWriter
 import java.lang.reflect.Method
 import java.time.Instant
+import mu.KotlinLogging
+import org.antlr.v4.runtime.*
 
 @Suppress("UNUSED")
 val logger = KotlinLogging.logger {}
 
 open class Source(
-        val sources: Map<String, String>,
-        checkSourceNames: (Map<String, String>) -> FileType = ::defaultCheckSourceNames,
-        @Transient val sourceMappingFunction: (SourceLocation) -> SourceLocation = { it }
+    val sources: Map<String, String>,
+    checkSourceNames: (Map<String, String>) -> FileType = ::defaultCheckSourceNames,
+    @Transient val sourceMappingFunction: (SourceLocation) -> SourceLocation = { it }
 ) {
     enum class FileType(val type: String) {
         JAVA("Java"),
@@ -117,9 +117,9 @@ class JavaErrorListener(val source: Source, entry: Map.Entry<String, String>) : 
 
 @JsonClass(generateAdapter = true)
 data class SourceLocation(
-        val source: String,
-        val line: Int,
-        val column: Int
+    val source: String,
+    val line: Int,
+    val column: Int
 ) {
     override fun toString(): String {
         return if (source != SNIPPET_SOURCE) {
@@ -133,26 +133,26 @@ data class SourceLocation(
 data class Location(val line: Int, val column: Int)
 @JsonClass(generateAdapter = true)
 data class SourceRange(
-        val source: String?,
-        val start: Location,
-        val end: Location
+    val source: String?,
+    val start: Location,
+    val end: Location
 )
 
 open class LocatedClass(
-        val name: String,
-        @Suppress("unused") val range: SourceRange,
-        val classes: MutableMap<String, LocatedClass> = mutableMapOf(),
-        val methods: MutableMap<String, LocatedMethod> = mutableMapOf()
+    val name: String,
+    @Suppress("unused") val range: SourceRange,
+    val classes: MutableMap<String, LocatedClass> = mutableMapOf(),
+    val methods: MutableMap<String, LocatedMethod> = mutableMapOf()
 )
 open class LocatedMethod(
-        val name: String,
-        @Suppress("unused") val range: SourceRange,
-        var classes: MutableMap<String, LocatedClass> = mutableMapOf()
+    val name: String,
+    @Suppress("unused") val range: SourceRange,
+    var classes: MutableMap<String, LocatedClass> = mutableMapOf()
 )
 
 abstract class SourceError(
-        val location: SourceLocation,
-        val message: String
+    val location: SourceLocation,
+    val message: String
 ) {
     override fun toString(): String {
         return "$location: $message"

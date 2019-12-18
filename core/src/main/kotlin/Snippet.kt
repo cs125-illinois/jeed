@@ -7,13 +7,13 @@ import org.antlr.v4.runtime.*
 const val SNIPPET_SOURCE = ""
 
 class Snippet(
-        sources: Map<String, String>,
-        val originalSource: String,
-        val rewrittenSource: String,
-        val snippetRange: SourceRange,
-        val wrappedClassName: String,
-        val looseCodeMethodName: String,
-        @Transient private val remappedLineMapping: Map<Int, RemappedLine> = mapOf()
+    sources: Map<String, String>,
+    val originalSource: String,
+    val rewrittenSource: String,
+    val snippetRange: SourceRange,
+    val wrappedClassName: String,
+    val looseCodeMethodName: String,
+    @Transient private val remappedLineMapping: Map<Int, RemappedLine> = mapOf()
 ) : Source(
         sources,
         {
@@ -45,11 +45,11 @@ class Snippet(
 }
 
 class SnippetTransformationError(
-        line: Int,
-        column: Int,
-        message: String
+    line: Int,
+    column: Int,
+    message: String
 ) : SourceError(SourceLocation(SNIPPET_SOURCE, line, column), message) {
-    constructor(location: SourceLocation, message: String): this(location.line, location.column, message)
+    constructor(location: SourceLocation, message: String) : this(location.line, location.column, message)
 }
 class SnippetTransformationFailed(errors: List<SnippetTransformationError>) : JeedError(errors)
 
@@ -79,7 +79,7 @@ class SnippetErrorListener(private val sourceLines: List<Int>) : BaseErrorListen
 
 @JsonClass(generateAdapter = true)
 data class SnippetArguments(
-        val indent: Int = 4
+    val indent: Int = 4
 )
 @Throws(SnippetTransformationFailed::class)
 fun Source.Companion.transformSnippet(originalSource: String, snippetArguments: SnippetArguments = SnippetArguments()): Snippet {
@@ -265,7 +265,7 @@ private fun checkLooseCode(looseCode: String, looseCodeStart: Int, remappedLineM
     }
 }
 
-private fun generateName(prefix: String, existingNames: Set<String>) : String {
+private fun generateName(prefix: String, existingNames: Set<String>): String {
     if (!existingNames.contains(prefix)) {
         return prefix
     } else {

@@ -33,7 +33,7 @@ System.out.println(methods[0].getName());
 
         val successfulExecutionResult =
                 compiledSource.execute(
-                        SourceExecutionArguments(classLoaderConfiguration=Sandbox.ClassLoaderConfiguration(blacklistedClasses = setOf()))
+                        SourceExecutionArguments(classLoaderConfiguration = Sandbox.ClassLoaderConfiguration(blacklistedClasses = setOf()))
                 )
 
         successfulExecutionResult should haveCompleted()

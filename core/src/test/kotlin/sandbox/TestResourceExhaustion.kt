@@ -96,7 +96,7 @@ for (long i = 0;; i++) {
         executionResult.permissionDenied shouldBe true
         executionResult should haveTimedOut()
         // FIXME? If some threads complete their 512M loop new ones can start
-        //executionResult.stdoutLines shouldHaveSize 16
+        // executionResult.stdoutLines shouldHaveSize 16
         executionResult.stdoutLines.map { it.line } shouldContain "15"
     }
     "should shut down nasty thread bombs" {
@@ -347,7 +347,7 @@ while (true) {
         thread.start();
     } catch (Throwable e) { }
 }
-        """.trim()).compile().execute(SourceExecutionArguments(maxExtraThreads=16, timeout=1000L))
+        """.trim()).compile().execute(SourceExecutionArguments(maxExtraThreads = 16, timeout = 1000L))
     }
     "should recover from excessive memory usage" {
         Source.transformSnippet("""
@@ -362,7 +362,7 @@ while (true) {
         }
     } catch (Throwable e) {}
 }
-            """.trim()).compile().execute(SourceExecutionArguments(maxExtraThreads=256, timeout=1000L))
+            """.trim()).compile().execute(SourceExecutionArguments(maxExtraThreads = 256, timeout = 1000L))
     }
     "should recover from excessive console printing" {
         for (i in 0..32) {
@@ -470,5 +470,4 @@ class A {
 new A();
         """.trimIndent()).compile().execute()
     }
-
 })

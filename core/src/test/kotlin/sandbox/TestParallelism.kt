@@ -7,10 +7,10 @@ import io.kotlintest.should
 import io.kotlintest.shouldBe
 import io.kotlintest.shouldNot
 import io.kotlintest.specs.StringSpec
-import kotlinx.coroutines.async
-import kotlinx.coroutines.runBlocking
 import java.util.stream.Collectors
 import kotlin.system.measureTimeMillis
+import kotlinx.coroutines.async
+import kotlinx.coroutines.runBlocking
 
 class TestParallelism : StringSpec({
     "should execute correctly in parallel using streams" {

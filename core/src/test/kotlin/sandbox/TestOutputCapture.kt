@@ -6,10 +6,10 @@ import io.kotlintest.should
 import io.kotlintest.shouldBe
 import io.kotlintest.shouldNot
 import io.kotlintest.specs.StringSpec
-import kotlinx.coroutines.async
-import kotlinx.coroutines.delay
 import java.io.ByteArrayOutputStream
 import java.io.PrintStream
+import kotlinx.coroutines.async
+import kotlinx.coroutines.delay
 
 class TestOutputCapture : StringSpec({
     "should capture stdout" {

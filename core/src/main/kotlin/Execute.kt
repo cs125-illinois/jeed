@@ -9,14 +9,14 @@ import java.security.Permission
 
 @JsonClass(generateAdapter = true)
 class SourceExecutionArguments(
-        var klass: String? = null,
-        val method: String = DEFAULT_METHOD,
-        timeout: Long = DEFAULT_TIMEOUT,
-        permissions: Set<Permission> = REQUIRED_PERMISSIONS,
-        maxExtraThreads: Int = DEFAULT_MAX_EXTRA_THREADS,
-        maxOutputLines: Int = DEFAULT_MAX_OUTPUT_LINES,
-        classLoaderConfiguration: Sandbox.ClassLoaderConfiguration = Sandbox.ClassLoaderConfiguration()
-): Sandbox.ExecutionArguments(
+    var klass: String? = null,
+    val method: String = DEFAULT_METHOD,
+    timeout: Long = DEFAULT_TIMEOUT,
+    permissions: Set<Permission> = REQUIRED_PERMISSIONS,
+    maxExtraThreads: Int = DEFAULT_MAX_EXTRA_THREADS,
+    maxOutputLines: Int = DEFAULT_MAX_OUTPUT_LINES,
+    classLoaderConfiguration: Sandbox.ClassLoaderConfiguration = Sandbox.ClassLoaderConfiguration()
+) : Sandbox.ExecutionArguments(
         timeout,
         permissions.union(REQUIRED_PERMISSIONS),
         maxExtraThreads,
@@ -34,22 +34,21 @@ class SourceExecutionArguments(
 }
 
 class ExecutionFailed(
-        val classNotFound: ClassMissingException? = null,
-        val methodNotFound: MethodNotFoundException? = null,
-        @Suppress("unused") val threw: String? = null
+    val classNotFound: ClassMissingException? = null,
+    val methodNotFound: MethodNotFoundException? = null,
+    @Suppress("unused") val threw: String? = null
 ) : Exception() {
-    class ClassMissingException(@Suppress("unused") val klass: String, message: String?): Exception(message)
+    class ClassMissingException(@Suppress("unused") val klass: String, message: String?) : Exception(message)
     class MethodNotFoundException(@Suppress("unused") val method: String, message: String?) : Exception(message)
 
-    constructor(classMissing: ClassMissingException): this(classMissing, null, null)
+    constructor(classMissing: ClassMissingException) : this(classMissing, null, null)
     constructor(methodNotFound: MethodNotFoundException) : this(null, methodNotFound, null)
-    constructor(throwable: Throwable): this (null, null, throwable.getStackTraceAsString())
+    constructor(throwable: Throwable) : this (null, null, throwable.getStackTraceAsString())
 }
-
 
 @Throws(ExecutionFailed::class)
 suspend fun CompiledSource.execute(
-      executionArguments: SourceExecutionArguments = SourceExecutionArguments()
+    executionArguments: SourceExecutionArguments = SourceExecutionArguments()
 ): Sandbox.TaskResults<out Any?> {
     if (executionArguments.klass == null) {
         executionArguments.klass = when (this.source.type) {
@@ -77,22 +76,22 @@ suspend fun CompiledSource.execute(
 
 @Throws(ExecutionFailed::class)
 fun ClassLoader.findClassMethod(
-        klass: String = SourceExecutionArguments.DEFAULT_KLASS,
-        name: String = SourceExecutionArguments.DEFAULT_METHOD
+    klass: String = SourceExecutionArguments.DEFAULT_KLASS,
+    name: String = SourceExecutionArguments.DEFAULT_METHOD
 ): Method {
     try {
         return loadClass(klass).declaredMethods.find { method ->
-            if (name == "main(String[])"
-                    && method.name == "main"
-                    && Modifier.isStatic(method.modifiers)
-                    && Modifier.isPublic(method.modifiers)
-                    && method.parameterTypes.size == 1
-                    && method.parameterTypes[0].canonicalName == "java.lang.String[]") {
+            if (name == "main(String[])" &&
+                    method.name == "main" &&
+                    Modifier.isStatic(method.modifiers) &&
+                    Modifier.isPublic(method.modifiers) &&
+                    method.parameterTypes.size == 1 &&
+                    method.parameterTypes[0].canonicalName == "java.lang.String[]") {
                 return@find true
             }
-            if (!Modifier.isStatic(method.modifiers)
-                    || !Modifier.isPublic(method.modifiers)
-                    || method.parameterTypes.isNotEmpty()) {
+            if (!Modifier.isStatic(method.modifiers) ||
+                    !Modifier.isPublic(method.modifiers) ||
+                    method.parameterTypes.isNotEmpty()) {
                 return@find false
             }
             method.getQualifiedName() == name
