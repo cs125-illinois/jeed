@@ -1,7 +1,7 @@
 import java.util.*
 
 group = "edu.illinois.cs.cs125"
-version = "2019.12.4"
+version = "2019.12.5"
 
 plugins {
     kotlin("jvm")
