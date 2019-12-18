@@ -7,14 +7,17 @@ import com.puppycrawl.tools.checkstyle.PropertiesExpander
 import com.puppycrawl.tools.checkstyle.api.FileSetCheck
 import com.puppycrawl.tools.checkstyle.api.FileText
 import com.puppycrawl.tools.checkstyle.api.SeverityLevel
+import com.squareup.moshi.JsonClass
 import org.xml.sax.InputSource
 import java.io.ByteArrayInputStream
 import java.io.File
 
+@JsonClass(generateAdapter = true)
 data class CheckstyleArguments(
         val sources: Set<String>? = null,
         val failOnError: Boolean = false
 )
+@JsonClass(generateAdapter = true)
 class CheckstyleError(
         val severity: String,
         location: SourceLocation,
@@ -25,6 +28,7 @@ class CheckstyleFailed(errors: List<CheckstyleError>) : JeedError(errors) {
         return "checkstyle errors were encountered: ${errors.joinToString(separator = ",")}"
     }
 }
+@JsonClass(generateAdapter = true)
 data class CheckstyleResults(val errors: List<CheckstyleError>)
 class ConfiguredChecker(configurationString: String) {
     private val checker: Checker

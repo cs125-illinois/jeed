@@ -20,7 +20,7 @@ dependencies {
     implementation("io.ktor:ktor-server-netty:$ktorVersion")
     implementation("org.mongodb:mongodb-driver:3.12.0")
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-core:1.3.3")
-    implementation("com.squareup.moshi:moshi-kotlin:1.9.2")
+    implementation("com.squareup.moshi:moshi-kotlin-codegen:1.9.2")
     implementation("com.ryanharter.ktor:ktor-moshi:1.0.1")
     implementation("ch.qos.logback:logback-classic:1.2.3")
     implementation("com.uchuhimo:konf-core:0.21.0")

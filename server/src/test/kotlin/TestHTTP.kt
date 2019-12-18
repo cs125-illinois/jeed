@@ -50,6 +50,8 @@ class TestHTTP : StringSpec() {
                 }.apply {
                     response.shouldHaveStatus(HttpStatusCode.OK.value)
                     Job.mongoCollection?.countDocuments() shouldBe 1
+
+                    val jeedResult = moshi.adapter<Result>(Result::class.java).fromJson(response.content)
                 }
             }
         }

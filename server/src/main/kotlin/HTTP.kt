@@ -28,7 +28,7 @@ fun Application.jeed() {
         moshi {
             JeedAdapters.forEach { this.add(it) }
             Adapters.forEach { this.add(it) }
-            this.add(KotlinJsonAdapterFactory())
+            // this.add(KotlinJsonAdapterFactory())
         }
     }
     routing {

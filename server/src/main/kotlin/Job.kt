@@ -3,11 +3,14 @@ package edu.illinois.cs.cs125.jeed.server
 import com.google.api.client.googleapis.auth.oauth2.GoogleIdTokenVerifier
 import com.mongodb.client.MongoCollection
 import com.squareup.moshi.JsonAdapter
+import com.squareup.moshi.JsonClass
 import com.squareup.moshi.Moshi
 import com.squareup.moshi.kotlin.reflect.KotlinJsonAdapterFactory
 import edu.illinois.cs.cs125.jeed.core.*
 import edu.illinois.cs.cs125.jeed.core.moshi.PermissionAdapter
 import edu.illinois.cs.cs125.jeed.server.moshi.Adapters
+import edu.illinois.cs.cs125.jeed.server.moshi.CompiledSourceResult
+import edu.illinois.cs.cs125.jeed.server.moshi.TaskResults
 import edu.illinois.cs.cs125.jeed.core.moshi.Adapters as JeedAdapters
 import kotlinx.coroutines.*
 import org.apache.http.auth.AuthenticationException
@@ -15,7 +18,7 @@ import org.bson.BsonDocument
 import java.lang.IllegalArgumentException
 import java.time.Instant
 
-@Suppress("EnumEntryName")
+@Suppress("EnumEntryName", "EnumNaming")
 enum class Task {
     template,
     snippet,
@@ -24,6 +27,8 @@ enum class Task {
     checkstyle,
     execute
 }
+
+@JsonClass(generateAdapter = true)
 class TaskArguments(
         val snippet: SnippetArguments = SnippetArguments(),
         val compilation: CompilationArguments = CompilationArguments(),
@@ -63,7 +68,7 @@ class Job(
         }
 
         if (tasksToRun.contains(Task.execute)) {
-            require (tasksToRun.contains(Task.compile) || tasksToRun.contains(Task.kompile)) {
+            require(tasksToRun.contains(Task.compile) || tasksToRun.contains(Task.kompile)) {
                 "must compile code before execution"
             }
         }
@@ -117,7 +122,9 @@ class Job(
         }
     }
 
+    @Suppress("ComplexMethod", "NestedBlockDepth")
     fun authenticate() {
+        @Suppress("EmptyCatchBlock")
         try {
             if (googleTokenVerifier != null && authToken != null) {
                 googleTokenVerifier?.verify(authToken)?.let {
@@ -142,12 +149,14 @@ class Job(
         }
     }
 
+    @Suppress("ComplexMethod", "LongMethod")
     suspend fun run(): Result {
         currentStatus.counts.submittedJobs++
 
         val started = Instant.now()
 
         val result = Result(this)
+        @Suppress("TooGenericExceptionCaught")
         try {
             val actualSource = if (source != null) {
                 if (templates == null) {
@@ -156,14 +165,21 @@ class Job(
                     Source.fromTemplates(source, templates).also { result.completed.template = it }
                 }
             } else {
-                result.completed.snippet = Source.transformSnippet(snippet ?: assert { "should have a snippet" }, arguments.snippet)
+                result.completed.snippet = Source.transformSnippet(snippet
+                        ?: assert { "should have a snippet" }, arguments.snippet)
                 result.completed.snippet
             } ?: check { "should have a source" }
 
-            if (tasks.contains(Task.compile)) {
-                result.completed.compilation = actualSource.compile(arguments.compilation)
+            val compiledSource = if (tasks.contains(Task.compile)) {
+                actualSource.compile(arguments.compilation).also {
+                    result.completed.compilation = CompiledSourceResult(it)
+                }
+            } else if (tasks.contains(Task.kompile)) {
+                actualSource.kompile(arguments.kompilation).also {
+                    result.completed.kompilation = CompiledSourceResult(it)
+                }
             } else {
-                result.completed.kompilation = actualSource.kompile(arguments.kompilation)
+                null
             }
 
             if (tasks.contains(Task.checkstyle)) {
@@ -172,14 +188,12 @@ class Job(
             }
 
             if (tasks.contains(Task.execute)) {
-                if (tasks.contains(Task.compile)) {
-                    result.completed.execution = result.completed.compilation?.execute(arguments.execution)
-                } else if (tasks.contains(Task.kompile)) {
-                    result.completed.execution = result.completed.kompilation?.execute(arguments.execution)
+                check(compiledSource != null) { "should have compiled source before executing" }
+                val executionResult = compiledSource.execute(arguments.execution)
+                if (executionResult?.threw != null) {
+                    result.failed.execution = ExecutionFailed(executionResult!!.threw!!)
                 }
-                if (result.completed.execution?.threw != null) {
-                    result.failed.execution = ExecutionFailed(result.completed.execution!!.threw!!)
-                }
+                result.completed.execution = TaskResults(executionResult)
             }
         } catch (templatingFailed: TemplatingFailed) {
             result.failed.template = templatingFailed
@@ -240,14 +254,18 @@ class Result(val job: Job) {
         }
     }
 }
+
+@JsonClass(generateAdapter = true)
 class CompletedTasks(
         var snippet: Snippet? = null,
         var template: TemplatedSource? = null,
-        var compilation: CompiledSource? = null,
-        var kompilation: CompiledSource? = null,
+        var compilation: CompiledSourceResult? = null,
+        var kompilation: CompiledSourceResult? = null,
         var checkstyle: CheckstyleResults? = null,
-        var execution: Sandbox.TaskResults<out Any?>? = null
+        var execution: TaskResults? = null
 )
+
+@JsonClass(generateAdapter = true)
 class FailedTasks(
         var template: TemplatingFailed? = null,
         var snippet: SnippetTransformationFailed? = null,
@@ -257,11 +275,14 @@ class FailedTasks(
         var execution: ExecutionFailed? = null
 )
 
+@JsonClass(generateAdapter = true)
 data class FlatSource(val path: String, val contents: String)
+
 fun List<FlatSource>.toSource(): Map<String, String> {
     require(this.map { it.path }.distinct().size == this.size) { "duplicate paths in source list" }
     return this.map { it.path to it.contents }.toMap()
 }
+
 fun Map<String, String>.toFlatSources(): List<FlatSource> {
     return this.map { FlatSource(it.key, it.value) }
 }

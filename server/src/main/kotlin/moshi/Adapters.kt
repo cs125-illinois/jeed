@@ -1,10 +1,10 @@
 package edu.illinois.cs.cs125.jeed.server.moshi
 
 import com.squareup.moshi.FromJson
+import com.squareup.moshi.JsonClass
 import com.squareup.moshi.ToJson
 import com.squareup.moshi.kotlin.reflect.KotlinJsonAdapterFactory
-import edu.illinois.cs.cs125.jeed.core.Interval
-import edu.illinois.cs.cs125.jeed.core.TemplatedSource
+import edu.illinois.cs.cs125.jeed.core.*
 import edu.illinois.cs.cs125.jeed.server.*
 
 @JvmField
@@ -14,6 +14,7 @@ val Adapters = setOf(
         TemplatedSourceAdapter()
 )
 
+@JsonClass(generateAdapter = true)
 class JobJson(
         val sources: List<FlatSource>?,
         val templates: List<FlatSource>?,
@@ -24,6 +25,7 @@ class JobJson(
         val label: String,
         val waitForSave: Boolean = false
 )
+
 class JobAdapter {
     @FromJson
     fun jobFromJson(jobJson: JobJson): Job {
@@ -31,6 +33,7 @@ class JobAdapter {
         assert(jobJson.sources != null || jobJson.snippet != null) { "must set either sources or snippet" }
         return Job(jobJson.sources?.toSource(), jobJson.templates?.toSource(), jobJson.snippet, jobJson.tasks, jobJson.arguments, jobJson.authToken, jobJson.label, jobJson.waitForSave)
     }
+
     @ToJson
     fun jobToJson(job: Job): JobJson {
         assert(!(job.source != null && job.snippet != null)) { "can't set both snippet and sources" }
@@ -38,6 +41,7 @@ class JobAdapter {
     }
 }
 
+@JsonClass(generateAdapter = true)
 data class ResultJson(
         val email: String?,
         val job: Job,
@@ -46,6 +50,7 @@ data class ResultJson(
         val failed: FailedTasks,
         val interval: Interval
 )
+
 class ResultAdapter {
     @Throws(Exception::class)
     @Suppress("UNUSED_PARAMETER")
@@ -67,13 +72,16 @@ class ResultAdapter {
 
         return result
     }
+
     @ToJson
     fun resultToJson(result: Result): ResultJson {
         return ResultJson(result.email, result.job, result.status, result.completed, result.failed, result.interval)
     }
 }
 
+@JsonClass(generateAdapter = true)
 data class TemplatedSourceJson(val originalSources: List<FlatSource>)
+
 class TemplatedSourceAdapter {
     @Throws(Exception::class)
     @Suppress("UNUSED_PARAMETER")
@@ -81,8 +89,57 @@ class TemplatedSourceAdapter {
     fun templatedSourceFromJson(templatedSourceJson: TemplatedSourceJson): TemplatedSource {
         throw Exception("Can't convert JSON to TemplatedSource")
     }
+
     @ToJson
     fun templatedSourceToJson(templatedSource: TemplatedSource): TemplatedSourceJson {
         return TemplatedSourceJson(templatedSource.originalSources.toFlatSources())
     }
+}
+
+@Suppress("unused")
+@JsonClass(generateAdapter = true)
+class CompiledSourceResult(
+        val messages: List<CompilationMessage>,
+        val interval: Interval,
+        val compilerName: String
+) {
+    constructor(compiledSource: CompiledSource) : this(
+            compiledSource.messages, compiledSource.interval, compiledSource.compilerName
+    )
+}
+
+@Suppress("unused")
+@JsonClass(generateAdapter = true)
+class ThrownException(
+        val klass: String, val message: String?
+) {
+    constructor(throwable: Throwable) : this(throwable::class.java.typeName, throwable.message)
+}
+
+@Suppress("unused")
+@JsonClass(generateAdapter = true)
+class TaskResults(
+        val returned: String?,
+        val threw: ThrownException?,
+        val timeout: Boolean,
+        val outputLines: List<Sandbox.TaskResults.OutputLine> = listOf(),
+        val permissionRequests: List<Sandbox.TaskResults.PermissionRequest> = listOf(),
+        val interval: Interval,
+        val executionInterval: Interval,
+        val truncatedLines: Int
+) {
+    constructor(taskResults: Sandbox.TaskResults<*>) : this(
+            taskResults.returned.toString(),
+            if (taskResults.threw != null) {
+                ThrownException(taskResults.threw!!)
+            } else {
+                null
+            },
+            taskResults.timeout,
+            taskResults.outputLines.toList(),
+            taskResults.permissionRequests.toList(),
+            taskResults.interval,
+            taskResults.executionInterval,
+            taskResults.truncatedLines
+    )
 }

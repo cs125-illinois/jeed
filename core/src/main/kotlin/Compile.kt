@@ -1,5 +1,6 @@
 package edu.illinois.cs.cs125.jeed.core
 
+import com.squareup.moshi.JsonClass
 import org.jetbrains.kotlin.codegen.GeneratedClassLoader
 import java.io.*
 import java.net.URI
@@ -21,6 +22,7 @@ val systemCompilerVersion = systemCompilerName.let {
     }
 }
 
+@JsonClass(generateAdapter = true)
 data class CompilationArguments(
         val wError: Boolean = DEFAULT_WERROR,
         @Suppress("ConstructorParameterNaming") val Xlint: String = DEFAULT_XLINT,
@@ -34,12 +36,14 @@ data class CompilationArguments(
     }
 }
 
+@JsonClass(generateAdapter = true)
 class CompilationError(location: SourceLocation, message: String) : SourceError(location, message)
 class CompilationFailed(errors: List<CompilationError>) : JeedError(errors) {
     override fun toString(): String {
         return "compilation errors were encountered: ${errors.joinToString(separator = ",")}"
     }
 }
+@JsonClass(generateAdapter = true)
 class CompilationMessage(@Suppress("unused") val kind: String, location: SourceLocation, message: String) : SourceError(location, message)
 class CompiledSource(
         val source: Source,

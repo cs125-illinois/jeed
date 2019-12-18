@@ -1,5 +1,6 @@
 package edu.illinois.cs.cs125.jeed.core
 
+import com.squareup.moshi.JsonClass
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.runBlocking
@@ -18,6 +19,7 @@ import kotlin.reflect.jvm.javaMethod
 private typealias SandboxCallableArguments<T> = (Pair<ClassLoader, (() -> Unit) -> Pair<String, String>>)->T
 
 object Sandbox {
+    @JsonClass(generateAdapter = true)
     class ClassLoaderConfiguration(
             val whitelistedClasses: Set<String> = DEFAULT_WHITELISTED_CLASSES,
             blacklistedClasses: Set<String> = DEFAULT_BLACKLISTED_CLASSES,
@@ -73,9 +75,11 @@ object Sandbox {
             @Transient val sandboxedClassLoader: SandboxedClassLoader? = null,
             val truncatedLines: Int
     ) {
+        @JsonClass(generateAdapter = true)
         data class OutputLine (val console: Console, val line: String, val timestamp: Instant, val thread: Long) {
             enum class Console { STDOUT, STDERR }
         }
+        @JsonClass(generateAdapter = true)
         data class PermissionRequest(val permission: Permission, val granted: Boolean)
 
         val completed: Boolean

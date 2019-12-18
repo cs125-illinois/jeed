@@ -1,5 +1,6 @@
 package edu.illinois.cs.cs125.jeed.core
 
+import com.squareup.moshi.JsonClass
 import edu.illinois.cs.cs125.jeed.core.antlr.JavaLexer
 import edu.illinois.cs.cs125.jeed.core.antlr.JavaParser
 import mu.KotlinLogging
@@ -114,6 +115,7 @@ class JavaErrorListener(val source: Source, entry: Map.Entry<String, String>) : 
     }
 }
 
+@JsonClass(generateAdapter = true)
 data class SourceLocation(
         val source: String,
         val line: Int,
@@ -127,7 +129,9 @@ data class SourceLocation(
         }
     }
 }
+@JsonClass(generateAdapter = true)
 data class Location(val line: Int, val column: Int)
+@JsonClass(generateAdapter = true)
 data class SourceRange(
         val source: String?,
         val start: Location,
@@ -160,6 +164,7 @@ abstract class JeedError(val errors: List<SourceError>) : Exception() {
         return javaClass.name + ":\n" + errors.joinToString(separator = "\n")
     }
 }
+@JsonClass(generateAdapter = true)
 data class Interval(val start: Instant, val end: Instant)
 
 fun Throwable.getStackTraceAsString(): String {

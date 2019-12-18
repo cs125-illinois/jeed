@@ -1,5 +1,6 @@
 package edu.illinois.cs.cs125.jeed.core
 
+import com.squareup.moshi.JsonClass
 import edu.illinois.cs.cs125.jeed.core.antlr.*
 import org.antlr.v4.runtime.*
 
@@ -75,6 +76,8 @@ class SnippetErrorListener(private val sourceLines: List<Int>) : BaseErrorListen
         }
     }
 }
+
+@JsonClass(generateAdapter = true)
 data class SnippetArguments(
         val indent: Int = 4
 )

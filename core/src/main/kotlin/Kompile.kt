@@ -94,7 +94,9 @@ private fun kompile(
         configureExplicitContentRoots(kompilationArguments.arguments)
     }
 
-    val environment = KotlinCoreEnvironment.createForProduction(rootDisposable, configuration, EnvironmentConfigFiles.JVM_CONFIG_FILES)
+    val environment = KotlinCoreEnvironment.createForProduction(
+            rootDisposable, configuration, EnvironmentConfigFiles.JVM_CONFIG_FILES
+    )
 
     val psiFileFactory = PsiFileFactory.getInstance(environment.project) as PsiFileFactoryImpl
     val psiFiles = source.sources.map { (name, contents) ->

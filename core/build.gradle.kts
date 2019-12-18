@@ -2,6 +2,7 @@ import java.util.Properties
 
 plugins {
     kotlin("jvm")
+    kotlin("kapt")
     antlr
     java
     maven
@@ -12,6 +13,8 @@ group = "com.github.cs125-illinois"
 version = "2019.12.4"
 
 dependencies {
+    kapt("com.squareup.moshi:moshi-kotlin-codegen:1.9.2")
+
     antlr("org.antlr:antlr4:4.7.2")
 
     implementation(kotlin("stdlib"))
