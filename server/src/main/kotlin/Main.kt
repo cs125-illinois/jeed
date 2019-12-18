@@ -5,7 +5,10 @@ import com.google.api.client.http.javanet.NetHttpTransport
 import com.google.api.client.json.jackson2.JacksonFactory
 import com.mongodb.MongoClient
 import com.mongodb.MongoClientURI
+import com.squareup.moshi.Moshi
 import com.uchuhimo.konf.source.json.toJson
+import edu.illinois.cs.cs125.jeed.core.moshi.Adapters as JeedAdapters
+import edu.illinois.cs.cs125.jeed.server.moshi.Adapters as Adapters
 import io.ktor.application.Application
 import io.ktor.server.engine.embeddedServer
 import io.ktor.server.netty.Netty
@@ -16,7 +19,11 @@ import java.util.*
 
 @Suppress("UNUSED")
 val logger = KotlinLogging.logger {}
-
+val moshi: Moshi = Moshi.Builder().let { builder ->
+    Adapters.forEach { builder.add(it) }
+    JeedAdapters.forEach { builder.add(it) }
+    builder.build()
+}
 val VERSION: String = Properties().also {
     it.load((object : Any() {}).javaClass.getResourceAsStream("/edu.illinois.cs.cs125.jeed.server.version"))
 }.getProperty("version")

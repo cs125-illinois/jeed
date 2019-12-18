@@ -2,11 +2,9 @@ package edu.illinois.cs.cs125.jeed.server
 
 import com.mongodb.MongoClient
 import com.mongodb.MongoClientURI
-import io.kotlintest.Spec
-import io.kotlintest.TestCase
-import io.kotlintest.TestResult
+import io.kotlintest.*
 import io.kotlintest.assertions.ktor.shouldHaveStatus
-import io.kotlintest.shouldBe
+import io.kotlintest.matchers.numerics.shouldBeGreaterThan
 import io.kotlintest.specs.StringSpec
 import io.ktor.application.Application
 import io.ktor.http.HttpMethod
@@ -22,7 +20,9 @@ class TestHTTP : StringSpec() {
             val mongoUri = MongoClientURI(it)
             val database = mongoUri.database ?: require {"MONGO must specify database to use" }
             val collection = "${configuration[TopLevel.Mongo.collection]}-test"
-            Job.mongoCollection = MongoClient(mongoUri).getDatabase(database).getCollection(collection, BsonDocument::class.java)
+            Job.mongoCollection = MongoClient(mongoUri)
+                    .getDatabase(database)
+                    .getCollection(collection, BsonDocument::class.java)
         }
     }
 
@@ -51,7 +51,9 @@ class TestHTTP : StringSpec() {
                     response.shouldHaveStatus(HttpStatusCode.OK.value)
                     Job.mongoCollection?.countDocuments() shouldBe 1
 
-                    val jeedResult = moshi.adapter<Result>(Result::class.java).fromJson(response.content)
+                    val result = Result.from(response.content)
+                    result.completedTasks.size shouldBe 3
+                    result.failedTasks.size shouldBe 0
                 }
             }
         }
@@ -79,6 +81,10 @@ public class Main {
                 }.apply {
                     response.shouldHaveStatus(HttpStatusCode.OK.value)
                     Job.mongoCollection?.countDocuments() shouldBe 1
+
+                    val result = Result.from(response.content)
+                    result.completedTasks.size shouldBe 2
+                    result.failedTasks.size shouldBe 0
                 }
             }
         }
@@ -92,10 +98,9 @@ public class Main {
 "sources": [
   {
     "path": "Main.kt",
-    "contents": " 
-
+    "contents": "
 fun main() {
-  println(\"Here\");
+  println(\"Here\")
 }"
   }
 ],
@@ -105,6 +110,10 @@ fun main() {
                 }.apply {
                     response.shouldHaveStatus(HttpStatusCode.OK.value)
                     Job.mongoCollection?.countDocuments() shouldBe 1
+
+                    val result = Result.from(response.content)
+                    result.completedTasks.size shouldBe 2
+                    result.failedTasks.size shouldBe 0
                 }
             }
         }
@@ -132,6 +141,10 @@ public static void main() {
                 }.apply {
                     response.shouldHaveStatus(HttpStatusCode.OK.value)
                     Job.mongoCollection?.countDocuments() shouldBe 1
+
+                    val result = Result.from(response.content)
+                    result.completedTasks.size shouldBe 3
+                    result.failedTasks.size shouldBe 0
                 }
             }
         }
@@ -147,7 +160,7 @@ public static void main() {
     "path": "Main.kt",
     "contents": "
 fun main() {
-  println(\"Here\");
+  println(\"Here\")
 }"
   }
 ],
@@ -190,6 +203,165 @@ public static void main() {
                 }.apply {
                     response.shouldHaveStatus(HttpStatusCode.OK.value)
                     Job.mongoCollection?.countDocuments() shouldBe 1
+
+                    val result = Result.from(response.content)
+                    result.completedTasks.size shouldBe 3
+                    result.failedTasks.size shouldBe 0
+                }
+            }
+        }
+        "should handle snippet error" {
+            withTestApplication(Application::jeed) {
+                handleRequest(HttpMethod.Post, "/") {
+                    addHeader("content-type", "application/json")
+                    setBody("""
+{
+"label": "test",
+"snippet": "System.out.println(\"Here\")",
+"tasks": [ "snippet" ],
+"waitForSave": true
+}""".trim())
+                }.apply {
+                    response.shouldHaveStatus(HttpStatusCode.OK.value)
+                    Job.mongoCollection?.countDocuments() shouldBe 1
+
+                    val result = Result.from(response.content)
+                    result.completedTasks.size shouldBe 0
+                    result.failedTasks.size shouldBe 1
+                    result.failed.snippet?.errors?.size ?: 0 shouldBeGreaterThan 0
+                }
+            }
+        }
+        "should handle template error" {
+            withTestApplication(Application::jeed) {
+                handleRequest(HttpMethod.Post, "/") {
+                    addHeader("content-type", "application/json")
+                    setBody("""
+{
+"label": "test",
+"templates": [
+  {
+    "path": "Main.hbs",
+    "contents": "
+public class Main {
+public static void main() {
+    {{ contents }}}
+}
+}"
+  }
+],
+"sources": [
+  {
+    "path": "Main.java",
+    "contents": "System.out.println(\"Here\");"
+  }
+],
+"tasks": [ "template" ],
+"waitForSave": true
+}""".trim())
+                }.apply {
+                    response.shouldHaveStatus(HttpStatusCode.OK.value)
+                    Job.mongoCollection?.countDocuments() shouldBe 1
+
+                    val result = Result.from(response.content)
+                    result.completedTasks.size shouldBe 0
+                    result.failedTasks.size shouldBe 1
+                    result.failed.template?.errors?.size ?: 0 shouldBeGreaterThan 0
+                }
+            }
+        }
+        "should handle compilation error" {
+            withTestApplication(Application::jeed) {
+                handleRequest(HttpMethod.Post, "/") {
+                    addHeader("content-type", "application/json")
+                    setBody("""
+{
+"label": "test",
+"sources": [
+  {
+    "path": "Main.java",
+    "contents": " 
+public class Main {
+  public static void main() {
+    System.out.println(\"Here\")
+  }
+}"
+  }
+],
+"tasks": [ "compile" ],
+"waitForSave": true
+}""".trim())
+                }.apply {
+                    response.shouldHaveStatus(HttpStatusCode.OK.value)
+                    Job.mongoCollection?.countDocuments() shouldBe 1
+
+                    val result = Result.from(response.content)
+                    result.completedTasks.size shouldBe 0
+                    result.failedTasks.size shouldBe 1
+                    result.failed.compilation?.errors?.size ?: 0 shouldBeGreaterThan 0
+                }
+            }
+        }
+        "should handle kompilation error" {
+            withTestApplication(Application::jeed) {
+                handleRequest(HttpMethod.Post, "/") {
+                    addHeader("content-type", "application/json")
+                    setBody("""
+{
+"label": "test",
+"sources": [
+  {
+    "path": "Main.kt",
+    "contents": "
+fun main() {
+  printl(\"Here\")
+}"
+  }
+],
+"tasks": [ "kompile" ],
+"waitForSave": true
+}""".trim())
+                }.apply {
+                    response.shouldHaveStatus(HttpStatusCode.OK.value)
+                    Job.mongoCollection?.countDocuments() shouldBe 1
+
+                    val result = Result.from(response.content)
+                    result.completedTasks.size shouldBe 0
+                    result.failedTasks.size shouldBe 1
+                    result.failed.kompilation?.errors?.size ?: 0 shouldBeGreaterThan 0
+                }
+            }
+        }
+        "should handle execution error" {
+            withTestApplication(Application::jeed) {
+                handleRequest(HttpMethod.Post, "/") {
+                    addHeader("content-type", "application/json")
+                    setBody("""
+{
+"label": "test",
+"sources": [
+  {
+    "path": "Main.java",
+    "contents": " 
+public class Main {
+  public static void main() {
+    Object t = null;
+    System.out.println(t.toString());
+  }
+}"
+  }
+],
+"tasks": [ "compile", "execute" ],
+"waitForSave": true
+}""".trim())
+                }.apply {
+                    response.shouldHaveStatus(HttpStatusCode.OK.value)
+                    Job.mongoCollection?.countDocuments() shouldBe 1
+
+                    val result = Result.from(response.content)
+                    result.completedTasks.size shouldBe 1
+                    result.failedTasks.size shouldBe 1
+                    result.failed.execution?.threw shouldNotBe ""
                 }
             }
         }
@@ -245,6 +417,8 @@ public class Main {
                     addHeader("content-type", "application/json")
                 }.apply {
                     response.shouldHaveStatus(HttpStatusCode.OK.value)
+                    val status = Status.from(response.content)
+                    status.versions.server shouldBe VERSION
                 }
             }
         }

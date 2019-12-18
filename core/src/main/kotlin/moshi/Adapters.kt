@@ -17,10 +17,7 @@ val Adapters = setOf(
         TemplatingFailedAdapter(),
         PermissionAdapter(),
         InstantAdapter(),
-        SnippetAdapter(),
-        ExecutionFailedAdapter(),
-        ClassMissingExceptionAdapter(),
-        MethodNotFoundExceptionAdapter()
+        SnippetAdapter()
 )
 
 @JsonClass(generateAdapter = true)
@@ -173,58 +170,81 @@ class SnippetAdapter {
         )
     }
 }
+
 @JsonClass(generateAdapter = true)
-data class ExecutionFailedJson(
-        val classNotFound: ExecutionFailed.ClassMissingException?,
-        val methodNotFound: ExecutionFailed.MethodNotFoundException?,
+data class ExecutionFailedResult(
+        val classNotFound: String?,
+        val methodNotFound: String?,
         val threw: String?
-)
-class ExecutionFailedAdapter {
-    @Throws(Exception::class)
-    @Suppress("UNUSED_PARAMETER")
-    @FromJson
-    fun executionFailedFromJson(unused: ExecutionFailedJson): ExecutionFailed {
-        throw Exception("Can't convert JSON to ExecutionFailed")
-    }
-
-    @ToJson
-    fun executionFailedToJson(executionFailed: ExecutionFailed): ExecutionFailedJson {
-        return ExecutionFailedJson(executionFailed.classNotFound, executionFailed.methodNotFound, executionFailed.threw)
-    }
+) {
+    constructor(executionFailed: ExecutionFailed): this(
+            if (executionFailed.classNotFound != null) {
+                executionFailed.classNotFound.klass
+            } else {
+                null
+            },
+            if (executionFailed.methodNotFound != null) {
+                executionFailed.methodNotFound.method
+            } else {
+                null
+            },
+            executionFailed.threw
+    )
 }
 
+@Suppress("unused")
 @JsonClass(generateAdapter = true)
-data class ClassMissingExceptionJson(
+class CompiledSourceResult(
+        val messages: List<CompilationMessage>,
+        val interval: Interval,
+        val compilerName: String
+) {
+    constructor(compiledSource: CompiledSource) : this(
+            compiledSource.messages, compiledSource.interval, compiledSource.compilerName
+    )
+}
+
+@Suppress("unused")
+@JsonClass(generateAdapter = true)
+class TemplatedSourceResult(
+        val sources: Map<String, String>,
+        val originalSources: Map<String, String>
+) {
+    constructor(templatedSource: TemplatedSource) : this(templatedSource.sources, templatedSource.originalSources)
+}
+
+@Suppress("unused")
+@JsonClass(generateAdapter = true)
+class ThrownException(
         val klass: String, val message: String?
-)
-class ClassMissingExceptionAdapter {
-    @Throws(Exception::class)
-    @Suppress("UNUSED_PARAMETER")
-    @FromJson
-    fun classMissingExceptionFromJson(unused: ClassMissingExceptionJson): ExecutionFailed.ClassMissingException {
-        throw Exception("Can't convert JSON to ClassMissingException")
-    }
-
-    @ToJson
-    fun classMissingExceptionToJson(classMissingException: ExecutionFailed.ClassMissingException): ClassMissingExceptionJson {
-        return ClassMissingExceptionJson(classMissingException.klass, classMissingException.message)
-    }
+) {
+    constructor(throwable: Throwable) : this(throwable::class.java.typeName, throwable.message)
 }
 
+@Suppress("unused")
 @JsonClass(generateAdapter = true)
-data class MethodNotFoundExceptionJson(
-        val method: String, val message: String?
-)
-class MethodNotFoundExceptionAdapter {
-    @Throws(Exception::class)
-    @Suppress("UNUSED_PARAMETER")
-    @FromJson
-    fun methodNotFoundExceptionFromJson(unused: MethodNotFoundExceptionJson): ExecutionFailed.MethodNotFoundException {
-        throw Exception("Can't convert JSON to MethodNotFoundException")
-    }
-
-    @ToJson
-    fun methodNotFoundExceptionToJson(methodNotFoundException: ExecutionFailed.MethodNotFoundException): MethodNotFoundExceptionJson {
-        return MethodNotFoundExceptionJson(methodNotFoundException.method, methodNotFoundException.message)
-    }
+class TaskResults(
+        val returned: String?,
+        val threw: ThrownException?,
+        val timeout: Boolean,
+        val outputLines: List<Sandbox.TaskResults.OutputLine> = listOf(),
+        val permissionRequests: List<Sandbox.TaskResults.PermissionRequest> = listOf(),
+        val interval: Interval,
+        val executionInterval: Interval,
+        val truncatedLines: Int
+) {
+    constructor(taskResults: Sandbox.TaskResults<*>) : this(
+            taskResults.returned.toString(),
+            if (taskResults.threw != null) {
+                ThrownException(taskResults.threw)
+            } else {
+                null
+            },
+            taskResults.timeout,
+            taskResults.outputLines.toList(),
+            taskResults.permissionRequests.toList(),
+            taskResults.interval,
+            taskResults.executionInterval,
+            taskResults.truncatedLines
+    )
 }

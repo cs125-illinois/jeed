@@ -14,6 +14,7 @@
       <w>sandboxable</w>
       <w>sandboxed</w>
       <w>synclock</w>
+      <w>templated</w>
       <w>werror</w>
       <w>xlint</w>
     </words>

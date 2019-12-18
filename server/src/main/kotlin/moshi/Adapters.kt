@@ -5,13 +5,14 @@ import com.squareup.moshi.JsonClass
 import com.squareup.moshi.ToJson
 import com.squareup.moshi.kotlin.reflect.KotlinJsonAdapterFactory
 import edu.illinois.cs.cs125.jeed.core.*
+import edu.illinois.cs.cs125.jeed.core.moshi.TemplatedSourceResult
 import edu.illinois.cs.cs125.jeed.server.*
 
 @JvmField
 val Adapters = setOf(
         JobAdapter(),
         ResultAdapter(),
-        TemplatedSourceAdapter()
+        TemplatedSourceResultAdapter()
 )
 
 @JsonClass(generateAdapter = true)
@@ -47,7 +48,9 @@ data class ResultJson(
         val job: Job,
         val status: Status,
         val completed: CompletedTasks,
+        val completedTasks: Set<Task>,
         val failed: FailedTasks,
+        val failedTasks: Set<Task>,
         val interval: Interval
 )
 
@@ -60,13 +63,17 @@ class ResultAdapter {
 
         result.completed.snippet = resultJson.completed.snippet
         result.completed.compilation = resultJson.completed.compilation
+        result.completed.kompilation = resultJson.completed.kompilation
         result.completed.template = resultJson.completed.template
         result.completed.execution = resultJson.completed.execution
+        result.completedTasks.addAll(resultJson.completedTasks)
 
         result.failed.snippet = resultJson.failed.snippet
         result.failed.compilation = resultJson.failed.compilation
+        result.failed.kompilation = resultJson.failed.kompilation
         result.failed.template = resultJson.failed.template
         result.failed.execution = resultJson.failed.execution
+        result.failedTasks.addAll(resultJson.failedTasks)
 
         result.interval = resultJson.interval
 
@@ -75,71 +82,36 @@ class ResultAdapter {
 
     @ToJson
     fun resultToJson(result: Result): ResultJson {
-        return ResultJson(result.email, result.job, result.status, result.completed, result.failed, result.interval)
+        return ResultJson(
+                result.email,
+                result.job,
+                result.status,
+                result.completed,
+                result.completedTasks,
+                result.failed,
+                result.failedTasks,
+                result.interval
+        )
     }
 }
 
 @JsonClass(generateAdapter = true)
-data class TemplatedSourceJson(val originalSources: List<FlatSource>)
+data class TemplatedSourceResultJson(val sources: List<FlatSource>, val originalSources: List<FlatSource>)
 
-class TemplatedSourceAdapter {
-    @Throws(Exception::class)
-    @Suppress("UNUSED_PARAMETER")
+class TemplatedSourceResultAdapter {
     @FromJson
-    fun templatedSourceFromJson(templatedSourceJson: TemplatedSourceJson): TemplatedSource {
-        throw Exception("Can't convert JSON to TemplatedSource")
+    fun templatedSourceResultFromJson(templatedSourceResultJson: TemplatedSourceResultJson): TemplatedSourceResult {
+        return TemplatedSourceResult(
+                templatedSourceResultJson.sources.toSource(),
+                templatedSourceResultJson.originalSources.toSource()
+        )
     }
 
     @ToJson
-    fun templatedSourceToJson(templatedSource: TemplatedSource): TemplatedSourceJson {
-        return TemplatedSourceJson(templatedSource.originalSources.toFlatSources())
+    fun templatedSourceResultToJson(templatedSourceResult: TemplatedSourceResult): TemplatedSourceResultJson {
+        return TemplatedSourceResultJson(
+                templatedSourceResult.sources.toFlatSources(),
+                templatedSourceResult.originalSources.toFlatSources()
+        )
     }
-}
-
-@Suppress("unused")
-@JsonClass(generateAdapter = true)
-class CompiledSourceResult(
-        val messages: List<CompilationMessage>,
-        val interval: Interval,
-        val compilerName: String
-) {
-    constructor(compiledSource: CompiledSource) : this(
-            compiledSource.messages, compiledSource.interval, compiledSource.compilerName
-    )
-}
-
-@Suppress("unused")
-@JsonClass(generateAdapter = true)
-class ThrownException(
-        val klass: String, val message: String?
-) {
-    constructor(throwable: Throwable) : this(throwable::class.java.typeName, throwable.message)
-}
-
-@Suppress("unused")
-@JsonClass(generateAdapter = true)
-class TaskResults(
-        val returned: String?,
-        val threw: ThrownException?,
-        val timeout: Boolean,
-        val outputLines: List<Sandbox.TaskResults.OutputLine> = listOf(),
-        val permissionRequests: List<Sandbox.TaskResults.PermissionRequest> = listOf(),
-        val interval: Interval,
-        val executionInterval: Interval,
-        val truncatedLines: Int
-) {
-    constructor(taskResults: Sandbox.TaskResults<*>) : this(
-            taskResults.returned.toString(),
-            if (taskResults.threw != null) {
-                ThrownException(taskResults.threw!!)
-            } else {
-                null
-            },
-            taskResults.timeout,
-            taskResults.outputLines.toList(),
-            taskResults.permissionRequests.toList(),
-            taskResults.interval,
-            taskResults.executionInterval,
-            taskResults.truncatedLines
-    )
 }

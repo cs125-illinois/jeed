@@ -1,7 +1,6 @@
 package edu.illinois.cs.cs125.jeed.server
 
 import com.ryanharter.ktor.moshi.moshi
-import com.squareup.moshi.kotlin.reflect.KotlinJsonAdapterFactory
 import edu.illinois.cs.cs125.jeed.server.moshi.Adapters
 import edu.illinois.cs.cs125.jeed.core.moshi.Adapters as JeedAdapters
 import io.ktor.application.Application
@@ -19,6 +18,7 @@ import io.ktor.routing.routing
 import org.apache.http.auth.AuthenticationException
 import java.time.Instant
 
+@Suppress("ComplexMethod")
 fun Application.jeed() {
     install(CORS) {
         anyHost()
@@ -28,7 +28,6 @@ fun Application.jeed() {
         moshi {
             JeedAdapters.forEach { this.add(it) }
             Adapters.forEach { this.add(it) }
-            // this.add(KotlinJsonAdapterFactory())
         }
     }
     routing {

@@ -4,14 +4,8 @@ import com.google.api.client.googleapis.auth.oauth2.GoogleIdTokenVerifier
 import com.mongodb.client.MongoCollection
 import com.squareup.moshi.JsonAdapter
 import com.squareup.moshi.JsonClass
-import com.squareup.moshi.Moshi
-import com.squareup.moshi.kotlin.reflect.KotlinJsonAdapterFactory
 import edu.illinois.cs.cs125.jeed.core.*
-import edu.illinois.cs.cs125.jeed.core.moshi.PermissionAdapter
-import edu.illinois.cs.cs125.jeed.server.moshi.Adapters
-import edu.illinois.cs.cs125.jeed.server.moshi.CompiledSourceResult
-import edu.illinois.cs.cs125.jeed.server.moshi.TaskResults
-import edu.illinois.cs.cs125.jeed.core.moshi.Adapters as JeedAdapters
+import edu.illinois.cs.cs125.jeed.core.moshi.*
 import kotlinx.coroutines.*
 import org.apache.http.auth.AuthenticationException
 import org.bson.BsonDocument
@@ -162,21 +156,27 @@ class Job(
                 if (templates == null) {
                     Source(source)
                 } else {
-                    Source.fromTemplates(source, templates).also { result.completed.template = it }
+                    Source.fromTemplates(source, templates).also {
+                        result.completedTasks.add(Task.template)
+                        result.completed.template = TemplatedSourceResult(it)
+                    }
                 }
             } else {
-                result.completed.snippet = Source.transformSnippet(snippet
-                        ?: assert { "should have a snippet" }, arguments.snippet)
-                result.completed.snippet
-            } ?: check { "should have a source" }
+                Source.transformSnippet(snippet ?: assert { "should have a snippet" }, arguments.snippet).also {
+                    result.completedTasks.add(Task.snippet)
+                    result.completed.snippet = it
+                }
+            }
 
             val compiledSource = if (tasks.contains(Task.compile)) {
                 actualSource.compile(arguments.compilation).also {
                     result.completed.compilation = CompiledSourceResult(it)
+                    result.completedTasks.add(Task.compile)
                 }
             } else if (tasks.contains(Task.kompile)) {
                 actualSource.kompile(arguments.kompilation).also {
                     result.completed.kompilation = CompiledSourceResult(it)
+                    result.completedTasks.add(Task.kompile)
                 }
             } else {
                 null
@@ -185,30 +185,40 @@ class Job(
             if (tasks.contains(Task.checkstyle)) {
                 check(actualSource.type == Source.FileType.JAVA) { "can't run checkstyle on non-Java sources" }
                 result.completed.checkstyle = actualSource.checkstyle(arguments.checkstyle)
+                result.completedTasks.add(Task.checkstyle)
             }
 
             if (tasks.contains(Task.execute)) {
                 check(compiledSource != null) { "should have compiled source before executing" }
                 val executionResult = compiledSource.execute(arguments.execution)
-                if (executionResult?.threw != null) {
-                    result.failed.execution = ExecutionFailed(executionResult!!.threw!!)
+                if (executionResult.threw != null) {
+                    result.failed.execution = ExecutionFailedResult(ExecutionFailed(executionResult.threw!!))
+                    result.failedTasks.add(Task.execute)
+                } else {
+                    result.completed.execution = TaskResults(executionResult)
+                    result.completedTasks.add(Task.execute)
                 }
-                result.completed.execution = TaskResults(executionResult)
             }
         } catch (templatingFailed: TemplatingFailed) {
             result.failed.template = templatingFailed
+            result.failedTasks.add(Task.template)
         } catch (snippetFailed: SnippetTransformationFailed) {
             result.failed.snippet = snippetFailed
+            result.failedTasks.add(Task.snippet)
         } catch (compilationFailed: CompilationFailed) {
             if (tasks.contains(Task.compile)) {
                 result.failed.compilation = compilationFailed
+                result.failedTasks.add(Task.compile)
             } else if (tasks.contains(Task.kompile)) {
                 result.failed.kompilation = compilationFailed
+                result.failedTasks.add(Task.kompile)
             }
         } catch (checkstyleFailed: CheckstyleFailed) {
             result.failed.checkstyle = checkstyleFailed
+            result.failedTasks.add(Task.checkstyle)
         } catch (executionFailed: ExecutionFailed) {
-            result.failed.execution = executionFailed
+            result.failed.execution = ExecutionFailedResult(executionFailed)
+            result.failedTasks.add(Task.execute)
         } finally {
             currentStatus.counts.completedJobs++
             result.interval = Interval(started, Instant.now())
@@ -238,19 +248,23 @@ class Job(
 class Result(val job: Job) {
     val email = job.email
     val status = currentStatus
+
+    val completedTasks: MutableSet<Task> = mutableSetOf()
     val completed: CompletedTasks = CompletedTasks()
+
+    val failedTasks: MutableSet<Task> = mutableSetOf()
     val failed: FailedTasks = FailedTasks()
+
     lateinit var interval: Interval
 
     val json: String
         get() = resultAdapter.toJson(this)
 
     companion object {
-        val resultAdapter: JsonAdapter<Result> = Moshi.Builder().let { builder ->
-            Adapters.forEach { builder.add(it) }
-            JeedAdapters.forEach { builder.add(it) }
-            builder.add(KotlinJsonAdapterFactory())
-            builder.build().adapter(Result::class.java)
+        val resultAdapter: JsonAdapter<Result> = moshi.adapter(Result::class.java)
+        fun from(response: String?): Result {
+            check(response != null) { "can't deserialize null string" }
+            return resultAdapter.fromJson(response) ?: check { "failed to deserialize result" }
         }
     }
 }
@@ -258,7 +272,7 @@ class Result(val job: Job) {
 @JsonClass(generateAdapter = true)
 class CompletedTasks(
         var snippet: Snippet? = null,
-        var template: TemplatedSource? = null,
+        var template: TemplatedSourceResult? = null,
         var compilation: CompiledSourceResult? = null,
         var kompilation: CompiledSourceResult? = null,
         var checkstyle: CheckstyleResults? = null,
@@ -272,7 +286,7 @@ class FailedTasks(
         var compilation: CompilationFailed? = null,
         var kompilation: CompilationFailed? = null,
         var checkstyle: CheckstyleFailed? = null,
-        var execution: ExecutionFailed? = null
+        var execution: ExecutionFailedResult? = null
 )
 
 @JsonClass(generateAdapter = true)
