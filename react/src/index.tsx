@@ -158,12 +158,13 @@ export type JeedServerStatus = io.TypeOf<typeof JeedServerStatus>
 interface JeedContext {
   status: JeedServerStatus | null
   connected: boolean
-  run: (job: JeedJob) => void | null
+  run: (job: JeedJob) => void
 }
+const runNothing = (): void => {} // eslint-disable-line @typescript-eslint/no-empty-function
 const JeedContext = React.createContext<JeedContext>({
   status: null,
   connected: false,
-  run: () => {}, // eslint-disable-line @typescript-eslint/no-empty-function
+  run: runNothing,
 })
 interface JeedProviderProps {
   server: string
@@ -222,7 +223,11 @@ export const JeedProvider: React.FC<JeedProviderProps> = ({ server, defaultArgum
       })
   }
 
-  return <JeedContext.Provider value={{ status, connected, run }}>{children}</JeedContext.Provider>
+  return (
+    <JeedContext.Provider value={{ status, connected, run: connected ? run : runNothing }}>
+      {children}
+    </JeedContext.Provider>
+  )
 }
 JeedProvider.propTypes = {
   server: PropTypes.string.isRequired,

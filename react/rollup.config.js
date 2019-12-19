@@ -7,6 +7,7 @@ export default {
   output: {
     format: "cjs",
     file: "./dist/index.cjs.js",
+    sourcemap: true
   },
   plugins: [typescript(), resolve(), commonjs()],
   external: ["react", "prop-types"],
