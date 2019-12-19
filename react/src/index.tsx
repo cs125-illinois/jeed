@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react"
+import React, { useState, useEffect, useContext } from "react"
 import PropTypes from "prop-types"
 
 import * as io from "io-ts"
@@ -85,8 +85,9 @@ const JeedTaskArguments = excess(
 )
 export type JeedTaskArguments = io.TypeOf<typeof JeedTaskArguments>
 
-const JeedJob = excess(
+const JeedJob = io.intersection([
   io.type({
+    label: io.string,
     tasks: io.array(
       io.keyof({
         template: null,
@@ -97,15 +98,17 @@ const JeedJob = excess(
         execute: null,
       })
     ),
-    snippet: io.union([io.string, io.undefined]),
-    source: io.union([io.array(JeedFlatSource), io.undefined]),
-    templates: io.union([io.array(JeedFlatSource), io.undefined]),
-    arguments: io.union([JeedTaskArguments, io.undefined]),
-    authToken: io.union([io.string, io.undefined]),
-    label: io.string,
-    waitForSave: io.union([io.boolean, io.undefined]),
-  })
-)
+  }),
+  io.partial({
+    snippet: io.string,
+    source: io.array(JeedFlatSource),
+    templates: io.array(JeedFlatSource),
+    arguments: JeedTaskArguments,
+    authToken: io.string,
+    waitForSave: io.boolean,
+  }),
+])
+
 export type JeedJob = io.TypeOf<typeof JeedJob>
 
 const DateFromString = new io.Type<Date, string, unknown>(
@@ -155,10 +158,12 @@ export type JeedServerStatus = io.TypeOf<typeof JeedServerStatus>
 interface JeedContext {
   status: JeedServerStatus | null
   connected: boolean
+  run: (job: JeedJob) => void | null
 }
 const JeedContext = React.createContext<JeedContext>({
   status: null,
   connected: false,
+  run: () => {}, // eslint-disable-line @typescript-eslint/no-empty-function
 })
 interface JeedProviderProps {
   server: string
@@ -197,7 +202,27 @@ export const JeedProvider: React.FC<JeedProviderProps> = ({ server, defaultArgum
       })
   }, [])
 
-  return <JeedContext.Provider value={{ status, connected }}>{children}</JeedContext.Provider>
+  const run = (job: JeedJob): void => {
+    const jeedJob = pipe(
+      JeedJob.decode(job),
+      getOrElse<io.Errors, JeedJob>(errors => {
+        throw new Error("Invalid Jeed job:\n" + failure(errors).join("\n"))
+      })
+    )
+    fetch(server, {
+      method: "post",
+      body: JSON.stringify(jeedJob),
+      headers: { "Content-Type": "application/json" },
+    })
+      .then(response => {
+        return response.json()
+      })
+      .then(data => {
+        console.debug(data)
+      })
+  }
+
+  return <JeedContext.Provider value={{ status, connected, run }}>{children}</JeedContext.Provider>
 }
 JeedProvider.propTypes = {
   server: PropTypes.string.isRequired,
@@ -232,4 +257,8 @@ JeedProvider.propTypes = {
     }),
   }),
   children: PropTypes.node.isRequired,
+}
+
+export const withJeed = (): JeedContext => {
+  return useContext(JeedContext)
 }
