@@ -1,65 +1,88 @@
 {
-  "name": "jeed-react-component",
-  "private": true,
-  "main": "dist/index.js",
-  "module": "dist/index.es.js",
-  "jsnext:main": "dist/index.es.js",
-  "engines": {
-    "node": ">=8",
-    "npm": ">=5"
-  },
+  "name": "@cs125/react-jeed",
+  "version": "2019.12.1",
+  "main": "dist/index.cjs.js",
+  "types": "dist/index.d.ts",
   "scripts": {
-    "test": "cross-env CI=1 react-scripts test --env=jsdom",
-    "test:watch": "react-scripts test --env=jsdom",
+    "start": "concurrently -n parcel,rollup,jeed --handle-input \"cd example && npm start\" \"npm run watch\" \"npm run jeed\"",
+    "watch": "rollup -c -w",
     "build": "rollup -c",
-    "start": "rollup -c -w",
-    "prepare": "npm run build",
-    "predeploy": "cd example && npm install && npm run build",
-    "standard": "standard src/**/*.js --fix"
-  },
-  "peerDependencies": {
-    "react": "^16.12.0",
-    "react-dom": "^16.12.0",
-    "axios": "^0.19.0"
+    "check": "npm run build && npm run tsc:check && npm run prettier && npm run eslint && npm run depcheck",
+    "postinstall": "cd example && npm i",
+    "tsc:check": "tsc --noEmit && tsc --project example --noEmit",
+    "prettier": "prettier --check **/*.{js,json,ts,tsx} .*.js",
+    "prettier:write": "prettier --write **/*.{js,json,ts,tsx} .*.js",
+    "eslint": "eslint src/**/* example/index.tsx",
+    "eslint:fix": "eslint --fix src/**/* example/index.tsx",
+    "depcheck:src": "depcheck --ignore-dirs example --ignores depcheck",
+    "depcheck:example": "depcheck example/ --ignore-dirs .cache,dist --ignores react,@types/*,typescript",
+    "depcheck": "npm run depcheck:src && npm run depcheck:example",
+    "ncu:src": "ncu",
+    "ncu:example": "cd example && ncu",
+    "ncu": "npm run ncu:src && npm run ncu:example",
+    "jeed": "env-cmd docker run -p 8888:8888 cs125/jeed:latest"
   },
   "devDependencies": {
-    "@babel/cli": "^7.7.4",
-    "@babel/core": "^7.7.4",
-    "@babel/preset-env": "^7.7.4",
-    "@babel/preset-react": "^7.7.4",
-    "babel-eslint": "^10.0.3",
-    "cross-env": "^6.0.3",
+    "@types/react": "^16.9.16",
+    "@typescript-eslint/eslint-plugin": "^2.12.0",
+    "@typescript-eslint/parser": "^2.12.0",
+    "concurrently": "^5.0.1",
+    "depcheck": "^0.9.1",
+    "env-cmd": "^10.0.1",
+    "eslint": "^6.7.2",
+    "eslint-config-prettier": "^6.7.0",
+    "eslint-plugin-prettier": "^3.1.2",
+    "eslint-plugin-react": "^7.17.0",
+    "husky": "^3.1.0",
+    "lint-staged": "^9.5.0",
+    "npm-check-updates": "^4.0.1",
+    "prettier": "^1.19.1",
     "react": "^16.12.0",
-    "react-dom": "^16.12.0",
-    "react-scripts": "^3.2.0",
-    "rollup": "^1.27.7",
-    "rollup-plugin-babel": "^4.3.3",
-    "rollup-plugin-peer-deps-external": "^2.2.0",
-    "standard": "^14.3.1",
-    "npm-check-updates": "^3.2.2",
+    "rollup": "^1.27.13",
     "rollup-plugin-commonjs": "^10.1.0",
-    "rollup-plugin-node-builtins": "^2.1.2"
+    "rollup-plugin-node-resolve": "^5.2.0",
+    "rollup-plugin-typescript2": "^0.25.3",
+    "typescript": "^3.7.3"
   },
-  "files": [
-    "dist"
-  ],
-  "babel": {
-    "presets": [
-      "@babel/preset-env",
-      "@babel/preset-react"
-    ],
-    "plugins": [
-      "@babel/plugin-proposal-class-properties"
-    ],
-    "sourceMaps": true
+  "peerDependencies": {
+    "prop-types": "^15.7.2",
+    "react": ">=16"
   },
-  "standard": {
-    "parser": "babel-eslint",
-    "env": [
-      "mocha"
+  "husky": {
+    "hooks": {
+      "pre-commit": "lint-staged"
+    }
+  },
+  "prettier": {
+    "semi": false,
+    "trailingComma": "es5",
+    "singleQuote": false,
+    "printWidth": 120,
+    "tabWidth": 2
+  },
+  "lint-staged": {
+    "react/*.json": [
+      "prettier --write",
+      "git add"
     ],
-    "globals": [
-      "expect"
+    "react/src/**/*.ts?(x)": [
+      "prettier --write",
+      "eslint --fix",
+      "bash -c \"tsc --noEmit --project .\"",
+      "bash -c \"npm run depcheck:src\"",
+      "git add"
+    ],
+    "react/example/**/*.ts?(x)": [
+      "prettier --write",
+      "eslint --fix",
+      "bash -c \"tsc --noEmit --project example\"",
+      "bash -c \"npm run depcheck:example\"",
+      "git add"
     ]
+  },
+  "dependencies": {
+    "fp-ts": "^2.3.1",
+    "io-ts": "^2.0.2",
+    "io-ts-excess": "^1.0.1"
   }
 }

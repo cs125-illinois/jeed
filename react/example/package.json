@@ -1,23 +1,24 @@
 {
-  "name": "jeed-react-component",
   "private": true,
-  "dependencies": {
-    "@material-ui/core": "^4.7.1",
-    "@material-ui/icons": "^4.5.1",
-    "axios": "^0.19.0",
-    "cross-env": "^6.0.3",
-    "jeed": "file:..",
-    "react": "^16.12.0",
-    "react-children-utilities": "^2.0.1",
-    "react-dom": "^16.12.0",
-    "react-scripts": "^3.2.0",
-    "react-syntax-highlighter": "^11.0.2"
-  },
   "scripts": {
-    "start": "cross-env BROWSER=none react-scripts start",
-    "build": "react-scripts build",
-    "test": "react-scripts test --env=jsdom",
-    "eject": "react-scripts eject"
+    "start": "parcel index.html",
+    "build": "parcel build index.html"
   },
-  "browserslist": []
+  "dependencies": {
+    "@cs125/react-jeed": "file:..",
+    "babel-polyfill": "^6.26.0",
+    "react-app-polyfill": "^1.0.5"
+  },
+  "alias": {
+    "react": "../node_modules/react"
+  },
+  "devDependencies": {
+    "@babel/core": "^7.7.5",
+    "@babel/plugin-proposal-optional-chaining": "^7.7.5",
+    "@types/react": "^16.9.16",
+    "@types/react-dom": "^16.9.4",
+    "parcel": "^1.12.4",
+    "react-dom": "^16.12.0",
+    "typescript": "^3.7.3"
+  }
 }

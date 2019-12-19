@@ -1,34 +1,17 @@
-import babel from 'rollup-plugin-babel'
-import builtins from 'rollup-plugin-node-builtins'
-import external from 'rollup-plugin-peer-deps-external'
-// import commonjs from 'rollup-plugin-commonjs'
-// import resolve from 'rollup-plugin-node-resolve'
-// import svgr from '@svgr/rollup'
-// import url from 'rollup-plugin-url'
-
-import pkg from './package.json'
+import typescript from "rollup-plugin-typescript2"
+import resolve from "rollup-plugin-node-resolve"
+import commonjs from "rollup-plugin-commonjs"
 
 export default {
-  input: 'src/index.js',
-  output: [
-    {
-      file: pkg.main,
-      format: 'cjs',
-      sourcemap: true
-    },
-    {
-      file: pkg.module,
-      format: 'es',
-      sourcemap: true
-    }
-  ],
-  plugins: [
-    babel({ exclude: 'node_modules/**' }),
-    builtins(),
-    external(),
-    // url(),
-    // svgr(),
-    // resolve(),
-    // commonjs()
-  ]
+  input: "./src/index.tsx",
+  output: {
+    format: "cjs",
+    file: "./dist/index.cjs.js",
+  },
+  plugins: [typescript(), resolve(), commonjs()],
+  external: ["react", "prop-types"],
+  onwarn: ( warning, next ) => {
+    if ( warning.code === 'THIS_IS_UNDEFINED' ) return
+    next( warning )
+  },
 }
