@@ -70,3 +70,6 @@ task("createProperties") {
 tasks.processResources {
     dependsOn("createProperties")
 }
+kapt {
+    includeCompileClasspath = false
+}

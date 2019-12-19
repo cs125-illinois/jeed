@@ -61,3 +61,6 @@ task("createProperties") {
         File(projectDir, "src/main/resources/edu.illinois.cs.cs125.jeed.core.version").printWriter().use { properties.store(it, null) }
     }
 }
+kapt {
+    includeCompileClasspath = false
+}

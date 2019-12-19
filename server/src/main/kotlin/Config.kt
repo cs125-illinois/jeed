@@ -23,7 +23,7 @@ object TopLevel : ConfigSpec("") {
 object Auth : ConfigSpec() {
     val none by optional(true)
     object Google : ConfigSpec() {
-        val hostedDomain by optional("")
+        val hostedDomain by optional<String?>(null)
         val clientID by optional<String?>(null)
     }
 }

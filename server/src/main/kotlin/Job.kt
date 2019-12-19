@@ -4,11 +4,35 @@ import com.google.api.client.googleapis.auth.oauth2.GoogleIdTokenVerifier
 import com.mongodb.client.MongoCollection
 import com.squareup.moshi.JsonAdapter
 import com.squareup.moshi.JsonClass
-import edu.illinois.cs.cs125.jeed.core.*
-import edu.illinois.cs.cs125.jeed.core.moshi.*
+import edu.illinois.cs.cs125.jeed.core.CheckstyleArguments
+import edu.illinois.cs.cs125.jeed.core.CheckstyleFailed
+import edu.illinois.cs.cs125.jeed.core.CheckstyleResults
+import edu.illinois.cs.cs125.jeed.core.CompilationArguments
+import edu.illinois.cs.cs125.jeed.core.CompilationFailed
+import edu.illinois.cs.cs125.jeed.core.ExecutionFailed
+import edu.illinois.cs.cs125.jeed.core.Interval
+import edu.illinois.cs.cs125.jeed.core.KompilationArguments
+import edu.illinois.cs.cs125.jeed.core.Snippet
+import edu.illinois.cs.cs125.jeed.core.SnippetArguments
+import edu.illinois.cs.cs125.jeed.core.SnippetTransformationFailed
+import edu.illinois.cs.cs125.jeed.core.Source
+import edu.illinois.cs.cs125.jeed.core.SourceExecutionArguments
+import edu.illinois.cs.cs125.jeed.core.TemplatingFailed
+import edu.illinois.cs.cs125.jeed.core.checkstyle
+import edu.illinois.cs.cs125.jeed.core.compile
+import edu.illinois.cs.cs125.jeed.core.execute
+import edu.illinois.cs.cs125.jeed.core.fromTemplates
+import edu.illinois.cs.cs125.jeed.core.kompile
+import edu.illinois.cs.cs125.jeed.core.moshi.CompiledSourceResult
+import edu.illinois.cs.cs125.jeed.core.moshi.ExecutionFailedResult
+import edu.illinois.cs.cs125.jeed.core.moshi.PermissionAdapter
+import edu.illinois.cs.cs125.jeed.core.moshi.TaskResults
+import edu.illinois.cs.cs125.jeed.core.moshi.TemplatedSourceResult
+import edu.illinois.cs.cs125.jeed.core.transformSnippet
+import kotlinx.coroutines.GlobalScope
+import kotlinx.coroutines.async
 import java.lang.IllegalArgumentException
 import java.time.Instant
-import kotlinx.coroutines.*
 import org.apache.http.auth.AuthenticationException
 import org.bson.BsonDocument
 
@@ -77,6 +101,7 @@ class Job(
         }
         tasks = tasksToRun.toSet()
 
+        @Suppress("MaxLineLength")
         if (Task.execute in tasks) {
             if (arguments?.execution?.timeout != null) {
                 require(arguments.execution.timeout <= configuration[Limits.Execution.timeout]) {
@@ -101,6 +126,7 @@ class Job(
             }
             if (arguments?.execution?.classLoaderConfiguration != null) {
                 val blacklistedClasses = configuration[Limits.Execution.ClassLoaderConfiguration.blacklistedClasses]
+
                 require(arguments.execution.classLoaderConfiguration.blacklistedClasses.containsAll(blacklistedClasses)) {
                     "job is trying to remove blacklisted classes"
                 }
@@ -118,11 +144,11 @@ class Job(
 
     @Suppress("ComplexMethod", "NestedBlockDepth")
     fun authenticate() {
-        @Suppress("EmptyCatchBlock")
+        @Suppress("EmptyCatchBlock", "TooGenericExceptionCaught")
         try {
             if (googleTokenVerifier != null && authToken != null) {
                 googleTokenVerifier?.verify(authToken)?.let {
-                    if (configuration[Auth.Google.hostedDomain] != "") {
+                    if (configuration[Auth.Google.hostedDomain] != null) {
                         require(it.payload.hostedDomain == configuration[Auth.Google.hostedDomain])
                     }
                     email = it.payload.email
@@ -168,18 +194,22 @@ class Job(
                 }
             }
 
-            val compiledSource = if (tasks.contains(Task.compile)) {
-                actualSource.compile(arguments.compilation).also {
-                    result.completed.compilation = CompiledSourceResult(it)
-                    result.completedTasks.add(Task.compile)
+            val compiledSource = when {
+                tasks.contains(Task.compile) -> {
+                    actualSource.compile(arguments.compilation).also {
+                        result.completed.compilation = CompiledSourceResult(it)
+                        result.completedTasks.add(Task.compile)
+                    }
                 }
-            } else if (tasks.contains(Task.kompile)) {
-                actualSource.kompile(arguments.kompilation).also {
-                    result.completed.kompilation = CompiledSourceResult(it)
-                    result.completedTasks.add(Task.kompile)
+                tasks.contains(Task.kompile) -> {
+                    actualSource.kompile(arguments.kompilation).also {
+                        result.completed.kompilation = CompiledSourceResult(it)
+                        result.completedTasks.add(Task.kompile)
+                    }
                 }
-            } else {
-                null
+                else -> {
+                    null
+                }
             }
 
             if (tasks.contains(Task.checkstyle)) {
