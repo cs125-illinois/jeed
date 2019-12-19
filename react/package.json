@@ -61,18 +61,18 @@
     "tabWidth": 2
   },
   "lint-staged": {
-    "react/*.json": [
+    "*.json": [
       "prettier --write",
       "git add"
     ],
-    "react/src/**/*.ts?(x)": [
+    "src/**/*.ts?(x)": [
       "prettier --write",
       "eslint --fix",
       "bash -c \"tsc --noEmit --project .\"",
       "bash -c \"npm run depcheck:src\"",
       "git add"
     ],
-    "react/example/**/*.ts?(x)": [
+    "example/**/*.ts?(x)": [
       "prettier --write",
       "eslint --fix",
       "bash -c \"tsc --noEmit --project example\"",
