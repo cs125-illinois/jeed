@@ -1,24 +1,27 @@
 {
   "private": true,
   "scripts": {
-    "start": "parcel index.html",
-    "build": "parcel build index.html"
+    "start": "parcel index.html"
   },
-  "dependencies": {
+  "devDependencies": {
+    "@babel/core": "^7.7.7",
+    "@babel/plugin-proposal-optional-chaining": "^7.7.5",
+    "@babel/preset-env": "^7.7.7",
+    "@babel/preset-react": "^7.7.4",
     "@cs125/react-jeed": "file:..",
+    "@types/react": "^16.9.17",
+    "@types/react-dom": "^16.9.4",
+    "@types/styled-components": "^4.4.1",
     "babel-polyfill": "^6.26.0",
-    "react-app-polyfill": "^1.0.5"
+    "parcel": "^1.12.4",
+    "react-app-polyfill": "^1.0.5",
+    "react-dom": "^16.12.0",
+    "semantic-ui-css": "^2.4.1",
+    "semantic-ui-react": "^0.88.2",
+    "styled-components": "^4.4.1",
+    "typescript": "^3.7.3"
   },
   "alias": {
     "react": "../node_modules/react"
-  },
-  "devDependencies": {
-    "@babel/core": "^7.7.5",
-    "@babel/plugin-proposal-optional-chaining": "^7.7.5",
-    "@types/react": "^16.9.16",
-    "@types/react-dom": "^16.9.4",
-    "parcel": "^1.12.4",
-    "react-dom": "^16.12.0",
-    "typescript": "^3.7.3"
   }
 }

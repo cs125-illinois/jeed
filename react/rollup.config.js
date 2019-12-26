@@ -7,12 +7,12 @@ export default {
   output: {
     format: "cjs",
     file: "./dist/index.cjs.js",
-    sourcemap: true
+    sourcemap: true,
   },
   plugins: [typescript(), resolve(), commonjs()],
   external: ["react", "prop-types"],
-  onwarn: ( warning, next ) => {
-    if ( warning.code === 'THIS_IS_UNDEFINED' ) return
-    next( warning )
+  onwarn: (warning, next) => {
+    if (warning.code === "THIS_IS_UNDEFINED") return
+    next(warning)
   },
 }

@@ -15,6 +15,15 @@ const JeedFlatSource = excess(
 )
 export type JeedFlatSource = io.TypeOf<typeof JeedFlatSource>
 
+const JeedPermission = io.intersection([
+  io.type({
+    klass: io.string,
+    name: io.string,
+  }),
+  io.partial({
+    actions: io.union([io.string, io.null]),
+  }),
+])
 const JeedTaskArguments = excess(
   io.type({
     snippet: io.union([
@@ -62,7 +71,7 @@ const JeedTaskArguments = excess(
           klass: io.union([io.string, io.null]),
           method: io.union([io.string, io.null]),
           timeout: io.union([io.number, io.null]),
-          permissions: io.union([io.array(io.string), io.null]),
+          permissions: io.union([io.array(JeedPermission), io.null]),
           maxExtraThreads: io.union([io.number, io.null]),
           maxOutputLines: io.union([io.number, io.null]),
           classLoaderConfiguration: io.union([
@@ -85,19 +94,18 @@ const JeedTaskArguments = excess(
 )
 export type JeedTaskArguments = io.TypeOf<typeof JeedTaskArguments>
 
+const JeedTask = io.keyof({
+  template: null,
+  snippet: null,
+  compile: null,
+  kompile: null,
+  checkstyle: null,
+  execute: null,
+})
 const JeedJob = io.intersection([
   io.type({
     label: io.string,
-    tasks: io.array(
-      io.keyof({
-        template: null,
-        snippet: null,
-        compile: null,
-        kompile: null,
-        checkstyle: null,
-        execute: null,
-      })
-    ),
+    tasks: io.array(JeedTask),
   }),
   io.partial({
     snippet: io.string,
@@ -108,7 +116,6 @@ const JeedJob = io.intersection([
     waitForSave: io.boolean,
   }),
 ])
-
 export type JeedJob = io.TypeOf<typeof JeedJob>
 
 const DateFromString = new io.Type<Date, string, unknown>(
@@ -154,6 +161,42 @@ const JeedServerStatus = excess(
   })
 )
 export type JeedServerStatus = io.TypeOf<typeof JeedServerStatus>
+
+const JeedLocation = io.type({ line: io.number, column: io.number })
+const JeedSourceRange = io.intersection([
+  io.partial({
+    source: io.string,
+  }),
+  io.type({
+    start: JeedLocation,
+    end: JeedLocation,
+  }),
+])
+const JeedInterval = io.type({ start: DateFromString, end: DateFromString })
+
+const JeedResult = io.intersection([
+  io.type({
+    job: JeedJob,
+    status: JeedServerStatus,
+    completed: io.partial({
+      snippet: io.type({
+        sources: io.record(io.string, io.string),
+        originalSource: io.string,
+        rewrittenSource: io.string,
+        snippetRange: JeedSourceRange,
+        wrappedClassName: io.string,
+        looseCodeMethodName: io.string,
+      }),
+    }),
+    completedTasks: io.array(JeedTask),
+    failedTasks: io.array(JeedTask),
+    interval: JeedInterval,
+  }),
+  io.partial({
+    email: io.string,
+  }),
+])
+export type JeedResult = io.TypeOf<typeof JeedResult>
 
 interface JeedContext {
   status: JeedServerStatus | null
@@ -219,7 +262,14 @@ export const JeedProvider: React.FC<JeedProviderProps> = ({ server, defaultArgum
         return response.json()
       })
       .then(data => {
-        console.debug(data)
+        const jeedResult = pipe(
+          JeedResult.decode(data),
+          getOrElse<io.Errors, JeedResult>(errors => {
+            throw new Error("Invalid Jeed result:\n" + failure(errors).join("\n"))
+          })
+        )
+        console.debug(jeedResult)
+        return jeedResult
       })
   }
 
@@ -251,7 +301,13 @@ JeedProvider.propTypes = {
       klass: PropTypes.string,
       method: PropTypes.string,
       timeout: PropTypes.number,
-      permissions: PropTypes.arrayOf(PropTypes.string.isRequired),
+      permissions: PropTypes.arrayOf(
+        PropTypes.exact({
+          klass: PropTypes.string.isRequired,
+          name: PropTypes.string.isRequired,
+          actions: PropTypes.string,
+        }).isRequired
+      ),
       maxExtraThreads: PropTypes.number,
       maxOutputLines: PropTypes.number,
       classLoaderConfiguration: PropTypes.exact({

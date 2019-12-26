@@ -8,7 +8,6 @@
     "watch": "rollup -c -w",
     "build": "rollup -c",
     "check": "npm run build && npm run tsc:check && npm run prettier && npm run eslint && npm run depcheck",
-    "postinstall": "cd example && npm i",
     "tsc:check": "tsc --noEmit && tsc --project example --noEmit",
     "prettier": "prettier --check **/*.{js,json,ts,tsx} .*.js",
     "prettier:write": "prettier --write **/*.{js,json,ts,tsx} .*.js",
