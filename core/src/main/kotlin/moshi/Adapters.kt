@@ -3,7 +3,22 @@ package edu.illinois.cs.cs125.jeed.core.moshi
 import com.squareup.moshi.FromJson
 import com.squareup.moshi.JsonClass
 import com.squareup.moshi.ToJson
-import edu.illinois.cs.cs125.jeed.core.*
+import edu.illinois.cs.cs125.jeed.core.CheckstyleError
+import edu.illinois.cs.cs125.jeed.core.CheckstyleFailed
+import edu.illinois.cs.cs125.jeed.core.CompilationError
+import edu.illinois.cs.cs125.jeed.core.CompilationFailed
+import edu.illinois.cs.cs125.jeed.core.CompilationMessage
+import edu.illinois.cs.cs125.jeed.core.CompiledSource
+import edu.illinois.cs.cs125.jeed.core.ExecutionFailed
+import edu.illinois.cs.cs125.jeed.core.Interval
+import edu.illinois.cs.cs125.jeed.core.Sandbox
+import edu.illinois.cs.cs125.jeed.core.Snippet
+import edu.illinois.cs.cs125.jeed.core.SnippetTransformationError
+import edu.illinois.cs.cs125.jeed.core.SnippetTransformationFailed
+import edu.illinois.cs.cs125.jeed.core.SourceRange
+import edu.illinois.cs.cs125.jeed.core.TemplatedSource
+import edu.illinois.cs.cs125.jeed.core.TemplatingError
+import edu.illinois.cs.cs125.jeed.core.TemplatingFailed
 import java.security.Permission
 import java.time.Instant
 
