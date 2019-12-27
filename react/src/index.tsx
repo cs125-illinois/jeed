@@ -279,10 +279,12 @@ export type JeedResult = io.TypeOf<typeof JeedResult>
 interface JeedContext {
   status: ServerStatus | null
   connected: boolean
-  run: (job: Job) => void
+  run: (job: Job) => Promise<JeedResult> | undefined
 }
-const runNothing = (): void => {} // eslint-disable-line @typescript-eslint/no-empty-function
-const JeedContext = React.createContext<JeedContext>({
+const runNothing = (): undefined => {
+  throw new Error("Jeed server not connected")
+}
+export const JeedContext = React.createContext<JeedContext>({
   status: null,
   connected: false,
   run: runNothing,
@@ -323,7 +325,7 @@ export const JeedProvider: React.FC<JeedProviderProps> = ({ server, defaultArgum
       })
   }, [])
 
-  const run = (job: Job): void => {
+  const run = (job: Job): Promise<JeedResult> => {
     job.arguments = Object.assign({}, job.arguments, jeedDefaultArguments)
 
     console.debug(job)
@@ -334,7 +336,7 @@ export const JeedProvider: React.FC<JeedProviderProps> = ({ server, defaultArgum
         throw new Error("Invalid Jeed job:\n" + failure(errors).join("\n"))
       })
     )
-    fetch(server, {
+    return fetch(server, {
       method: "post",
       body: JSON.stringify(jeedJob),
       headers: { "Content-Type": "application/json" },
@@ -401,6 +403,6 @@ JeedProvider.propTypes = {
   children: PropTypes.node.isRequired,
 }
 
-export const withJeed = (): JeedContext => {
+export const useJeed = (): JeedContext => {
   return useContext(JeedContext)
 }

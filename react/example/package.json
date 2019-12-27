@@ -23,5 +23,9 @@
   },
   "alias": {
     "react": "../node_modules/react"
+  },
+  "dependencies": {
+    "ace-builds": "^1.4.7",
+    "react-ace": "^8.0.0"
   }
 }
