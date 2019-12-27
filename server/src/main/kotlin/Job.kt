@@ -26,7 +26,7 @@ import edu.illinois.cs.cs125.jeed.core.kompile
 import edu.illinois.cs.cs125.jeed.core.moshi.CompiledSourceResult
 import edu.illinois.cs.cs125.jeed.core.moshi.ExecutionFailedResult
 import edu.illinois.cs.cs125.jeed.core.moshi.PermissionAdapter
-import edu.illinois.cs.cs125.jeed.core.moshi.TaskResults
+import edu.illinois.cs.cs125.jeed.core.moshi.SourceTaskResults
 import edu.illinois.cs.cs125.jeed.core.moshi.TemplatedSourceResult
 import edu.illinois.cs.cs125.jeed.core.transformSnippet
 import kotlinx.coroutines.GlobalScope
@@ -225,7 +225,7 @@ class Job(
                     result.failed.execution = ExecutionFailedResult(ExecutionFailed(executionResult.threw!!))
                     result.failedTasks.add(Task.execute)
                 } else {
-                    result.completed.execution = TaskResults(executionResult)
+                    result.completed.execution = SourceTaskResults(executionResult, arguments.execution)
                     result.completedTasks.add(Task.execute)
                 }
             }
@@ -306,7 +306,7 @@ class CompletedTasks(
     var compilation: CompiledSourceResult? = null,
     var kompilation: CompiledSourceResult? = null,
     var checkstyle: CheckstyleResults? = null,
-    var execution: TaskResults? = null
+    var execution: SourceTaskResults? = null
 )
 
 @JsonClass(generateAdapter = true)

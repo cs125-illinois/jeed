@@ -52,6 +52,7 @@ class TestHTTP : StringSpec() {
                     Job.mongoCollection?.countDocuments() shouldBe 1
 
                     val result = Result.from(response.content)
+                    result.completed.execution?.klass shouldBe "Main"
                     result.completedTasks.size shouldBe 3
                     result.failedTasks.size shouldBe 0
                 }
@@ -88,7 +89,7 @@ public class Main {
                 }
             }
         }
-        "should accept good kotlin source request" {
+        "f: should accept good kotlin source request" {
             withTestApplication(Application::jeed) {
                 handleRequest(HttpMethod.Post, "/") {
                     addHeader("content-type", "application/json")
@@ -112,6 +113,7 @@ fun main() {
                     Job.mongoCollection?.countDocuments() shouldBe 1
 
                     val result = Result.from(response.content)
+                    result.completed.execution?.klass shouldBe "MainKt"
                     result.completedTasks.size shouldBe 2
                     result.failedTasks.size shouldBe 0
                 }
