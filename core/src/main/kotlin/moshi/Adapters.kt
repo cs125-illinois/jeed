@@ -15,12 +15,14 @@ import edu.illinois.cs.cs125.jeed.core.Sandbox
 import edu.illinois.cs.cs125.jeed.core.Snippet
 import edu.illinois.cs.cs125.jeed.core.SnippetTransformationError
 import edu.illinois.cs.cs125.jeed.core.SnippetTransformationFailed
+import edu.illinois.cs.cs125.jeed.core.SourceExecutionArguments
 import edu.illinois.cs.cs125.jeed.core.SourceRange
 import edu.illinois.cs.cs125.jeed.core.TemplatedSource
 import edu.illinois.cs.cs125.jeed.core.TemplatingError
 import edu.illinois.cs.cs125.jeed.core.TemplatingFailed
 import java.security.Permission
 import java.time.Instant
+import edu.illinois.cs.cs125.jeed.core.check
 
 @JvmField
 val Adapters = setOf(
@@ -277,6 +279,38 @@ class TaskResults(
     val truncatedLines: Int
 ) {
     constructor(taskResults: Sandbox.TaskResults<*>) : this(
+        taskResults.returned.toString(),
+        if (taskResults.threw != null) {
+            ThrownException(taskResults.threw)
+        } else {
+            null
+        },
+        taskResults.timeout,
+        taskResults.outputLines.toList(),
+        taskResults.permissionRequests.toList(),
+        taskResults.interval,
+        taskResults.executionInterval,
+        taskResults.truncatedLines
+    )
+}
+
+@Suppress("unused")
+@JsonClass(generateAdapter = true)
+class SourceTaskResults(
+    val klass: String,
+    val method: String,
+    val returned: String?,
+    val threw: ThrownException?,
+    val timeout: Boolean,
+    val outputLines: List<Sandbox.TaskResults.OutputLine> = listOf(),
+    val permissionRequests: List<Sandbox.TaskResults.PermissionRequest> = listOf(),
+    val interval: Interval,
+    val executionInterval: Interval,
+    val truncatedLines: Int
+) {
+    constructor(taskResults: Sandbox.TaskResults<*>, sourceExecutionArguments: SourceExecutionArguments) : this(
+        sourceExecutionArguments.klass ?: check { "should have a klass name" },
+        sourceExecutionArguments.method,
         taskResults.returned.toString(),
         if (taskResults.threw != null) {
             ThrownException(taskResults.threw)

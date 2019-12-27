@@ -5,7 +5,6 @@ import java.io.FilePermission
 import java.io.OutputStream
 import java.io.PrintStream
 import java.lang.reflect.InvocationTargetException
-import java.security.*
 import java.time.Duration
 import java.time.Instant
 import java.util.*
@@ -14,7 +13,18 @@ import kotlin.reflect.jvm.javaMethod
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.runBlocking
-import org.objectweb.asm.*
+import org.objectweb.asm.Type
+import org.objectweb.asm.ClassReader
+import org.objectweb.asm.ClassVisitor
+import org.objectweb.asm.ClassWriter
+import org.objectweb.asm.Label
+import org.objectweb.asm.MethodVisitor
+import org.objectweb.asm.Opcodes
+import java.security.AccessControlContext
+import java.security.Permission
+import java.security.Permissions
+import java.security.ProtectionDomain
+import java.security.SecurityPermission
 
 private typealias SandboxCallableArguments<T> = (Pair<ClassLoader, (() -> Unit) -> Pair<String, String>>) -> T
 
@@ -27,14 +37,21 @@ object Sandbox {
     ) {
         val blacklistedClasses = blacklistedClasses.union(PERMANENTLY_BLACKLISTED_CLASSES)
         val unsafeExceptions = unsafeExceptions.union(ALWAYS_UNSAFE_EXCEPTIONS)
+
         init {
             require(!whitelistedClasses.any { whitelistedClass ->
-                PERMANENTLY_BLACKLISTED_CLASSES.any { blacklistedClass -> whitelistedClass.startsWith(blacklistedClass) }
+                PERMANENTLY_BLACKLISTED_CLASSES.any {
+                        blacklistedClass -> whitelistedClass.startsWith(blacklistedClass)
+                }
             }) {
                 "attempt to allow access to unsafe classes"
             }
-            require(!(whitelistedClasses.isNotEmpty() &&
-                    blacklistedClasses.minus(PERMANENTLY_BLACKLISTED_CLASSES.union(DEFAULT_BLACKLISTED_CLASSES)).isNotEmpty())) {
+            require(
+                !(whitelistedClasses.isNotEmpty() &&
+                    blacklistedClasses.minus(
+                        PERMANENTLY_BLACKLISTED_CLASSES.union(DEFAULT_BLACKLISTED_CLASSES)
+                    ).isNotEmpty())
+            ) {
                 "can't set both a class whitelist and blacklist"
             }
             unsafeExceptions.forEach { name ->
@@ -42,14 +59,18 @@ object Sandbox {
                 require(Throwable::class.java.isAssignableFrom(klass)) { "$name does not refer to a Java Throwable" }
             }
         }
+
         companion object {
             val DEFAULT_WHITELISTED_CLASSES = setOf<String>()
             val DEFAULT_BLACKLISTED_CLASSES = setOf("java.lang.reflect.")
             val DEFAULT_UNSAFE_EXCEPTIONS = setOf<String>()
-            val PERMANENTLY_BLACKLISTED_CLASSES = setOf("edu.illinois.cs.cs125.jeed.", "org.objectweb.asm.", "java.lang.invoke.MethodHandles")
+            val PERMANENTLY_BLACKLISTED_CLASSES =
+                setOf("edu.illinois.cs.cs125.jeed.", "org.objectweb.asm.", "java.lang.invoke.MethodHandles")
             val ALWAYS_UNSAFE_EXCEPTIONS = setOf("java.lang.Error")
         }
     }
+
+    @JsonClass(generateAdapter = true)
     open class ExecutionArguments(
         val timeout: Long = DEFAULT_TIMEOUT,
         val permissions: Set<Permission> = setOf(),
@@ -73,54 +94,75 @@ object Sandbox {
         val interval: Interval,
         val executionInterval: Interval,
         @Transient val sandboxedClassLoader: SandboxedClassLoader? = null,
-        val truncatedLines: Int
+        val truncatedLines: Int,
+        @Suppress("unused")
+        val executionArguments: ExecutionArguments
     ) {
         @JsonClass(generateAdapter = true)
         data class OutputLine(val console: Console, val line: String, val timestamp: Instant, val thread: Long) {
             enum class Console { STDOUT, STDERR }
         }
+
         @JsonClass(generateAdapter = true)
         data class PermissionRequest(val permission: Permission, val granted: Boolean)
 
         val completed: Boolean
-            get() { return threw == null && !timeout }
+            get() {
+                return threw == null && !timeout
+            }
         val permissionDenied: Boolean
-            get() { return permissionRequests.any { !it.granted } }
+            get() {
+                return permissionRequests.any { !it.granted }
+            }
         val stdoutLines: List<OutputLine>
-            get() { return outputLines.filter { it.console == OutputLine.Console.STDOUT } }
+            get() {
+                return outputLines.filter { it.console == OutputLine.Console.STDOUT }
+            }
         val stderrLines: List<OutputLine>
-            get() { return outputLines.filter { it.console == OutputLine.Console.STDERR } }
+            get() {
+                return outputLines.filter { it.console == OutputLine.Console.STDERR }
+            }
         val stdout: String
-            get() { return stdoutLines.joinToString(separator = "\n") { it.line } }
+            get() {
+                return stdoutLines.joinToString(separator = "\n") { it.line }
+            }
         val stderr: String
-            get() { return stderrLines.joinToString(separator = "\n") { it.line } }
+            get() {
+                return stderrLines.joinToString(separator = "\n") { it.line }
+            }
         val output: String
-            get() { return outputLines.sortedBy { it.timestamp }.joinToString(separator = "\n") { it.line } }
+            get() {
+                return outputLines.sortedBy { it.timestamp }.joinToString(separator = "\n") { it.line }
+            }
         val totalDuration: Duration
-            get() { return Duration.between(interval.start, interval.end) }
+            get() {
+                return Duration.between(interval.start, interval.end)
+            }
     }
 
     private val BLACKLISTED_PERMISSIONS = setOf(
-            // Suggestions from here: https://github.com/pro-grade/pro-grade/issues/31.
-            RuntimePermission("createClassLoader"),
-            RuntimePermission("accessClassInPackage.sun"),
-            RuntimePermission("setSecurityManager"),
-            // Required for Java Streams to work...
-            // ReflectPermission("suppressAccessChecks")
-            SecurityPermission("setPolicy"),
-            SecurityPermission("setProperty.package.access"),
-            // Other additions from here: https://docs.oracle.com/javase/7/docs/technotes/guides/security/permissions.html
-            SecurityPermission("createAccessControlContext"),
-            SecurityPermission("getDomainCombiner"),
-            RuntimePermission("createSecurityManager"),
-            RuntimePermission("exitVM"),
-            RuntimePermission("shutdownHooks"),
-            RuntimePermission("setIO"),
-            RuntimePermission("queuePrintJob"),
-            RuntimePermission("setDefaultUncaughtExceptionHandler"),
-            // These are particularly important to prevent untrusted code from escaping the sandbox which is based on thread groups
-            RuntimePermission("modifyThread"),
-            RuntimePermission("modifyThreadGroup")
+        // Suggestions from here: https://github.com/pro-grade/pro-grade/issues/31.
+        RuntimePermission("createClassLoader"),
+        RuntimePermission("accessClassInPackage.sun"),
+        RuntimePermission("setSecurityManager"),
+        // Required for Java Streams to work...
+        // ReflectPermission("suppressAccessChecks")
+        SecurityPermission("setPolicy"),
+        SecurityPermission("setProperty.package.access"),
+        @Suppress("MaxLineLength")
+        // Other additions from here: https://docs.oracle.com/javase/7/docs/technotes/guides/security/permissions.html
+        SecurityPermission("createAccessControlContext"),
+        SecurityPermission("getDomainCombiner"),
+        RuntimePermission("createSecurityManager"),
+        RuntimePermission("exitVM"),
+        RuntimePermission("shutdownHooks"),
+        RuntimePermission("setIO"),
+        RuntimePermission("queuePrintJob"),
+        RuntimePermission("setDefaultUncaughtExceptionHandler"),
+        // These are particularly important to prevent untrusted code from escaping the sandbox
+        // which is based on thread groups
+        RuntimePermission("modifyThread"),
+        RuntimePermission("modifyThreadGroup")
     )
 
     suspend fun <T> execute(
@@ -146,7 +188,8 @@ object Sandbox {
         executionArguments: ExecutionArguments = ExecutionArguments(),
         callable: SandboxCallableArguments<T>
     ): TaskResults<out T?> {
-        val sandboxedClassLoader = SandboxedClassLoader(sandboxableClassLoader, executionArguments.classLoaderConfiguration)
+        val sandboxedClassLoader =
+            SandboxedClassLoader(sandboxableClassLoader, executionArguments.classLoaderConfiguration)
         return execute(sandboxedClassLoader, executionArguments, callable)
     }
 
@@ -158,7 +201,8 @@ object Sandbox {
     private fun submitToThreadPool(task: Executor<*>) {
         synchronized(threadPoolSynclock) {
             if (threadPool == null) {
-                threadPool = Executors.newFixedThreadPool(Runtime.getRuntime().availableProcessors()) ?: error("thread pool should be available")
+                threadPool = Executors.newFixedThreadPool(Runtime.getRuntime().availableProcessors())
+                    ?: error("thread pool should be available")
             }
             threadPool!!.submit(task)
         }
@@ -183,6 +227,7 @@ object Sandbox {
         private data class TaskResult<T>(val returned: T, val threw: Throwable? = null, val timeout: Boolean = false)
 
         override fun call() {
+            @Suppress("TooGenericExceptionCaught")
             try {
                 val confinedTask = confine(callable, sandboxedClassLoader, executionArguments)
                 val executionStarted = Instant.now()
@@ -199,13 +244,14 @@ object Sandbox {
                 release(confinedTask)
 
                 val executionResult = TaskResults(
-                        taskResult.returned, taskResult.threw, taskResult.timeout,
-                        confinedTask.outputLines,
-                        confinedTask.permissionRequests,
-                        Interval(confinedTask.started, Instant.now()),
-                        Interval(executionStarted, executionEnded),
-                        sandboxedClassLoader,
-                        confinedTask.truncatedLines
+                    taskResult.returned, taskResult.threw, taskResult.timeout,
+                    confinedTask.outputLines,
+                    confinedTask.permissionRequests,
+                    Interval(confinedTask.started, Instant.now()),
+                    Interval(executionStarted, executionEnded),
+                    sandboxedClassLoader,
+                    confinedTask.truncatedLines,
+                    executionArguments
                 )
                 runBlocking { resultChannel.send(ExecutorResult(executionResult, Exception())) }
             } catch (e: Throwable) {
@@ -216,7 +262,7 @@ object Sandbox {
         }
     }
 
-    private class ConfinedTask<T> (
+    private class ConfinedTask<T>(
         val classLoader: SandboxedClassLoader,
         val task: FutureTask<T>,
         val thread: Thread,
@@ -224,11 +270,13 @@ object Sandbox {
     ) {
         val threadGroup = thread.threadGroup ?: error("thread should be in thread group")
         val accessControlContext: AccessControlContext
+
         init {
             val permissions = Permissions()
             executionArguments.permissions.forEach { permissions.add(it) }
             accessControlContext = AccessControlContext(arrayOf(ProtectionDomain(null, permissions)))
         }
+
         val maxExtraThreads: Int = executionArguments.maxExtraThreads
         val maxOutputLines: Int = executionArguments.maxOutputLines
 
@@ -240,8 +288,8 @@ object Sandbox {
         val outputLines: MutableList<TaskResults.OutputLine> = mutableListOf()
 
         val redirectedOutputLines: MutableMap<TaskResults.OutputLine.Console, StringBuilder> = mutableMapOf(
-                TaskResults.OutputLine.Console.STDOUT to StringBuilder(),
-                TaskResults.OutputLine.Console.STDERR to StringBuilder()
+            TaskResults.OutputLine.Console.STDOUT to StringBuilder(),
+            TaskResults.OutputLine.Console.STDERR to StringBuilder()
         )
         var redirectingOutput: Boolean = false
 
@@ -252,6 +300,7 @@ object Sandbox {
             val line: StringBuilder = StringBuilder(),
             val startedThread: Long = Thread.currentThread().id
         )
+
         val started: Instant = Instant.now()
 
         fun addPermissionRequest(permission: Permission, granted: Boolean, throwException: Boolean = true) {
@@ -272,9 +321,10 @@ object Sandbox {
             }
         }
         val printStreams: Map<TaskResults.OutputLine.Console, PrintStream> = mapOf(
-                TaskResults.OutputLine.Console.STDOUT to PrintStream(ourStdout),
-                TaskResults.OutputLine.Console.STDERR to PrintStream(ourStderr)
+            TaskResults.OutputLine.Console.STDOUT to PrintStream(ourStdout),
+            TaskResults.OutputLine.Console.STDERR to PrintStream(ourStderr)
         )
+
         private fun redirectedWrite(int: Int, console: TaskResults.OutputLine.Console) {
             if (shuttingDown) {
                 return
@@ -285,12 +335,12 @@ object Sandbox {
                 '\n' -> {
                     if (outputLines.size < maxOutputLines) {
                         outputLines.add(
-                                TaskResults.OutputLine(
-                                        console,
-                                        currentLine.line.toString(),
-                                        currentLine.started,
-                                        currentLine.startedThread
-                                )
+                            TaskResults.OutputLine(
+                                console,
+                                currentLine.line.toString(),
+                                currentLine.started,
+                                currentLine.startedThread
+                            )
                         )
                     } else {
                         truncatedLines += 1
@@ -325,7 +375,8 @@ object Sandbox {
         executionArguments: ExecutionArguments
     ): ConfinedTask<T> {
         val threadGroup = object : ThreadGroup("Sandbox") {
-            override fun uncaughtException(t: Thread?, e: Throwable?) { }
+            @Suppress("EmptyFunctionBlock")
+            override fun uncaughtException(t: Thread?, e: Throwable?) {}
         }
         threadGroup.maxPriority = Thread.MIN_PRIORITY
         val task = FutureTask<T>(SandboxedCallable<T>(callable, sandboxedClassLoader))
@@ -334,6 +385,7 @@ object Sandbox {
         confinedTasks[threadGroup] = confinedTask
         return confinedTask
     }
+
     @Synchronized
     private fun <T> release(confinedTask: ConfinedTask<T>) {
         val threadGroup = confinedTask.threadGroup
@@ -378,12 +430,12 @@ object Sandbox {
                 val currentLine = confinedTask.currentLines[console] ?: continue
                 if (currentLine.line.isNotEmpty()) {
                     confinedTask.outputLines.add(
-                            TaskResults.OutputLine(
-                                    console,
-                                    currentLine.line.toString(),
-                                    currentLine.started,
-                                    currentLine.startedThread
-                            )
+                        TaskResults.OutputLine(
+                            console,
+                            currentLine.line.toString(),
+                            currentLine.started,
+                            currentLine.startedThread
+                        )
                     )
                 }
             }
@@ -405,6 +457,7 @@ object Sandbox {
         val bytecodeForClasses: Map<String, ByteArray>
         val classLoader: ClassLoader
     }
+
     interface EnumerableClassLoader {
         val definedClasses: Set<String>
         val providedClasses: Set<String>
@@ -429,6 +482,7 @@ object Sandbox {
 
         @Suppress("MemberVisibilityCanBePrivate")
         val knownClasses: Map<String, ByteArray>
+
         init {
             knownClasses = sandboxableClassLoader.bytecodeForClasses.mapValues { (_, unsafeByteArray) ->
                 RewriteTryCatchFinally.rewrite(unsafeByteArray, unsafeExceptionClasses)
@@ -453,6 +507,8 @@ object Sandbox {
             loadedClasses.add(name)
             return klass
         }
+
+        @Suppress("ReturnCount")
         override fun loadClass(name: String): Class<*> {
             if (!filter) {
                 return delegateClass(name)
@@ -469,12 +525,20 @@ object Sandbox {
                 if (whitelistedClasses.any { name.startsWith(it) }) {
                     delegateClass(name)
                 } else {
-                    confinedTask.addPermissionRequest(RuntimePermission("loadClass $name"), granted = false, throwException = false)
+                    confinedTask.addPermissionRequest(
+                        RuntimePermission("loadClass $name"),
+                        granted = false,
+                        throwException = false
+                    )
                     throw ClassNotFoundException(name)
                 }
             } else {
                 if (blacklistedClasses.any { name.startsWith(it) }) {
-                    confinedTask.addPermissionRequest(RuntimePermission("loadClass $name"), granted = false, throwException = false)
+                    confinedTask.addPermissionRequest(
+                        RuntimePermission("loadClass $name"),
+                        granted = false,
+                        throwException = false
+                    )
                     throw ClassNotFoundException(name)
                 } else {
                     delegateClass(name)
@@ -483,7 +547,8 @@ object Sandbox {
         }
 
         companion object {
-            private val ALWAYS_ALLOWED_CLASS_NAMES = setOf(RewriteTryCatchFinally::class.java.name, InvocationTargetException::class.java.name)
+            private val ALWAYS_ALLOWED_CLASS_NAMES =
+                setOf(RewriteTryCatchFinally::class.java.name, InvocationTargetException::class.java.name)
         }
     }
 
@@ -496,16 +561,17 @@ object Sandbox {
     }
 
     object RewriteTryCatchFinally {
-        val checkClassName = classNameToPath(RewriteTryCatchFinally::class.java.name ?: error("should have a class name"))
+        val checkClassName =
+            classNameToPath(RewriteTryCatchFinally::class.java.name ?: error("should have a class name"))
         private val checkMethodName = RewriteTryCatchFinally::checkException.javaMethod?.name
-                ?: error("should have a method name")
+            ?: error("should have a method name")
         private val checkMethodDescription = Type.getMethodDescriptor(RewriteTryCatchFinally::checkException.javaMethod)
-                ?: error("should be able to retrieve method signature")
+            ?: error("should be able to retrieve method signature")
 
         @JvmStatic
         fun checkException(throwable: Throwable) {
             val confinedTask = confinedTaskByThreadGroup()
-                    ?: error("only confined tasks should call this method")
+                ?: error("only confined tasks should call this method")
             if (confinedTask.shuttingDown) {
                 throw ThreadDeath()
             }
@@ -519,11 +585,20 @@ object Sandbox {
             val classReader = ClassReader(originalByteArray)
             val classWriter = ClassWriter(classReader, ClassWriter.COMPUTE_MAXS)
             val ourVisitor = object : ClassVisitor(Opcodes.ASM7, classWriter) {
-                override fun visitMethod(access: Int, name: String, descriptor: String, signature: String?, exceptions: Array<out String>?): MethodVisitor? {
+                override fun visitMethod(
+                    access: Int,
+                    name: String,
+                    descriptor: String,
+                    signature: String?,
+                    exceptions: Array<out String>?
+                ): MethodVisitor? {
                     return if (name == "finalize" && descriptor == "()V") {
                         null // Drop the finalizer
                     } else {
-                        OurMethodVisitor(unsafeExceptionClasses, super.visitMethod(access, name, descriptor, signature, exceptions))
+                        OurMethodVisitor(
+                            unsafeExceptionClasses,
+                            super.visitMethod(access, name, descriptor, signature, exceptions)
+                        )
                     }
                 }
             }
@@ -544,14 +619,19 @@ object Sandbox {
                     labelsToRewrite.add(handler)
                 } else {
                     val exceptionClass = Class.forName(pathToClassName(type))
-                            ?: error("no class for type $type")
+                        ?: error("no class for type $type")
 
-                    if (unsafeExceptionClasses.any { exceptionClass.isAssignableFrom(it) || it.isAssignableFrom(exceptionClass) }) {
+                    if (unsafeExceptionClasses.any {
+                            exceptionClass.isAssignableFrom(it) || it.isAssignableFrom(
+                                exceptionClass
+                            )
+                        }) {
                         labelsToRewrite.add(handler)
                     }
                 }
                 super.visitTryCatchBlock(start, end, handler, type)
             }
+
             private var nextLabel: Label? = null
             override fun visitLabel(label: Label) {
                 if (labelsToRewrite.contains(label)) {
@@ -560,16 +640,30 @@ object Sandbox {
                 }
                 super.visitLabel(label)
             }
-            override fun visitFrame(type: Int, numLocal: Int, local: Array<out Any>?, numStack: Int, stack: Array<out Any>?) {
+
+            override fun visitFrame(
+                type: Int,
+                numLocal: Int,
+                local: Array<out Any>?,
+                numStack: Int,
+                stack: Array<out Any>?
+            ) {
                 super.visitFrame(type, numLocal, local, numStack, stack)
                 if (nextLabel != null) {
                     super.visitInsn(Opcodes.DUP)
-                    super.visitMethodInsn(Opcodes.INVOKESTATIC, checkClassName, checkMethodName, checkMethodDescription, false)
+                    super.visitMethodInsn(
+                        Opcodes.INVOKESTATIC,
+                        checkClassName,
+                        checkMethodName,
+                        checkMethodDescription,
+                        false
+                    )
                     rewroteLabel = true
                     labelsToRewrite.remove(nextLabel ?: error("nextLabel changed"))
                     nextLabel = null
                 }
             }
+
             override fun visitEnd() {
                 assert(labelsToRewrite.isEmpty())
                 super.visitEnd()
@@ -587,18 +681,20 @@ object Sandbox {
             }
             return if (classIsConfined) confinedTask else null
         }
+
         override fun checkRead(file: String) {
             val confinedTask = confinedTaskByClassLoader()
-                    ?: return systemSecurityManager?.checkRead(file) ?: return
+                ?: return systemSecurityManager?.checkRead(file) ?: return
             if (!file.endsWith(".class")) {
                 confinedTask.addPermissionRequest(FilePermission(file, "read"), false)
             } else {
                 systemSecurityManager?.checkRead(file)
             }
         }
+
         override fun checkAccess(thread: Thread) {
             val confinedTask = confinedTaskByThreadGroup()
-                    ?: return systemSecurityManager?.checkAccess(thread) ?: return
+                ?: return systemSecurityManager?.checkAccess(thread) ?: return
             if (thread.threadGroup != Thread.currentThread().threadGroup) {
                 confinedTask.addPermissionRequest(RuntimePermission("changeThreadGroup"), false)
             } else {
@@ -606,30 +702,44 @@ object Sandbox {
                 systemSecurityManager?.checkAccess(thread)
             }
         }
+
         override fun checkAccess(threadGroup: ThreadGroup) {
             val confinedTask = confinedTaskByThreadGroup()
-                    ?: return systemSecurityManager?.checkAccess(threadGroup) ?: return
+                ?: return systemSecurityManager?.checkAccess(threadGroup) ?: return
             if (threadGroup != Thread.currentThread().threadGroup) {
                 confinedTask.addPermissionRequest(RuntimePermission("changeThreadGroup"), false)
             } else {
                 systemSecurityManager?.checkAccess(threadGroup)
             }
         }
+
+        @Suppress("ReturnCount")
         override fun getThreadGroup(): ThreadGroup {
             val threadGroup = Thread.currentThread().threadGroup
             val confinedTask = confinedTaskByThreadGroup()
-                    ?: return systemSecurityManager?.threadGroup ?: return threadGroup
+                ?: return systemSecurityManager?.threadGroup ?: return threadGroup
             if (confinedTask.shuttingDown) {
-                confinedTask.permissionRequests.add(TaskResults.PermissionRequest(RuntimePermission("createThreadAfterTimeout"), false))
+                confinedTask.permissionRequests.add(
+                    TaskResults.PermissionRequest(
+                        RuntimePermission("createThreadAfterTimeout"),
+                        false
+                    )
+                )
                 throw ThreadDeath()
             }
             if (Thread.currentThread().threadGroup.activeCount() >= confinedTask.maxExtraThreads + 1) {
-                confinedTask.permissionRequests.add(TaskResults.PermissionRequest(RuntimePermission("exceedThreadLimit"), false))
+                confinedTask.permissionRequests.add(
+                    TaskResults.PermissionRequest(
+                        RuntimePermission("exceedThreadLimit"),
+                        false
+                    )
+                )
                 throw SecurityException()
             } else {
                 return systemSecurityManager?.threadGroup ?: threadGroup
             }
         }
+
         override fun checkPermission(permission: Permission) {
             // Special case to prevent even trusted task code from calling System.setOut
             val confinedTask = if (permission == RuntimePermission("setIO")) {
@@ -648,6 +758,7 @@ object Sandbox {
             systemSecurityManager?.checkPermission(permission)
         }
     }
+
     init {
         System.setSecurityManager(SandboxSecurityManager)
     }
@@ -662,8 +773,8 @@ object Sandbox {
         confinedTask.redirectingOutput = false
 
         val toReturn = Pair(
-                confinedTask.redirectedOutputLines[TaskResults.OutputLine.Console.STDOUT].toString(),
-                confinedTask.redirectedOutputLines[TaskResults.OutputLine.Console.STDERR].toString()
+            confinedTask.redirectedOutputLines[TaskResults.OutputLine.Console.STDOUT].toString(),
+            confinedTask.redirectedOutputLines[TaskResults.OutputLine.Console.STDERR].toString()
         )
         confinedTask.redirectedOutputLines[TaskResults.OutputLine.Console.STDOUT] = StringBuilder()
         confinedTask.redirectedOutputLines[TaskResults.OutputLine.Console.STDERR] = StringBuilder()
@@ -675,8 +786,8 @@ object Sandbox {
     private var originalStderr = System.err
 
     private var originalPrintStreams: Map<TaskResults.OutputLine.Console, PrintStream> = mapOf(
-            TaskResults.OutputLine.Console.STDOUT to originalStdout,
-            TaskResults.OutputLine.Console.STDERR to originalStderr
+        TaskResults.OutputLine.Console.STDOUT to originalStdout,
+        TaskResults.OutputLine.Console.STDERR to originalStderr
     )
 
     /*
@@ -708,107 +819,145 @@ object Sandbox {
      * PS: also fuck you Java for leaving me no choice but to resort to this. There are a half-dozen different terrible
      * design decisions that led us to this place. Please do better next time.
      */
-    private val nullOutputStream = object : OutputStream() { override fun write(b: Int) { } }
+    @Suppress("EmptyFunctionBlock")
+    private val nullOutputStream = object : OutputStream() {
+        override fun write(b: Int) {}
+    }
+
+    @Suppress("TooManyFunctions", "SpreadOperator")
     private class RedirectingPrintStream(val console: TaskResults.OutputLine.Console) : PrintStream(nullOutputStream) {
         private val taskPrintStream: PrintStream
             get() {
-                val confinedTask = confinedTaskByThreadGroup() ?: return (originalPrintStreams[console] ?: error("original console should exist"))
+                val confinedTask = confinedTaskByThreadGroup() ?: return (originalPrintStreams[console]
+                    ?: error("original console should exist"))
                 return confinedTask.printStreams[console] ?: error("confined console should exist")
             }
+
         override fun append(char: Char): PrintStream {
             return taskPrintStream.append(char)
         }
+
         override fun append(charSequence: CharSequence?): PrintStream {
             return taskPrintStream.append(charSequence)
         }
+
         override fun append(charSequence: CharSequence?, start: Int, end: Int): PrintStream {
             return taskPrintStream.append(charSequence, start, end)
         }
+
         override fun close() {
             taskPrintStream.close()
         }
+
         override fun flush() {
             taskPrintStream.flush()
         }
+
         override fun format(locale: Locale?, format: String, vararg args: Any?): PrintStream {
             return taskPrintStream.format(locale, format, *args)
         }
+
         override fun format(format: String, vararg args: Any?): PrintStream {
             return taskPrintStream.format(format, *args)
         }
+
         override fun print(boolean: Boolean) {
             taskPrintStream.print(boolean)
         }
+
         override fun print(char: Char) {
             taskPrintStream.print(char)
         }
+
         override fun print(charArray: CharArray) {
             taskPrintStream.print(charArray)
         }
+
         override fun print(double: Double) {
             taskPrintStream.print(double)
         }
+
         override fun print(float: Float) {
             taskPrintStream.print(float)
         }
+
         override fun print(int: Int) {
             taskPrintStream.print(int)
         }
+
         override fun print(long: Long) {
             taskPrintStream.print(long)
         }
+
         override fun print(any: Any?) {
             taskPrintStream.print(any)
         }
+
         override fun print(string: String?) {
             taskPrintStream.print(string)
         }
+
         override fun printf(locale: Locale?, format: String, vararg args: Any?): PrintStream {
             return taskPrintStream.printf(locale, format, *args)
         }
+
         override fun printf(format: String, vararg args: Any?): PrintStream {
             return taskPrintStream.printf(format, *args)
         }
+
         override fun println() {
             taskPrintStream.println()
         }
+
         override fun println(boolean: Boolean) {
             taskPrintStream.println(boolean)
         }
+
         override fun println(char: Char) {
             taskPrintStream.println(char)
         }
+
         override fun println(charArray: CharArray) {
             taskPrintStream.println(charArray)
         }
+
         override fun println(double: Double) {
             taskPrintStream.println(double)
         }
+
         override fun println(float: Float) {
             taskPrintStream.println(float)
         }
+
         override fun println(int: Int) {
             taskPrintStream.println(int)
         }
+
         override fun println(long: Long) {
             taskPrintStream.println(long)
         }
+
         override fun println(any: Any?) {
             taskPrintStream.println(any)
         }
+
         override fun println(string: String?) {
             taskPrintStream.println(string)
         }
+
         override fun write(byteArray: ByteArray, off: Int, len: Int) {
             taskPrintStream.write(byteArray, off, len)
         }
+
         override fun write(int: Int) {
             taskPrintStream.write(int)
         }
+
         override fun write(byteArray: ByteArray) {
             taskPrintStream.write(byteArray)
         }
     }
+
     init {
         System.setOut(RedirectingPrintStream(TaskResults.OutputLine.Console.STDOUT))
         System.setErr(RedirectingPrintStream(TaskResults.OutputLine.Console.STDERR))
@@ -817,6 +966,8 @@ object Sandbox {
     }
 }
 
-fun Sandbox.SandboxableClassLoader.sandbox(classLoaderConfiguration: Sandbox.ClassLoaderConfiguration): Sandbox.SandboxedClassLoader {
+fun Sandbox.SandboxableClassLoader.sandbox(
+    classLoaderConfiguration: Sandbox.ClassLoaderConfiguration
+): Sandbox.SandboxedClassLoader {
     return Sandbox.SandboxedClassLoader(this, classLoaderConfiguration)
 }
