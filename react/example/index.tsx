@@ -25,7 +25,19 @@ interface CodeBlockProps {
 const CodeBlock: React.FC<CodeBlockProps> = ({ className, jeed, children }) => {
   const language = className?.replace(/language-/, "") || ""
   if (jeed) {
-    return <JeedAce mode={language}>{children}</JeedAce>
+    return (
+      <JeedAce
+        mode={language}
+        highlightActiveLine={false}
+        showPrintMargin={false}
+        width="100%"
+        height="100px"
+        maxLines={Infinity}
+        autoMin
+      >
+        {children}
+      </JeedAce>
+    )
   } else {
     return <SyntaxHighlighter language={language}>{children}</SyntaxHighlighter>
   }
