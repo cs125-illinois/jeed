@@ -208,6 +208,9 @@ const PermissionRequest = io.type({
   permission: Permission,
   granted: io.boolean,
 })
+const CompilationFailed = io.type({
+  errors: io.array(io.type({ location: SourceLocation, message: io.string })),
+})
 const JeedResult = io.intersection([
   io.type({
     job: Job,
@@ -246,6 +249,24 @@ const JeedResult = io.intersection([
       ]),
     }),
     completedTasks: io.array(Task),
+    failed: io.partial({
+      template: io.type({
+        errors: io.array(io.type({ name: io.string, line: io.number, column: io.number, message: io.string })),
+      }),
+      snippet: io.type({
+        errors: io.array(io.type({ line: io.number, column: io.number, message: io.string })),
+      }),
+      compilation: CompilationFailed,
+      kompilation: CompilationFailed,
+      checkstyle: io.type({
+        errors: io.array(io.type({ severity: io.string, location: SourceLocation, message: io.string })),
+      }),
+      execution: io.partial({
+        classNotFound: io.string,
+        methodNotFound: io.string,
+        threw: io.string,
+      }),
+    }),
     failedTasks: io.array(Task),
     interval: Interval,
   }),
@@ -304,6 +325,8 @@ export const JeedProvider: React.FC<JeedProviderProps> = ({ server, defaultArgum
 
   const run = (job: Job): void => {
     job.arguments = Object.assign({}, job.arguments, jeedDefaultArguments)
+
+    console.debug(job)
 
     const jeedJob = pipe(
       Job.decode(job),
