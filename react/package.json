@@ -14,7 +14,7 @@
     "eslint": "eslint src/**/* example/index.tsx",
     "eslint:fix": "eslint --fix src/**/* example/index.tsx",
     "depcheck:src": "depcheck --ignore-dirs example --ignores depcheck",
-    "depcheck:example": "depcheck example/ --ignore-dirs .cache,dist --ignores react,@types/*,typescript",
+    "depcheck:example": "depcheck example/ --ignore-dirs .cache,dist --ignores react,@mdx-js/parcel-plugin-mdx,@types/*,typescript",
     "depcheck": "npm run depcheck:src && npm run depcheck:example",
     "ncu:src": "ncu",
     "ncu:example": "cd example && ncu",

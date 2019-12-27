@@ -68,7 +68,7 @@ const TaskArguments = excess(
     execution: io.union([
       excess(
         io.type({
-          klass: io.union([io.string, io.null]),
+          klass: io.union([io.string, io.null, io.undefined]),
           method: io.union([io.string, io.null]),
           timeout: io.union([io.number, io.null]),
           permissions: io.union([io.array(Permission), io.null]),
@@ -239,6 +239,8 @@ const JeedResult = io.intersection([
           threw: ThrownException,
         }),
         io.type({
+          klass: io.string,
+          method: io.string,
           timeout: io.boolean,
           interval: Interval,
           executionInterval: Interval,
@@ -344,14 +346,16 @@ export const JeedProvider: React.FC<JeedProviderProps> = ({ server, defaultArgum
       .then(response => {
         return response.json()
       })
-      .then(data => {
+      .then(result => {
+        console.debug(result)
+
         const jeedResult = pipe(
-          JeedResult.decode(data),
+          JeedResult.decode(result),
           getOrElse<io.Errors, JeedResult>(errors => {
             throw new Error("Invalid Jeed result:\n" + failure(errors).join("\n"))
           })
         )
-        console.debug(jeedResult)
+
         return jeedResult
       })
   }
