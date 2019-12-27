@@ -7,15 +7,15 @@ import { failure } from "io-ts/lib/PathReporter"
 import { pipe } from "fp-ts/lib/pipeable"
 import { either, getOrElse } from "fp-ts/lib/Either"
 
-const JeedFlatSource = excess(
+const FlatSource = excess(
   io.type({
     path: io.string,
     contents: io.string,
   })
 )
-export type JeedFlatSource = io.TypeOf<typeof JeedFlatSource>
+export type FlatSource = io.TypeOf<typeof FlatSource>
 
-const JeedPermission = io.intersection([
+const Permission = io.intersection([
   io.type({
     klass: io.string,
     name: io.string,
@@ -24,7 +24,7 @@ const JeedPermission = io.intersection([
     actions: io.union([io.string, io.null]),
   }),
 ])
-const JeedTaskArguments = excess(
+const TaskArguments = excess(
   io.type({
     snippet: io.union([
       excess(
@@ -71,7 +71,7 @@ const JeedTaskArguments = excess(
           klass: io.union([io.string, io.null]),
           method: io.union([io.string, io.null]),
           timeout: io.union([io.number, io.null]),
-          permissions: io.union([io.array(JeedPermission), io.null]),
+          permissions: io.union([io.array(Permission), io.null]),
           maxExtraThreads: io.union([io.number, io.null]),
           maxOutputLines: io.union([io.number, io.null]),
           classLoaderConfiguration: io.union([
@@ -92,9 +92,9 @@ const JeedTaskArguments = excess(
     ]),
   })
 )
-export type JeedTaskArguments = io.TypeOf<typeof JeedTaskArguments>
+export type TaskArguments = io.TypeOf<typeof TaskArguments>
 
-const JeedTask = io.keyof({
+const Task = io.keyof({
   template: null,
   snippet: null,
   compile: null,
@@ -102,23 +102,23 @@ const JeedTask = io.keyof({
   checkstyle: null,
   execute: null,
 })
-const JeedJob = io.intersection([
+const Job = io.intersection([
   io.type({
     label: io.string,
-    tasks: io.array(JeedTask),
+    tasks: io.array(Task),
   }),
   io.partial({
     snippet: io.string,
-    source: io.array(JeedFlatSource),
-    templates: io.array(JeedFlatSource),
-    arguments: JeedTaskArguments,
+    source: io.array(FlatSource),
+    templates: io.array(FlatSource),
+    arguments: TaskArguments,
     authToken: io.string,
     waitForSave: io.boolean,
   }),
 ])
-export type JeedJob = io.TypeOf<typeof JeedJob>
+export type Job = io.TypeOf<typeof Job>
 
-const DateFromString = new io.Type<Date, string, unknown>(
+const Instant = new io.Type<Date, string, unknown>(
   "DateFromString",
   (unknown): unknown is Date => unknown instanceof Date,
   (toDecode, context) =>
@@ -129,10 +129,10 @@ const DateFromString = new io.Type<Date, string, unknown>(
   toEncode => toEncode.toISOString()
 )
 
-const JeedServerStatus = excess(
+const ServerStatus = excess(
   io.type({
-    started: DateFromString,
-    lastJob: io.union([DateFromString, io.undefined]),
+    started: Instant,
+    lastJob: io.union([Instant, io.undefined]),
     versions: excess(
       io.type({
         jeed: io.string,
@@ -160,37 +160,94 @@ const JeedServerStatus = excess(
     ),
   })
 )
-export type JeedServerStatus = io.TypeOf<typeof JeedServerStatus>
+export type ServerStatus = io.TypeOf<typeof ServerStatus>
 
-const JeedLocation = io.type({ line: io.number, column: io.number })
-const JeedSourceRange = io.intersection([
+const Location = io.type({ line: io.number, column: io.number })
+const SourceRange = io.intersection([
   io.partial({
     source: io.string,
   }),
   io.type({
-    start: JeedLocation,
-    end: JeedLocation,
+    start: Location,
+    end: Location,
   }),
 ])
-const JeedInterval = io.type({ start: DateFromString, end: DateFromString })
-
+const Interval = io.type({ start: Instant, end: Instant })
+const SourceLocation = io.type({
+  source: io.string,
+  line: io.number,
+  column: io.number,
+})
+const CompilationMessage = io.type({
+  kind: io.string,
+  location: SourceLocation,
+  message: io.string,
+})
+const CompiledSourceResult = io.type({
+  messages: io.array(CompilationMessage),
+  interval: Interval,
+  compilerName: io.string,
+})
+const CheckstyleError = io.type({
+  severity: io.string,
+  location: SourceLocation,
+  message: io.string,
+})
+const ThrownException = io.intersection([io.type({ klass: io.string }), io.partial({ message: io.string })])
+const Console = io.keyof({
+  STDOUT: null,
+  STDERR: null,
+})
+const OutputLine = io.type({
+  console: Console,
+  line: io.string,
+  timestamp: Instant,
+  thread: io.number,
+})
+const PermissionRequest = io.type({
+  permission: Permission,
+  granted: io.boolean,
+})
 const JeedResult = io.intersection([
   io.type({
-    job: JeedJob,
-    status: JeedServerStatus,
+    job: Job,
+    status: ServerStatus,
     completed: io.partial({
       snippet: io.type({
         sources: io.record(io.string, io.string),
         originalSource: io.string,
         rewrittenSource: io.string,
-        snippetRange: JeedSourceRange,
+        snippetRange: SourceRange,
         wrappedClassName: io.string,
         looseCodeMethodName: io.string,
       }),
+      template: io.type({
+        sources: io.record(io.string, io.string),
+        originalSources: io.record(io.string, io.string),
+      }),
+      compilation: CompiledSourceResult,
+      kompilation: CompiledSourceResult,
+      checkstyle: io.type({
+        errors: io.array(CheckstyleError),
+      }),
+      execution: io.intersection([
+        io.partial({
+          returned: io.string,
+          threw: ThrownException,
+        }),
+        io.type({
+          timeout: io.boolean,
+          interval: Interval,
+          executionInterval: Interval,
+          truncatedLines: io.number,
+          outputLines: io.array(OutputLine),
+          permissionRequests: io.array(PermissionRequest),
+        }),
+      ]),
     }),
-    completedTasks: io.array(JeedTask),
-    failedTasks: io.array(JeedTask),
-    interval: JeedInterval,
+    completedTasks: io.array(Task),
+    failedTasks: io.array(Task),
+    interval: Interval,
   }),
   io.partial({
     email: io.string,
@@ -199,9 +256,9 @@ const JeedResult = io.intersection([
 export type JeedResult = io.TypeOf<typeof JeedResult>
 
 interface JeedContext {
-  status: JeedServerStatus | null
+  status: ServerStatus | null
   connected: boolean
-  run: (job: JeedJob) => void
+  run: (job: Job) => void
 }
 const runNothing = (): void => {} // eslint-disable-line @typescript-eslint/no-empty-function
 const JeedContext = React.createContext<JeedContext>({
@@ -211,33 +268,32 @@ const JeedContext = React.createContext<JeedContext>({
 })
 interface JeedProviderProps {
   server: string
-  defaultArguments?: JeedTaskArguments
+  defaultArguments?: TaskArguments
   children: React.ReactNode
 }
 export const JeedProvider: React.FC<JeedProviderProps> = ({ server, defaultArguments = {}, children }) => {
   const [connected, setConnected] = useState<boolean>(false)
-  const [status, setStatus] = useState<JeedServerStatus | null>(null)
+  const [status, setStatus] = useState<ServerStatus | null>(null)
 
   const jeedDefaultArguments = pipe(
-    JeedTaskArguments.decode(defaultArguments),
-    getOrElse<io.Errors, JeedTaskArguments>(errors => {
+    TaskArguments.decode(defaultArguments),
+    getOrElse<io.Errors, TaskArguments>(errors => {
       throw new Error("Invalid Jeed default arguments:\n" + failure(errors).join("\n"))
     })
   )
-  console.debug(jeedDefaultArguments)
 
   useEffect(() => {
     fetch(server)
       .then(response => response.json())
       .then(status => {
         const jeedServerStatus = pipe(
-          JeedServerStatus.decode(status),
-          getOrElse<io.Errors, JeedServerStatus>(errors => {
+          ServerStatus.decode(status),
+          getOrElse<io.Errors, ServerStatus>(errors => {
             throw new Error("Invalid Jeed server status response:\n" + failure(errors).join("\n"))
           })
         )
         setConnected(true)
-        setStatus(jeedServerStatus as JeedServerStatus)
+        setStatus(jeedServerStatus as ServerStatus)
       })
       .catch(err => {
         console.error(err)
@@ -246,10 +302,12 @@ export const JeedProvider: React.FC<JeedProviderProps> = ({ server, defaultArgum
       })
   }, [])
 
-  const run = (job: JeedJob): void => {
+  const run = (job: Job): void => {
+    job.arguments = Object.assign({}, job.arguments, jeedDefaultArguments)
+
     const jeedJob = pipe(
-      JeedJob.decode(job),
-      getOrElse<io.Errors, JeedJob>(errors => {
+      Job.decode(job),
+      getOrElse<io.Errors, Job>(errors => {
         throw new Error("Invalid Jeed job:\n" + failure(errors).join("\n"))
       })
     )
