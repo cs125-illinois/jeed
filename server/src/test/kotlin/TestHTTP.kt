@@ -367,6 +367,51 @@ public class Main {
                 }
             }
         }
+        "should reject both source and snippet request" {
+            withTestApplication(Application::jeed) {
+                handleRequest(HttpMethod.Post, "/") {
+                    addHeader("content-type", "application/json")
+                    setBody("""
+{
+"label": "test",
+"snippet": "System.out.println(\"Hello, world!\");",
+"sources": [
+  {
+    "path": "Main.java",
+    "contents": " 
+public class Main {
+  public static void main() {
+    Object t = null;
+    System.out.println(t.toString());
+  }
+}"
+  }
+],
+"tasks": [ "compile", "execute" ],
+"waitForSave": true
+}""".trim())
+                }
+            }.apply {
+                response.shouldHaveStatus(HttpStatusCode.BadRequest.value)
+                Job.mongoCollection?.countDocuments() shouldBe 0
+            }
+        }
+        "should reject neither source nor snippet request" {
+            withTestApplication(Application::jeed) {
+                handleRequest(HttpMethod.Post, "/") {
+                    addHeader("content-type", "application/json")
+                    setBody("""
+{
+"label": "test",
+"tasks": [ "compile", "execute" ],
+"waitForSave": true
+}""".trim())
+                }
+            }.apply {
+                response.shouldHaveStatus(HttpStatusCode.BadRequest.value)
+                Job.mongoCollection?.countDocuments() shouldBe 0
+            }
+        }
         "should reject mapped source request" {
             withTestApplication(Application::jeed) {
                 handleRequest(HttpMethod.Post, "/") {

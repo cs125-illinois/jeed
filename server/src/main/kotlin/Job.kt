@@ -74,6 +74,8 @@ class Job(
         val tasksToRun = passedTasks.toMutableSet()
 
         require(!(source != null && snippet != null)) { "can't create task with both sources and snippet" }
+        require(source != null || snippet != null) { "must provide either sources or a snippet" }
+
         if (templates != null) {
             require(source != null) { "can't use both templates and snippet mode" }
         }
