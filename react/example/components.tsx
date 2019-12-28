@@ -5,16 +5,22 @@ import "ace-builds/src-noconflict/mode-java"
 import "ace-builds/src-noconflict/mode-kotlin"
 import "ace-builds/src-noconflict/theme-chrome"
 
-import { JeedContext, JeedResult } from "@cs125/react-jeed"
+import { JeedContext, JeedResult, Job, Task } from "@cs125/react-jeed"
 
 import Children from "react-children-utilities"
 import { Button, Icon, Dimmer, Container, Loader, Segment, Label } from "semantic-ui-react"
 import styled from "styled-components"
 
+export const enum JeedLanguage {
+  Java = "java",
+  Kotlin = "kotlin",
+}
 interface JeedAceProps extends IAceOptions {
+  mode: JeedLanguage
   children: string | React.ReactNode
   autoMin?: boolean
   autoPadding?: number
+  snippet?: boolean
 }
 interface JeedAceState {
   value: string
@@ -37,6 +43,7 @@ export class JeedAce extends Component<JeedAceProps, JeedAceState> {
     theme: "chrome",
     autoMin: false,
     autoPadding: 2,
+    snippet: false,
   }
 
   private originalValue: string
@@ -66,7 +73,7 @@ export class JeedAce extends Component<JeedAceProps, JeedAceState> {
     this.setState({ value })
   }
   runCode = (): void => {
-    const { name: label } = this.props
+    const { name: label, mode, snippet } = this.props
     const { value, busy } = this.state
     const { run, connected } = this.context
 
@@ -75,11 +82,13 @@ export class JeedAce extends Component<JeedAceProps, JeedAceState> {
     }
 
     this.setState({ busy: true, showOutput: true })
-    run({
-      label,
-      snippet: value,
-      tasks: ["compile", "execute"],
-    }).then(() => {
+
+    const tasks = [mode == "java" ? "compile" : "kompile", "execute"] as Array<Task>
+    const job: Job = snippet
+      ? { label, tasks, snippet: value }
+      : { label, tasks, sources: [{ path: mode == "java" ? "Main.java" : "Main.kt", contents: value }] }
+
+    run(job).then(() => {
       this.setState({ busy: false })
     })
   }

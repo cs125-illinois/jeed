@@ -15,25 +15,27 @@ import Content from "./index.mdx"
 import SyntaxHighlighter from "react-syntax-highlighter/dist/esm/default-highlight"
 
 import { JeedProvider } from "@cs125/react-jeed"
-import { JeedAce } from "./components"
+import { JeedAce, JeedLanguage } from "./components"
 
 interface CodeBlockProps {
   className?: string
   jeed?: boolean
   children: React.ReactNode
 }
-const CodeBlock: React.FC<CodeBlockProps> = ({ className, jeed, children }) => {
+const CodeBlock: React.FC<CodeBlockProps> = props => {
+  const { className, jeed, children, ...jeedProps } = props
   const language = className?.replace(/language-/, "") || ""
-  if (jeed) {
+  if (jeed && ["java", "kotlin"].includes(language)) {
     return (
       <JeedAce
-        mode={language}
+        mode={language as JeedLanguage}
         highlightActiveLine={false}
         showPrintMargin={false}
         width="100%"
         height="100px"
         maxLines={Infinity}
         autoMin
+        {...jeedProps}
       >
         {children}
       </JeedAce>

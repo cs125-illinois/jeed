@@ -102,6 +102,8 @@ const Task = io.keyof({
   checkstyle: null,
   execute: null,
 })
+export type Task = io.TypeOf<typeof Task>
+
 const Job = io.intersection([
   io.type({
     label: io.string,
@@ -109,7 +111,7 @@ const Job = io.intersection([
   }),
   io.partial({
     snippet: io.string,
-    source: io.array(FlatSource),
+    sources: io.array(FlatSource),
     templates: io.array(FlatSource),
     arguments: TaskArguments,
     authToken: io.string,
@@ -368,45 +370,50 @@ export const JeedProvider: React.FC<JeedProviderProps> = ({ server, defaultArgum
 }
 JeedProvider.propTypes = {
   server: PropTypes.string.isRequired,
-  defaultArguments: PropTypes.exact({
-    snippet: PropTypes.exact({
-      indent: PropTypes.number,
-    }),
-    compilation: PropTypes.exact({
-      wError: PropTypes.bool,
-      Xlint: PropTypes.string,
-    }),
-    kompilation: PropTypes.exact({
-      verbose: PropTypes.bool,
-      allWarningsAsErrors: PropTypes.bool,
-    }),
-    checkstyle: PropTypes.exact({
-      sources: PropTypes.arrayOf(PropTypes.string.isRequired),
-      failOnError: PropTypes.bool,
-    }),
-    execution: PropTypes.exact({
-      klass: PropTypes.string,
-      method: PropTypes.string,
-      timeout: PropTypes.number,
-      permissions: PropTypes.arrayOf(
-        PropTypes.exact({
-          klass: PropTypes.string.isRequired,
-          name: PropTypes.string.isRequired,
-          actions: PropTypes.string,
-        }).isRequired
-      ),
-      maxExtraThreads: PropTypes.number,
-      maxOutputLines: PropTypes.number,
-      classLoaderConfiguration: PropTypes.exact({
-        whitelistedClasses: PropTypes.arrayOf(PropTypes.string.isRequired),
-        blacklistedClasses: PropTypes.arrayOf(PropTypes.string.isRequired),
-        unsafeExceptions: PropTypes.arrayOf(PropTypes.string.isRequired),
-      }),
-    }),
-  }),
+  defaultArguments: (props, propName): Error | null => {
+    try {
+      pipe(
+        TaskArguments.decode(props[propName]),
+        getOrElse<io.Errors, TaskArguments>(errors => {
+          throw new Error("Invalid Jeed task arguments:\n" + failure(errors).join("\n"))
+        })
+      )
+    } catch (e) {
+      return e
+    }
+    return null
+  },
   children: PropTypes.node.isRequired,
 }
 
 export const useJeed = (): JeedContext => {
   return useContext(JeedContext)
+}
+
+interface Props {
+  result: JeedResult | undefined
+}
+export const TerminalOutput: React.FC<Props> = ({ result }) => {
+  if (result === undefined) {
+    return null
+  }
+  return <div>Here</div>
+}
+TerminalOutput.propTypes = {
+  result: (props, propName): Error | null => {
+    if (!props[propName]) {
+      return null
+    }
+    try {
+      pipe(
+        JeedResult.decode(props[propName]),
+        getOrElse<io.Errors, JeedResult>(errors => {
+          throw new Error("Invalid Jeed result:\n" + failure(errors).join("\n"))
+        })
+      )
+    } catch (e) {
+      return e
+    }
+    return null
+  },
 }
