@@ -22,7 +22,7 @@ dependencies {
     implementation(kotlin("compiler-embeddable"))
 
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-core:1.3.3")
-    implementation("com.puppycrawl.tools:checkstyle:8.27")
+    implementation("com.puppycrawl.tools:checkstyle:8.28")
     implementation("org.jetbrains.kotlin:kotlin-reflect:1.3.61")
     implementation("com.github.jknack:handlebars:4.1.2")
     implementation("com.squareup.moshi:moshi:1.9.2")
