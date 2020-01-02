@@ -1,3 +1,5 @@
+import java.io.File
+import java.io.StringWriter
 import java.util.Properties
 
 plugins {
@@ -58,7 +60,13 @@ task("createProperties") {
         val properties = Properties().also {
             it["version"] = project.version.toString()
         }
-        File(projectDir, "src/main/resources/edu.illinois.cs.cs125.jeed.core.version").printWriter().use { properties.store(it, null) }
+        File(projectDir, "src/main/resources/edu.illinois.cs.cs125.jeed.core.version")
+        .printWriter().use { printWriter ->
+            printWriter.print(
+                StringWriter().also { properties.store(it, null) }.buffer.toString()
+                    .lines().drop(1).joinToString(separator = "\n").trim()
+            )
+        }
     }
 }
 kapt {
