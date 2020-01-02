@@ -98,7 +98,7 @@ public class Main {
                 }
             }
         }
-        "f: should accept good kotlin source request" {
+        "should accept good kotlin source request" {
             withTestApplication(Application::jeed) {
                 handleRequest(HttpMethod.Post, "/") {
                     addHeader("content-type", "application/json")
@@ -356,6 +356,45 @@ fun main() {
                     result.completedTasks.size shouldBe 0
                     result.failedTasks.size shouldBe 1
                     result.failed.kompilation?.errors?.size ?: 0 shouldBeGreaterThan 0
+                }
+            }
+        }
+        "should handle checkstyle error" {
+            withTestApplication(Application::jeed) {
+                handleRequest(HttpMethod.Post, "/") {
+                    addHeader("content-type", "application/json")
+                    setBody(
+                        """
+{
+"label": "test",
+"arguments": {
+  "checkstyle": {
+    "failOnError": true
+  }
+},
+"sources": [
+  {
+    "path": "Main.java",
+    "contents": "
+public class Main {
+public static void main() {
+System.out.println(\"Here\");
+}
+}"
+  }
+],
+"tasks": [ "checkstyle", "compile", "execute" ],
+"waitForSave": true
+}""".trim()
+                    )
+                }.apply {
+                    response.shouldHaveStatus(HttpStatusCode.OK.value)
+                    Job.mongoCollection?.countDocuments() shouldBe 1
+
+                    val result = Result.from(response.content)
+                    result.completedTasks.size shouldBe 1
+                    result.failedTasks.size shouldBe 1
+                    result.failed.checkstyle?.errors?.size ?: 0 shouldBeGreaterThan 0
                 }
             }
         }

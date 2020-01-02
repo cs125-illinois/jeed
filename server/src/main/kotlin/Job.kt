@@ -43,7 +43,8 @@ enum class Task {
     compile,
     kompile,
     checkstyle,
-    execute
+    complexity,
+    execute,
 }
 
 @JsonClass(generateAdapter = true)
@@ -52,6 +53,7 @@ class TaskArguments(
     val compilation: CompilationArguments = CompilationArguments(),
     val kompilation: KompilationArguments = KompilationArguments(),
     val checkstyle: CheckstyleArguments = CheckstyleArguments(),
+    // val complexity: currently accepts no arguments
     val execution: SourceExecutionArguments = SourceExecutionArguments()
 )
 

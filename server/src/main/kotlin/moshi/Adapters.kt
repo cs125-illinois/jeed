@@ -74,6 +74,7 @@ class ResultAdapter {
         result.completed.kompilation = resultJson.completed.kompilation
         result.completed.template = resultJson.completed.template
         result.completed.execution = resultJson.completed.execution
+        result.completed.checkstyle = resultJson.completed.checkstyle
         result.completedTasks.addAll(resultJson.completedTasks)
 
         result.failed.snippet = resultJson.failed.snippet
@@ -81,6 +82,7 @@ class ResultAdapter {
         result.failed.kompilation = resultJson.failed.kompilation
         result.failed.template = resultJson.failed.template
         result.failed.execution = resultJson.failed.execution
+        result.failed.checkstyle = resultJson.failed.checkstyle
         result.failedTasks.addAll(resultJson.failedTasks)
 
         result.interval = resultJson.interval
