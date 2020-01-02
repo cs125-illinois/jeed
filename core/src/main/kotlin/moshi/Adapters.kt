@@ -20,9 +20,9 @@ import edu.illinois.cs.cs125.jeed.core.SourceRange
 import edu.illinois.cs.cs125.jeed.core.TemplatedSource
 import edu.illinois.cs.cs125.jeed.core.TemplatingError
 import edu.illinois.cs.cs125.jeed.core.TemplatingFailed
+import edu.illinois.cs.cs125.jeed.core.check
 import java.security.Permission
 import java.time.Instant
-import edu.illinois.cs.cs125.jeed.core.check
 
 @JvmField
 val Adapters = setOf(

@@ -1,14 +1,26 @@
 package edu.illinois.cs.cs125.jeed.core
 
 import com.squareup.moshi.JsonClass
-import java.io.*
+import java.io.ByteArrayInputStream
+import java.io.ByteArrayOutputStream
+import java.io.File
+import java.io.InputStream
+import java.io.OutputStream
 import java.net.URI
 import java.nio.charset.Charset
 import java.security.AccessController
 import java.security.PrivilegedAction
 import java.time.Instant
-import java.util.*
-import javax.tools.*
+import java.util.Locale
+import javax.tools.Diagnostic
+import javax.tools.DiagnosticListener
+import javax.tools.FileObject
+import javax.tools.ForwardingJavaFileManager
+import javax.tools.JavaFileManager
+import javax.tools.JavaFileObject
+import javax.tools.SimpleJavaFileObject
+import javax.tools.StandardLocation
+import javax.tools.ToolProvider
 import org.jetbrains.kotlin.codegen.GeneratedClassLoader
 
 private val systemCompiler = ToolProvider.getSystemJavaCompiler() ?: error {
@@ -17,7 +29,9 @@ private val systemCompiler = ToolProvider.getSystemJavaCompiler() ?: error {
 const val DEFAULT_JAVA_VERSION = 10
 val systemCompilerName = systemCompiler.sourceVersions.max().toString()
 val systemCompilerVersion = systemCompilerName.let {
-    @Suppress("TooGenericExceptionCaught") try { it.split("_")[1].toInt() } catch (e: Exception) {
+    @Suppress("TooGenericExceptionCaught") try {
+        it.split("_")[1].toInt()
+    } catch (e: Exception) {
         DEFAULT_JAVA_VERSION
     }
 }
@@ -38,13 +52,17 @@ data class CompilationArguments(
 
 @JsonClass(generateAdapter = true)
 class CompilationError(location: SourceLocation, message: String) : SourceError(location, message)
+
 class CompilationFailed(errors: List<CompilationError>) : JeedError(errors) {
     override fun toString(): String {
         return "compilation errors were encountered: ${errors.joinToString(separator = ",")}"
     }
 }
+
 @JsonClass(generateAdapter = true)
-class CompilationMessage(@Suppress("unused") val kind: String, location: SourceLocation, message: String) : SourceError(location, message)
+class CompilationMessage(@Suppress("unused") val kind: String, location: SourceLocation, message: String) :
+    SourceError(location, message)
+
 class CompiledSource(
     val source: Source,
     val messages: List<CompilationMessage>,
@@ -53,6 +71,7 @@ class CompiledSource(
     @Transient val fileManager: JeedFileManager,
     @Suppress("unused") val compilerName: String = systemCompilerName
 )
+
 @Throws(CompilationFailed::class)
 private fun compile(
     source: Source,
@@ -67,9 +86,9 @@ private fun compile(
     val units = source.sources.entries.map { Unit(it) }
     val results = Results()
     val fileManager = JeedFileManager(
-            parentFileManager ?: ToolProvider.getSystemJavaCompiler().getStandardFileManager(
-                    results, Locale.US, Charset.forName("UTF-8")
-            )
+        parentFileManager ?: ToolProvider.getSystemJavaCompiler().getStandardFileManager(
+            results, Locale.US, Charset.forName("UTF-8")
+        )
     )
 
     val options = mutableSetOf<String>()
@@ -110,6 +129,7 @@ fun Source.compile(
 ): CompiledSource {
     return compile(this, compilationArguments)
 }
+
 fun Source.compileWith(
     compiledSource: CompiledSource,
     compilationArguments: CompilationArguments = CompilationArguments()
@@ -124,38 +144,63 @@ fun Source.compileWith(
 }
 
 private class Unit(val entry: Map.Entry<String, String>) :
-        SimpleJavaFileObject(URI(entry.key), JavaFileObject.Kind.SOURCE) {
+    SimpleJavaFileObject(URI(entry.key), JavaFileObject.Kind.SOURCE) {
     override fun isNameCompatible(simpleName: String?, kind: JavaFileObject.Kind?): Boolean {
         return kind != JavaFileObject.Kind.SOURCE || (simpleName != "module-info" && simpleName != "package-info")
     }
-    override fun getCharContent(ignoreEncodingErrors: Boolean): CharSequence { return entry.value }
-    override fun toString(): String { return entry.key }
+
+    override fun getCharContent(ignoreEncodingErrors: Boolean): CharSequence {
+        return entry.value
+    }
+
+    override fun toString(): String {
+        return entry.key
+    }
 }
 
 class Results : DiagnosticListener<JavaFileObject> {
     val diagnostics = mutableListOf<Diagnostic<out JavaFileObject>>()
-    override fun report(diagnostic: Diagnostic<out JavaFileObject>) { diagnostics.add(diagnostic) }
+    override fun report(diagnostic: Diagnostic<out JavaFileObject>) {
+        diagnostics.add(diagnostic)
+    }
 }
 
-fun classNameToPathWithClass(className: String): String { return className.replace(".", "/") + ".class" }
-fun classNameToPath(className: String): String { return className.replace(".", "/") }
-fun pathToClassName(path: String): String { return path.removeSuffix(".class").replace("/", ".") }
+fun classNameToPathWithClass(className: String): String {
+    return className.replace(".", "/") + ".class"
+}
+
+fun classNameToPath(className: String): String {
+    return className.replace(".", "/")
+}
+
+fun pathToClassName(path: String): String {
+    return path.removeSuffix(".class").replace("/", ".")
+}
 
 class JeedFileManager(parentFileManager: JavaFileManager) :
-        ForwardingJavaFileManager<JavaFileManager>(parentFileManager) {
+    ForwardingJavaFileManager<JavaFileManager>(parentFileManager) {
     private val classFiles: MutableMap<String, JavaFileObject> = mutableMapOf()
 
     private class ByteSource(path: String) :
-            SimpleJavaFileObject(URI.create("bytearray:///$path"), JavaFileObject.Kind.CLASS) {
+        SimpleJavaFileObject(URI.create("bytearray:///$path"), JavaFileObject.Kind.CLASS) {
         init {
             check(path.endsWith(".class")) { "incorrect suffix for ByteSource path: $path" }
         }
+
         val buffer: ByteArrayOutputStream = ByteArrayOutputStream()
-        override fun openInputStream(): InputStream { return ByteArrayInputStream(buffer.toByteArray()) }
-        override fun openOutputStream(): OutputStream { return buffer }
+        override fun openInputStream(): InputStream {
+            return ByteArrayInputStream(buffer.toByteArray())
+        }
+
+        override fun openOutputStream(): OutputStream {
+            return buffer
+        }
     }
 
-    constructor(parentFileManager: JavaFileManager, generatedClassLoader: GeneratedClassLoader) : this(parentFileManager) {
+    constructor(
+        parentFileManager: JavaFileManager,
+        generatedClassLoader: GeneratedClassLoader
+    ) : this(parentFileManager) {
         generatedClassLoader.allGeneratedFiles.filter {
             ".${File(it.relativePath).extension}" == JavaFileObject.Kind.CLASS.extension
         }.forEach {
@@ -189,6 +234,7 @@ class JeedFileManager(parentFileManager: JavaFileManager) :
             }
         }
     }
+
     override fun getJavaFileForInput(
         location: JavaFileManager.Location?,
         className: String,
@@ -200,6 +246,7 @@ class JeedFileManager(parentFileManager: JavaFileManager) :
             classFiles[classNameToPathWithClass(className)]
         }
     }
+
     override fun list(
         location: JavaFileManager.Location?,
         packageName: String,
@@ -226,6 +273,7 @@ class JeedFileManager(parentFileManager: JavaFileManager) :
             parentList.plus(myList).toMutableList()
         }
     }
+
     override fun inferBinaryName(location: JavaFileManager.Location?, file: JavaFileObject): String {
         return if (file is ByteSource) {
             file.name.substring(0, file.name.lastIndexOf('.')).replace('/', '.')
@@ -236,7 +284,7 @@ class JeedFileManager(parentFileManager: JavaFileManager) :
 }
 
 class JeedClassLoader(private val fileManager: JeedFileManager, parentClassLoader: ClassLoader?) :
-        ClassLoader(parentClassLoader), Sandbox.SandboxableClassLoader, Sandbox.EnumerableClassLoader {
+    ClassLoader(parentClassLoader), Sandbox.SandboxableClassLoader, Sandbox.EnumerableClassLoader {
 
     override val bytecodeForClasses = fileManager.bytecodeForPaths.mapKeys { pathToClassName(it.key) }.toMap()
     override val classLoader: ClassLoader = this
@@ -254,9 +302,9 @@ class JeedClassLoader(private val fileManager: JeedFileManager, parentClassLoade
         @Suppress("UNREACHABLE_CODE", "TooGenericExceptionCaught")
         return try {
             val classFile = fileManager.getJavaFileForInput(
-                    StandardLocation.CLASS_OUTPUT,
-                    name,
-                    JavaFileObject.Kind.CLASS
+                StandardLocation.CLASS_OUTPUT,
+                name,
+                JavaFileObject.Kind.CLASS
             ) ?: throw ClassNotFoundException()
             val byteArray = classFile.openInputStream().readAllBytes()
             loadedClasses.add(name)

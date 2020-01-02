@@ -87,7 +87,7 @@ fun Checker.processString(name: String, source: String): List<CheckstyleError> {
 }
 
 val defaultChecker = run {
-    ConfiguredChecker(object : Any() {}::class.java.getResource("/checkstyle/default.xml").readText())
+    ConfiguredChecker(object {}::class.java.getResource("/checkstyle/default.xml").readText())
 }
 @Throws(CheckstyleFailed::class)
 fun Source.checkstyle(checkstyleArguments: CheckstyleArguments = CheckstyleArguments()): CheckstyleResults {

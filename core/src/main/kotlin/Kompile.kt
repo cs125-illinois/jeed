@@ -1,10 +1,12 @@
+@file:Suppress("MatchingDeclarationName")
+
 package edu.illinois.cs.cs125.jeed.core
 
 import com.squareup.moshi.JsonClass
 import io.github.classgraph.ClassGraph
 import java.nio.charset.Charset
 import java.time.Instant
-import java.util.*
+import java.util.Locale
 import javax.tools.ToolProvider
 import org.jetbrains.kotlin.cli.common.CLIConfigurationKeys
 import org.jetbrains.kotlin.cli.common.arguments.K2JVMCompilerArguments
@@ -29,12 +31,15 @@ import org.jetbrains.kotlin.psi.KtFile
 private val classpath = ClassGraph().classpathFiles.joinToString(separator = ":")
 
 @JsonClass(generateAdapter = true)
+
+@Suppress("MatchingDeclarationName")
 data class KompilationArguments(
     @Transient val parentClassLoader: ClassLoader = ClassLoader.getSystemClassLoader(),
     val verbose: Boolean = DEFAULT_VERBOSE,
     val allWarningsAsErrors: Boolean = DEFAULT_ALLWARNINGSASERRORS
 ) {
     val arguments: K2JVMCompilerArguments = K2JVMCompilerArguments()
+
     init {
         arguments.classpath = classpath
 
@@ -43,6 +48,7 @@ data class KompilationArguments(
 
         arguments.noStdlib = true
     }
+
     companion object {
         const val DEFAULT_VERBOSE = false
         const val DEFAULT_ALLWARNINGSASERRORS = false
@@ -55,11 +61,12 @@ private class JeedMessageCollector(val source: Source, val allWarningsAsErrors: 
     override fun clear() {
         messages.clear()
     }
+
     val errors: List<CompilationError>
         get() = messages.filter {
             it.kind == CompilerMessageSeverity.ERROR.presentableName ||
-                    allWarningsAsErrors && (it.kind == CompilerMessageSeverity.WARNING.presentableName ||
-                        it.kind == CompilerMessageSeverity.STRONG_WARNING.presentableName)
+                allWarningsAsErrors && (it.kind == CompilerMessageSeverity.WARNING.presentableName ||
+                it.kind == CompilerMessageSeverity.STRONG_WARNING.presentableName)
         }.map {
             CompilationError(it.location, it.message)
         }
@@ -96,14 +103,14 @@ private fun kompile(
     }
 
     val environment = KotlinCoreEnvironment.createForProduction(
-            rootDisposable, configuration, EnvironmentConfigFiles.JVM_CONFIG_FILES
+        rootDisposable, configuration, EnvironmentConfigFiles.JVM_CONFIG_FILES
     )
 
     val psiFileFactory = PsiFileFactory.getInstance(environment.project) as PsiFileFactoryImpl
     val psiFiles = source.sources.map { (name, contents) ->
         val virtualFile = LightVirtualFile(name, KotlinLanguage.INSTANCE, contents)
         psiFileFactory.trySetupPsiForFile(virtualFile, KotlinLanguage.INSTANCE, true, false) as KtFile?
-                ?: error("couldn't parse source to psiFile")
+            ?: error("couldn't parse source to psiFile")
     }.toMutableList()
 
     environment::class.java.getDeclaredField("sourceFiles").also { field ->
@@ -118,9 +125,11 @@ private fun kompile(
     check(state != null) { "compilation should have succeeded" }
 
     val results = Results()
-    val fileManager = JeedFileManager(ToolProvider.getSystemJavaCompiler().getStandardFileManager(
+    val fileManager = JeedFileManager(
+        ToolProvider.getSystemJavaCompiler().getStandardFileManager(
             results, Locale.US, Charset.forName("UTF-8")
-    ), GeneratedClassLoader(state.factory, kompilationArguments.parentClassLoader))
+        ), GeneratedClassLoader(state.factory, kompilationArguments.parentClassLoader)
+    )
     require(results.diagnostics.size == 0) { "fileManager generated errors during Kotlin compilation" }
 
     val classLoader = JeedClassLoader(fileManager, kompilationArguments.parentClassLoader)

@@ -15,9 +15,9 @@ class TemplatedSource(
             assert(remappedLineInfo.start <= input.line) { "can't map line before template range" }
             assert(input.line >= remappedLineInfo.start) { "can't map line after template range" }
             return SourceLocation(
-                    input.source,
-                    input.line - remappedLineInfo.start + 1,
-                    input.column - remappedLineInfo.addedIndentation
+                input.source,
+                input.line - remappedLineInfo.start + 1,
+                input.column - remappedLineInfo.addedIndentation
             )
         }
     }
@@ -34,12 +34,17 @@ class TemplatingError(
     column: Int,
     message: String
 ) : SourceError(SourceLocation(name, line, column), message)
+
 class TemplatingFailed(errors: List<TemplatingError>) : JeedError(errors)
 
 @Throws(TemplatingFailed::class)
+@Suppress("LongMethod")
 fun Source.Companion.fromTemplates(sources: Map<String, String>, templates: Map<String, String>): TemplatedSource {
     require(templates.keys.all { it.endsWith(".hbs") }) { "template names in map should end with .hbs" }
-    require(sources.keys.map { it.removeSuffix(".java") }.containsAll(templates.keys.map { it.removeSuffix(".hbs") })) { "templates map contains keys not present in source map" }
+    require(sources.keys.map { it.removeSuffix(".java") }
+        .containsAll(templates.keys.map { it.removeSuffix(".hbs") })) {
+        "templates map contains keys not present in source map"
+    }
 
     val templatingErrors = mutableListOf<TemplatingError>()
 
@@ -64,9 +69,9 @@ fun Source.Companion.fromTemplates(sources: Map<String, String>, templates: Map<
                 Pair(leadingWhitespace.value, leadingWhitespace.range.last + 1)
             }
             remappedLineMapping[name] = TemplatedSource.RemappedLines(
-                    templateLine.first + 1,
-                    templateLine.first + sourceLength,
-                    leadingWhitespaceAmount
+                templateLine.first + 1,
+                templateLine.first + sourceLength,
+                leadingWhitespaceAmount
             )
             whitespaceContent
         } else {
@@ -82,7 +87,11 @@ fun Source.Companion.fromTemplates(sources: Map<String, String>, templates: Map<
 
         try {
             val indentedSource = source.lines().mapIndexed { i, line ->
-                if (i > 0) { "$leadingWhitespaceContent$line" } else { line }
+                if (i > 0) {
+                    "$leadingWhitespaceContent$line"
+                } else {
+                    line
+                }
             }.joinToString(separator = "\n")
             template.apply(mapOf("contents" to indentedSource))
         } catch (e: HandlebarsException) {

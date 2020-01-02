@@ -14,20 +14,24 @@ class TestGoogleAuth : StringSpec() {
     override fun beforeSpec(spec: Spec) {
         configuration[Auth.none] = false
     }
+
     override fun afterSpec(spec: Spec) {
         configuration[Auth.none] = true
     }
+
     init {
         "should reject request without token" {
             withTestApplication(Application::jeed) {
                 handleRequest(HttpMethod.Post, "/") {
                     addHeader("content-type", "application/json")
-                    setBody("""
+                    setBody(
+                        """
 {
   "label": "test",
   "snippet": "System.out.println(\"Here\");",
   "tasks": [ "compile", "execute" ]
-}""".trim())
+}""".trim()
+                    )
                 }.apply {
                     response.shouldHaveStatus(HttpStatusCode.Unauthorized.value)
                 }
@@ -37,13 +41,15 @@ class TestGoogleAuth : StringSpec() {
             withTestApplication(Application::jeed) {
                 handleRequest(HttpMethod.Post, "/") {
                     addHeader("content-type", "application/json")
-                    setBody("""
+                    setBody(
+                        """
 {
   "label": "test",
   "authToken": "blahblah",
   "snippet": "System.out.println(\"Here\");",
   "tasks": [ "compile", "execute" ]
-}""".trim())
+}""".trim()
+                    )
                 }.apply {
                     response.shouldHaveStatus(HttpStatusCode.Unauthorized.value)
                 }

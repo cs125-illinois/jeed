@@ -1,6 +1,13 @@
 package edu.illinois.cs.cs125.jeed.core
 
-import io.kotlintest.*
+import io.kotlintest.Matcher
+import io.kotlintest.MatcherResult
+import io.kotlintest.SkipTestException
+import io.kotlintest.should
+import io.kotlintest.shouldBe
+import io.kotlintest.shouldNot
+import io.kotlintest.shouldNotBe
+import io.kotlintest.shouldThrow
 import io.kotlintest.specs.StringSpec
 
 class TestExecute : StringSpec({
@@ -241,7 +248,7 @@ public class Main {
     }
     "should execute sources that use Java 12 features" {
         if (systemCompilerVersion < 12) {
-            // throw SkipTestException("Cannot run this test until Java 12")
+            throw SkipTestException("Cannot run this test until Java 12")
         } else {
             val executionResult = Source(mapOf(
                     "Main.java" to """
@@ -266,7 +273,7 @@ public class Main {
     }
     "should execute sources that use Java 13 features" {
         if (systemCompilerVersion < 13) {
-            // throw SkipTestException("Cannot run this test until Java 13")
+            throw SkipTestException("Cannot run this test until Java 13")
         } else {
             val executionResult = Source(mapOf(
                     "Main.java" to """

@@ -1,12 +1,18 @@
 package edu.illinois.cs.cs125.jeed.core
 
-import io.kotlintest.*
+import io.kotlintest.Matcher
+import io.kotlintest.MatcherResult
 import io.kotlintest.matchers.collections.shouldHaveSize
+import io.kotlintest.should
+import io.kotlintest.shouldBe
+import io.kotlintest.shouldNotBe
+import io.kotlintest.shouldThrow
 import io.kotlintest.specs.StringSpec
 
 class TestSnippet : StringSpec({
-  "should parse snippets" {
-      Source.transformSnippet("""
+    "should parse snippets" {
+        Source.transformSnippet(
+            """
 class Test {
     int me = 0;
     int anotherTest() {
@@ -20,11 +26,13 @@ int testing() {
 import java.util.List;
 class AnotherTest { }
 int i = 0;
-i++;""".trim())
-  }
+i++;""".trim()
+        )
+    }
     "should identify a parse errors in a broken snippet" {
         val exception = shouldThrow<SnippetTransformationFailed> {
-            Source.transformSnippet("""
+            Source.transformSnippet(
+                """
 class Test {
     int me = 0;
     int anotherTest() {
@@ -37,14 +45,16 @@ int testing() {
 }
 int i = 0;
 i++
-""".trim())
+""".trim()
+            )
         }
         exception.errors shouldHaveSize 1
         exception should haveParseErrorOnLine(12)
     }
     "should identify multiple parse errors in a broken snippet" {
         val exception = shouldThrow<SnippetTransformationFailed> {
-            Source.transformSnippet("""
+            Source.transformSnippet(
+                """
 class;
 class Test {
     int me = 0;
@@ -58,7 +68,8 @@ int testing() {
 }
 int i = 0;
 i++
-""".trim())
+""".trim()
+            )
         }
         exception.errors shouldHaveSize 2
         exception should haveParseErrorOnLine(1)
@@ -75,30 +86,35 @@ int adder(int first, int second) {
         """.trim()
         val source = Source.transformSnippet(snippet)
 
-        source.originalSource shouldBe(snippet)
-        source.rewrittenSource shouldNotBe(snippet)
-        source.originalSourceFromMap() shouldBe(snippet)
+        source.originalSource shouldBe (snippet)
+        source.rewrittenSource shouldNotBe (snippet)
+        source.originalSourceFromMap() shouldBe (snippet)
     }
     "should not allow return statements in loose code" {
         shouldThrow<SnippetTransformationFailed> {
-            Source.transformSnippet("""
+            Source.transformSnippet(
+                """
 return;
-        """.trim())
+        """.trim()
+            )
         }
     }
     "should not allow return statements in loose code even under if statements" {
         shouldThrow<SnippetTransformationFailed> {
-            Source.transformSnippet("""
+            Source.transformSnippet(
+                """
 int i = 0;
 if (i > 2) {
     return;
 }
-        """.trim())
+        """.trim()
+            )
         }
     }
     // TODO: Update if and when ANTLR4 grammar is updated
     "!should parse Java 13 constructs in snippets" {
-        Source.transformSnippet("""
+        Source.transformSnippet(
+            """
 static String test(int arg) {
   switch (arg) {
       case 0 -> "test";
@@ -106,14 +122,17 @@ static String test(int arg) {
   }
 }
 System.out.println(test(0));
-        """.trim())
+        """.trim()
+        )
     }
 })
 
 fun haveParseErrorOnLine(line: Int) = object : Matcher<SnippetTransformationFailed> {
     override fun test(value: SnippetTransformationFailed): MatcherResult {
-        return MatcherResult(value.errors.any { it.location.line == line },
-                "should have parse error on line $line",
-                "should not have parse error on line $line")
+        return MatcherResult(
+            value.errors.any { it.location.line == line },
+            "should have parse error on line $line",
+            "should not have parse error on line $line"
+        )
     }
 }

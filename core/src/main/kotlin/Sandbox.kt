@@ -5,26 +5,31 @@ import java.io.FilePermission
 import java.io.OutputStream
 import java.io.PrintStream
 import java.lang.reflect.InvocationTargetException
+import java.security.AccessControlContext
+import java.security.Permission
+import java.security.Permissions
+import java.security.ProtectionDomain
+import java.security.SecurityPermission
 import java.time.Duration
 import java.time.Instant
-import java.util.*
-import java.util.concurrent.*
+import java.util.Locale
+import java.util.concurrent.Callable
+import java.util.concurrent.ExecutorService
+import java.util.concurrent.Executors
+import java.util.concurrent.FutureTask
+import java.util.concurrent.TimeUnit
+import java.util.concurrent.TimeoutException
 import kotlin.reflect.jvm.javaMethod
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.runBlocking
-import org.objectweb.asm.Type
 import org.objectweb.asm.ClassReader
 import org.objectweb.asm.ClassVisitor
 import org.objectweb.asm.ClassWriter
 import org.objectweb.asm.Label
 import org.objectweb.asm.MethodVisitor
 import org.objectweb.asm.Opcodes
-import java.security.AccessControlContext
-import java.security.Permission
-import java.security.Permissions
-import java.security.ProtectionDomain
-import java.security.SecurityPermission
+import org.objectweb.asm.Type
 
 private typealias SandboxCallableArguments<T> = (Pair<ClassLoader, (() -> Unit) -> Pair<String, String>>) -> T
 
@@ -40,8 +45,8 @@ object Sandbox {
 
         init {
             require(!whitelistedClasses.any { whitelistedClass ->
-                PERMANENTLY_BLACKLISTED_CLASSES.any {
-                        blacklistedClass -> whitelistedClass.startsWith(blacklistedClass)
+                PERMANENTLY_BLACKLISTED_CLASSES.any { blacklistedClass ->
+                    whitelistedClass.startsWith(blacklistedClass)
                 }
             }) {
                 "attempt to allow access to unsafe classes"
@@ -376,7 +381,8 @@ object Sandbox {
     ): ConfinedTask<T> {
         val threadGroup = object : ThreadGroup("Sandbox") {
             @Suppress("EmptyFunctionBlock")
-            override fun uncaughtException(t: Thread?, e: Throwable?) {}
+            override fun uncaughtException(t: Thread?, e: Throwable?) {
+            }
         }
         threadGroup.maxPriority = Thread.MIN_PRIORITY
         val task = FutureTask<T>(SandboxedCallable<T>(callable, sandboxedClassLoader))

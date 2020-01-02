@@ -1,6 +1,14 @@
 package edu.illinois.cs.cs125.jeed.core.sandbox
 
-import edu.illinois.cs.cs125.jeed.core.*
+import edu.illinois.cs.cs125.jeed.core.Sandbox
+import edu.illinois.cs.cs125.jeed.core.Source
+import edu.illinois.cs.cs125.jeed.core.SourceExecutionArguments
+import edu.illinois.cs.cs125.jeed.core.compile
+import edu.illinois.cs.cs125.jeed.core.execute
+import edu.illinois.cs.cs125.jeed.core.haveCompleted
+import edu.illinois.cs.cs125.jeed.core.haveOutput
+import edu.illinois.cs.cs125.jeed.core.haveTimedOut
+import edu.illinois.cs.cs125.jeed.core.transformSnippet
 import io.kotlintest.matchers.collections.shouldContain
 import io.kotlintest.matchers.collections.shouldHaveSize
 import io.kotlintest.matchers.numerics.shouldBeGreaterThan
@@ -12,19 +20,22 @@ import kotlinx.coroutines.async
 
 class TestResourceExhaustion : StringSpec({
     "should timeout correctly on snippet" {
-        val executionResult = Source.transformSnippet("""
+        val executionResult = Source.transformSnippet(
+            """
 int i = 0;
 while (true) {
     i++;
 }
-        """.trim()).compile().execute()
+        """.trim()
+        ).compile().execute()
 
         executionResult shouldNot haveCompleted()
         executionResult should haveTimedOut()
         executionResult should haveOutput()
     }
     "should timeout correctly on sources" {
-        val executionResult = Source(mapOf(
+        val executionResult = Source(
+            mapOf(
                 "Foo.java" to """
 public class Main {
     public static void main() {
@@ -34,26 +45,31 @@ public class Main {
         }
     }
 }
-        """.trim())).compile().execute()
+        """.trim()
+            )
+        ).compile().execute()
 
         executionResult shouldNot haveCompleted()
         executionResult should haveTimedOut()
         executionResult should haveOutput()
     }
     "should return output after timeout" {
-        val executionResult = Source.transformSnippet("""
+        val executionResult = Source.transformSnippet(
+            """
 System.out.println("Here");
 int i = 0;
 while (true) {
     i++;
 }
-            """.trim()).compile().execute()
+            """.trim()
+        ).compile().execute()
         executionResult shouldNot haveCompleted()
         executionResult should haveTimedOut()
         executionResult should haveOutput("Here")
     }
     "should shut down a runaway thread" {
-        val executionResult = Source.transformSnippet("""
+        val executionResult = Source.transformSnippet(
+            """
 public class Example implements Runnable {
     public void run() {
         while (true) {
@@ -69,14 +85,16 @@ thread.start();
 try {
     thread.join();
 } catch (Throwable e) { }
-        """.trim()).compile().execute(SourceExecutionArguments(maxExtraThreads = 1))
+        """.trim()
+        ).compile().execute(SourceExecutionArguments(maxExtraThreads = 1))
 
         executionResult shouldNot haveCompleted()
         executionResult should haveTimedOut()
         executionResult should haveOutput("Started")
     }
     "should shut down small thread bombs" {
-        val executionResult = Source.transformSnippet("""
+        val executionResult = Source.transformSnippet(
+            """
 public class Example implements Runnable {
     public void run() {
         for (long j = 0; j < 512 * 1024 * 1024; j++);
@@ -90,7 +108,8 @@ for (long i = 0;; i++) {
         thread.start();
     } catch (Throwable e) { }
 }
-        """.trim()).compile().execute(SourceExecutionArguments(maxExtraThreads = 16, timeout = 1000L))
+        """.trim()
+        ).compile().execute(SourceExecutionArguments(maxExtraThreads = 16, timeout = 1000L))
 
         executionResult shouldNot haveCompleted()
         executionResult.permissionDenied shouldBe true
@@ -100,7 +119,8 @@ for (long i = 0;; i++) {
         executionResult.stdoutLines.map { it.line } shouldContain "15"
     }
     "should shut down nasty thread bombs" {
-        val executionResult = Source.transformSnippet("""
+        val executionResult = Source.transformSnippet(
+            """
 public class Example implements Runnable {
     public void run() {
         while (true) {
@@ -117,14 +137,16 @@ while (true) {
         thread.start();
     } catch (Throwable e) { }
 }
-        """.trim()).compile().execute(SourceExecutionArguments(maxExtraThreads = 256, timeout = 1000L))
+        """.trim()
+        ).compile().execute(SourceExecutionArguments(maxExtraThreads = 256, timeout = 1000L))
 
         executionResult shouldNot haveCompleted()
         executionResult.permissionDenied shouldBe true
         executionResult should haveTimedOut()
     }
     "should shut down sleep bombs" {
-        val executionResult = Source.transformSnippet("""
+        val executionResult = Source.transformSnippet(
+            """
 public class Example implements Runnable {
     public void run() {
         while (true) {
@@ -140,13 +162,15 @@ while (true) {
         thread.start();
     } catch (Throwable e) { }
 }
-        """.trim()).compile().execute(SourceExecutionArguments(maxExtraThreads = 256, timeout = 1000L))
+        """.trim()
+        ).compile().execute(SourceExecutionArguments(maxExtraThreads = 256, timeout = 1000L))
 
         executionResult shouldNot haveCompleted()
         executionResult should haveTimedOut()
     }
     "should shut down exit bombs" {
-        val executionResult = Source.transformSnippet("""
+        val executionResult = Source.transformSnippet(
+            """
 public class Example implements Runnable {
     public void run() {
         while (true) {
@@ -162,14 +186,16 @@ while (true) {
         thread.start();
     } catch (Throwable e) { }
 }
-        """.trim()).compile().execute(SourceExecutionArguments(maxExtraThreads = 256, timeout = 1000L))
+        """.trim()
+        ).compile().execute(SourceExecutionArguments(maxExtraThreads = 256, timeout = 1000L))
 
         executionResult shouldNot haveCompleted()
         executionResult.permissionDenied shouldBe true
         executionResult should haveTimedOut()
     }
     "should shut down spin bombs" {
-        val executionResult = Source.transformSnippet("""
+        val executionResult = Source.transformSnippet(
+            """
 public class Example implements Runnable {
     public void run() {
         while (true) {
@@ -185,13 +211,15 @@ while (true) {
         thread.start();
     } catch (Throwable e) { }
 }
-        """.trim()).compile().execute(SourceExecutionArguments(maxExtraThreads = 256, timeout = 1000L))
+        """.trim()
+        ).compile().execute(SourceExecutionArguments(maxExtraThreads = 256, timeout = 1000L))
 
         executionResult shouldNot haveCompleted()
         executionResult should haveTimedOut()
     }
     "should shut down reflection-protected thread bombs" {
-        val executionResult = Source.transformSnippet("""
+        val executionResult = Source.transformSnippet(
+            """
 public class Example implements Runnable {
     public void run() {
         while (true) {
@@ -211,13 +239,15 @@ thread.start();
 try {
     Thread.sleep(Long.MAX_VALUE);
 } catch (Throwable e) { }
-        """.trim()).compile().execute(SourceExecutionArguments(maxExtraThreads = 256, timeout = 1000L))
+        """.trim()
+        ).compile().execute(SourceExecutionArguments(maxExtraThreads = 256, timeout = 1000L))
 
         executionResult shouldNot haveCompleted()
         executionResult should haveTimedOut()
     }
     "should shut down recursive thread bombs" {
-        val executionResult = Source.transformSnippet("""
+        val executionResult = Source.transformSnippet(
+            """
 public class Example implements Runnable {
     public void run() {
         while (true) {
@@ -244,14 +274,16 @@ thread.start();
 try {
     Thread.sleep(Long.MAX_VALUE);
 } catch (Throwable t) { }
-        """.trim()).compile().execute(SourceExecutionArguments(maxExtraThreads = 256, timeout = 1000L))
+        """.trim()
+        ).compile().execute(SourceExecutionArguments(maxExtraThreads = 256, timeout = 1000L))
 
         executionResult shouldNot haveCompleted()
         executionResult.permissionDenied shouldBe true
         executionResult should haveTimedOut()
     }
     "should shut down finally-protected thread bombs" {
-        val executionResult = Source.transformSnippet("""
+        val executionResult = Source.transformSnippet(
+            """
 public class Example implements Runnable {
     public void run() {
         while (true) {
@@ -279,7 +311,8 @@ thread.start();
 try {
     Thread.sleep(Long.MAX_VALUE);
 } catch (Throwable e) { }
-        """.trim()).compile().execute(SourceExecutionArguments(maxExtraThreads = 256, timeout = 1000L))
+        """.trim()
+        ).compile().execute(SourceExecutionArguments(maxExtraThreads = 256, timeout = 1000L))
 
         executionResult shouldNot haveCompleted()
         executionResult should haveTimedOut()
@@ -287,7 +320,8 @@ try {
     "should shut down parallel recursive thread bombs" {
         (0..16).toList().map {
             async {
-                Source.transformSnippet("""
+                Source.transformSnippet(
+                    """
 public class Example implements Runnable {
     public void run() {
         while (true) {
@@ -314,7 +348,8 @@ thread.start();
 try {
     Thread.sleep(Long.MAX_VALUE);
 } catch (Throwable t) { }
-        """.trim()).compile().execute(SourceExecutionArguments(maxExtraThreads = 256, timeout = 1000L))
+        """.trim()
+                ).compile().execute(SourceExecutionArguments(maxExtraThreads = 256, timeout = 1000L))
             }
         }.map {
             val executionResult = it.await()
@@ -325,7 +360,8 @@ try {
         }
     }
     "should shut down memory exhaustion bombs" {
-        Source.transformSnippet("""
+        Source.transformSnippet(
+            """
 import java.util.List;
 import java.util.ArrayList;
 
@@ -347,10 +383,12 @@ while (true) {
         thread.start();
     } catch (Throwable e) { }
 }
-        """.trim()).compile().execute(SourceExecutionArguments(maxExtraThreads = 16, timeout = 1000L))
+        """.trim()
+        ).compile().execute(SourceExecutionArguments(maxExtraThreads = 16, timeout = 1000L))
     }
     "should recover from excessive memory usage" {
-        Source.transformSnippet("""
+        Source.transformSnippet(
+            """
 import java.util.List;
 import java.util.ArrayList;
 
@@ -362,15 +400,18 @@ while (true) {
         }
     } catch (Throwable e) {}
 }
-            """.trim()).compile().execute(SourceExecutionArguments(maxExtraThreads = 256, timeout = 1000L))
+            """.trim()
+        ).compile().execute(SourceExecutionArguments(maxExtraThreads = 256, timeout = 1000L))
     }
     "should recover from excessive console printing" {
         for (i in 0..32) {
-            val result = Source.transformSnippet("""
+            val result = Source.transformSnippet(
+                """
     for (long i = 0; i < 10000000L; i++) {
         System.out.println(i);
     }
-    """.trim()).compile().execute(SourceExecutionArguments(timeout = 100L))
+    """.trim()
+            ).compile().execute(SourceExecutionArguments(timeout = 100L))
 
             result.outputLines[0].line shouldBe "0"
             result.outputLines[Sandbox.ExecutionArguments.DEFAULT_MAX_OUTPUT_LINES - 1].line shouldBe (Sandbox.ExecutionArguments.DEFAULT_MAX_OUTPUT_LINES - 1).toString()
@@ -381,11 +422,15 @@ while (true) {
     "should print correctly in parallel using coroutines" {
         (0..8).toList().map { value ->
             async {
-                Pair(Source.transformSnippet("""
+                Pair(
+                    Source.transformSnippet(
+                        """
 for (int i = 0; i < (($value + 10) * 10000); i++) {
     System.out.println($value);
 }
-                    """.trim()).compile().execute(SourceExecutionArguments(timeout = 100L)), value)
+                    """.trim()
+                    ).compile().execute(SourceExecutionArguments(timeout = 100L)), value
+                )
             }
         }.map { it ->
             val (result, value) = it.await()
@@ -399,7 +444,8 @@ for (int i = 0; i < (($value + 10) * 10000); i++) {
         // It's only a problem if it dies at a time that causes a ConfinedTask to be leaked
 
         // From https://stackoverflow.com/a/42301131/
-        Source.transformSnippet("""
+        Source.transformSnippet(
+            """
 class A {
     {
         int a;
@@ -468,6 +514,7 @@ class A {
     A(Character a, Character b) { }
 }
 new A();
-        """.trimIndent()).compile().execute()
+        """.trimIndent()
+        ).compile().execute()
     }
 })

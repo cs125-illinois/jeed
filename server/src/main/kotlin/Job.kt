@@ -29,10 +29,10 @@ import edu.illinois.cs.cs125.jeed.core.moshi.PermissionAdapter
 import edu.illinois.cs.cs125.jeed.core.moshi.SourceTaskResults
 import edu.illinois.cs.cs125.jeed.core.moshi.TemplatedSourceResult
 import edu.illinois.cs.cs125.jeed.core.transformSnippet
-import kotlinx.coroutines.GlobalScope
-import kotlinx.coroutines.async
 import java.lang.IllegalArgumentException
 import java.time.Instant
+import kotlinx.coroutines.GlobalScope
+import kotlinx.coroutines.async
 import org.apache.http.auth.AuthenticationException
 import org.bson.BsonDocument
 

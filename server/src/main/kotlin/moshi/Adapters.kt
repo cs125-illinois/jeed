@@ -3,9 +3,18 @@ package edu.illinois.cs.cs125.jeed.server.moshi
 import com.squareup.moshi.FromJson
 import com.squareup.moshi.JsonClass
 import com.squareup.moshi.ToJson
-import edu.illinois.cs.cs125.jeed.core.*
+import edu.illinois.cs.cs125.jeed.core.Interval
 import edu.illinois.cs.cs125.jeed.core.moshi.TemplatedSourceResult
-import edu.illinois.cs.cs125.jeed.server.*
+import edu.illinois.cs.cs125.jeed.server.CompletedTasks
+import edu.illinois.cs.cs125.jeed.server.FailedTasks
+import edu.illinois.cs.cs125.jeed.server.FlatSource
+import edu.illinois.cs.cs125.jeed.server.Job
+import edu.illinois.cs.cs125.jeed.server.Result
+import edu.illinois.cs.cs125.jeed.server.Status
+import edu.illinois.cs.cs125.jeed.server.Task
+import edu.illinois.cs.cs125.jeed.server.TaskArguments
+import edu.illinois.cs.cs125.jeed.server.toFlatSources
+import edu.illinois.cs.cs125.jeed.server.toSource
 
 @JvmField
 val Adapters = setOf(

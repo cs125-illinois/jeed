@@ -2,9 +2,13 @@ package edu.illinois.cs.cs125.jeed.server
 
 import com.mongodb.MongoClient
 import com.mongodb.MongoClientURI
-import io.kotlintest.*
+import io.kotlintest.Spec
+import io.kotlintest.TestCase
+import io.kotlintest.TestResult
 import io.kotlintest.assertions.ktor.shouldHaveStatus
 import io.kotlintest.matchers.numerics.shouldBeGreaterThan
+import io.kotlintest.shouldBe
+import io.kotlintest.shouldNotBe
 import io.kotlintest.specs.StringSpec
 import io.ktor.application.Application
 import io.ktor.http.HttpMethod
@@ -21,8 +25,8 @@ class TestHTTP : StringSpec() {
             val database = mongoUri.database ?: require { "MONGO must specify database to use" }
             val collection = "${configuration[TopLevel.Mongo.collection]}-test"
             Job.mongoCollection = MongoClient(mongoUri)
-                    .getDatabase(database)
-                    .getCollection(collection, BsonDocument::class.java)
+                .getDatabase(database)
+                .getCollection(collection, BsonDocument::class.java)
         }
     }
 
@@ -30,6 +34,7 @@ class TestHTTP : StringSpec() {
         Job.mongoCollection?.drop()
         Job.mongoCollection?.countDocuments() shouldBe 0
     }
+
     override fun afterTest(testCase: TestCase, result: TestResult) {
         Job.mongoCollection?.drop()
         Job.mongoCollection?.countDocuments() shouldBe 0
@@ -40,13 +45,15 @@ class TestHTTP : StringSpec() {
             withTestApplication(Application::jeed) {
                 handleRequest(HttpMethod.Post, "/") {
                     addHeader("content-type", "application/json")
-                    setBody("""
+                    setBody(
+                        """
 {
 "label": "test",
 "snippet": "System.out.println(\"Here\");",
 "tasks": [ "compile", "execute" ],
 "waitForSave": true
-}""".trim())
+}""".trim()
+                    )
                 }.apply {
                     response.shouldHaveStatus(HttpStatusCode.OK.value)
                     Job.mongoCollection?.countDocuments() shouldBe 1
@@ -62,7 +69,8 @@ class TestHTTP : StringSpec() {
             withTestApplication(Application::jeed) {
                 handleRequest(HttpMethod.Post, "/") {
                     addHeader("content-type", "application/json")
-                    setBody("""
+                    setBody(
+                        """
 {
 "label": "test",
 "sources": [
@@ -78,7 +86,8 @@ public class Main {
 ],
 "tasks": [ "compile", "execute" ],
 "waitForSave": true
-}""".trim())
+}""".trim()
+                    )
                 }.apply {
                     response.shouldHaveStatus(HttpStatusCode.OK.value)
                     Job.mongoCollection?.countDocuments() shouldBe 1
@@ -93,7 +102,8 @@ public class Main {
             withTestApplication(Application::jeed) {
                 handleRequest(HttpMethod.Post, "/") {
                     addHeader("content-type", "application/json")
-                    setBody("""
+                    setBody(
+                        """
 {
 "label": "test",
 "sources": [
@@ -107,7 +117,8 @@ fun main() {
 ],
 "tasks": [ "kompile", "execute" ],
 "waitForSave": true
-}""".trim())
+}""".trim()
+                    )
                 }.apply {
                     response.shouldHaveStatus(HttpStatusCode.OK.value)
                     Job.mongoCollection?.countDocuments() shouldBe 1
@@ -123,7 +134,8 @@ fun main() {
             withTestApplication(Application::jeed) {
                 handleRequest(HttpMethod.Post, "/") {
                     addHeader("content-type", "application/json")
-                    setBody("""
+                    setBody(
+                        """
 {
 "label": "test",
 "sources": [
@@ -139,7 +151,8 @@ public static void main() {
 ],
 "tasks": [ "checkstyle", "compile", "execute" ],
 "waitForSave": true
-}""".trim())
+}""".trim()
+                    )
                 }.apply {
                     response.shouldHaveStatus(HttpStatusCode.OK.value)
                     Job.mongoCollection?.countDocuments() shouldBe 1
@@ -154,7 +167,8 @@ public static void main() {
             withTestApplication(Application::jeed) {
                 handleRequest(HttpMethod.Post, "/") {
                     addHeader("content-type", "application/json")
-                    setBody("""
+                    setBody(
+                        """
 {
 "label": "test",
 "sources": [
@@ -168,7 +182,8 @@ fun main() {
 ],
 "tasks": [ "checkstyle", "kompile", "execute" ],
 "waitForSave": true
-}""".trim())
+}""".trim()
+                    )
                 }.apply {
                     response.shouldHaveStatus(HttpStatusCode.BadRequest.value)
                     Job.mongoCollection?.countDocuments() shouldBe 0
@@ -179,7 +194,8 @@ fun main() {
             withTestApplication(Application::jeed) {
                 handleRequest(HttpMethod.Post, "/") {
                     addHeader("content-type", "application/json")
-                    setBody("""
+                    setBody(
+                        """
 {
 "label": "test",
 "templates": [
@@ -201,7 +217,8 @@ public static void main() {
 ],
 "tasks": [ "template", "compile", "execute" ],
 "waitForSave": true
-}""".trim())
+}""".trim()
+                    )
                 }.apply {
                     response.shouldHaveStatus(HttpStatusCode.OK.value)
                     Job.mongoCollection?.countDocuments() shouldBe 1
@@ -216,13 +233,15 @@ public static void main() {
             withTestApplication(Application::jeed) {
                 handleRequest(HttpMethod.Post, "/") {
                     addHeader("content-type", "application/json")
-                    setBody("""
+                    setBody(
+                        """
 {
 "label": "test",
 "snippet": "System.out.println(\"Here\")",
 "tasks": [ "snippet" ],
 "waitForSave": true
-}""".trim())
+}""".trim()
+                    )
                 }.apply {
                     response.shouldHaveStatus(HttpStatusCode.OK.value)
                     Job.mongoCollection?.countDocuments() shouldBe 1
@@ -238,7 +257,8 @@ public static void main() {
             withTestApplication(Application::jeed) {
                 handleRequest(HttpMethod.Post, "/") {
                     addHeader("content-type", "application/json")
-                    setBody("""
+                    setBody(
+                        """
 {
 "label": "test",
 "templates": [
@@ -260,7 +280,8 @@ public static void main() {
 ],
 "tasks": [ "template" ],
 "waitForSave": true
-}""".trim())
+}""".trim()
+                    )
                 }.apply {
                     response.shouldHaveStatus(HttpStatusCode.OK.value)
                     Job.mongoCollection?.countDocuments() shouldBe 1
@@ -276,7 +297,8 @@ public static void main() {
             withTestApplication(Application::jeed) {
                 handleRequest(HttpMethod.Post, "/") {
                     addHeader("content-type", "application/json")
-                    setBody("""
+                    setBody(
+                        """
 {
 "label": "test",
 "sources": [
@@ -292,7 +314,8 @@ public class Main {
 ],
 "tasks": [ "compile" ],
 "waitForSave": true
-}""".trim())
+}""".trim()
+                    )
                 }.apply {
                     response.shouldHaveStatus(HttpStatusCode.OK.value)
                     Job.mongoCollection?.countDocuments() shouldBe 1
@@ -308,7 +331,8 @@ public class Main {
             withTestApplication(Application::jeed) {
                 handleRequest(HttpMethod.Post, "/") {
                     addHeader("content-type", "application/json")
-                    setBody("""
+                    setBody(
+                        """
 {
 "label": "test",
 "sources": [
@@ -316,13 +340,14 @@ public class Main {
     "path": "Main.kt",
     "contents": "
 fun main() {
-  printl(\"Here\")
+  printing(\"Here\")
 }"
   }
 ],
 "tasks": [ "kompile" ],
 "waitForSave": true
-}""".trim())
+}""".trim()
+                    )
                 }.apply {
                     response.shouldHaveStatus(HttpStatusCode.OK.value)
                     Job.mongoCollection?.countDocuments() shouldBe 1
@@ -338,7 +363,8 @@ fun main() {
             withTestApplication(Application::jeed) {
                 handleRequest(HttpMethod.Post, "/") {
                     addHeader("content-type", "application/json")
-                    setBody("""
+                    setBody(
+                        """
 {
 "label": "test",
 "sources": [
@@ -355,7 +381,8 @@ public class Main {
 ],
 "tasks": [ "compile", "execute" ],
 "waitForSave": true
-}""".trim())
+}""".trim()
+                    )
                 }.apply {
                     response.shouldHaveStatus(HttpStatusCode.OK.value)
                     Job.mongoCollection?.countDocuments() shouldBe 1
@@ -371,7 +398,8 @@ public class Main {
             withTestApplication(Application::jeed) {
                 handleRequest(HttpMethod.Post, "/") {
                     addHeader("content-type", "application/json")
-                    setBody("""
+                    setBody(
+                        """
 {
 "label": "test",
 "snippet": "System.out.println(\"Hello, world!\");",
@@ -389,7 +417,8 @@ public class Main {
 ],
 "tasks": [ "compile", "execute" ],
 "waitForSave": true
-}""".trim())
+}""".trim()
+                    )
                 }
             }.apply {
                 response.shouldHaveStatus(HttpStatusCode.BadRequest.value)
@@ -400,12 +429,14 @@ public class Main {
             withTestApplication(Application::jeed) {
                 handleRequest(HttpMethod.Post, "/") {
                     addHeader("content-type", "application/json")
-                    setBody("""
+                    setBody(
+                        """
 {
 "label": "test",
 "tasks": [ "compile", "execute" ],
 "waitForSave": true
-}""".trim())
+}""".trim()
+                    )
                 }
             }.apply {
                 response.shouldHaveStatus(HttpStatusCode.BadRequest.value)
@@ -416,7 +447,8 @@ public class Main {
             withTestApplication(Application::jeed) {
                 handleRequest(HttpMethod.Post, "/") {
                     addHeader("content-type", "application/json")
-                    setBody("""
+                    setBody(
+                        """
 {
 "label": "test",
 "source": {
@@ -429,7 +461,8 @@ public class Main {
 },
 "tasks": [ "compile", "execute" ],
 "waitForSave": true
-}""".trim())
+}""".trim()
+                    )
                 }
             }.apply {
                 response.shouldHaveStatus(HttpStatusCode.BadRequest.value)

@@ -1,7 +1,12 @@
 package edu.illinois.cs.cs125.jeed.core
 
-import io.kotlintest.*
+import io.kotlintest.Matcher
+import io.kotlintest.MatcherResult
 import io.kotlintest.matchers.collections.shouldHaveSize
+import io.kotlintest.should
+import io.kotlintest.shouldBe
+import io.kotlintest.shouldNot
+import io.kotlintest.shouldThrow
 import io.kotlintest.specs.StringSpec
 
 class TestCheckstyle : StringSpec({
@@ -140,7 +145,7 @@ fun haveCheckstyleErrors() = object : Matcher<CheckstyleResults> {
     override fun test(value: CheckstyleResults): MatcherResult {
         return MatcherResult(value.errors.isNotEmpty(),
                 "should have checkstyle errors",
-                "should have checkstyle errors")
+                "should not have checkstyle errors")
     }
 }
 fun haveCheckstyleErrorAt(source: String = SNIPPET_SOURCE, line: Int) = object : Matcher<CheckstyleResults> {

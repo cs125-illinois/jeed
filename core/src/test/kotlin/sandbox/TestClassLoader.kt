@@ -1,6 +1,12 @@
 package edu.illinois.cs.cs125.jeed.core.sandbox
 
-import edu.illinois.cs.cs125.jeed.core.*
+import edu.illinois.cs.cs125.jeed.core.Sandbox
+import edu.illinois.cs.cs125.jeed.core.Source
+import edu.illinois.cs.cs125.jeed.core.SourceExecutionArguments
+import edu.illinois.cs.cs125.jeed.core.compile
+import edu.illinois.cs.cs125.jeed.core.execute
+import edu.illinois.cs.cs125.jeed.core.haveCompleted
+import edu.illinois.cs.cs125.jeed.core.transformSnippet
 import io.kotlintest.should
 import io.kotlintest.shouldBe
 import io.kotlintest.shouldNot
@@ -10,93 +16,132 @@ import java.lang.IllegalArgumentException
 
 class TestClassLoader : StringSpec({
     "should prohibit default blacklisted imports" {
-        val executionResult = Source.transformSnippet("""
+        val executionResult = Source.transformSnippet(
+            """
 import edu.illinois.cs.cs125.jeed.core.*;
 
 System.out.println(Sandbox.class.getMethods().length);
-        """.trim()).compile().execute()
+        """.trim()
+        ).compile().execute()
 
         executionResult shouldNot haveCompleted()
         executionResult.permissionDenied shouldBe true
     }
     "should blacklist java.lang.reflect.* by default" {
-        val compiledSource = Source.transformSnippet("""
+        val compiledSource = Source.transformSnippet(
+            """
 import java.lang.reflect.*;
 
 Method[] methods = Main.class.getMethods();
 System.out.println(methods[0].getName());
-        """.trim()).compile()
+        """.trim()
+        ).compile()
 
         val failedExecutionResult = compiledSource.execute()
         failedExecutionResult shouldNot haveCompleted()
         failedExecutionResult.permissionDenied shouldBe true
 
         val successfulExecutionResult =
-                compiledSource.execute(
-                        SourceExecutionArguments(classLoaderConfiguration = Sandbox.ClassLoaderConfiguration(blacklistedClasses = setOf()))
-                )
+            compiledSource.execute(
+                SourceExecutionArguments(classLoaderConfiguration = Sandbox
+                    .ClassLoaderConfiguration(blacklistedClasses = setOf()))
+            )
 
         successfulExecutionResult should haveCompleted()
     }
     "should prohibit configured blacklisted imports" {
-        val successfulExecutionResult = Source.transformSnippet("""
+        val successfulExecutionResult = Source.transformSnippet(
+            """
 import java.util.List;
 import java.util.ArrayList;
 
 List list = new ArrayList<String>();
-        """.trim()).compile().execute()
+        """.trim()
+        ).compile().execute()
 
         successfulExecutionResult should haveCompleted()
 
-        val failedExecutionResult = Source.transformSnippet("""
+        val failedExecutionResult = Source.transformSnippet(
+            """
 import java.util.List;
 import java.util.ArrayList;
 
 List list = new ArrayList<String>();
-        """.trim()).compile().execute(
-                SourceExecutionArguments(classLoaderConfiguration = Sandbox.ClassLoaderConfiguration(blacklistedClasses = setOf("java.util.")))
+        """.trim()
+        ).compile().execute(
+            SourceExecutionArguments(
+                classLoaderConfiguration = Sandbox.ClassLoaderConfiguration(
+                    blacklistedClasses = setOf(
+                        "java.util."
+                    )
+                )
+            )
         )
 
         failedExecutionResult shouldNot haveCompleted()
         failedExecutionResult.permissionDenied shouldBe true
     }
     "should allow only whitelisted imports" {
-        val successfulExecutionResult = Source.transformSnippet("""
+        val successfulExecutionResult = Source.transformSnippet(
+            """
 String s = new String("test");
-        """.trim()).compile().execute(SourceExecutionArguments(classLoaderConfiguration = Sandbox.ClassLoaderConfiguration(
-                whitelistedClasses = setOf("java.lang."),
-                blacklistedClasses = setOf()
-        )))
+        """.trim()
+        ).compile().execute(
+            SourceExecutionArguments(
+                classLoaderConfiguration = Sandbox.ClassLoaderConfiguration(
+                    whitelistedClasses = setOf("java.lang."),
+                    blacklistedClasses = setOf()
+                )
+            )
+        )
 
         successfulExecutionResult should haveCompleted()
 
-        val failedExecutionResult = Source.transformSnippet("""
+        val failedExecutionResult = Source.transformSnippet(
+            """
 import java.util.List;
 import java.util.ArrayList;
 
 List list = new ArrayList<String>();
-        """.trim()).compile().execute(SourceExecutionArguments(classLoaderConfiguration = Sandbox.ClassLoaderConfiguration(
-                whitelistedClasses = setOf("java.lang."),
-                blacklistedClasses = setOf()
-        )))
+        """.trim()
+        ).compile().execute(
+            SourceExecutionArguments(
+                classLoaderConfiguration = Sandbox.ClassLoaderConfiguration(
+                    whitelistedClasses = setOf("java.lang."),
+                    blacklistedClasses = setOf()
+                )
+            )
+        )
 
         failedExecutionResult shouldNot haveCompleted()
         failedExecutionResult.permissionDenied shouldBe true
     }
     "should not allow edu.illinois.cs.cs125.jeed. to be whitelisted" {
         shouldThrow<IllegalArgumentException> {
-            Source.transformSnippet("""
+            Source.transformSnippet(
+                """
 System.out.println("Here");
-            """.trim()).compile().execute(SourceExecutionArguments(classLoaderConfiguration = Sandbox.ClassLoaderConfiguration(
-                    whitelistedClasses = setOf("edu.illinois.cs.cs125.jeed.")
-            )))
+            """.trim()
+            ).compile().execute(
+                SourceExecutionArguments(
+                    classLoaderConfiguration = Sandbox.ClassLoaderConfiguration(
+                        whitelistedClasses = setOf("edu.illinois.cs.cs125.jeed.")
+                    )
+                )
+            )
         }
         shouldThrow<IllegalArgumentException> {
-            Source.transformSnippet("""
+            Source.transformSnippet(
+                """
 System.out.println("Here");
-            """.trim()).compile().execute(SourceExecutionArguments(classLoaderConfiguration = Sandbox.ClassLoaderConfiguration(
-                    whitelistedClasses = setOf("edu.illinois.cs.cs125.jeed.core.Sandbox")
-            )))
+            """.trim()
+            ).compile().execute(
+                SourceExecutionArguments(
+                    classLoaderConfiguration = Sandbox.ClassLoaderConfiguration(
+                        whitelistedClasses = setOf("edu.illinois.cs.cs125.jeed.core.Sandbox")
+                    )
+                )
+            )
         }
     }
 })

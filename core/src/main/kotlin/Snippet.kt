@@ -1,8 +1,15 @@
 package edu.illinois.cs.cs125.jeed.core
 
 import com.squareup.moshi.JsonClass
-import edu.illinois.cs.cs125.jeed.core.antlr.*
-import org.antlr.v4.runtime.*
+import edu.illinois.cs.cs125.jeed.core.antlr.JavaLexer
+import edu.illinois.cs.cs125.jeed.core.antlr.SnippetLexer
+import edu.illinois.cs.cs125.jeed.core.antlr.SnippetParser
+import edu.illinois.cs.cs125.jeed.core.antlr.SnippetParserBaseVisitor
+import org.antlr.v4.runtime.BaseErrorListener
+import org.antlr.v4.runtime.CharStreams
+import org.antlr.v4.runtime.CommonTokenStream
+import org.antlr.v4.runtime.RecognitionException
+import org.antlr.v4.runtime.Recognizer
 
 const val SNIPPET_SOURCE = ""
 
@@ -15,13 +22,13 @@ class Snippet(
     val looseCodeMethodName: String,
     @Transient private val remappedLineMapping: Map<Int, RemappedLine> = mapOf()
 ) : Source(
-        sources,
-        {
-            require(sources.keys.size == 1) { "snippets should only provide a single source file" }
-            require(sources.keys.first() == "") { "snippets should use a blank string as their filename" }
-            FileType.JAVA
-        },
-        { mapLocation(it, remappedLineMapping) }
+    sources,
+    {
+        require(sources.keys.size == 1) { "snippets should only provide a single source file" }
+        require(sources.keys.first() == "") { "snippets should use a blank string as their filename" }
+        FileType.JAVA
+    },
+    { mapLocation(it, remappedLineMapping) }
 ) {
     data class RemappedLine(val sourceLineNumber: Int, val rewrittenLineNumber: Int, val addedIndentation: Int = 0)
 
@@ -38,8 +45,16 @@ class Snippet(
         fun mapLocation(input: SourceLocation, remappedLineMapping: Map<Int, RemappedLine>): SourceLocation {
             check(input.source == SNIPPET_SOURCE)
             val remappedLineInfo = remappedLineMapping[input.line]
-            check(remappedLineInfo != null) { "can't remap line ${input.line}: ${remappedLineMapping.keys.joinToString(separator = ",")}" }
-            return SourceLocation(SNIPPET_SOURCE, remappedLineInfo.sourceLineNumber, input.column - remappedLineInfo.addedIndentation)
+            check(remappedLineInfo != null) {
+                "can't remap line ${input.line}: ${remappedLineMapping.keys.joinToString(
+                    separator = ","
+                )}"
+            }
+            return SourceLocation(
+                SNIPPET_SOURCE,
+                remappedLineInfo.sourceLineNumber,
+                input.column - remappedLineInfo.addedIndentation
+            )
         }
     }
 }
@@ -51,11 +66,19 @@ class SnippetTransformationError(
 ) : SourceError(SourceLocation(SNIPPET_SOURCE, line, column), message) {
     constructor(location: SourceLocation, message: String) : this(location.line, location.column, message)
 }
+
 class SnippetTransformationFailed(errors: List<SnippetTransformationError>) : JeedError(errors)
 
 class SnippetErrorListener(private val sourceLines: List<Int>) : BaseErrorListener() {
     private val errors = mutableListOf<SnippetTransformationError>()
-    override fun syntaxError(recognizer: Recognizer<*, *>?, offendingSymbol: Any?, line: Int, charPositionInLine: Int, msg: String, e: RecognitionException?) {
+    override fun syntaxError(
+        recognizer: Recognizer<*, *>?,
+        offendingSymbol: Any?,
+        line: Int,
+        charPositionInLine: Int,
+        msg: String,
+        e: RecognitionException?
+    ) {
         // Decrement line number by 1 to account for added braces
         var actualLine = line - 1
         var actualCharPositionInLine = charPositionInLine
@@ -70,6 +93,7 @@ class SnippetErrorListener(private val sourceLines: List<Int>) : BaseErrorListen
 
         errors.add(SnippetTransformationError(actualLine, actualCharPositionInLine, actualMsg))
     }
+
     fun check() {
         if (errors.size > 0) {
             throw SnippetTransformationFailed(errors)
@@ -81,8 +105,13 @@ class SnippetErrorListener(private val sourceLines: List<Int>) : BaseErrorListen
 data class SnippetArguments(
     val indent: Int = 4
 )
+
+@Suppress("LongMethod")
 @Throws(SnippetTransformationFailed::class)
-fun Source.Companion.transformSnippet(originalSource: String, snippetArguments: SnippetArguments = SnippetArguments()): Snippet {
+fun Source.Companion.transformSnippet(
+    originalSource: String,
+    snippetArguments: SnippetArguments = SnippetArguments()
+): Snippet {
     require(originalSource.isNotEmpty())
 
     val sourceLines = originalSource.lines().map { it.trim().length }
@@ -134,9 +163,9 @@ fun Source.Companion.transformSnippet(originalSource: String, snippetArguments: 
 
         override fun visitBlock(ctx: SnippetParser.BlockContext) {
             snippetRange = SourceRange(
-                    SNIPPET_SOURCE,
-                    Location(ctx.start.line, ctx.start.charPositionInLine),
-                    Location(ctx.stop.line, ctx.stop.charPositionInLine)
+                SNIPPET_SOURCE,
+                Location(ctx.start.line, ctx.start.charPositionInLine),
+                Location(ctx.stop.line, ctx.stop.charPositionInLine)
             )
             ctx.children.forEach {
                 super.visit(it)
@@ -179,17 +208,19 @@ fun Source.Companion.transformSnippet(originalSource: String, snippetArguments: 
     originalSource.lines().forEachIndexed { i, line ->
         val lineNumber = i + 1
         if (contentMapping[lineNumber]?.startsWith(("method")) == true) {
-            val indentToUse = if ((contentMapping[lineNumber] == "method.start") && !line.contains("""\bstatic\b""".toRegex())) {
-                methodDeclarations.add(" ".repeat(snippetArguments.indent) + "static")
-                currentOutputLineNumber++
-                // Adding indentation preserves checkstyle processing
-                snippetArguments.indent * 2
-            } else {
-                snippetArguments.indent
-            }
+            val indentToUse =
+                if ((contentMapping[lineNumber] == "method.start") && !line.contains("""\bstatic\b""".toRegex())) {
+                    methodDeclarations.add(" ".repeat(snippetArguments.indent) + "static")
+                    currentOutputLineNumber++
+                    // Adding indentation preserves checkstyle processing
+                    snippetArguments.indent * 2
+                } else {
+                    snippetArguments.indent
+                }
             methodDeclarations.add(" ".repeat(indentToUse) + line)
             assert(!remappedLineMapping.containsKey(currentOutputLineNumber))
-            remappedLineMapping[currentOutputLineNumber] = Snippet.RemappedLine(lineNumber, currentOutputLineNumber, indentToUse)
+            remappedLineMapping[currentOutputLineNumber] =
+                Snippet.RemappedLine(lineNumber, currentOutputLineNumber, indentToUse)
             currentOutputLineNumber++
         }
     }
@@ -204,7 +235,8 @@ fun Source.Companion.transformSnippet(originalSource: String, snippetArguments: 
         if (!contentMapping.containsKey(lineNumber)) {
             looseCode.add(" ".repeat(snippetArguments.indent * 2) + line)
             assert(!remappedLineMapping.containsKey(currentOutputLineNumber))
-            remappedLineMapping[currentOutputLineNumber] = Snippet.RemappedLine(lineNumber, currentOutputLineNumber, snippetArguments.indent * 2)
+            remappedLineMapping[currentOutputLineNumber] =
+                Snippet.RemappedLine(lineNumber, currentOutputLineNumber, snippetArguments.indent * 2)
             currentOutputLineNumber++
         }
     }
@@ -224,7 +256,8 @@ fun Source.Companion.transformSnippet(originalSource: String, snippetArguments: 
     if (methodDeclarations.size > 0) {
         rewrittenSource += methodDeclarations.joinToString(separator = "\n", postfix = "\n")
     }
-    rewrittenSource += """${" ".repeat(snippetArguments.indent)}public static void $snippetMainMethodName() throws Exception {""" + "\n"
+    rewrittenSource += """${" "
+        .repeat(snippetArguments.indent)}public static void $snippetMainMethodName() throws Exception {""" + "\n"
     if (looseCode.size > 0) {
         rewrittenSource += looseCode.joinToString(separator = "\n", postfix = "\n")
     }
@@ -235,17 +268,21 @@ fun Source.Companion.transformSnippet(originalSource: String, snippetArguments: 
     assert(currentOutputLineNumber == rewrittenSource.lines().size)
 
     return Snippet(
-            hashMapOf(SNIPPET_SOURCE to rewrittenSource),
-            originalSource,
-            rewrittenSource,
-            snippetRange,
-            snippetClassName,
-            "$snippetMainMethodName()",
-            remappedLineMapping
+        hashMapOf(SNIPPET_SOURCE to rewrittenSource),
+        originalSource,
+        rewrittenSource,
+        snippetRange,
+        snippetClassName,
+        "$snippetMainMethodName()",
+        remappedLineMapping
     )
 }
 
-private fun checkLooseCode(looseCode: String, looseCodeStart: Int, remappedLineMapping: Map<Int, Snippet.RemappedLine>) {
+private fun checkLooseCode(
+    looseCode: String,
+    looseCodeStart: Int,
+    remappedLineMapping: Map<Int, Snippet.RemappedLine>
+) {
     val charStream = CharStreams.fromString(looseCode)
     val javaLexer = JavaLexer(charStream)
     javaLexer.removeErrorListeners()
@@ -256,8 +293,11 @@ private fun checkLooseCode(looseCode: String, looseCodeStart: Int, remappedLineM
         it.type == JavaLexer.RETURN
     }.map {
         SnippetTransformationError(
-                Snippet.mapLocation(SourceLocation(SNIPPET_SOURCE, it.line + looseCodeStart, it.charPositionInLine), remappedLineMapping),
-                "return statements not allowed at top level in snippets"
+            Snippet.mapLocation(
+                SourceLocation(SNIPPET_SOURCE, it.line + looseCodeStart, it.charPositionInLine),
+                remappedLineMapping
+            ),
+            "return statements not allowed at top level in snippets"
         )
     }
     if (validationErrors.isNotEmpty()) {
@@ -265,11 +305,12 @@ private fun checkLooseCode(looseCode: String, looseCodeStart: Int, remappedLineM
     }
 }
 
+private const val MAX_NAME_TRIES = 64
 private fun generateName(prefix: String, existingNames: Set<String>): String {
     if (!existingNames.contains(prefix)) {
         return prefix
     } else {
-        for (suffix in 1..64) {
+        for (suffix in 1..MAX_NAME_TRIES) {
             val testClassName = "$prefix$suffix"
             if (!existingNames.contains(testClassName)) {
                 return testClassName

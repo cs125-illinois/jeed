@@ -8,7 +8,11 @@ import java.io.StringWriter
 import java.lang.reflect.Method
 import java.time.Instant
 import mu.KotlinLogging
-import org.antlr.v4.runtime.*
+import org.antlr.v4.runtime.BaseErrorListener
+import org.antlr.v4.runtime.CharStreams
+import org.antlr.v4.runtime.CommonTokenStream
+import org.antlr.v4.runtime.RecognitionException
+import org.antlr.v4.runtime.Recognizer
 
 @Suppress("UNUSED")
 val logger = KotlinLogging.logger {}
@@ -22,20 +26,25 @@ open class Source(
         JAVA("Java"),
         KOTLIN("Kotlin")
     }
+
     val type: FileType
+
     init {
         require(sources.keys.isNotEmpty())
         type = checkSourceNames(sources)
     }
+
     fun mapLocation(input: SourceLocation): SourceLocation {
         return sourceMappingFunction(input)
     }
+
     fun mapLocation(source: String, input: Location): Location {
         val resultSourceLocation = sourceMappingFunction(SourceLocation(source, input.line, input.column))
         return Location(resultSourceLocation.line, resultSourceLocation.column)
     }
 
-    @Transient private lateinit var _parsed: Map<String, JavaParser.CompilationUnitContext>
+    @Transient
+    private lateinit var _parsed: Map<String, JavaParser.CompilationUnitContext>
     val parsed: Map<String, JavaParser.CompilationUnitContext>
         @Throws(JavaParsingException::class)
         get() {
@@ -71,18 +80,20 @@ open class Source(
                 else -> require { "invalid extension: $extension" }
             }
         }
+
         fun filenamesToFileTypes(filenames: Set<String>): List<FileType> {
             return filenames.map { filename ->
                 filenameToFileType(filename)
             }.distinct()
         }
+
         private fun defaultCheckSourceNames(sources: Map<String, String>): FileType {
             sources.keys.forEach { name ->
                 require(name.isNotBlank()) { "filename cannot be blank" }
             }
             val fileTypes = filenamesToFileTypes(sources.keys)
             require(fileTypes.size == 1) {
-                "mixed sources are not supported: found ${ fileTypes.joinToString() }"
+                "mixed sources are not supported: found ${fileTypes.joinToString()}"
             }
             if (fileTypes.contains(FileType.JAVA)) {
                 sources.keys.filter { filenameToFileType(it) == FileType.JAVA }.forEach { name ->
@@ -105,9 +116,17 @@ class JavaErrorListener(val source: Source, entry: Map.Entry<String, String>) : 
     private val contents = entry.value
 
     private val errors = mutableListOf<JavaParseError>()
-    override fun syntaxError(recognizer: Recognizer<*, *>?, offendingSymbol: Any?, line: Int, charPositionInLine: Int, msg: String, e: RecognitionException?) {
+    override fun syntaxError(
+        recognizer: Recognizer<*, *>?,
+        offendingSymbol: Any?,
+        line: Int,
+        charPositionInLine: Int,
+        msg: String,
+        e: RecognitionException?
+    ) {
         errors.add(JavaParseError(source.mapLocation(SourceLocation(name, line, charPositionInLine)), msg))
     }
+
     fun check() {
         if (errors.size > 0) {
             throw JavaParsingException(errors)
@@ -129,8 +148,10 @@ data class SourceLocation(
         }
     }
 }
+
 @JsonClass(generateAdapter = true)
 data class Location(val line: Int, val column: Int)
+
 @JsonClass(generateAdapter = true)
 data class SourceRange(
     val source: String?,
@@ -144,13 +165,14 @@ open class LocatedClass(
     val classes: MutableMap<String, LocatedClass> = mutableMapOf(),
     val methods: MutableMap<String, LocatedMethod> = mutableMapOf()
 )
+
 open class LocatedMethod(
     val name: String,
     @Suppress("unused") val range: SourceRange,
     var classes: MutableMap<String, LocatedClass> = mutableMapOf()
 )
 
-abstract class SourceError(
+open class SourceError(
     val location: SourceLocation,
     val message: String
 ) {
@@ -164,6 +186,7 @@ abstract class JeedError(val errors: List<SourceError>) : Exception() {
         return javaClass.name + ":\n" + errors.joinToString(separator = "\n")
     }
 }
+
 @JsonClass(generateAdapter = true)
 data class Interval(val start: Instant, val end: Instant)
 
@@ -181,8 +204,10 @@ fun Throwable.getStackTraceForSource(source: Source): String {
     val firstLine = originalStackTrace.removeAt(0)
 
     val betterStackTrace = mutableListOf("""Exception in thread "main" $firstLine""")
+    @Suppress("LoopWithTooManyJumpStatements")
     for (line in originalStackTrace) {
-        if (line.trim().startsWith("""at java.base/jdk.internal.reflect.NativeMethodAccessorImpl.invoke0(Native Method)""")) {
+        if (line.trim()
+                .startsWith("""at java.base/jdk.internal.reflect.NativeMethodAccessorImpl.invoke0(Native Method)""")) {
             break
         }
         if (source !is Snippet) {
@@ -201,9 +226,20 @@ fun Throwable.getStackTraceForSource(source: Source): String {
     }
     return betterStackTrace.joinToString(separator = "\n")
 }
-fun Method.getQualifiedName(): String { return "$name(${parameters.joinToString(separator = ", ")})" }
+
+fun Method.getQualifiedName(): String {
+    return "$name(${parameters.joinToString(separator = ", ")})"
+}
 
 // Overloads of built-in functions that can be used to the right of Elvis operators
-fun assert(block: () -> String): Nothing { throw AssertionError(block()) }
-fun check(block: () -> String): Nothing { throw IllegalStateException(block()) }
-fun require(block: () -> String): Nothing { throw IllegalArgumentException(block()) }
+fun assert(block: () -> String): Nothing {
+    throw AssertionError(block())
+}
+
+fun check(block: () -> String): Nothing {
+    throw IllegalStateException(block())
+}
+
+fun require(block: () -> String): Nothing {
+    throw IllegalArgumentException(block())
+}

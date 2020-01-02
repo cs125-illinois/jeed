@@ -23,7 +23,7 @@ class Status(
     data class Auth(val none: Boolean = true, val google: Google) {
         @JsonClass(generateAdapter = true)
         data class Google(val hostedDomain: String?, val clientID: String?)
-        constructor(config: Config): this(
+        constructor(config: Config) : this(
             config[edu.illinois.cs.cs125.jeed.server.Auth.none],
             Google(
                 config[edu.illinois.cs.cs125.jeed.server.Auth.Google.hostedDomain],

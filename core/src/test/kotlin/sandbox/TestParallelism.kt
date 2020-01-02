@@ -1,6 +1,13 @@
 package edu.illinois.cs.cs125.jeed.core.sandbox
 
-import edu.illinois.cs.cs125.jeed.core.*
+import edu.illinois.cs.cs125.jeed.core.Sandbox
+import edu.illinois.cs.cs125.jeed.core.Source
+import edu.illinois.cs.cs125.jeed.core.SourceExecutionArguments
+import edu.illinois.cs.cs125.jeed.core.compile
+import edu.illinois.cs.cs125.jeed.core.execute
+import edu.illinois.cs.cs125.jeed.core.haveCompleted
+import edu.illinois.cs.cs125.jeed.core.haveTimedOut
+import edu.illinois.cs.cs125.jeed.core.transformSnippet
 import io.kotlintest.matchers.collections.shouldHaveSize
 import io.kotlintest.matchers.doubles.shouldBeLessThan
 import io.kotlintest.should
@@ -16,12 +23,14 @@ class TestParallelism : StringSpec({
     "should execute correctly in parallel using streams" {
         (0..8).toList().parallelStream().map { value ->
             val result = runBlocking {
-                Source.transformSnippet("""
+                Source.transformSnippet(
+                    """
 for (int i = 0; i < 32; i++) {
     for (long j = 0; j < 1024 * 1024; j++);
     System.out.println($value);
 }
-                    """.trim()).compile().execute(SourceExecutionArguments(timeout = 1000L))
+                    """.trim()
+                ).compile().execute(SourceExecutionArguments(timeout = 1000L))
             }
             result should haveCompleted()
             result.stdoutLines shouldHaveSize 32
@@ -31,12 +40,16 @@ for (int i = 0; i < 32; i++) {
     "should execute correctly in parallel using coroutines" {
         (0..8).toList().map { value ->
             async {
-                Pair(Source.transformSnippet("""
+                Pair(
+                    Source.transformSnippet(
+                        """
 for (int i = 0; i < 32; i++) {
     for (long j = 0; j < 1024 * 1024; j++);
     System.out.println($value);
 }
-                    """.trim()).compile().execute(SourceExecutionArguments(timeout = 1000L)), value)
+                    """.trim()
+                    ).compile().execute(SourceExecutionArguments(timeout = 1000L)), value
+                )
             }
         }.map { it ->
             val (result, value) = it.await()
@@ -48,11 +61,13 @@ for (int i = 0; i < 32; i++) {
     "should execute efficiently in parallel using streams" {
         val compiledSources = (0..8).toList().map {
             async {
-                Source.transformSnippet("""
+                Source.transformSnippet(
+                    """
 for (int i = 0; i < 32; i++) {
     for (long j = 0; j < 1024 * 1024 * 1024; j++);
 }
-                    """.trim()).compile()
+                    """.trim()
+                ).compile()
             }
         }.map { it.await() }
 
@@ -76,11 +91,13 @@ for (int i = 0; i < 32; i++) {
     "should execute efficiently in parallel using coroutines" {
         val compiledSources = (0..8).toList().map {
             async {
-                Source.transformSnippet("""
+                Source.transformSnippet(
+                    """
 for (int i = 0; i < 32; i++) {
     for (long j = 0; j < 1024 * 1024 * 1024; j++);
 }
-                    """.trim()).compile()
+                    """.trim()
+                ).compile()
             }
         }.map { it.await() }
 

@@ -21,62 +21,74 @@ class TestConfig : StringSpec({
         configuration[Limits.Execution.timeout] shouldBeExactly Sandbox.ExecutionArguments.DEFAULT_TIMEOUT
     }
     "should load simple configuration from a file" {
-        val config = Config { addSpec(Limits) }.from.yaml.string("""
+        val config = Config { addSpec(Limits) }.from.yaml.string(
+            """
 auth:
   - google
 semester: Spring2019
 limits:
   execution:
     timeout: 10000
-        """.trim())
+        """.trim()
+        )
         config[Limits.Execution.timeout] shouldBeExactly 10000L
     }
     "should load complex configuration from a file" {
-        val config = Config { addSpec(Limits) }.from.yaml.string("""
+        val config = Config { addSpec(Limits) }.from.yaml.string(
+            """
 limits:
   execution:
     permissions:
       - klass: java.lang.RuntimePermission
         name: createClassLoader
     timeout: 10000
-        """.trim())
+        """.trim()
+        )
 
         config[Limits.Execution.timeout] shouldBeExactly 10000L
         config[Limits.Execution.permissions] shouldHaveSize 1
-        config[Limits.Execution.permissions][0] shouldBe PermissionJson("java.lang.RuntimePermission", "createClassLoader", null)
+        config[Limits.Execution.permissions][0] shouldBe PermissionJson(
+            "java.lang.RuntimePermission",
+            "createClassLoader",
+            null
+        )
     }
     "should reject snippet request with too long timeout" {
         withTestApplication(Application::jeed) {
             handleRequest(HttpMethod.Post, "/") {
                 addHeader("content-type", "application/json")
-                setBody("""
+                setBody(
+                    """
 {
   "label": "test",
   "snippet": "System.out.println(\"Here\");",
   "tasks": [ "compile", "execute" ],
   "arguments": {
     "execution": {
-      "timeout": "${ configuration[Limits.Execution.timeout] }"
+      "timeout": "${configuration[Limits.Execution.timeout]}"
     }
   }
-}""".trim())
+}""".trim()
+                )
             }.apply {
                 response.shouldHaveStatus(HttpStatusCode.OK.value)
             }
 
             handleRequest(HttpMethod.Post, "/") {
                 addHeader("content-type", "application/json")
-                setBody("""
+                setBody(
+                    """
 {
   "label": "test",
   "snippet": "System.out.println(\"Here\");",
   "tasks": [ "compile", "execute" ],
   "arguments": {
     "execution": {
-      "timeout": "${ configuration[Limits.Execution.timeout] + 1 }"
+      "timeout": "${configuration[Limits.Execution.timeout] + 1}"
     }
   }
-}""".trim())
+}""".trim()
+                )
             }.apply {
                 response.shouldHaveStatus(HttpStatusCode.BadRequest.value)
             }
@@ -86,34 +98,38 @@ limits:
         withTestApplication(Application::jeed) {
             handleRequest(HttpMethod.Post, "/") {
                 addHeader("content-type", "application/json")
-                setBody("""
+                setBody(
+                    """
 {
   "label": "test",
   "snippet": "System.out.println(\"Here\");",
   "tasks": [ "compile", "execute" ],
   "arguments": {
     "execution": {
-      "maxExtraThreads": "${ configuration[Limits.Execution.maxExtraThreads] }"
+      "maxExtraThreads": "${configuration[Limits.Execution.maxExtraThreads]}"
     }
   }
-}""".trim())
+}""".trim()
+                )
             }.apply {
                 response.shouldHaveStatus(HttpStatusCode.OK.value)
             }
 
             handleRequest(HttpMethod.Post, "/") {
                 addHeader("content-type", "application/json")
-                setBody("""
+                setBody(
+                    """
 {
   "label": "test",
   "snippet": "System.out.println(\"Here\");",
   "tasks": [ "compile", "execute" ],
   "arguments": {
     "execution": {
-      "maxExtraThreads": "${ configuration[Limits.Execution.maxExtraThreads] + 1 }"
+      "maxExtraThreads": "${configuration[Limits.Execution.maxExtraThreads] + 1}"
     }
   }
-}""".trim())
+}""".trim()
+                )
             }.apply {
                 response.shouldHaveStatus(HttpStatusCode.BadRequest.value)
             }
@@ -123,7 +139,8 @@ limits:
         withTestApplication(Application::jeed) {
             handleRequest(HttpMethod.Post, "/") {
                 addHeader("content-type", "application/json")
-                setBody("""
+                setBody(
+                    """
 {
   "label": "test",
   "snippet": "System.out.println(\"Here\");",
@@ -139,14 +156,16 @@ limits:
       }]
     }
   }
-}""".trim())
+}""".trim()
+                )
             }.apply {
                 response.shouldHaveStatus(HttpStatusCode.OK.value)
             }
 
             handleRequest(HttpMethod.Post, "/") {
                 addHeader("content-type", "application/json")
-                setBody("""
+                setBody(
+                    """
 {
   "label": "test",
   "snippet": "System.out.println(\"Here\");",
@@ -162,7 +181,8 @@ limits:
       }]
     }
   }
-}""".trim())
+}""".trim()
+                )
             }.apply {
                 response.shouldHaveStatus(HttpStatusCode.BadRequest.value)
             }
@@ -172,7 +192,8 @@ limits:
         withTestApplication(Application::jeed) {
             handleRequest(HttpMethod.Post, "/") {
                 addHeader("content-type", "application/json")
-                setBody("""
+                setBody(
+                    """
 {
   "label": "test",
   "snippet": "System.out.println(\"Here\");",
@@ -186,14 +207,16 @@ limits:
       }
     }
   }
-}""".trim())
+}""".trim()
+                )
             }.apply {
                 response.shouldHaveStatus(HttpStatusCode.OK.value)
             }
 
             handleRequest(HttpMethod.Post, "/") {
                 addHeader("content-type", "application/json")
-                setBody("""
+                setBody(
+                    """
 {
   "label": "test",
   "snippet": "System.out.println(\"Here\");",
@@ -205,7 +228,8 @@ limits:
       }
     }
   }
-}""".trim())
+}""".trim()
+                )
             }.apply {
                 response.shouldHaveStatus(HttpStatusCode.BadRequest.value)
             }

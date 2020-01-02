@@ -13,7 +13,8 @@ import io.ktor.application.Application
 import io.ktor.server.engine.embeddedServer
 import io.ktor.server.netty.Netty
 import java.net.URI
-import java.util.*
+import java.util.Collections
+import java.util.Properties
 import mu.KotlinLogging
 import org.bson.BsonDocument
 

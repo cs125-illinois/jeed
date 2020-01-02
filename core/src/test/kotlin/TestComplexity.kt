@@ -1,6 +1,6 @@
 package edu.illinois.cs.cs125.jeed.core
 
-import io.kotlintest.*
+import io.kotlintest.shouldBe
 import io.kotlintest.specs.StringSpec
 
 class TestComplexity : StringSpec({

@@ -1,6 +1,8 @@
 package edu.illinois.cs.cs125.jeed.core
 
-import edu.illinois.cs.cs125.jeed.core.antlr.*
+import edu.illinois.cs.cs125.jeed.core.antlr.JavaLexer
+import edu.illinois.cs.cs125.jeed.core.antlr.JavaParser
+import edu.illinois.cs.cs125.jeed.core.antlr.JavaParserBaseListener
 import org.antlr.v4.runtime.tree.ParseTreeWalker
 
 val basicComplexityTokens = listOf(JavaLexer.FOR, JavaLexer.WHILE, JavaLexer.DO, JavaLexer.THROW)
@@ -18,9 +20,15 @@ class ClassComplexity(
     methods: MutableMap<String, MethodComplexity> = mutableMapOf(),
     classes: MutableMap<String, ClassComplexity> = mutableMapOf(),
     override var complexity: Int = 0
-) : LocatedClass(name, range, classes as MutableMap<String, LocatedClass>, methods as MutableMap<String, LocatedMethod>), ComplexityValue {
+) : LocatedClass(
+    name,
+    range,
+    classes as MutableMap<String, LocatedClass>,
+    methods as MutableMap<String, LocatedMethod>
+), ComplexityValue {
     override fun lookup(name: String): ComplexityValue {
         check(name.isNotEmpty())
+        @Suppress("TooGenericExceptionCaught")
         return try {
             if (name[0].isUpperCase()) {
                 classes[name] as ComplexityValue
@@ -47,6 +55,7 @@ class MethodComplexity(
     override fun lookup(name: String): ComplexityValue {
         check(name.isNotEmpty())
         check(name[0].isUpperCase()) { "methods cannot contain other methods" }
+        @Suppress("TooGenericExceptionCaught")
         return try {
             classes[name] as ComplexityValue
         } catch (e: Exception) {
@@ -55,6 +64,7 @@ class MethodComplexity(
     }
 }
 
+@Suppress("TooManyFunctions")
 class ComplexityResult(val source: Source, entry: Map.Entry<String, String>) : JavaParserBaseListener() {
     private val name = entry.key
     @Suppress("unused")
@@ -67,7 +77,10 @@ class ComplexityResult(val source: Source, entry: Map.Entry<String, String>) : J
         val locatedClass = if (source is Snippet && classOrInterfaceName == source.wrappedClassName) {
             ClassComplexity("", source.snippetRange)
         } else {
-            ClassComplexity(classOrInterfaceName, SourceRange(name, source.mapLocation(name, start), source.mapLocation(name, end)))
+            ClassComplexity(
+                classOrInterfaceName,
+                SourceRange(name, source.mapLocation(name, start), source.mapLocation(name, end))
+            )
         }
         if (complexityStack.isNotEmpty()) {
             when (val currentComplexity = complexityStack[0]) {
@@ -83,6 +96,7 @@ class ComplexityResult(val source: Source, entry: Map.Entry<String, String>) : J
         }
         complexityStack.add(0, locatedClass)
     }
+
     private fun exitClassOrInterface() {
         assert(complexityStack.isNotEmpty())
         val lastComplexity = complexityStack.removeAt(0)
@@ -97,14 +111,25 @@ class ComplexityResult(val source: Source, entry: Map.Entry<String, String>) : J
     }
 
     override fun enterClassDeclaration(ctx: JavaParser.ClassDeclarationContext) {
-        enterClassOrInterface(ctx.children[1].text, Location(ctx.start.line, ctx.start.charPositionInLine), Location(ctx.stop.line, ctx.stop.charPositionInLine))
+        enterClassOrInterface(
+            ctx.children[1].text,
+            Location(ctx.start.line, ctx.start.charPositionInLine),
+            Location(ctx.stop.line, ctx.stop.charPositionInLine)
+        )
     }
+
     override fun exitClassDeclaration(ctx: JavaParser.ClassDeclarationContext) {
         exitClassOrInterface()
     }
+
     override fun enterInterfaceDeclaration(ctx: JavaParser.InterfaceDeclarationContext) {
-        enterClassOrInterface(ctx.children[1].text, Location(ctx.start.line, ctx.start.charPositionInLine), Location(ctx.stop.line, ctx.stop.charPositionInLine))
+        enterClassOrInterface(
+            ctx.children[1].text,
+            Location(ctx.start.line, ctx.start.charPositionInLine),
+            Location(ctx.stop.line, ctx.stop.charPositionInLine)
+        )
     }
+
     override fun exitInterfaceDeclaration(ctx: JavaParser.InterfaceDeclarationContext?) {
         exitClassOrInterface()
     }
@@ -114,7 +139,12 @@ class ComplexityResult(val source: Source, entry: Map.Entry<String, String>) : J
     private var currentMethodReturnType: String? = null
     private var currentMethodParameters: MutableList<String>? = null
 
-    private fun enterMethodOrConstructor(methodOrConstructorName: String, start: Location, end: Location, returnType: String) {
+    private fun enterMethodOrConstructor(
+        methodOrConstructorName: String,
+        start: Location,
+        end: Location,
+        returnType: String
+    ) {
         assert(complexityStack.isNotEmpty())
         assert(complexityStack[0] is ClassComplexity)
 
@@ -127,6 +157,7 @@ class ComplexityResult(val source: Source, entry: Map.Entry<String, String>) : J
         currentMethodReturnType = returnType
         currentMethodParameters = mutableListOf()
     }
+
     private fun exitMethodOrConstructor() {
         assert(complexityStack.isNotEmpty())
         val lastComplexity = complexityStack.removeAt(0)
@@ -142,34 +173,39 @@ class ComplexityResult(val source: Source, entry: Map.Entry<String, String>) : J
 
     override fun enterMethodDeclaration(ctx: JavaParser.MethodDeclarationContext) {
         enterMethodOrConstructor(
-                ctx.children[1].text,
-                Location(ctx.start.line, ctx.start.charPositionInLine),
-                Location(ctx.stop.line, ctx.stop.charPositionInLine),
-                ctx.children[0].text
+            ctx.children[1].text,
+            Location(ctx.start.line, ctx.start.charPositionInLine),
+            Location(ctx.stop.line, ctx.stop.charPositionInLine),
+            ctx.children[0].text
         )
     }
+
     override fun exitMethodDeclaration(ctx: JavaParser.MethodDeclarationContext) {
         exitMethodOrConstructor()
     }
+
     override fun enterConstructorDeclaration(ctx: JavaParser.ConstructorDeclarationContext) {
         assert(complexityStack.isNotEmpty())
         val currentClass = complexityStack[0] as ClassComplexity
         enterMethodOrConstructor(
-                currentClass.name,
-                Location(ctx.start.line, ctx.start.charPositionInLine),
-                Location(ctx.stop.line, ctx.stop.charPositionInLine),
-                currentClass.name
+            currentClass.name,
+            Location(ctx.start.line, ctx.start.charPositionInLine),
+            Location(ctx.stop.line, ctx.stop.charPositionInLine),
+            currentClass.name
         )
     }
+
     override fun exitConstructorDeclaration(ctx: JavaParser.ConstructorDeclarationContext?) {
         exitMethodOrConstructor()
     }
+
     override fun enterFormalParameter(ctx: JavaParser.FormalParameterContext) {
         if (!insideLambda) {
             assert(ctx.children.size >= 2)
             currentMethodParameters?.add(ctx.children[ctx.children.lastIndex - 1].text)
         }
     }
+
     override fun enterLastFormalParameter(ctx: JavaParser.LastFormalParameterContext) {
         if (!insideLambda) {
             assert(ctx.children.size >= 2)
@@ -177,6 +213,7 @@ class ComplexityResult(val source: Source, entry: Map.Entry<String, String>) : J
             if (type != "...") {
                 currentMethodParameters?.add(type)
             } else {
+                @Suppress("MagicNumber")
                 assert(ctx.children.size > 3)
                 currentMethodParameters?.add("...${ctx.children[ctx.children.lastIndex - 2].text}")
             }
@@ -201,11 +238,12 @@ class ComplexityResult(val source: Source, entry: Map.Entry<String, String>) : J
             snippetMethodComplexity
         } else {
             MethodComplexity(
-                    fullName,
-                    SourceRange(name,
-                            source.mapLocation(name, currentMethodLocation!!.start),
-                            source.mapLocation(name, currentMethodLocation!!.end)
-                    )
+                fullName,
+                SourceRange(
+                    name,
+                    source.mapLocation(name, currentMethodLocation!!.start),
+                    source.mapLocation(name, currentMethodLocation!!.end)
+                )
             )
         }
         val currentComplexity = complexityStack[0] as ClassComplexity
@@ -231,6 +269,7 @@ class ComplexityResult(val source: Source, entry: Map.Entry<String, String>) : J
             currentMethod.complexity++
         }
     }
+
     override fun enterExpression(ctx: JavaParser.ExpressionContext) {
         assert(complexityStack.isNotEmpty())
         val currentMethod = complexityStack[0] as MethodComplexity
@@ -256,6 +295,7 @@ class ComplexityResult(val source: Source, entry: Map.Entry<String, String>) : J
         val currentMethod = complexityStack[0] as MethodComplexity
         currentMethod.complexity += ctx.children.size
     }
+
     // Each catch clause represents one new path
     override fun enterCatchClause(ctx: JavaParser.CatchClauseContext) {
         assert(complexityStack.isNotEmpty())
@@ -265,9 +305,11 @@ class ComplexityResult(val source: Source, entry: Map.Entry<String, String>) : J
 
     // Ignore argument lists that are part of lambda expressions
     private var insideLambda = false
+
     override fun enterLambdaExpression(ctx: JavaParser.LambdaExpressionContext?) {
         insideLambda = true
     }
+
     override fun exitLambdaExpression(ctx: JavaParser.LambdaExpressionContext?) {
         insideLambda = false
     }
@@ -276,6 +318,7 @@ class ComplexityResult(val source: Source, entry: Map.Entry<String, String>) : J
     override fun enterSwitchBlockStatementGroup(ctx: JavaParser.SwitchBlockStatementGroupContext) {
         insideSwitch = true
     }
+
     override fun exitSwitchBlockStatementGroup(ctx: JavaParser.SwitchBlockStatementGroupContext) {
         insideSwitch = false
     }
@@ -286,7 +329,9 @@ class ComplexityResult(val source: Source, entry: Map.Entry<String, String>) : J
 }
 
 class ComplexityResults(@Transient val source: Source, val results: Map<String, Map<String, ClassComplexity>>) {
+    @Suppress("ReturnCount")
     fun lookup(path: String, filename: String = ""): ComplexityValue {
+        @Suppress("TooGenericExceptionCaught")
         return try {
             val components = path.split(".").toMutableList()
 
