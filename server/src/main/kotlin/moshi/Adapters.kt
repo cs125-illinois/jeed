@@ -18,9 +18,9 @@ import edu.illinois.cs.cs125.jeed.server.toSource
 
 @JvmField
 val Adapters = setOf(
-        JobAdapter(),
-        ResultAdapter(),
-        TemplatedSourceResultAdapter()
+    JobAdapter(),
+    ResultAdapter(),
+    TemplatedSourceResultAdapter()
 )
 
 @JsonClass(generateAdapter = true)
@@ -32,7 +32,8 @@ class JobJson(
     val arguments: TaskArguments?,
     val authToken: String?,
     val label: String,
-    val waitForSave: Boolean = false
+    val waitForSave: Boolean? = false,
+    val requireSave: Boolean? = true
 )
 
 class JobAdapter {
@@ -40,13 +41,33 @@ class JobAdapter {
     fun jobFromJson(jobJson: JobJson): Job {
         assert(!(jobJson.sources != null && jobJson.snippet != null)) { "can't set both snippet and sources" }
         assert(jobJson.sources != null || jobJson.snippet != null) { "must set either sources or snippet" }
-        return Job(jobJson.sources?.toSource(), jobJson.templates?.toSource(), jobJson.snippet, jobJson.tasks, jobJson.arguments, jobJson.authToken, jobJson.label, jobJson.waitForSave)
+        return Job(
+            jobJson.sources?.toSource(),
+            jobJson.templates?.toSource(),
+            jobJson.snippet,
+            jobJson.tasks,
+            jobJson.arguments,
+            jobJson.authToken,
+            jobJson.label,
+            jobJson.waitForSave ?: false,
+            jobJson.requireSave ?: true
+        )
     }
 
     @ToJson
     fun jobToJson(job: Job): JobJson {
         assert(!(job.source != null && job.snippet != null)) { "can't set both snippet and sources" }
-        return JobJson(job.source?.toFlatSources(), job.templates?.toFlatSources(), job.snippet, job.tasks, job.arguments, null, job.label, job.waitForSave)
+        return JobJson(
+            job.source?.toFlatSources(),
+            job.templates?.toFlatSources(),
+            job.snippet,
+            job.tasks,
+            job.arguments,
+            null,
+            job.label,
+            job.waitForSave,
+            job.requireSave
+        )
     }
 }
 
@@ -73,16 +94,19 @@ class ResultAdapter {
         result.completed.compilation = resultJson.completed.compilation
         result.completed.kompilation = resultJson.completed.kompilation
         result.completed.template = resultJson.completed.template
-        result.completed.execution = resultJson.completed.execution
         result.completed.checkstyle = resultJson.completed.checkstyle
+        result.completed.complexity = resultJson.completed.complexity
+        result.completed.execution = resultJson.completed.execution
+
         result.completedTasks.addAll(resultJson.completedTasks)
 
         result.failed.snippet = resultJson.failed.snippet
         result.failed.compilation = resultJson.failed.compilation
         result.failed.kompilation = resultJson.failed.kompilation
         result.failed.template = resultJson.failed.template
-        result.failed.execution = resultJson.failed.execution
         result.failed.checkstyle = resultJson.failed.checkstyle
+        result.failed.complexity = resultJson.failed.complexity
+        result.failed.execution = resultJson.failed.execution
         result.failedTasks.addAll(resultJson.failedTasks)
 
         result.interval = resultJson.interval
@@ -93,14 +117,14 @@ class ResultAdapter {
     @ToJson
     fun resultToJson(result: Result): ResultJson {
         return ResultJson(
-                result.email,
-                result.job,
-                result.status,
-                result.completed,
-                result.completedTasks,
-                result.failed,
-                result.failedTasks,
-                result.interval
+            result.email,
+            result.job,
+            result.status,
+            result.completed,
+            result.completedTasks,
+            result.failed,
+            result.failedTasks,
+            result.interval
         )
     }
 }
@@ -112,16 +136,16 @@ class TemplatedSourceResultAdapter {
     @FromJson
     fun templatedSourceResultFromJson(templatedSourceResultJson: TemplatedSourceResultJson): TemplatedSourceResult {
         return TemplatedSourceResult(
-                templatedSourceResultJson.sources.toSource(),
-                templatedSourceResultJson.originalSources.toSource()
+            templatedSourceResultJson.sources.toSource(),
+            templatedSourceResultJson.originalSources.toSource()
         )
     }
 
     @ToJson
     fun templatedSourceResultToJson(templatedSourceResult: TemplatedSourceResult): TemplatedSourceResultJson {
         return TemplatedSourceResultJson(
-                templatedSourceResult.sources.toFlatSources(),
-                templatedSourceResult.originalSources.toFlatSources()
+            templatedSourceResult.sources.toFlatSources(),
+            templatedSourceResult.originalSources.toFlatSources()
         )
     }
 }

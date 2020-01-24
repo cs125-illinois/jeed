@@ -303,7 +303,7 @@ export const JeedProvider: React.FC<JeedProviderProps> = ({ server, defaultArgum
   const [status, setStatus] = useState<ServerStatus | null>(null)
 
   const jeedDefaultArguments = pipe(
-    TaskArguments.decode(defaultArguments),
+    TaskArguments.decode(defaultArguments || {}),
     getOrElse<io.Errors, TaskArguments>(errors => {
       throw new Error("Invalid Jeed default arguments:\n" + failure(errors).join("\n"))
     })
@@ -373,7 +373,7 @@ JeedProvider.propTypes = {
   defaultArguments: (props, propName): Error | null => {
     try {
       pipe(
-        TaskArguments.decode(props[propName]),
+        TaskArguments.decode(props[propName] || {}),
         getOrElse<io.Errors, TaskArguments>(errors => {
           throw new Error("Invalid Jeed task arguments:\n" + failure(errors).join("\n"))
         })

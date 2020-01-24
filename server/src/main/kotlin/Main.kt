@@ -26,7 +26,7 @@ val moshi: Moshi = Moshi.Builder().let { builder ->
     builder.build()
 }
 val VERSION: String = Properties().also {
-    it.load((object : Any() {}).javaClass.getResourceAsStream("/edu.illinois.cs.cs125.jeed.server.version"))
+    it.load((object {}).javaClass.getResourceAsStream("/edu.illinois.cs.cs125.jeed.server.version"))
 }.getProperty("version")
 
 fun main() {
@@ -39,7 +39,9 @@ fun main() {
         val mongoUri = MongoClientURI(it)
         val database = mongoUri.database ?: require { "MONGO must specify database to use" }
         val collection = configuration[TopLevel.Mongo.collection]
-        Job.mongoCollection = MongoClient(mongoUri).getDatabase(database).getCollection(collection, BsonDocument::class.java)
+        Job.mongoCollection = MongoClient(mongoUri)
+            .getDatabase(database)
+            .getCollection(collection, BsonDocument::class.java)
     }
     configuration[Auth.Google.clientID]?.let {
         Job.googleTokenVerifier = GoogleIdTokenVerifier.Builder(NetHttpTransport(), JacksonFactory())

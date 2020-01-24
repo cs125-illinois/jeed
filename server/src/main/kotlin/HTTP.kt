@@ -35,6 +35,7 @@ fun Application.jeed() {
             call.respond(currentStatus)
         }
         post("/") {
+            @Suppress("TooGenericExceptionCaught")
             val job = try {
                 call.receive<Job>()
             } catch (e: Exception) {
@@ -51,6 +52,7 @@ fun Application.jeed() {
                 return@post
             }
 
+            @Suppress("TooGenericExceptionCaught")
             try {
                 val result = job.run()
                 currentStatus.lastJob = Instant.now()

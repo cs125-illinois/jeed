@@ -1,31 +1,53 @@
 package edu.illinois.cs.cs125.jeed.core
 
 import io.kotlintest.shouldBe
+import io.kotlintest.shouldThrow
 import io.kotlintest.specs.StringSpec
 
 class TestComplexity : StringSpec({
     "should calculate complexity for snippets" {
-        val complexityResults = Source.transformSnippet("""
+        val complexityResults = Source.transformSnippet(
+            """
 int add(int i, int j) {
     return i + j;
 }
 int i = 0;
-""".trim()).complexity()
+""".trim()
+        ).complexity()
         complexityResults.lookup("").complexity shouldBe 2
     }
     "should calculate complexity for sources" {
-        val complexityResults = Source(mapOf(
+        val complexityResults = Source(
+            mapOf(
                 "Test.java" to """
 public class Test {
     int add(int i, int j) {
         return i + j;
     }
 }
-""".trim())).complexity()
+""".trim()
+            )
+        ).complexity()
         complexityResults.lookup("Test.add(int,int)", "Test.java").complexity shouldBe 1
     }
+    "should fail properly on parse errors" {
+        shouldThrow<ComplexityFailed> {
+            Source(
+                mapOf(
+                    "Test.java" to """
+public class Test
+    int add(int i, int j) {
+        return i + j;
+    }
+}
+""".trim()
+                )
+            ).complexity()
+        }
+    }
     "should calculate complexity for simple conditional statements" {
-        val complexityResults = Source(mapOf(
+        val complexityResults = Source(
+            mapOf(
                 "Test.java" to """
 public class Test {
     int chooser(int i, int j) {
@@ -36,11 +58,14 @@ public class Test {
         }
     }
 }
-""".trim())).complexity()
+""".trim()
+            )
+        ).complexity()
         complexityResults.lookup("Test.chooser(int,int)", "Test.java").complexity shouldBe 2
     }
     "should calculate complexity for complex conditional statements" {
-        val complexityResults = Source(mapOf(
+        val complexityResults = Source(
+            mapOf(
                 "Test.java" to """
 public class Test {
     int chooser(int i, int j) {
@@ -55,7 +80,9 @@ public class Test {
         }
     }
 }
-""".trim())).complexity()
+""".trim()
+            )
+        ).complexity()
         complexityResults.lookup("Test.chooser(int,int)", "Test.java").complexity shouldBe 4
     }
 })

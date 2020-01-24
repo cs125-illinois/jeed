@@ -9,12 +9,14 @@ import edu.illinois.cs.cs125.jeed.core.CompilationError
 import edu.illinois.cs.cs125.jeed.core.CompilationFailed
 import edu.illinois.cs.cs125.jeed.core.CompilationMessage
 import edu.illinois.cs.cs125.jeed.core.CompiledSource
+import edu.illinois.cs.cs125.jeed.core.ComplexityFailed
 import edu.illinois.cs.cs125.jeed.core.ExecutionFailed
 import edu.illinois.cs.cs125.jeed.core.Interval
 import edu.illinois.cs.cs125.jeed.core.Sandbox
 import edu.illinois.cs.cs125.jeed.core.Snippet
 import edu.illinois.cs.cs125.jeed.core.SnippetTransformationError
 import edu.illinois.cs.cs125.jeed.core.SnippetTransformationFailed
+import edu.illinois.cs.cs125.jeed.core.SourceError
 import edu.illinois.cs.cs125.jeed.core.SourceExecutionArguments
 import edu.illinois.cs.cs125.jeed.core.SourceRange
 import edu.illinois.cs.cs125.jeed.core.TemplatedSource
@@ -33,6 +35,7 @@ val Adapters = setOf(
     SnippetTransformationFailedAdapter(),
     CompilationFailedAdapter(),
     CheckstyleFailedAdapter(),
+    ComplexityFailedAdapter(),
     TemplatingErrorAdapter(),
     TemplatingFailedAdapter()
 )
@@ -79,6 +82,22 @@ class CheckstyleFailedAdapter {
     @ToJson
     fun checkstyleFailedToJson(checkstyleFailed: CheckstyleFailed): CheckstyleFailedJson {
         return CheckstyleFailedJson(checkstyleFailed.errors as List<CheckstyleError>)
+    }
+}
+
+@JsonClass(generateAdapter = true)
+data class ComplexityFailedJson(val errors: List<SourceError>)
+
+class ComplexityFailedAdapter {
+    @FromJson
+    fun complexityFailedFromJson(complexityFailedJson: ComplexityFailedJson): ComplexityFailed {
+        return ComplexityFailed(complexityFailedJson.errors)
+    }
+
+    @Suppress("UNCHECKED_CAST")
+    @ToJson
+    fun complexityFailedToJson(complexityFailed: ComplexityFailed): ComplexityFailedJson {
+        return ComplexityFailedJson(complexityFailed.errors)
     }
 }
 

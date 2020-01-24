@@ -15,10 +15,12 @@ spec:
     spec:
       containers:
       - name: jeed
-        image: cs125/jeed:2019.12.7
+        image: cs125/jeed:2020.1.0
         ports:
         - containerPort: 8888
         env:
+        - name: SEMESTER
+          value: Spring2020
         - name: HTTP
           value: http://0.0.0.0:8888
         - name: MONGODB

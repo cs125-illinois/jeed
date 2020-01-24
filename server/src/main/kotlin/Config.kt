@@ -15,6 +15,7 @@ object TopLevel : ConfigSpec("") {
     val http by optional(DEFAULT_HTTP)
     val semester by optional<String?>(null)
     val mongodb by optional<String?>(null)
+
     object Mongo : ConfigSpec() {
         val collection by optional(NAME)
     }
@@ -22,17 +23,24 @@ object TopLevel : ConfigSpec("") {
 
 object Auth : ConfigSpec() {
     val none by optional(true)
+
     object Google : ConfigSpec() {
         val hostedDomain by optional<String?>(null)
         val clientID by optional<String?>(null)
     }
 }
+
 object Limits : ConfigSpec() {
     object Execution : ConfigSpec() {
         val timeout by optional(Sandbox.ExecutionArguments.DEFAULT_TIMEOUT)
-        val permissions by optional(SourceExecutionArguments.REQUIRED_PERMISSIONS.toList().map { PermissionAdapter().permissionToJson(it) })
+        val permissions by optional(SourceExecutionArguments.REQUIRED_PERMISSIONS.toList().map {
+            PermissionAdapter().permissionToJson(
+                it
+            )
+        })
         val maxExtraThreads by optional(Sandbox.ExecutionArguments.DEFAULT_MAX_EXTRA_THREADS)
         val maxOutputLines by optional(Sandbox.ExecutionArguments.DEFAULT_MAX_OUTPUT_LINES)
+
         object ClassLoaderConfiguration : ConfigSpec() {
             val whitelistedClasses by optional(Sandbox.ClassLoaderConfiguration.DEFAULT_WHITELISTED_CLASSES)
             val blacklistedClasses by optional(Sandbox.ClassLoaderConfiguration.DEFAULT_BLACKLISTED_CLASSES)

@@ -50,8 +50,7 @@ class TestHTTP : StringSpec() {
 {
 "label": "test",
 "snippet": "System.out.println(\"Here\");",
-"tasks": [ "compile", "execute" ],
-"waitForSave": true
+"tasks": [ "compile", "execute" ]
 }""".trim()
                     )
                 }.apply {
@@ -84,8 +83,7 @@ public class Main {
 }"
   }
 ],
-"tasks": [ "compile", "execute" ],
-"waitForSave": true
+"tasks": [ "compile", "execute" ]
 }""".trim()
                     )
                 }.apply {
@@ -115,8 +113,7 @@ fun main() {
 }"
   }
 ],
-"tasks": [ "kompile", "execute" ],
-"waitForSave": true
+"tasks": [ "kompile", "execute" ]
 }""".trim()
                     )
                 }.apply {
@@ -149,8 +146,7 @@ public static void main() {
 }"
   }
 ],
-"tasks": [ "checkstyle", "compile", "execute" ],
-"waitForSave": true
+"tasks": [ "checkstyle", "compile", "execute" ]
 }""".trim()
                     )
                 }.apply {
@@ -180,8 +176,7 @@ fun main() {
 }"
   }
 ],
-"tasks": [ "checkstyle", "kompile", "execute" ],
-"waitForSave": true
+"tasks": [ "checkstyle", "kompile", "execute" ]
 }""".trim()
                     )
                 }.apply {
@@ -215,8 +210,7 @@ public static void main() {
     "contents": "System.out.println(\"Here\");"
   }
 ],
-"tasks": [ "template", "compile", "execute" ],
-"waitForSave": true
+"tasks": [ "template", "compile", "execute" ]
 }""".trim()
                     )
                 }.apply {
@@ -229,6 +223,39 @@ public static void main() {
                 }
             }
         }
+        "should accept good source complexity request" {
+            withTestApplication(Application::jeed) {
+                handleRequest(HttpMethod.Post, "/") {
+                    addHeader("content-type", "application/json")
+                    setBody(
+                        """
+{
+"label": "test",
+"sources": [
+  {
+    "path": "Main.java",
+    "contents": "
+public class Main {
+    public static void main() {
+        System.out.println(\"Here\");
+    }
+}"
+  }
+],
+"tasks": [ "complexity" ]
+}""".trim()
+                    )
+                }.apply {
+                    response.shouldHaveStatus(HttpStatusCode.OK.value)
+                    Job.mongoCollection?.countDocuments() shouldBe 1
+
+                    val result = Result.from(response.content)
+                    result.completedTasks.size shouldBe 1
+                    result.failedTasks.size shouldBe 0
+                    println(result.completed.complexity)
+                }
+            }
+        }
         "should handle snippet error" {
             withTestApplication(Application::jeed) {
                 handleRequest(HttpMethod.Post, "/") {
@@ -238,8 +265,7 @@ public static void main() {
 {
 "label": "test",
 "snippet": "System.out.println(\"Here\")",
-"tasks": [ "snippet" ],
-"waitForSave": true
+"tasks": [ "snippet" ]
 }""".trim()
                     )
                 }.apply {
@@ -278,8 +304,7 @@ public static void main() {
     "contents": "System.out.println(\"Here\");"
   }
 ],
-"tasks": [ "template" ],
-"waitForSave": true
+"tasks": [ "template" ]
 }""".trim()
                     )
                 }.apply {
@@ -312,8 +337,7 @@ public class Main {
 }"
   }
 ],
-"tasks": [ "compile" ],
-"waitForSave": true
+"tasks": [ "compile" ]
 }""".trim()
                     )
                 }.apply {
@@ -344,8 +368,7 @@ fun main() {
 }"
   }
 ],
-"tasks": [ "kompile" ],
-"waitForSave": true
+"tasks": [ "kompile" ]
 }""".trim()
                     )
                 }.apply {
@@ -383,8 +406,7 @@ System.out.println(\"Here\");
 }"
   }
 ],
-"tasks": [ "checkstyle", "compile", "execute" ],
-"waitForSave": true
+"tasks": [ "checkstyle", "compile", "execute" ]
 }""".trim()
                     )
                 }.apply {
@@ -418,8 +440,7 @@ public class Main {
 }"
   }
 ],
-"tasks": [ "compile", "execute" ],
-"waitForSave": true
+"tasks": [ "compile", "execute" ]
 }""".trim()
                     )
                 }.apply {
@@ -454,8 +475,7 @@ public class Main {
 }"
   }
 ],
-"tasks": [ "compile", "execute" ],
-"waitForSave": true
+"tasks": [ "compile", "execute" ]
 }""".trim()
                     )
                 }
@@ -472,8 +492,7 @@ public class Main {
                         """
 {
 "label": "test",
-"tasks": [ "compile", "execute" ],
-"waitForSave": true
+"tasks": [ "compile", "execute" ]
 }""".trim()
                     )
                 }
@@ -498,8 +517,7 @@ public class Main {
   }
 }"
 },
-"tasks": [ "compile", "execute" ],
-"waitForSave": true
+"tasks": [ "compile", "execute" ]
 }""".trim()
                     )
                 }

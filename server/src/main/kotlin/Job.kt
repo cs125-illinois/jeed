@@ -7,19 +7,25 @@ import com.squareup.moshi.JsonClass
 import edu.illinois.cs.cs125.jeed.core.CheckstyleArguments
 import edu.illinois.cs.cs125.jeed.core.CheckstyleFailed
 import edu.illinois.cs.cs125.jeed.core.CheckstyleResults
+import edu.illinois.cs.cs125.jeed.core.ClassComplexity
 import edu.illinois.cs.cs125.jeed.core.CompilationArguments
 import edu.illinois.cs.cs125.jeed.core.CompilationFailed
+import edu.illinois.cs.cs125.jeed.core.ComplexityFailed
+import edu.illinois.cs.cs125.jeed.core.ComplexityResults
 import edu.illinois.cs.cs125.jeed.core.ExecutionFailed
 import edu.illinois.cs.cs125.jeed.core.Interval
 import edu.illinois.cs.cs125.jeed.core.KompilationArguments
+import edu.illinois.cs.cs125.jeed.core.MethodComplexity
 import edu.illinois.cs.cs125.jeed.core.Snippet
 import edu.illinois.cs.cs125.jeed.core.SnippetArguments
 import edu.illinois.cs.cs125.jeed.core.SnippetTransformationFailed
 import edu.illinois.cs.cs125.jeed.core.Source
 import edu.illinois.cs.cs125.jeed.core.SourceExecutionArguments
+import edu.illinois.cs.cs125.jeed.core.SourceRange
 import edu.illinois.cs.cs125.jeed.core.TemplatingFailed
 import edu.illinois.cs.cs125.jeed.core.checkstyle
 import edu.illinois.cs.cs125.jeed.core.compile
+import edu.illinois.cs.cs125.jeed.core.complexity
 import edu.illinois.cs.cs125.jeed.core.execute
 import edu.illinois.cs.cs125.jeed.core.fromTemplates
 import edu.illinois.cs.cs125.jeed.core.kompile
@@ -35,6 +41,7 @@ import kotlinx.coroutines.GlobalScope
 import kotlinx.coroutines.async
 import org.apache.http.auth.AuthenticationException
 import org.bson.BsonDocument
+import org.bson.BsonString
 
 @Suppress("EnumEntryName", "EnumNaming")
 enum class Task {
@@ -65,7 +72,8 @@ class Job(
     arguments: TaskArguments?,
     @Suppress("MemberVisibilityCanBePrivate") val authToken: String?,
     val label: String,
-    val waitForSave: Boolean = false
+    val waitForSave: Boolean = false,
+    val requireSave: Boolean = true
 ) {
     val tasks: Set<Task>
     val arguments = arguments ?: TaskArguments()
@@ -123,7 +131,9 @@ class Job(
                 }
             }
             if (arguments?.execution?.permissions != null) {
-                val allowedPermissions = configuration[Limits.Execution.permissions].map { PermissionAdapter().permissionFromJson(it) }.toSet()
+                val allowedPermissions =
+                    configuration[Limits.Execution.permissions].map { PermissionAdapter().permissionFromJson(it) }
+                        .toSet()
                 require(allowedPermissions.containsAll(arguments.execution.permissions)) {
                     "job is requesting unavailable permissions"
                 }
@@ -222,6 +232,12 @@ class Job(
                 result.completedTasks.add(Task.checkstyle)
             }
 
+            if (tasks.contains(Task.complexity)) {
+                check(actualSource.type == Source.FileType.JAVA) { "can't run complexity on non-Java sources" }
+                result.completed.complexity = FlatComplexityResults(actualSource.complexity())
+                result.completedTasks.add(Task.complexity)
+            }
+
             if (tasks.contains(Task.execute)) {
                 check(compiledSource != null) { "should have compiled source before executing" }
                 val executionResult = compiledSource.execute(arguments.execution)
@@ -250,27 +266,38 @@ class Job(
         } catch (checkstyleFailed: CheckstyleFailed) {
             result.failed.checkstyle = checkstyleFailed
             result.failedTasks.add(Task.checkstyle)
+        } catch (complexityFailed: ComplexityFailed) {
+            result.failed.complexity = complexityFailed
+            result.failedTasks.add(Task.complexity)
         } catch (executionFailed: ExecutionFailed) {
             result.failed.execution = ExecutionFailedResult(executionFailed)
             result.failedTasks.add(Task.execute)
         } finally {
             currentStatus.counts.completedJobs++
             result.interval = Interval(started, Instant.now())
-            if (mongoCollection != null) {
-                val resultSave = GlobalScope.async {
-                    try {
-                        mongoCollection?.insertOne(BsonDocument.parse(result.json))
-                        currentStatus.counts.savedJobs++
-                    } catch (e: Exception) {
-                        logger.error("Saving job failed: $e")
+        }
+        if (mongoCollection != null) {
+            val resultSave = GlobalScope.async {
+                @Suppress("TooGenericExceptionCaught")
+                try {
+                    mongoCollection?.insertOne(BsonDocument.parse(result.json).also {
+                        it.append("receivedSemester", BsonString(configuration[TopLevel.semester]))
+                    })
+                    currentStatus.counts.savedJobs++
+                } catch (e: Exception) {
+                    logger.error("Saving job failed: $e")
+                    if (requireSave) {
+                        throw(e)
+                    } else {
+                        null
                     }
                 }
-                if (waitForSave) {
-                    resultSave.await()
-                }
             }
-            return result
+            if (waitForSave || requireSave) {
+                resultSave.await()
+            }
         }
+        return result
     }
 
     companion object {
@@ -310,6 +337,7 @@ class CompletedTasks(
     var compilation: CompiledSourceResult? = null,
     var kompilation: CompiledSourceResult? = null,
     var checkstyle: CheckstyleResults? = null,
+    var complexity: FlatComplexityResults? = null,
     var execution: SourceTaskResults? = null
 )
 
@@ -320,6 +348,7 @@ class FailedTasks(
     var compilation: CompilationFailed? = null,
     var kompilation: CompilationFailed? = null,
     var checkstyle: CheckstyleFailed? = null,
+    var complexity: ComplexityFailed? = null,
     var execution: ExecutionFailedResult? = null
 )
 
@@ -333,4 +362,86 @@ fun List<FlatSource>.toSource(): Map<String, String> {
 
 fun Map<String, String>.toFlatSources(): List<FlatSource> {
     return this.map { FlatSource(it.key, it.value) }
+}
+
+@JsonClass(generateAdapter = true)
+data class FlatClassComplexity(val name: String, val path: String, val range: SourceRange, val complexity: Int) {
+    constructor(classComplexity: ClassComplexity, prefix: String) : this(
+        classComplexity.name,
+        "$prefix.${classComplexity.name}",
+        classComplexity.range,
+        classComplexity.complexity
+    )
+}
+
+@JsonClass(generateAdapter = true)
+data class FlatMethodComplexity(val name: String, val path: String, val range: SourceRange, val complexity: Int) {
+    constructor(methodComplexity: MethodComplexity, prefix: String) : this(
+        methodComplexity.name,
+        "$prefix.${methodComplexity.name}",
+        methodComplexity.range,
+        methodComplexity.complexity
+    )
+}
+
+@JsonClass(generateAdapter = true)
+data class FlatComplexityResult(
+    val source: String,
+    val classes: List<FlatClassComplexity>,
+    val methods: List<FlatMethodComplexity>
+) {
+    companion object {
+        fun from(source: String, complexityResults: Map<String, ClassComplexity>): FlatComplexityResult {
+            val classes: MutableList<FlatClassComplexity> = mutableListOf()
+            val methods: MutableList<FlatMethodComplexity> = mutableListOf()
+            complexityResults.forEach { (_, classComplexity) ->
+                addFromClass(classComplexity, "", classes, methods)
+            }
+            return FlatComplexityResult(source, classes, methods)
+        }
+
+        private fun addFromMethod(
+            methodComplexity: MethodComplexity,
+            prefix: String,
+            classes: MutableList<FlatClassComplexity>,
+            methods: MutableList<FlatMethodComplexity>
+        ) {
+            methods.add(FlatMethodComplexity(methodComplexity, prefix))
+            val nextPrefix = if (prefix.isBlank()) {
+                methodComplexity.name
+            } else {
+                "$prefix.${methodComplexity.name}"
+            }
+            methodComplexity.classes.forEach {
+                addFromClass(it.value as ClassComplexity, nextPrefix, classes, methods)
+            }
+        }
+
+        private fun addFromClass(
+            classComplexity: ClassComplexity,
+            prefix: String,
+            classes: MutableList<FlatClassComplexity>,
+            methods: MutableList<FlatMethodComplexity>
+        ) {
+            classes.add(FlatClassComplexity(classComplexity, prefix))
+            val nextPrefix = if (prefix.isBlank()) {
+                classComplexity.name
+            } else {
+                "$prefix.${classComplexity.name}"
+            }
+            classComplexity.classes.values.forEach {
+                addFromClass(it as ClassComplexity, nextPrefix, classes, methods)
+            }
+            classComplexity.methods.values.forEach {
+                addFromMethod(it as MethodComplexity, nextPrefix, classes, methods)
+            }
+        }
+    }
+}
+
+@JsonClass(generateAdapter = true)
+data class FlatComplexityResults(val results: List<FlatComplexityResult>) {
+    constructor(complexityResults: ComplexityResults) : this(complexityResults.results.map { (source, results) ->
+        FlatComplexityResult.from(source, results)
+    })
 }

@@ -159,6 +159,7 @@ data class SourceRange(
     val end: Location
 )
 
+@JsonClass(generateAdapter = true)
 open class LocatedClass(
     val name: String,
     @Suppress("unused") val range: SourceRange,
@@ -166,12 +167,14 @@ open class LocatedClass(
     val methods: MutableMap<String, LocatedMethod> = mutableMapOf()
 )
 
+@JsonClass(generateAdapter = true)
 open class LocatedMethod(
     val name: String,
     @Suppress("unused") val range: SourceRange,
     var classes: MutableMap<String, LocatedClass> = mutableMapOf()
 )
 
+@JsonClass(generateAdapter = true)
 open class SourceError(
     val location: SourceLocation,
     val message: String

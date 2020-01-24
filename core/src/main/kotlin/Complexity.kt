@@ -1,5 +1,6 @@
 package edu.illinois.cs.cs125.jeed.core
 
+import com.squareup.moshi.JsonClass
 import edu.illinois.cs.cs125.jeed.core.antlr.JavaLexer
 import edu.illinois.cs.cs125.jeed.core.antlr.JavaParser
 import edu.illinois.cs.cs125.jeed.core.antlr.JavaParserBaseListener
@@ -14,6 +15,7 @@ interface ComplexityValue {
 }
 
 @Suppress("UNCHECKED_CAST")
+@JsonClass(generateAdapter = true)
 class ClassComplexity(
     name: String,
     range: SourceRange,
@@ -46,6 +48,7 @@ class ClassComplexity(
 }
 
 @Suppress("UNCHECKED_CAST")
+@JsonClass(generateAdapter = true)
 class MethodComplexity(
     name: String,
     range: SourceRange,
@@ -328,7 +331,7 @@ class ComplexityResult(val source: Source, entry: Map.Entry<String, String>) : J
     }
 }
 
-class ComplexityResults(@Transient val source: Source, val results: Map<String, Map<String, ClassComplexity>>) {
+class ComplexityResults(val source: Source, val results: Map<String, Map<String, ClassComplexity>>) {
     @Suppress("ReturnCount")
     fun lookup(path: String, filename: String = ""): ComplexityValue {
         @Suppress("TooGenericExceptionCaught")
@@ -362,11 +365,21 @@ class ComplexityResults(@Transient val source: Source, val results: Map<String, 
     }
 }
 
-@Throws(JavaParsingException::class)
+class ComplexityFailed(errors: List<SourceError>) : JeedError(errors) {
+    override fun toString(): String {
+        return "errors were encountered while computing complexity: ${errors.joinToString(separator = ",")}"
+    }
+}
+
+@Throws(ComplexityFailed::class)
 fun Source.complexity(names: Set<String> = sources.keys.toSet()): ComplexityResults {
-    return ComplexityResults(this, sources.filter {
-        names.contains(it.key)
-    }.mapValues {
-        ComplexityResult(this, it).results
-    })
+    try {
+        return ComplexityResults(this, sources.filter {
+            names.contains(it.key)
+        }.mapValues {
+            ComplexityResult(this, it).results
+        })
+    } catch (e: JavaParsingException) {
+        throw ComplexityFailed(e.errors)
+    }
 }

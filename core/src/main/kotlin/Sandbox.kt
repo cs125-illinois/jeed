@@ -70,7 +70,12 @@ object Sandbox {
             val DEFAULT_BLACKLISTED_CLASSES = setOf("java.lang.reflect.")
             val DEFAULT_UNSAFE_EXCEPTIONS = setOf<String>()
             val PERMANENTLY_BLACKLISTED_CLASSES =
-                setOf("edu.illinois.cs.cs125.jeed.", "org.objectweb.asm.", "java.lang.invoke.MethodHandles")
+                setOf(
+                    "edu.illinois.cs.cs125.jeed.",
+                    "org.objectweb.asm.",
+                    "java.lang.invoke.MethodHandles",
+                    "kotlinx.coroutines.GlobalScope"
+                )
             val ALWAYS_UNSAFE_EXCEPTIONS = setOf("java.lang.Error")
         }
     }

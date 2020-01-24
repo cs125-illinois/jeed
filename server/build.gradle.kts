@@ -3,14 +3,14 @@ import java.io.StringWriter
 import java.util.Properties
 
 group = "edu.illinois.cs.cs125"
-version = "2019.12.7"
+version = "2020.1.0"
 
 plugins {
     kotlin("jvm")
     kotlin("kapt")
     application
     id("com.github.johnrengelman.shadow") version "5.2.0"
-    id("com.palantir.docker") version "0.22.1"
+    id("com.palantir.docker") version "0.24.0"
     id("org.jmailen.kotlinter")
 }
 dependencies {
@@ -21,7 +21,7 @@ dependencies {
     implementation(project(":core"))
     implementation(kotlin("stdlib"))
     implementation("io.ktor:ktor-server-netty:$ktorVersion")
-    implementation("org.mongodb:mongodb-driver:3.12.0")
+    implementation("org.mongodb:mongodb-driver:3.12.1")
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-core:1.3.3")
     implementation("com.squareup.moshi:moshi-kotlin-codegen:1.9.2")
     implementation("com.ryanharter.ktor:ktor-moshi:1.0.1")
@@ -55,6 +55,7 @@ tasks.test {
     }
     systemProperties["logback.configurationFile"] = File(projectDir, "src/test/resources/logback-test.xml").absolutePath
     environment["MONGODB"] = "mongodb://localhost:27038/cs125"
+    environment["SEMESTER"] = "Spring2020"
 }
 tasks.jar {
     manifest {

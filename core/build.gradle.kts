@@ -13,12 +13,12 @@ plugins {
 }
 
 group = "com.github.cs125-illinois"
-version = "2019.12.6"
+version = "2020.1.0"
 
 dependencies {
     kapt("com.squareup.moshi:moshi-kotlin-codegen:1.9.2")
 
-    antlr("org.antlr:antlr4:4.7.2")
+    antlr("org.antlr:antlr4:4.8-1")
 
     implementation(kotlin("stdlib"))
     implementation(kotlin("compiler-embeddable"))
@@ -28,12 +28,12 @@ dependencies {
     implementation("org.jetbrains.kotlin:kotlin-reflect:1.3.61")
     implementation("com.github.jknack:handlebars:4.1.2")
     implementation("com.squareup.moshi:moshi:1.9.2")
-    implementation("org.ow2.asm:asm:7.2")
-    implementation("org.ow2.asm:asm-util:7.2")
+    implementation("org.ow2.asm:asm:7.3.1")
+    implementation("org.ow2.asm:asm-util:7.3.1")
     implementation("org.slf4j:slf4j-api:1.7.30")
     implementation("ch.qos.logback:logback-classic:1.2.3")
     implementation("io.github.microutils:kotlin-logging:1.7.8")
-    implementation("io.github.classgraph:classgraph:4.8.59")
+    implementation("io.github.classgraph:classgraph:4.8.60")
     implementation("net.java.dev.jna:jna:5.5.0")
 
     testImplementation("io.kotlintest:kotlintest-runner-junit5:3.4.2")
