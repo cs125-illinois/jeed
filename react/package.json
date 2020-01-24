@@ -22,26 +22,26 @@
     "jeed": "env-cmd docker run -p 8888:8888 cs125/jeed:latest"
   },
   "devDependencies": {
-    "@types/react": "^16.9.16",
-    "@typescript-eslint/eslint-plugin": "^2.12.0",
-    "@typescript-eslint/parser": "^2.12.0",
-    "concurrently": "^5.0.1",
+    "@types/react": "^16.9.19",
+    "@typescript-eslint/eslint-plugin": "^2.17.0",
+    "@typescript-eslint/parser": "^2.17.0",
+    "concurrently": "^5.0.2",
     "depcheck": "^0.9.1",
     "env-cmd": "^10.0.1",
-    "eslint": "^6.7.2",
-    "eslint-config-prettier": "^6.7.0",
+    "eslint": "^6.8.0",
+    "eslint-config-prettier": "^6.9.0",
     "eslint-plugin-prettier": "^3.1.2",
-    "eslint-plugin-react": "^7.17.0",
-    "husky": "^3.1.0",
-    "lint-staged": "^9.5.0",
+    "eslint-plugin-react": "^7.18.0",
+    "husky": "^4.2.1",
+    "lint-staged": "^10.0.2",
     "npm-check-updates": "^4.0.1",
     "prettier": "^1.19.1",
     "react": "^16.12.0",
-    "rollup": "^1.27.13",
+    "rollup": "^1.29.1",
     "rollup-plugin-commonjs": "^10.1.0",
     "rollup-plugin-node-resolve": "^5.2.0",
     "rollup-plugin-typescript2": "^0.25.3",
-    "typescript": "^3.7.3"
+    "typescript": "^3.7.5"
   },
   "peerDependencies": {
     "prop-types": "^15.7.2",
@@ -80,8 +80,8 @@
     ]
   },
   "dependencies": {
-    "fp-ts": "^2.3.1",
-    "io-ts": "^2.0.2",
+    "fp-ts": "^2.4.1",
+    "io-ts": "^2.0.6",
     "io-ts-excess": "^1.0.1"
   }
 }
