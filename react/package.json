@@ -1,6 +1,6 @@
 {
   "name": "@cs125/react-jeed",
-  "version": "2019.12.1",
+  "version": "2020.1.0",
   "main": "dist/index.cjs.js",
   "types": "dist/index.d.ts",
   "scripts": {
