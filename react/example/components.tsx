@@ -5,7 +5,7 @@ import "ace-builds/src-noconflict/mode-java"
 import "ace-builds/src-noconflict/mode-kotlin"
 import "ace-builds/src-noconflict/theme-chrome"
 
-import { JeedContext, JeedResult, Job, Task, TerminalOutput } from "@cs125/react-jeed"
+import { JeedContext, Result, Job, Task, TerminalOutput } from "@cs125/react-jeed"
 
 import Children from "react-children-utilities"
 import { Button, Icon, Dimmer, Container, Loader, Segment, Label } from "semantic-ui-react"
@@ -21,11 +21,12 @@ interface JeedAceProps extends IAceOptions {
   autoMin?: boolean
   autoPadding?: number
   snippet?: boolean
+  nocheckstyle?: boolean
 }
 interface JeedAceState {
   value: string
   busy: boolean
-  result?: JeedResult
+  result?: Result
   showOutput: boolean
 }
 const RelativeContainer = styled(Container)({
@@ -37,6 +38,8 @@ const SnugLabel = styled(Label)({
 })
 export class JeedAce extends Component<JeedAceProps, JeedAceState> {
   static contextType = JeedContext
+  declare context: React.ContextType<typeof JeedContext>
+
   static defaultProps = {
     name: "ace-editor",
     mode: "java",
@@ -44,6 +47,7 @@ export class JeedAce extends Component<JeedAceProps, JeedAceState> {
     autoMin: false,
     autoPadding: 2,
     snippet: false,
+    nocheckstyle: false,
   }
 
   private originalValue: string
@@ -73,7 +77,7 @@ export class JeedAce extends Component<JeedAceProps, JeedAceState> {
     this.setState({ value })
   }
   runCode = (): void => {
-    const { name: label, mode, snippet } = this.props
+    const { name: label, mode, snippet, nocheckstyle } = this.props
     const { value, busy } = this.state
     const { run, connected } = this.context
 
@@ -84,11 +88,14 @@ export class JeedAce extends Component<JeedAceProps, JeedAceState> {
     this.setState({ busy: true, showOutput: true })
 
     const tasks = [mode == "java" ? "compile" : "kompile", "execute"] as Array<Task>
+    if (mode == "java" && !nocheckstyle) {
+      tasks.push("checkstyle")
+    }
     const job: Job = snippet
       ? { label, tasks, snippet: value }
       : { label, tasks, sources: [{ path: mode == "java" ? "Main.java" : "Main.kt", contents: value }] }
 
-    run(job).then((result: JeedResult) => {
+    run(job).then(result => {
       this.setState({ busy: false, result })
     })
   }

@@ -2,17 +2,14 @@ import React, { useState, useEffect, useContext } from "react"
 import PropTypes from "prop-types"
 
 import * as io from "io-ts"
-import excess from "io-ts-excess"
 import { failure } from "io-ts/lib/PathReporter"
 import { pipe } from "fp-ts/lib/pipeable"
 import { either, getOrElse } from "fp-ts/lib/Either"
 
-const FlatSource = excess(
-  io.type({
-    path: io.string,
-    contents: io.string,
-  })
-)
+const FlatSource = io.type({
+  path: io.string,
+  contents: io.string,
+})
 export type FlatSource = io.TypeOf<typeof FlatSource>
 
 const Permission = io.intersection([
@@ -21,78 +18,42 @@ const Permission = io.intersection([
     name: io.string,
   }),
   io.partial({
-    actions: io.union([io.string, io.null]),
+    actions: io.string,
   }),
 ])
-const TaskArguments = excess(
-  io.type({
-    snippet: io.union([
-      excess(
-        io.type({
-          indent: io.union([io.number, io.null]),
-        })
-      ),
-      io.null,
-      io.undefined,
-    ]),
-    compilation: io.union([
-      excess(
-        io.type({
-          wError: io.union([io.boolean, io.null]),
-          Xlint: io.union([io.string, io.null]),
-        })
-      ),
-      io.null,
-      io.undefined,
-    ]),
-    kompilation: io.union([
-      excess(
-        io.type({
-          verbose: io.union([io.boolean, io.null]),
-          allWarningsAsErrors: io.union([io.boolean, io.null]),
-        })
-      ),
-      io.null,
-      io.undefined,
-    ]),
-    checkstyle: io.union([
-      excess(
-        io.type({
-          sources: io.union([io.array(io.string), io.null, io.undefined]),
-          failOnError: io.union([io.boolean, io.null]),
-        })
-      ),
-      io.null,
-      io.undefined,
-    ]),
-    execution: io.union([
-      excess(
-        io.type({
-          klass: io.union([io.string, io.null, io.undefined]),
-          method: io.union([io.string, io.null]),
-          timeout: io.union([io.number, io.null]),
-          permissions: io.union([io.array(Permission), io.null]),
-          maxExtraThreads: io.union([io.number, io.null]),
-          maxOutputLines: io.union([io.number, io.null]),
-          classLoaderConfiguration: io.union([
-            excess(
-              io.type({
-                whitelistedClasses: io.union([io.array(io.string), io.null]),
-                blacklistedClasses: io.union([io.array(io.string), io.null]),
-                unsafeExceptions: io.union([io.array(io.string), io.null]),
-              })
-            ),
-            io.null,
-            io.undefined,
-          ]),
-        })
-      ),
-      io.null,
-      io.undefined,
-    ]),
-  })
-)
-export type TaskArguments = io.TypeOf<typeof TaskArguments>
+const TaskArguments = io.partial({
+  snippet: io.partial({
+    indent: io.number,
+  }),
+  compilation: io.partial({
+    wError: io.boolean,
+    Xlint: io.string,
+  }),
+  kompilation: io.partial({
+    verbose: io.boolean,
+    allWarningsAsErrors: io.boolean,
+  }),
+  checkstyle: io.partial({
+    sources: io.array(io.string),
+    failOnError: io.boolean,
+  }),
+  execution: io.partial({
+    klass: io.string,
+    method: io.string,
+    timeout: io.number,
+    permissions: io.array(Permission),
+    maxExtraThreads: io.number,
+    maxOutputLines: io.number,
+    classLoaderConfiguration: io.partial({
+      whitelistedClasses: io.array(io.string),
+      blacklistedClasses: io.array(io.string),
+      unsafeExceptions: io.array(io.string),
+    }),
+  }),
+})
+
+const PartialTaskArguments = io.partial(TaskArguments.props)
+export type TaskArguments = io.TypeOf<typeof PartialTaskArguments>
 
 const Task = io.keyof({
   template: null,
@@ -124,44 +85,37 @@ const Instant = new io.Type<Date, string, unknown>(
   "DateFromString",
   (unknown): unknown is Date => unknown instanceof Date,
   (toDecode, context) =>
-    either.chain(io.string.validate(toDecode, context), string => {
-      const date = new Date(string)
-      return isNaN(date.getTime()) ? io.failure(toDecode, context) : io.success(date)
-    }),
+    toDecode instanceof Date
+      ? io.success(toDecode)
+      : either.chain(io.string.validate(toDecode, context), string => {
+          const date = new Date(string)
+          return isNaN(date.getTime()) ? io.failure(toDecode, context) : io.success(date)
+        }),
   toEncode => toEncode.toISOString()
 )
 
-const ServerStatus = excess(
-  io.type({
-    started: Instant,
-    lastJob: io.union([Instant, io.undefined]),
-    versions: excess(
-      io.type({
-        jeed: io.string,
-        server: io.string,
-        compiler: io.string,
-      })
-    ),
-    counts: excess(
-      io.type({
-        submittedJobs: io.Int,
-        completedJobs: io.Int,
-        savedJobs: io.Int,
-      })
-    ),
-    auth: excess(
-      io.type({
-        none: io.boolean,
-        google: excess(
-          io.type({
-            hostedDomain: io.union([io.string, io.undefined]),
-            clientID: io.union([io.string, io.undefined]),
-          })
-        ),
-      })
-    ),
-  })
-)
+const ServerStatus = io.partial({
+  started: Instant,
+  lastJob: io.union([Instant, io.undefined]),
+  versions: io.partial({
+    jeed: io.string,
+    server: io.string,
+    compiler: io.string,
+  }),
+  counts: io.partial({
+    submittedJobs: io.Int,
+    completedJobs: io.Int,
+    savedJobs: io.Int,
+  }),
+  auth: io.partial({
+    none: io.boolean,
+    google: io.partial({
+      hostedDomain: io.string,
+      clientID: io.string,
+    }),
+  }),
+})
+
 export type ServerStatus = io.TypeOf<typeof ServerStatus>
 
 const Location = io.type({ line: io.number, column: io.number })
@@ -213,7 +167,7 @@ const PermissionRequest = io.type({
 const CompilationFailed = io.type({
   errors: io.array(io.type({ location: SourceLocation, message: io.string })),
 })
-const JeedResult = io.intersection([
+const Result = io.intersection([
   io.type({
     job: Job,
     status: ServerStatus,
@@ -278,14 +232,14 @@ const JeedResult = io.intersection([
     email: io.string,
   }),
 ])
-export type JeedResult = io.TypeOf<typeof JeedResult>
+export type Result = io.TypeOf<typeof Result>
 
-interface JeedContext {
+export interface JeedContext {
   status: ServerStatus | null
   connected: boolean
-  run: (job: Job) => Promise<JeedResult> | undefined
+  run: (job: Job) => Promise<Result>
 }
-const runNothing = (): undefined => {
+const runNothing = (): Promise<Result> => {
   throw new Error("Jeed server not connected")
 }
 export const JeedContext = React.createContext<JeedContext>({
@@ -329,7 +283,7 @@ export const JeedProvider: React.FC<JeedProviderProps> = ({ server, defaultArgum
       })
   }, [])
 
-  const run = (job: Job): Promise<JeedResult> => {
+  const run = (job: Job): Promise<Result> => {
     job.arguments = Object.assign({}, job.arguments, jeedDefaultArguments)
 
     console.debug(job)
@@ -352,8 +306,8 @@ export const JeedProvider: React.FC<JeedProviderProps> = ({ server, defaultArgum
         console.debug(result)
 
         const jeedResult = pipe(
-          JeedResult.decode(result),
-          getOrElse<io.Errors, JeedResult>(errors => {
+          Result.decode(result),
+          getOrElse<io.Errors, Result>(errors => {
             throw new Error("Invalid Jeed result:\n" + failure(errors).join("\n"))
           })
         )
@@ -391,27 +345,94 @@ export const useJeed = (): JeedContext => {
 }
 
 interface Props {
-  result: JeedResult | undefined
+  result: Result | undefined
 }
-function resultToTerminalOutput(result: JeedResult): string {
+
+function getOriginalLine(job: Job, line: number, source?: string): string {
+  if (job.snippet) {
+    return job.snippet.split("\n")[line - 1]
+  }
+  for (const { path, contents } of job.sources || []) {
+    if (source === path || source === `/${path}`) {
+      return contents.split("\n")[line - 1]
+    }
+  }
+  throw new Error(`Couldn't find line ${line} in source ${source}`)
+}
+function resultToTerminalOutput(result: Result): string {
+  const { job } = result
   if (result.failed.snippet) {
     const output = result.failed.snippet.errors
       .map(({ line, column, message }) => {
-        const originalLine = result.job.snippet ? result.job.snippet.split("\n")[line - 1] : ""
+        const originalLine = getOriginalLine(job, line)
         return `Line ${line}: error: ${message}
-${originalLine}
-${new Array(column).join(" ")}^`
+${originalLine ? originalLine + "\n" + new Array(column).join(" ") + "^" : ""}`
       })
       .join("\n")
     const errorCount = Object.keys(result.failed.snippet.errors).length
     return `${output}
 ${errorCount} error${errorCount > 1 ? "s" : ""}`
-  } else {
-    return ""
+  } else if (result.failed.compilation || result.failed.kompilation) {
+    const output =
+      (result.failed.compilation || result.failed.kompilation)?.errors
+        .map(({ location: { source, line, column }, message }) => {
+          const originalLine = getOriginalLine(job, line, source)
+          const firstErrorLine = message
+            .split("\n")
+            .slice(0, 1)
+            .join()
+          const restOfError = message
+            .split("\n")
+            .slice(1)
+            .filter(line => {
+              return !(source === "" && line.trim().startsWith("location: class"))
+            })
+            .join("\n")
+          return `${source === "" ? "Line " : `${source}:`}${line}: error: ${firstErrorLine}
+${originalLine ? originalLine + "\n" + new Array(column).join(" ") + "^" : ""}${restOfError ? "\n" + restOfError : ""}`
+        })
+        .join("\n") || ""
+    const errorCount = Object.keys((result.failed.compilation || result.failed.kompilation)?.errors || {}).length
+    return `${output}
+${errorCount} error${errorCount > 1 ? "s" : ""}`
+  } else if (result.failed.checkstyle) {
+    const output =
+      result.failed.checkstyle?.errors
+        .map(({ location: { source, line }, message }) => {
+          return `${source === "" ? "Line " : `${source}:`}${line}: checkstyle error: ${message}`
+        })
+        .join("\n") || ""
+    const errorCount = Object.keys(result.failed.checkstyle?.errors || {}).length
+    return `${output}
+${errorCount} error${errorCount > 1 ? "s" : ""}`
+  } else if (result.failed.execution) {
+    if (result.failed.execution.classNotFound) {
+      return `Error: could not find class ${result.failed.execution.classNotFound}`
+    } else if (result.failed.execution.methodNotFound) {
+      return `Error: could not find method ${result.failed.execution.methodNotFound}`
+    } else if (result.failed.execution.threw) {
+      return `Error: ${result.failed.execution.threw}`
+    } else {
+      return `Something unexpected went wrong...`
+    }
   }
+
+  if (Object.keys(result.failed).length === 0 && result.completed.execution) {
+    const output = result.completed.execution.outputLines.map(({ line }) => line)
+    if (result.completed.execution.timeout) {
+      output.push("(Program timed out)")
+    }
+    if (result.completed.execution.truncatedLines > 0) {
+      output.push(`(${result.completed.execution.truncatedLines} lines were truncated)`)
+    }
+    return output.join("\n")
+  }
+
+  console.error(`Nothing failed but no success result either...`)
+  return ""
 }
 export const TerminalOutput: React.FC<Props> = ({ result }) => {
-  return result === undefined ? null : <pre>Here{resultToTerminalOutput(result)}</pre>
+  return result === undefined ? null : <pre>{resultToTerminalOutput(result)}</pre>
 }
 TerminalOutput.propTypes = {
   result: (props, propName): Error | null => {
@@ -420,8 +441,8 @@ TerminalOutput.propTypes = {
     }
     try {
       pipe(
-        JeedResult.decode(props[propName]),
-        getOrElse<io.Errors, JeedResult>(errors => {
+        Result.decode(props[propName]),
+        getOrElse<io.Errors, Result>(errors => {
           throw new Error("Invalid Jeed result:\n" + failure(errors).join("\n"))
         })
       )

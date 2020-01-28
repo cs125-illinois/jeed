@@ -23,6 +23,7 @@ interface CodeBlockProps {
   children: React.ReactNode
 }
 const CodeBlock: React.FC<CodeBlockProps> = props => {
+  console.log(props)
   const { className, jeed, children, ...jeedProps } = props
   const language = className?.replace(/language-/, "") || ""
   if (jeed && ["java", "kotlin"].includes(language)) {
@@ -60,7 +61,10 @@ const PaddedContainer = styled(Container)({
   paddingTop: 16,
 })
 const App: React.SFC = () => (
-  <JeedProvider server="http://localhost:8888">
+  <JeedProvider
+    server="http://localhost:8888"
+    defaultArguments={{ snippet: { indent: 2 }, checkstyle: { failOnError: true } }}
+  >
     <PaddedContainer text>
       <MDXProvider components={components}>
         <Content />
