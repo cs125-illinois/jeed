@@ -420,6 +420,39 @@ System.out.println(\"Here\");
                 }
             }
         }
+        "should return checkstyle results when not configured to fail" {
+            withTestApplication(Application::jeed) {
+                handleRequest(HttpMethod.Post, "/") {
+                    addHeader("content-type", "application/json")
+                    setBody(
+                        """
+{
+"label": "test",
+"sources": [
+  {
+    "path": "Main.java",
+    "contents": "
+public class Main {
+public static void main() {
+System.out.println(\"Here\");
+}
+}"
+  }
+],
+"tasks": [ "checkstyle", "compile", "execute" ]
+}""".trim()
+                    )
+                }.apply {
+                    response.shouldHaveStatus(HttpStatusCode.OK.value)
+                    Job.mongoCollection?.countDocuments() shouldBe 1
+
+                    val result = Result.from(response.content)
+                    result.completedTasks.size shouldBe 3
+                    result.failedTasks.size shouldBe 0
+                    result.completed.checkstyle?.errors?.size ?: 0 shouldBeGreaterThan 0
+                }
+            }
+        }
         "should handle execution error" {
             withTestApplication(Application::jeed) {
                 handleRequest(HttpMethod.Post, "/") {

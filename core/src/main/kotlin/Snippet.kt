@@ -46,7 +46,7 @@ class Snippet(
             check(input.source == SNIPPET_SOURCE)
             val remappedLineInfo = remappedLineMapping[input.line]
             check(remappedLineInfo != null) {
-                "can't remap line ${input.line}: ${remappedLineMapping.keys.joinToString(
+                "can't remap line ${input.line}: ${remappedLineMapping.values.joinToString(
                     separator = ","
                 )}"
             }
