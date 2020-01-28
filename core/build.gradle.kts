@@ -13,7 +13,7 @@ plugins {
 }
 
 group = "com.github.cs125-illinois"
-version = "2020.1.0"
+version = "2020.1.1"
 
 dependencies {
     kapt("com.squareup.moshi:moshi-kotlin-codegen:1.9.2")
@@ -24,7 +24,7 @@ dependencies {
     implementation(kotlin("compiler-embeddable"))
 
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-core:1.3.3")
-    implementation("com.puppycrawl.tools:checkstyle:8.28")
+    implementation("com.puppycrawl.tools:checkstyle:8.29")
     implementation("org.jetbrains.kotlin:kotlin-reflect:1.3.61")
     implementation("com.github.jknack:handlebars:4.1.2")
     implementation("com.squareup.moshi:moshi:1.9.2")
