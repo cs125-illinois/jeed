@@ -393,11 +393,25 @@ export const useJeed = (): JeedContext => {
 interface Props {
   result: JeedResult | undefined
 }
-export const TerminalOutput: React.FC<Props> = ({ result }) => {
-  if (result === undefined) {
-    return null
+function resultToTerminalOutput(result: JeedResult): string {
+  if (result.failed.snippet) {
+    const output = result.failed.snippet.errors
+      .map(({ line, column, message }) => {
+        const originalLine = result.job.snippet ? result.job.snippet.split("\n")[line - 1] : ""
+        return `Line ${line}: error: ${message}
+${originalLine}
+${new Array(column).join(" ")}^`
+      })
+      .join("\n")
+    const errorCount = Object.keys(result.failed.snippet.errors).length
+    return `${output}
+${errorCount} error${errorCount > 1 ? "s" : ""}`
+  } else {
+    return ""
   }
-  return <div>Here</div>
+}
+export const TerminalOutput: React.FC<Props> = ({ result }) => {
+  return result === undefined ? null : <pre>Here{resultToTerminalOutput(result)}</pre>
 }
 TerminalOutput.propTypes = {
   result: (props, propName): Error | null => {

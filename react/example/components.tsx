@@ -5,7 +5,7 @@ import "ace-builds/src-noconflict/mode-java"
 import "ace-builds/src-noconflict/mode-kotlin"
 import "ace-builds/src-noconflict/theme-chrome"
 
-import { JeedContext, JeedResult, Job, Task } from "@cs125/react-jeed"
+import { JeedContext, JeedResult, Job, Task, TerminalOutput } from "@cs125/react-jeed"
 
 import Children from "react-children-utilities"
 import { Button, Icon, Dimmer, Container, Loader, Segment, Label } from "semantic-ui-react"
@@ -88,8 +88,8 @@ export class JeedAce extends Component<JeedAceProps, JeedAceState> {
       ? { label, tasks, snippet: value }
       : { label, tasks, sources: [{ path: mode == "java" ? "Main.java" : "Main.kt", contents: value }] }
 
-    run(job).then(() => {
-      this.setState({ busy: false })
+    run(job).then((result: JeedResult) => {
+      this.setState({ busy: false, result })
     })
   }
   render(): React.ReactNode {
@@ -102,7 +102,7 @@ export class JeedAce extends Component<JeedAceProps, JeedAceState> {
       },
     ])
 
-    const { busy, showOutput } = this.state
+    const { busy, showOutput, result } = this.state
     return (
       <RelativeContainer>
         <div style={{ position: "absolute", top: 8, right: 8, zIndex: 10 }}>
@@ -131,7 +131,7 @@ export class JeedAce extends Component<JeedAceProps, JeedAceState> {
             >
               <Icon size="tiny" name="close" />
             </SnugLabel>
-            <p>Test</p>
+            {result && <TerminalOutput result={result} />}
           </Dimmer.Dimmable>
         )}
       </RelativeContainer>
