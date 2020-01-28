@@ -61,22 +61,19 @@
   },
   "lint-staged": {
     "*.json": [
-      "prettier --write",
-      "git add"
+      "prettier --write"
     ],
     "src/**/*.ts?(x)": [
       "prettier --write",
       "eslint --fix",
       "bash -c \"tsc --noEmit --project .\"",
-      "bash -c \"npm run depcheck:src\"",
-      "git add"
+      "bash -c \"npm run depcheck:src\""
     ],
     "example/**/*.ts?(x)": [
       "prettier --write",
       "eslint --fix",
       "bash -c \"tsc --noEmit --project example\"",
-      "bash -c \"npm run depcheck:example\"",
-      "git add"
+      "bash -c \"npm run depcheck:example\""
     ]
   },
   "dependencies": {
