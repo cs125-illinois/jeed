@@ -35,6 +35,7 @@ const CodeBlock: React.FC<CodeBlockProps> = props => {
         height="100px"
         maxLines={Infinity}
         autoMin
+        tabSize={2}
         {...jeedProps}
       >
         {children}
