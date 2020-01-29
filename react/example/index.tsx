@@ -15,7 +15,7 @@ import Content from "./index.mdx"
 import SyntaxHighlighter from "react-syntax-highlighter/dist/esm/default-highlight"
 
 import { JeedProvider } from "@cs125/react-jeed"
-import { JeedAce, JeedLanguage } from "./components"
+import JeedAce, { JeedLanguage } from "./components"
 
 interface CodeBlockProps {
   className?: string

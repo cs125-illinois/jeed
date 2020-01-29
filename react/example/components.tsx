@@ -15,9 +15,9 @@ export const enum JeedLanguage {
   Java = "java",
   Kotlin = "kotlin",
 }
-interface JeedAceProps extends IAceOptions {
-  mode: JeedLanguage
-  children: string | React.ReactNode
+export interface JeedAceProps extends IAceOptions {
+  mode: JeedLanguage | string
+  children?: string | React.ReactNode
   autoMin?: boolean
   autoPadding?: number
   snippet?: boolean
@@ -42,11 +42,12 @@ const SnugPre = styled.pre`
   margin-bottom: 0;
 `
 
-export class JeedAce extends Component<JeedAceProps, JeedAceState> {
+export default class JeedAce extends Component<JeedAceProps, JeedAceState> {
   static contextType = JeedContext
   declare context: React.ContextType<typeof JeedContext>
 
   static defaultProps = {
+    children: "",
     name: "ace-editor",
     mode: "java",
     theme: "chrome",
