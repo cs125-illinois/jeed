@@ -23,7 +23,6 @@ interface CodeBlockProps {
   children: React.ReactNode
 }
 const CodeBlock: React.FC<CodeBlockProps> = props => {
-  console.log(props)
   const { className, jeed, children, ...jeedProps } = props
   const language = className?.replace(/language-/, "") || ""
   if (jeed && ["java", "kotlin"].includes(language)) {
@@ -54,8 +53,13 @@ CodeBlock.defaultProps = {
   className: "",
   jeed: false,
 }
+const PreBlock: React.FC<{ children: React.ReactNode }> = props => <div>{props.children}</div>
+PreBlock.propTypes = {
+  children: PropTypes.node.isRequired,
+}
 const components = {
   code: CodeBlock,
+  pre: PreBlock,
 }
 const PaddedContainer = styled(Container)({
   paddingTop: 16,

@@ -344,10 +344,6 @@ export const useJeed = (): JeedContext => {
   return useContext(JeedContext)
 }
 
-interface Props {
-  result: Result | undefined
-}
-
 function getOriginalLine(job: Job, line: number, source?: string): string {
   if (job.snippet) {
     return job.snippet.split("\n")[line - 1]
@@ -359,7 +355,10 @@ function getOriginalLine(job: Job, line: number, source?: string): string {
   }
   throw new Error(`Couldn't find line ${line} in source ${source}`)
 }
-function resultToTerminalOutput(result: Result): string {
+export function resultToTerminalOutput(result: Result | undefined): string {
+  if (!result) {
+    return ""
+  }
   const { job } = result
   if (result.failed.snippet) {
     const output = result.failed.snippet.errors
@@ -430,25 +429,4 @@ ${errorCount} error${errorCount > 1 ? "s" : ""}`
 
   console.error(`Nothing failed but no success result either...`)
   return ""
-}
-export const TerminalOutput: React.FC<Props> = ({ result }) => {
-  return result === undefined ? null : <pre>{resultToTerminalOutput(result)}</pre>
-}
-TerminalOutput.propTypes = {
-  result: (props, propName): Error | null => {
-    if (!props[propName]) {
-      return null
-    }
-    try {
-      pipe(
-        Result.decode(props[propName]),
-        getOrElse<io.Errors, Result>(errors => {
-          throw new Error("Invalid Jeed result:\n" + failure(errors).join("\n"))
-        })
-      )
-    } catch (e) {
-      return e
-    }
-    return null
-  },
 }

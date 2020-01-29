@@ -5,7 +5,7 @@ import "ace-builds/src-noconflict/mode-java"
 import "ace-builds/src-noconflict/mode-kotlin"
 import "ace-builds/src-noconflict/theme-chrome"
 
-import { JeedContext, Result, Job, Task, TerminalOutput } from "@cs125/react-jeed"
+import { JeedContext, Result, Job, Task, resultToTerminalOutput } from "@cs125/react-jeed"
 
 import Children from "react-children-utilities"
 import { Button, Icon, Dimmer, Container, Loader, Segment, Label } from "semantic-ui-react"
@@ -31,11 +31,17 @@ interface JeedAceState {
 }
 const RelativeContainer = styled(Container)({
   position: "relative",
+  marginBottom: "1em",
 })
 const SnugLabel = styled(Label)({
   top: "0!important",
   right: "0!important",
 })
+const SnugPre = styled.pre`
+  margin-top: 0;
+  margin-bottom: 0;
+`
+
 export class JeedAce extends Component<JeedAceProps, JeedAceState> {
   static contextType = JeedContext
   declare context: React.ContextType<typeof JeedContext>
@@ -95,9 +101,13 @@ export class JeedAce extends Component<JeedAceProps, JeedAceState> {
       ? { label, tasks, snippet: value }
       : { label, tasks, sources: [{ path: mode == "java" ? "Main.java" : "Main.kt", contents: value }] }
 
-    run(job).then(result => {
-      this.setState({ busy: false, result })
-    })
+    run(job)
+      .then(result => {
+        this.setState({ busy: false, result })
+      })
+      .catch(() => {
+        this.setState({ busy: false })
+      })
   }
   render(): React.ReactNode {
     const { onChange, value, minLines, ...aceProps } = this.props // eslint-disable-line @typescript-eslint/no-unused-vars
@@ -108,12 +118,20 @@ export class JeedAce extends Component<JeedAceProps, JeedAceState> {
         exec: this.runCode,
       },
     ])
+    const empty = this.state.value.trim().length === 0
 
     const { busy, showOutput, result } = this.state
     return (
       <RelativeContainer>
         <div style={{ position: "absolute", top: 8, right: 8, zIndex: 10 }}>
-          <Button icon positive circular disabled={!this.context.connected} loading={busy} onClick={this.runCode}>
+          <Button
+            icon
+            positive
+            circular
+            disabled={!this.context.connected || empty}
+            loading={busy}
+            onClick={this.runCode}
+          >
             <Icon name="play" />
           </Button>
         </div>
@@ -125,9 +143,9 @@ export class JeedAce extends Component<JeedAceProps, JeedAceState> {
           minLines={this.minLines}
         />
         {showOutput && (
-          <Dimmer.Dimmable as={Segment} inverted>
+          <Dimmer.Dimmable as={Segment} inverted style={{ padding: 0 }}>
             <Dimmer active={busy} inverted>
-              <Loader />
+              <Loader size="small" />
             </Dimmer>
             <SnugLabel
               size="mini"
@@ -138,7 +156,9 @@ export class JeedAce extends Component<JeedAceProps, JeedAceState> {
             >
               <Icon size="tiny" name="close" />
             </SnugLabel>
-            {result && <TerminalOutput result={result} />}
+            <Segment inverted style={{ minHeight: "4em", maxHeight: "16em", overflow: "auto", margin: 0 }}>
+              <SnugPre>{resultToTerminalOutput(result)}</SnugPre>
+            </Segment>
           </Dimmer.Dimmable>
         )}
       </RelativeContainer>
