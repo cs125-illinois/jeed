@@ -29,7 +29,7 @@ dependencies {
     implementation("com.uchuhimo:konf-core:0.22.1")
     implementation("com.uchuhimo:konf-yaml:0.22.1")
     implementation("io.github.microutils:kotlin-logging:1.7.8")
-    implementation("com.google.api-client:google-api-client:1.30.7")
+    implementation("com.google.api-client:google-api-client:1.30.8")
 
     val kotlintestVersion = "3.4.2"
     testImplementation("io.kotlintest:kotlintest-runner-junit5:$kotlintestVersion")
