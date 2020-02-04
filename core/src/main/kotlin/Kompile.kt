@@ -10,6 +10,7 @@ import java.util.Locale
 import javax.tools.ToolProvider
 import org.jetbrains.kotlin.cli.common.CLIConfigurationKeys
 import org.jetbrains.kotlin.cli.common.arguments.K2JVMCompilerArguments
+import org.jetbrains.kotlin.cli.common.environment.setIdeaIoUseFallback
 import org.jetbrains.kotlin.cli.common.messages.CompilerMessageLocation
 import org.jetbrains.kotlin.cli.common.messages.CompilerMessageSeverity
 import org.jetbrains.kotlin.cli.common.messages.MessageCollector
@@ -28,7 +29,7 @@ import org.jetbrains.kotlin.idea.KotlinLanguage
 import org.jetbrains.kotlin.metadata.jvm.deserialization.JvmProtoBufUtil
 import org.jetbrains.kotlin.psi.KtFile
 
-private val classpath = ClassGraph().classpathFiles.joinToString(separator = ":")
+private val classpath = ClassGraph().classpathFiles.joinToString(separator = ";")
 
 @JsonClass(generateAdapter = true)
 
@@ -79,7 +80,7 @@ private class JeedMessageCollector(val source: Source, val allWarningsAsErrors: 
         if (severity == CompilerMessageSeverity.LOGGING || severity == CompilerMessageSeverity.INFO) {
             return
         }
-        require(location != null) { "location should not be null: $severity" }
+        require(location != null) { "location should not be null (severity $severity): $message" }
         val originalLocation = SourceLocation(location.path, location.line, location.column)
         messages.add(CompilationMessage(severity.presentableName, source.mapLocation(originalLocation), message))
     }
@@ -102,6 +103,7 @@ private fun kompile(
         configureExplicitContentRoots(kompilationArguments.arguments)
     }
 
+    setIdeaIoUseFallback()
     val environment = KotlinCoreEnvironment.createForProduction(
         rootDisposable, configuration, EnvironmentConfigFiles.JVM_CONFIG_FILES
     )
