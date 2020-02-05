@@ -111,6 +111,27 @@ if (i > 2) {
             )
         }
     }
+    "f:should add static to methods that lack static" {
+        Source.transformSnippet(
+                """
+void test0() {
+  System.out.println("Hello, world!");
+}
+public void test1() {
+  System.out.println("Hello, world!");
+}
+private void test2() {
+  System.out.println("Hello, world!");
+}
+protected void test3() {
+  System.out.println("Hello, world!");
+}
+  public void test4() {
+  System.out.println("Hello, world!");
+}
+        """.trim()
+        ).compile()
+    }
     // TODO: Update if and when ANTLR4 grammar is updated
     "!should parse Java 13 constructs in snippets" {
         Source.transformSnippet(

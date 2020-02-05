@@ -145,9 +145,30 @@ public class Test {
         compiledSource should haveProvidedThisManyClasses(0)
     }
     "should identify compilation errors in simple snippets" {
-        val failedCompilation = shouldThrow<CompilationFailed> { Source.transformSnippet("int i = a;").compile() }
-
+        val failedCompilation = shouldThrow<CompilationFailed> {
+            Source.transformSnippet("int i = a;").compile()
+        }
         failedCompilation should haveCompilationErrorAt(line = 1)
+    }
+    "should identify compilation errors in simple snippets when static is added" {
+        val failedCompilation = shouldThrow<CompilationFailed> {
+            Source.transformSnippet("""
+void test(blah it) {
+  System.out.println(it);
+}
+            """.trim()).compile()
+        }
+        failedCompilation should haveCompilationErrorAt(line = 1, column = 11)
+    }
+    "should identify compilation errors in simple snippets when static is added to public" {
+        val failedCompilation = shouldThrow<CompilationFailed> {
+            Source.transformSnippet("""
+public void test(blah it) {
+  System.out.println(it);
+}
+            """.trim()).compile()
+        }
+        failedCompilation should haveCompilationErrorAt(line = 1, column = 18)
     }
     "should identify multiple compilation errors in simple snippets" {
         val failedCompilation = shouldThrow<CompilationFailed> {
@@ -364,15 +385,20 @@ public class Test {
     }
 })
 
-fun haveCompilationErrorAt(source: String = SNIPPET_SOURCE, line: Int) = object : Matcher<CompilationFailed> {
-    override fun test(value: CompilationFailed): MatcherResult {
-        return MatcherResult(
-            value.errors.any { it.location.source == source && it.location.line == line },
-            "should have compilation error on line $line",
-            "should not have compilation error on line $line"
-        )
+fun haveCompilationErrorAt(source: String = SNIPPET_SOURCE, line: Int, column: Int? = null) =
+    object : Matcher<CompilationFailed> {
+        override fun test(value: CompilationFailed): MatcherResult {
+            return MatcherResult(
+                value.errors.any {
+                    it.location.source == source
+                        && it.location.line == line
+                        && (column == null || it.location.column == column)
+                },
+                "should have compilation error on line $line",
+                "should not have compilation error on line $line"
+            )
+        }
     }
-}
 
 fun haveCompilationMessageAt(source: String = SNIPPET_SOURCE, line: Int) = object : Matcher<CompiledSource> {
     override fun test(value: CompiledSource): MatcherResult {
@@ -393,7 +419,8 @@ fun <T> haveDefinedExactlyTheseClasses(classes: Set<String>) = object : Matcher<
         }
         return MatcherResult(
             definedClasses == classes,
-            "should have defined ${classes.joinToString(separator = ", ")} (found ${definedClasses.joinToString(
+            "should have defined ${classes.joinToString(separator = ", ")} " +
+                "(found ${definedClasses.joinToString(
                 separator = ", "
             )})",
             "should not have defined ${classes.joinToString(separator = ", ")}"
@@ -441,7 +468,8 @@ fun <T> haveLoadedAtLeastTheseClasses(classes: Set<String>) = object : Matcher<T
         }
         return MatcherResult(
             loadedClasses.containsAll(classes),
-            "should have loaded at least ${classes.joinToString(separator = ", ")} (found ${loadedClasses.joinToString(
+            "should have loaded at least ${classes.joinToString(separator = ", ")} " +
+                "(found ${loadedClasses.joinToString(
                 separator = ", "
             )})",
             "should not have loaded at least ${classes.joinToString(separator = ", ")}"

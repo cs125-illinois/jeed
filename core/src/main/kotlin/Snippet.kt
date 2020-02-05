@@ -106,6 +106,8 @@ data class SnippetArguments(
     val indent: Int = 4
 )
 
+val VISIBILITY_PATTERN = """^\s*(public|private|protected)""".toRegex()
+
 @Suppress("LongMethod")
 @Throws(SnippetTransformationFailed::class)
 fun Source.Companion.transformSnippet(
@@ -154,6 +156,7 @@ fun Source.Companion.transformSnippet(
             markAs(context.start.line, context.stop.line, "method")
             contentMapping[context.start.line - 1] = "method:start"
             val methodName = context.IDENTIFIER().text
+
             methodNames.add(methodName)
         }
 
@@ -208,19 +211,31 @@ fun Source.Companion.transformSnippet(
     originalSource.lines().forEachIndexed { i, line ->
         val lineNumber = i + 1
         if (contentMapping[lineNumber]?.startsWith(("method")) == true) {
-            val indentToUse =
-                if ((contentMapping[lineNumber] == "method.start") && !line.contains("""\bstatic\b""".toRegex())) {
-                    methodDeclarations.add(" ".repeat(snippetArguments.indent) + "static")
-                    currentOutputLineNumber++
-                    // Adding indentation preserves checkstyle processing
-                    snippetArguments.indent * 2
+            val (actualLine, extraIndentation) =
+                if ((contentMapping[lineNumber] == "method:start") && !line.contains(
+                        """\bstatic\b""".toRegex()
+                    )
+                ) {
+                    val matchVisibilityModifier = VISIBILITY_PATTERN.find(line)
+                    if (matchVisibilityModifier != null) {
+                        val rewrittenLine = line.replace(VISIBILITY_PATTERN, "").let {
+                            "${matchVisibilityModifier.value} static$it"
+                        }
+                        Pair(rewrittenLine, "static ".length)
+                    } else {
+                        Pair("static $line", "static ".length)
+                    }
                 } else {
-                    snippetArguments.indent
+                    Pair(line, 0)
                 }
-            methodDeclarations.add(" ".repeat(indentToUse) + line)
+            methodDeclarations.add(" ".repeat(snippetArguments.indent) + actualLine)
             assert(!remappedLineMapping.containsKey(currentOutputLineNumber))
             remappedLineMapping[currentOutputLineNumber] =
-                Snippet.RemappedLine(lineNumber, currentOutputLineNumber, indentToUse)
+                Snippet.RemappedLine(
+                    lineNumber,
+                    currentOutputLineNumber,
+                    snippetArguments.indent + extraIndentation
+                )
             currentOutputLineNumber++
         }
     }

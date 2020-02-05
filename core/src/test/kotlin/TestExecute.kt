@@ -108,14 +108,16 @@ System.out.println("main");
     }
     "should not execute non-static methods" {
         val compiledSource = Source.transformSnippet("""
-public void foo() {
-    System.out.println("foo");
+class Test {
+    public void foo() {
+        System.out.println("foo");
+    }
 }
 System.out.println("main");
             """.trim()).compile()
 
         val executionFailed = shouldThrow<ExecutionFailed> {
-            compiledSource.execute(SourceExecutionArguments(method = "foo()"))
+            compiledSource.execute(SourceExecutionArguments(klass = "Test", method = "foo()"))
         }
         executionFailed.methodNotFound shouldNotBe null
         executionFailed.classNotFound shouldBe null
