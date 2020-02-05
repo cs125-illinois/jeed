@@ -26,10 +26,11 @@ import org.jetbrains.kotlin.com.intellij.testFramework.LightVirtualFile
 import org.jetbrains.kotlin.config.CommonConfigurationKeys
 import org.jetbrains.kotlin.config.CompilerConfiguration
 import org.jetbrains.kotlin.idea.KotlinLanguage
+import org.jetbrains.kotlin.konan.file.File
 import org.jetbrains.kotlin.metadata.jvm.deserialization.JvmProtoBufUtil
 import org.jetbrains.kotlin.psi.KtFile
 
-private val classpath = ClassGraph().classpathFiles.joinToString(separator = ";")
+private val classpath = ClassGraph().classpathFiles.joinToString(separator = File.pathSeparator)
 
 @JsonClass(generateAdapter = true)
 
