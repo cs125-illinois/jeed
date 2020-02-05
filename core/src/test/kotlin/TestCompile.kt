@@ -390,9 +390,9 @@ fun haveCompilationErrorAt(source: String = SNIPPET_SOURCE, line: Int, column: I
         override fun test(value: CompilationFailed): MatcherResult {
             return MatcherResult(
                 value.errors.any {
-                    it.location.source == source
-                        && it.location.line == line
-                        && (column == null || it.location.column == column)
+                    it.location.source == source &&
+                        it.location.line == line &&
+                        (column == null || it.location.column == column)
                 },
                 "should have compilation error on line $line",
                 "should not have compilation error on line $line"

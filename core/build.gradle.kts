@@ -13,7 +13,7 @@ plugins {
 }
 
 group = "com.github.cs125-illinois"
-version = "2020.1.1"
+version = "2020.2.0"
 
 dependencies {
     kapt("com.squareup.moshi:moshi-kotlin-codegen:1.9.2")

@@ -3,7 +3,7 @@ import java.io.StringWriter
 import java.util.Properties
 
 group = "edu.illinois.cs.cs125"
-version = "2020.1.1"
+version = "2020.2.0"
 
 plugins {
     kotlin("jvm")
@@ -12,6 +12,9 @@ plugins {
     id("com.github.johnrengelman.shadow") version "5.2.0"
     id("com.palantir.docker") version "0.24.0"
     id("org.jmailen.kotlinter")
+}
+repositories {
+    maven(url = "https://maven.google.com/")
 }
 dependencies {
     val ktorVersion = "1.3.0"
