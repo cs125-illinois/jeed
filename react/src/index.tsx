@@ -65,7 +65,7 @@ const Task = io.keyof({
 })
 export type Task = io.TypeOf<typeof Task>
 
-const Job = io.intersection([
+const Request = io.intersection([
   io.type({
     label: io.string,
     tasks: io.array(Task),
@@ -79,7 +79,7 @@ const Job = io.intersection([
     waitForSave: io.boolean,
   }),
 ])
-export type Job = io.TypeOf<typeof Job>
+export type Request = io.TypeOf<typeof Request>
 
 const Instant = new io.Type<Date, string, unknown>(
   "DateFromString",
@@ -96,16 +96,16 @@ const Instant = new io.Type<Date, string, unknown>(
 
 const ServerStatus = io.partial({
   started: Instant,
-  lastJob: io.union([Instant, io.undefined]),
+  lastRequest: io.union([Instant, io.undefined]),
   versions: io.partial({
     jeed: io.string,
     server: io.string,
     compiler: io.string,
   }),
   counts: io.partial({
-    submittedJobs: io.Int,
-    completedJobs: io.Int,
-    savedJobs: io.Int,
+    submitted: io.Int,
+    completed: io.Int,
+    saved: io.Int,
   }),
   auth: io.partial({
     none: io.boolean,
@@ -167,9 +167,9 @@ const PermissionRequest = io.type({
 const CompilationFailed = io.type({
   errors: io.array(io.type({ location: SourceLocation, message: io.string })),
 })
-const Result = io.intersection([
+const Response = io.intersection([
   io.type({
-    job: Job,
+    request: Request,
     status: ServerStatus,
     completed: io.partial({
       snippet: io.type({
@@ -232,14 +232,14 @@ const Result = io.intersection([
     email: io.string,
   }),
 ])
-export type Result = io.TypeOf<typeof Result>
+export type Response = io.TypeOf<typeof Response>
 
 export interface JeedContext {
   status: ServerStatus | null
   connected: boolean
-  run: (job: Job) => Promise<Result>
+  run: (request: Request) => Promise<Response>
 }
-const runNothing = (): Promise<Result> => {
+const runNothing = (): Promise<Response> => {
   throw new Error("Jeed server not connected")
 }
 export const JeedContext = React.createContext<JeedContext>({
@@ -250,29 +250,39 @@ export const JeedContext = React.createContext<JeedContext>({
 interface JeedProviderProps {
   server: string
   defaultArguments?: TaskArguments
+  validate?: boolean
   children: React.ReactNode
 }
-export const JeedProvider: React.FC<JeedProviderProps> = ({ server, defaultArguments = {}, children }) => {
+export const JeedProvider: React.FC<JeedProviderProps> = ({
+  server,
+  defaultArguments = {},
+  validate = false,
+  children,
+}) => {
   const [connected, setConnected] = useState<boolean>(false)
   const [status, setStatus] = useState<ServerStatus | null>(null)
 
-  const jeedDefaultArguments = pipe(
-    TaskArguments.decode(defaultArguments || {}),
-    getOrElse<io.Errors, TaskArguments>(errors => {
-      throw new Error("Invalid Jeed default arguments:\n" + failure(errors).join("\n"))
-    })
-  )
+  const jeedDefaultArguments = validate
+    ? pipe(
+        TaskArguments.decode(defaultArguments || {}),
+        getOrElse<io.Errors, TaskArguments>(errors => {
+          throw new Error("Invalid Jeed default arguments:\n" + failure(errors).join("\n"))
+        })
+      )
+    : defaultArguments
 
   useEffect(() => {
     fetch(server)
       .then(response => response.json())
       .then(status => {
-        const jeedServerStatus = pipe(
-          ServerStatus.decode(status),
-          getOrElse<io.Errors, ServerStatus>(errors => {
-            throw new Error("Invalid Jeed server status response:\n" + failure(errors).join("\n"))
-          })
-        )
+        const jeedServerStatus = validate
+          ? pipe(
+              ServerStatus.decode(status),
+              getOrElse<io.Errors, ServerStatus>(errors => {
+                throw new Error("Invalid Jeed server status response:\n" + failure(errors).join("\n"))
+              })
+            )
+          : status
         setConnected(true)
         setStatus(jeedServerStatus as ServerStatus)
       })
@@ -283,36 +293,41 @@ export const JeedProvider: React.FC<JeedProviderProps> = ({ server, defaultArgum
       })
   }, [])
 
-  const run = (job: Job): Promise<Result> => {
-    job.arguments = Object.assign({}, job.arguments, jeedDefaultArguments)
+  const run = (request: Request): Promise<Response> => {
+    request.arguments = Object.assign({}, request.arguments, jeedDefaultArguments)
 
-    console.debug(job)
+    console.debug(request)
 
-    const jeedJob = pipe(
-      Job.decode(job),
-      getOrElse<io.Errors, Job>(errors => {
-        throw new Error("Invalid Jeed job:\n" + failure(errors).join("\n"))
-      })
-    )
+    const jeedRequest = validate
+      ? pipe(
+          Request.decode(request),
+          getOrElse<io.Errors, Request>(errors => {
+            throw new Error("Invalid Jeed request:\n" + failure(errors).join("\n"))
+          })
+        )
+      : request
+
     return fetch(server, {
       method: "post",
-      body: JSON.stringify(jeedJob),
+      body: JSON.stringify(jeedRequest),
       headers: { "Content-Type": "application/json" },
     })
       .then(response => {
         return response.json()
       })
-      .then(result => {
-        console.debug(result)
+      .then(response => {
+        console.debug(response)
 
-        const jeedResult = pipe(
-          Result.decode(result),
-          getOrElse<io.Errors, Result>(errors => {
-            throw new Error("Invalid Jeed result:\n" + failure(errors).join("\n"))
-          })
-        )
+        const jeedResponse = validate
+          ? pipe(
+              Response.decode(response),
+              getOrElse<io.Errors, Response>(errors => {
+                throw new Error("Invalid Jeed response:\n" + failure(errors).join("\n"))
+              })
+            )
+          : response
 
-        return jeedResult
+        return jeedResponse
       })
   }
 
@@ -337,6 +352,7 @@ JeedProvider.propTypes = {
     }
     return null
   },
+  validate: PropTypes.bool,
   children: PropTypes.node.isRequired,
 }
 
@@ -344,38 +360,38 @@ export const useJeed = (): JeedContext => {
   return useContext(JeedContext)
 }
 
-function getOriginalLine(job: Job, line: number, source?: string): string {
-  if (job.snippet) {
-    return job.snippet.split("\n")[line - 1]
+function getOriginalLine(request: Request, line: number, source?: string): string {
+  if (request.snippet) {
+    return request.snippet.split("\n")[line - 1]
   }
-  for (const { path, contents } of job.sources || []) {
+  for (const { path, contents } of request.sources || []) {
     if (source === path || source === `/${path}`) {
       return contents.split("\n")[line - 1]
     }
   }
   throw new Error(`Couldn't find line ${line} in source ${source}`)
 }
-export function resultToTerminalOutput(result: Result | undefined): string {
-  if (!result) {
+export function responseToTerminalOutput(response: Response | undefined): string {
+  if (!response) {
     return ""
   }
-  const { job } = result
-  if (result.failed.snippet) {
-    const output = result.failed.snippet.errors
+  const { request } = response
+  if (response.failed.snippet) {
+    const output = response.failed.snippet.errors
       .map(({ line, column, message }) => {
-        const originalLine = getOriginalLine(job, line)
+        const originalLine = getOriginalLine(request, line)
         return `Line ${line}: error: ${message}
 ${originalLine ? originalLine + "\n" + new Array(column).join(" ") + "^" : ""}`
       })
       .join("\n")
-    const errorCount = Object.keys(result.failed.snippet.errors).length
+    const errorCount = Object.keys(response.failed.snippet.errors).length
     return `${output}
 ${errorCount} error${errorCount > 1 ? "s" : ""}`
-  } else if (result.failed.compilation || result.failed.kompilation) {
+  } else if (response.failed.compilation || response.failed.kompilation) {
     const output =
-      (result.failed.compilation || result.failed.kompilation)?.errors
+      (response.failed.compilation || response.failed.kompilation)?.errors
         .map(({ location: { source, line, column }, message }) => {
-          const originalLine = getOriginalLine(job, line, source)
+          const originalLine = getOriginalLine(request, line, source)
           const firstErrorLine = message
             .split("\n")
             .slice(0, 1)
@@ -391,38 +407,38 @@ ${errorCount} error${errorCount > 1 ? "s" : ""}`
 ${originalLine ? originalLine + "\n" + new Array(column).join(" ") + "^" : ""}${restOfError ? "\n" + restOfError : ""}`
         })
         .join("\n") || ""
-    const errorCount = Object.keys((result.failed.compilation || result.failed.kompilation)?.errors || {}).length
+    const errorCount = Object.keys((response.failed.compilation || response.failed.kompilation)?.errors || {}).length
     return `${output}
 ${errorCount} error${errorCount > 1 ? "s" : ""}`
-  } else if (result.failed.checkstyle) {
+  } else if (response.failed.checkstyle) {
     const output =
-      result.failed.checkstyle?.errors
+      response.failed.checkstyle?.errors
         .map(({ location: { source, line }, message }) => {
           return `${source === "" ? "Line " : `${source}:`}${line}: checkstyle error: ${message}`
         })
         .join("\n") || ""
-    const errorCount = Object.keys(result.failed.checkstyle?.errors || {}).length
+    const errorCount = Object.keys(response.failed.checkstyle?.errors || {}).length
     return `${output}
 ${errorCount} error${errorCount > 1 ? "s" : ""}`
-  } else if (result.failed.execution) {
-    if (result.failed.execution.classNotFound) {
-      return `Error: could not find class ${result.failed.execution.classNotFound}`
-    } else if (result.failed.execution.methodNotFound) {
-      return `Error: could not find method ${result.failed.execution.methodNotFound}`
-    } else if (result.failed.execution.threw) {
-      return `Error: ${result.failed.execution.threw}`
+  } else if (response.failed.execution) {
+    if (response.failed.execution.classNotFound) {
+      return `Error: could not find class ${response.failed.execution.classNotFound}`
+    } else if (response.failed.execution.methodNotFound) {
+      return `Error: could not find method ${response.failed.execution.methodNotFound}`
+    } else if (response.failed.execution.threw) {
+      return `Error: ${response.failed.execution.threw}`
     } else {
       return `Something unexpected went wrong...`
     }
   }
 
-  if (Object.keys(result.failed).length === 0 && result.completed.execution) {
-    const output = result.completed.execution.outputLines.map(({ line }) => line)
-    if (result.completed.execution.timeout) {
+  if (Object.keys(response.failed).length === 0 && response.completed.execution) {
+    const output = response.completed.execution.outputLines.map(({ line }) => line)
+    if (response.completed.execution.timeout) {
       output.push("(Program timed out)")
     }
-    if (result.completed.execution.truncatedLines > 0) {
-      output.push(`(${result.completed.execution.truncatedLines} lines were truncated)`)
+    if (response.completed.execution.truncatedLines > 0) {
+      output.push(`(${response.completed.execution.truncatedLines} lines were truncated)`)
     }
     return output.join("\n")
   }

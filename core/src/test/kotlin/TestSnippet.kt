@@ -111,7 +111,7 @@ if (i > 2) {
             )
         }
     }
-    "f:should add static to methods that lack static" {
+    "should add static to methods that lack static" {
         Source.transformSnippet(
                 """
 void test0() {

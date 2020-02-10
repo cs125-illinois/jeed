@@ -10,7 +10,7 @@ import java.time.Instant
 @JsonClass(generateAdapter = true)
 class Status(
     val started: Instant = Instant.now(),
-    var lastJob: Instant? = null,
+    var lastRequest: Instant? = null,
     val versions: Versions = Versions(JEED_VERSION, VERSION, COMPILER_NAME),
     val counts: Counts = Counts(),
     @Suppress("Unused") val auth: Auth = Auth(configuration)
@@ -18,7 +18,7 @@ class Status(
     @JsonClass(generateAdapter = true)
     data class Versions(val jeed: String, val server: String, val compiler: String)
     @JsonClass(generateAdapter = true)
-    data class Counts(var submittedJobs: Int = 0, var completedJobs: Int = 0, var savedJobs: Int = 0)
+    data class Counts(var submitted: Int = 0, var completed: Int = 0, var saved: Int = 0)
     @JsonClass(generateAdapter = true)
     data class Auth(val none: Boolean = true, val google: Google) {
         @JsonClass(generateAdapter = true)
@@ -39,4 +39,3 @@ class Status(
         }
     }
 }
-val currentStatus = Status()

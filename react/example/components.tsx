@@ -5,7 +5,7 @@ import "ace-builds/src-noconflict/mode-java"
 import "ace-builds/src-noconflict/mode-kotlin"
 import "ace-builds/src-noconflict/theme-chrome"
 
-import { JeedContext, Result, Job, Task, resultToTerminalOutput } from "@cs125/react-jeed"
+import { JeedContext, Request, Response, Task, responseToTerminalOutput } from "@cs125/react-jeed"
 
 import Children from "react-children-utilities"
 import { Button, Icon, Dimmer, Container, Loader, Segment, Label } from "semantic-ui-react"
@@ -26,7 +26,7 @@ export interface JeedAceProps extends IAceOptions {
 interface JeedAceState {
   value: string
   busy: boolean
-  result?: Result
+  response?: Response
   showOutput: boolean
 }
 const RelativeContainer = styled(Container)({
@@ -98,13 +98,13 @@ export default class JeedAce extends Component<JeedAceProps, JeedAceState> {
     if (mode == "java" && !nocheckstyle) {
       tasks.push("checkstyle")
     }
-    const job: Job = snippet
+    const request: Request = snippet
       ? { label, tasks, snippet: value }
       : { label, tasks, sources: [{ path: mode == "java" ? "Main.java" : "Main.kt", contents: value }] }
 
-    run(job)
-      .then(result => {
-        this.setState({ busy: false, result })
+    run(request)
+      .then(response => {
+        this.setState({ busy: false, response })
       })
       .catch(() => {
         this.setState({ busy: false })
@@ -121,7 +121,7 @@ export default class JeedAce extends Component<JeedAceProps, JeedAceState> {
     ])
     const empty = this.state.value.trim().length === 0
 
-    const { busy, showOutput, result } = this.state
+    const { busy, showOutput, response } = this.state
     return (
       <RelativeContainer>
         <div style={{ position: "absolute", top: 8, right: 8, zIndex: 10 }}>
@@ -158,7 +158,7 @@ export default class JeedAce extends Component<JeedAceProps, JeedAceState> {
               <Icon size="tiny" name="close" />
             </SnugLabel>
             <Segment inverted style={{ minHeight: "4em", maxHeight: "16em", overflow: "auto", margin: 0 }}>
-              <SnugPre>{resultToTerminalOutput(result)}</SnugPre>
+              <SnugPre>{responseToTerminalOutput(response)}</SnugPre>
             </Segment>
           </Dimmer.Dimmable>
         )}

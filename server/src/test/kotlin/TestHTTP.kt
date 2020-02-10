@@ -24,20 +24,20 @@ class TestHTTP : StringSpec() {
             val mongoUri = MongoClientURI(it)
             val database = mongoUri.database ?: require { "MONGO must specify database to use" }
             val collection = "${configuration[TopLevel.Mongo.collection]}-test"
-            Job.mongoCollection = MongoClient(mongoUri)
+            Request.mongoCollection = MongoClient(mongoUri)
                 .getDatabase(database)
                 .getCollection(collection, BsonDocument::class.java)
         }
     }
 
     override fun beforeTest(testCase: TestCase) {
-        Job.mongoCollection?.drop()
-        Job.mongoCollection?.countDocuments() shouldBe 0
+        Request.mongoCollection?.drop()
+        Request.mongoCollection?.countDocuments() shouldBe 0
     }
 
     override fun afterTest(testCase: TestCase, result: TestResult) {
-        Job.mongoCollection?.drop()
-        Job.mongoCollection?.countDocuments() shouldBe 0
+        Request.mongoCollection?.drop()
+        Request.mongoCollection?.countDocuments() shouldBe 0
     }
 
     init {
@@ -55,12 +55,12 @@ class TestHTTP : StringSpec() {
                     )
                 }.apply {
                     response.shouldHaveStatus(HttpStatusCode.OK.value)
-                    Job.mongoCollection?.countDocuments() shouldBe 1
+                    Request.mongoCollection?.countDocuments() shouldBe 1
 
-                    val result = Result.from(response.content)
-                    result.completed.execution?.klass shouldBe "Main"
-                    result.completedTasks.size shouldBe 3
-                    result.failedTasks.size shouldBe 0
+                    val jeedResponse = Response.from(response.content)
+                    jeedResponse.completed.execution?.klass shouldBe "Main"
+                    jeedResponse.completedTasks.size shouldBe 3
+                    jeedResponse.failedTasks.size shouldBe 0
                 }
             }
         }
@@ -88,11 +88,11 @@ public class Main {
                     )
                 }.apply {
                     response.shouldHaveStatus(HttpStatusCode.OK.value)
-                    Job.mongoCollection?.countDocuments() shouldBe 1
+                    Request.mongoCollection?.countDocuments() shouldBe 1
 
-                    val result = Result.from(response.content)
-                    result.completedTasks.size shouldBe 2
-                    result.failedTasks.size shouldBe 0
+                    val jeedResponse = Response.from(response.content)
+                    jeedResponse.completedTasks.size shouldBe 2
+                    jeedResponse.failedTasks.size shouldBe 0
                 }
             }
         }
@@ -118,12 +118,12 @@ fun main() {
                     )
                 }.apply {
                     response.shouldHaveStatus(HttpStatusCode.OK.value)
-                    Job.mongoCollection?.countDocuments() shouldBe 1
+                    Request.mongoCollection?.countDocuments() shouldBe 1
 
-                    val result = Result.from(response.content)
-                    result.completed.execution?.klass shouldBe "MainKt"
-                    result.completedTasks.size shouldBe 2
-                    result.failedTasks.size shouldBe 0
+                    val jeedResponse = Response.from(response.content)
+                    jeedResponse.completed.execution?.klass shouldBe "MainKt"
+                    jeedResponse.completedTasks.size shouldBe 2
+                    jeedResponse.failedTasks.size shouldBe 0
                 }
             }
         }
@@ -151,11 +151,11 @@ public static void main() {
                     )
                 }.apply {
                     response.shouldHaveStatus(HttpStatusCode.OK.value)
-                    Job.mongoCollection?.countDocuments() shouldBe 1
+                    Request.mongoCollection?.countDocuments() shouldBe 1
 
-                    val result = Result.from(response.content)
-                    result.completedTasks.size shouldBe 3
-                    result.failedTasks.size shouldBe 0
+                    val jeedResponse = Response.from(response.content)
+                    jeedResponse.completedTasks.size shouldBe 3
+                    jeedResponse.failedTasks.size shouldBe 0
                 }
             }
         }
@@ -181,7 +181,7 @@ fun main() {
                     )
                 }.apply {
                     response.shouldHaveStatus(HttpStatusCode.BadRequest.value)
-                    Job.mongoCollection?.countDocuments() shouldBe 0
+                    Request.mongoCollection?.countDocuments() shouldBe 0
                 }
             }
         }
@@ -215,11 +215,11 @@ public static void main() {
                     )
                 }.apply {
                     response.shouldHaveStatus(HttpStatusCode.OK.value)
-                    Job.mongoCollection?.countDocuments() shouldBe 1
+                    Request.mongoCollection?.countDocuments() shouldBe 1
 
-                    val result = Result.from(response.content)
-                    result.completedTasks.size shouldBe 3
-                    result.failedTasks.size shouldBe 0
+                    val jeedResponse = Response.from(response.content)
+                    jeedResponse.completedTasks.size shouldBe 3
+                    jeedResponse.failedTasks.size shouldBe 0
                 }
             }
         }
@@ -247,12 +247,12 @@ public class Main {
                     )
                 }.apply {
                     response.shouldHaveStatus(HttpStatusCode.OK.value)
-                    Job.mongoCollection?.countDocuments() shouldBe 1
+                    Request.mongoCollection?.countDocuments() shouldBe 1
 
-                    val result = Result.from(response.content)
-                    result.completedTasks.size shouldBe 1
-                    result.failedTasks.size shouldBe 0
-                    println(result.completed.complexity)
+                    val jeedResponse = Response.from(response.content)
+                    jeedResponse.completedTasks.size shouldBe 1
+                    jeedResponse.failedTasks.size shouldBe 0
+                    println(jeedResponse.completed.complexity)
                 }
             }
         }
@@ -270,12 +270,12 @@ public class Main {
                     )
                 }.apply {
                     response.shouldHaveStatus(HttpStatusCode.OK.value)
-                    Job.mongoCollection?.countDocuments() shouldBe 1
+                    Request.mongoCollection?.countDocuments() shouldBe 1
 
-                    val result = Result.from(response.content)
-                    result.completedTasks.size shouldBe 0
-                    result.failedTasks.size shouldBe 1
-                    result.failed.snippet?.errors?.size ?: 0 shouldBeGreaterThan 0
+                    val jeedResponse = Response.from(response.content)
+                    jeedResponse.completedTasks.size shouldBe 0
+                    jeedResponse.failedTasks.size shouldBe 1
+                    jeedResponse.failed.snippet?.errors?.size ?: 0 shouldBeGreaterThan 0
                 }
             }
         }
@@ -309,12 +309,12 @@ public static void main() {
                     )
                 }.apply {
                     response.shouldHaveStatus(HttpStatusCode.OK.value)
-                    Job.mongoCollection?.countDocuments() shouldBe 1
+                    Request.mongoCollection?.countDocuments() shouldBe 1
 
-                    val result = Result.from(response.content)
-                    result.completedTasks.size shouldBe 0
-                    result.failedTasks.size shouldBe 1
-                    result.failed.template?.errors?.size ?: 0 shouldBeGreaterThan 0
+                    val jeedResponse = Response.from(response.content)
+                    jeedResponse.completedTasks.size shouldBe 0
+                    jeedResponse.failedTasks.size shouldBe 1
+                    jeedResponse.failed.template?.errors?.size ?: 0 shouldBeGreaterThan 0
                 }
             }
         }
@@ -342,12 +342,12 @@ public class Main {
                     )
                 }.apply {
                     response.shouldHaveStatus(HttpStatusCode.OK.value)
-                    Job.mongoCollection?.countDocuments() shouldBe 1
+                    Request.mongoCollection?.countDocuments() shouldBe 1
 
-                    val result = Result.from(response.content)
-                    result.completedTasks.size shouldBe 0
-                    result.failedTasks.size shouldBe 1
-                    result.failed.compilation?.errors?.size ?: 0 shouldBeGreaterThan 0
+                    val jeedResponse = Response.from(response.content)
+                    jeedResponse.completedTasks.size shouldBe 0
+                    jeedResponse.failedTasks.size shouldBe 1
+                    jeedResponse.failed.compilation?.errors?.size ?: 0 shouldBeGreaterThan 0
                 }
             }
         }
@@ -373,12 +373,12 @@ fun main() {
                     )
                 }.apply {
                     response.shouldHaveStatus(HttpStatusCode.OK.value)
-                    Job.mongoCollection?.countDocuments() shouldBe 1
+                    Request.mongoCollection?.countDocuments() shouldBe 1
 
-                    val result = Result.from(response.content)
-                    result.completedTasks.size shouldBe 0
-                    result.failedTasks.size shouldBe 1
-                    result.failed.kompilation?.errors?.size ?: 0 shouldBeGreaterThan 0
+                    val jeedResponse = Response.from(response.content)
+                    jeedResponse.completedTasks.size shouldBe 0
+                    jeedResponse.failedTasks.size shouldBe 1
+                    jeedResponse.failed.kompilation?.errors?.size ?: 0 shouldBeGreaterThan 0
                 }
             }
         }
@@ -411,12 +411,12 @@ System.out.println(\"Here\");
                     )
                 }.apply {
                     response.shouldHaveStatus(HttpStatusCode.OK.value)
-                    Job.mongoCollection?.countDocuments() shouldBe 1
+                    Request.mongoCollection?.countDocuments() shouldBe 1
 
-                    val result = Result.from(response.content)
-                    result.completedTasks.size shouldBe 1
-                    result.failedTasks.size shouldBe 1
-                    result.failed.checkstyle?.errors?.size ?: 0 shouldBeGreaterThan 0
+                    val jeedResponse = Response.from(response.content)
+                    jeedResponse.completedTasks.size shouldBe 1
+                    jeedResponse.failedTasks.size shouldBe 1
+                    jeedResponse.failed.checkstyle?.errors?.size ?: 0 shouldBeGreaterThan 0
                 }
             }
         }
@@ -444,12 +444,12 @@ System.out.println(\"Here\");
                     )
                 }.apply {
                     response.shouldHaveStatus(HttpStatusCode.OK.value)
-                    Job.mongoCollection?.countDocuments() shouldBe 1
+                    Request.mongoCollection?.countDocuments() shouldBe 1
 
-                    val result = Result.from(response.content)
-                    result.completedTasks.size shouldBe 3
-                    result.failedTasks.size shouldBe 0
-                    result.completed.checkstyle?.errors?.size ?: 0 shouldBeGreaterThan 0
+                    val jeedResponse = Response.from(response.content)
+                    jeedResponse.completedTasks.size shouldBe 3
+                    jeedResponse.failedTasks.size shouldBe 0
+                    jeedResponse.completed.checkstyle?.errors?.size ?: 0 shouldBeGreaterThan 0
                 }
             }
         }
@@ -478,12 +478,12 @@ public class Main {
                     )
                 }.apply {
                     response.shouldHaveStatus(HttpStatusCode.OK.value)
-                    Job.mongoCollection?.countDocuments() shouldBe 1
+                    Request.mongoCollection?.countDocuments() shouldBe 1
 
-                    val result = Result.from(response.content)
-                    result.completedTasks.size shouldBe 1
-                    result.failedTasks.size shouldBe 1
-                    result.failed.execution?.threw shouldNotBe ""
+                    val jeedResponse = Response.from(response.content)
+                    jeedResponse.completedTasks.size shouldBe 1
+                    jeedResponse.failedTasks.size shouldBe 1
+                    jeedResponse.failed.execution?.threw shouldNotBe ""
                 }
             }
         }
@@ -514,7 +514,7 @@ public class Main {
                 }
             }.apply {
                 response.shouldHaveStatus(HttpStatusCode.BadRequest.value)
-                Job.mongoCollection?.countDocuments() shouldBe 0
+                Request.mongoCollection?.countDocuments() shouldBe 0
             }
         }
         "should reject neither source nor snippet request" {
@@ -531,7 +531,7 @@ public class Main {
                 }
             }.apply {
                 response.shouldHaveStatus(HttpStatusCode.BadRequest.value)
-                Job.mongoCollection?.countDocuments() shouldBe 0
+                Request.mongoCollection?.countDocuments() shouldBe 0
             }
         }
         "should reject mapped source request" {
@@ -556,7 +556,7 @@ public class Main {
                 }
             }.apply {
                 response.shouldHaveStatus(HttpStatusCode.BadRequest.value)
-                Job.mongoCollection?.countDocuments() shouldBe 0
+                Request.mongoCollection?.countDocuments() shouldBe 0
             }
         }
         "should reject unauthorized request" {
@@ -566,7 +566,7 @@ public class Main {
                     setBody("broken")
                 }.apply {
                     response.shouldHaveStatus(HttpStatusCode.BadRequest.value)
-                    Job.mongoCollection?.countDocuments() shouldBe 0
+                    Request.mongoCollection?.countDocuments() shouldBe 0
                 }
             }
         }
@@ -577,7 +577,7 @@ public class Main {
                     setBody("broken")
                 }.apply {
                     response.shouldHaveStatus(HttpStatusCode.BadRequest.value)
-                    Job.mongoCollection?.countDocuments() shouldBe 0
+                    Request.mongoCollection?.countDocuments() shouldBe 0
                 }
             }
         }

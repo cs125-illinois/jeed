@@ -13,7 +13,7 @@ plugins {
 }
 
 group = "com.github.cs125-illinois"
-version = "2020.2.0"
+version = "2020.2.1"
 
 dependencies {
     kapt("com.squareup.moshi:moshi-kotlin-codegen:1.9.2")
@@ -33,7 +33,7 @@ dependencies {
     implementation("org.slf4j:slf4j-api:1.7.30")
     implementation("ch.qos.logback:logback-classic:1.2.3")
     implementation("io.github.microutils:kotlin-logging:1.7.8")
-    implementation("io.github.classgraph:classgraph:4.8.60")
+    implementation("io.github.classgraph:classgraph:4.8.61")
     implementation("net.java.dev.jna:jna:5.5.0")
 
     testImplementation("io.kotlintest:kotlintest-runner-junit5:3.4.2")

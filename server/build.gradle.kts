@@ -3,21 +3,21 @@ import java.io.StringWriter
 import java.util.Properties
 
 group = "edu.illinois.cs.cs125"
-version = "2020.2.0"
+version = "2020.2.1"
 
 plugins {
     kotlin("jvm")
     kotlin("kapt")
     application
     id("com.github.johnrengelman.shadow") version "5.2.0"
-    id("com.palantir.docker") version "0.24.0"
+    id("com.palantir.docker") version "0.25.0"
     id("org.jmailen.kotlinter")
 }
 repositories {
     maven(url = "https://maven.google.com/")
 }
 dependencies {
-    val ktorVersion = "1.3.0"
+    val ktorVersion = "1.3.1"
 
     kapt("com.squareup.moshi:moshi-kotlin-codegen:1.9.2")
 

@@ -67,6 +67,7 @@ const PaddedContainer = styled(Container)({
 })
 const App: React.SFC = () => (
   <JeedProvider
+    validate
     server="http://localhost:8888"
     defaultArguments={{ snippet: { indent: 2 }, checkstyle: { failOnError: true } }}
   >

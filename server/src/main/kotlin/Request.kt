@@ -2,26 +2,13 @@ package edu.illinois.cs.cs125.jeed.server
 
 import com.google.api.client.googleapis.auth.oauth2.GoogleIdTokenVerifier
 import com.mongodb.client.MongoCollection
-import com.squareup.moshi.JsonAdapter
-import com.squareup.moshi.JsonClass
-import edu.illinois.cs.cs125.jeed.core.CheckstyleArguments
 import edu.illinois.cs.cs125.jeed.core.CheckstyleFailed
-import edu.illinois.cs.cs125.jeed.core.CheckstyleResults
-import edu.illinois.cs.cs125.jeed.core.ClassComplexity
-import edu.illinois.cs.cs125.jeed.core.CompilationArguments
 import edu.illinois.cs.cs125.jeed.core.CompilationFailed
 import edu.illinois.cs.cs125.jeed.core.ComplexityFailed
-import edu.illinois.cs.cs125.jeed.core.ComplexityResults
 import edu.illinois.cs.cs125.jeed.core.ExecutionFailed
 import edu.illinois.cs.cs125.jeed.core.Interval
-import edu.illinois.cs.cs125.jeed.core.KompilationArguments
-import edu.illinois.cs.cs125.jeed.core.MethodComplexity
-import edu.illinois.cs.cs125.jeed.core.Snippet
-import edu.illinois.cs.cs125.jeed.core.SnippetArguments
 import edu.illinois.cs.cs125.jeed.core.SnippetTransformationFailed
 import edu.illinois.cs.cs125.jeed.core.Source
-import edu.illinois.cs.cs125.jeed.core.SourceExecutionArguments
-import edu.illinois.cs.cs125.jeed.core.SourceRange
 import edu.illinois.cs.cs125.jeed.core.TemplatingFailed
 import edu.illinois.cs.cs125.jeed.core.checkstyle
 import edu.illinois.cs.cs125.jeed.core.compile
@@ -34,8 +21,10 @@ import edu.illinois.cs.cs125.jeed.core.moshi.ExecutionFailedResult
 import edu.illinois.cs.cs125.jeed.core.moshi.PermissionAdapter
 import edu.illinois.cs.cs125.jeed.core.moshi.SourceTaskResults
 import edu.illinois.cs.cs125.jeed.core.moshi.TemplatedSourceResult
+import edu.illinois.cs.cs125.jeed.core.server.FlatComplexityResults
+import edu.illinois.cs.cs125.jeed.core.server.Task
+import edu.illinois.cs.cs125.jeed.core.server.TaskArguments
 import edu.illinois.cs.cs125.jeed.core.transformSnippet
-import java.lang.IllegalArgumentException
 import java.time.Instant
 import kotlinx.coroutines.GlobalScope
 import kotlinx.coroutines.async
@@ -43,28 +32,7 @@ import org.apache.http.auth.AuthenticationException
 import org.bson.BsonDocument
 import org.bson.BsonString
 
-@Suppress("EnumEntryName", "EnumNaming")
-enum class Task {
-    template,
-    snippet,
-    compile,
-    kompile,
-    checkstyle,
-    complexity,
-    execute,
-}
-
-@JsonClass(generateAdapter = true)
-class TaskArguments(
-    val snippet: SnippetArguments = SnippetArguments(),
-    val compilation: CompilationArguments = CompilationArguments(),
-    val kompilation: KompilationArguments = KompilationArguments(),
-    val checkstyle: CheckstyleArguments = CheckstyleArguments(),
-    // val complexity: currently accepts no arguments
-    val execution: SourceExecutionArguments = SourceExecutionArguments()
-)
-
-class Job(
+class Request(
     val source: Map<String, String>?,
     val templates: Map<String, String>?,
     val snippet: String?,
@@ -184,12 +152,12 @@ class Job(
     }
 
     @Suppress("ComplexMethod", "LongMethod")
-    suspend fun run(): Result {
-        currentStatus.counts.submittedJobs++
+    suspend fun run(): Response {
+        currentStatus.counts.submitted++
 
         val started = Instant.now()
 
-        val result = Result(this)
+        val response = Response(this)
         @Suppress("TooGenericExceptionCaught")
         try {
             val actualSource = if (source != null) {
@@ -197,28 +165,28 @@ class Job(
                     Source(source)
                 } else {
                     Source.fromTemplates(source, templates).also {
-                        result.completedTasks.add(Task.template)
-                        result.completed.template = TemplatedSourceResult(it)
+                        response.completedTasks.add(Task.template)
+                        response.completed.template = TemplatedSourceResult(it)
                     }
                 }
             } else {
                 Source.transformSnippet(snippet ?: assert { "should have a snippet" }, arguments.snippet).also {
-                    result.completedTasks.add(Task.snippet)
-                    result.completed.snippet = it
+                    response.completedTasks.add(Task.snippet)
+                    response.completed.snippet = it
                 }
             }
 
             val compiledSource = when {
                 tasks.contains(Task.compile) -> {
                     actualSource.compile(arguments.compilation).also {
-                        result.completed.compilation = CompiledSourceResult(it)
-                        result.completedTasks.add(Task.compile)
+                        response.completed.compilation = CompiledSourceResult(it)
+                        response.completedTasks.add(Task.compile)
                     }
                 }
                 tasks.contains(Task.kompile) -> {
                     actualSource.kompile(arguments.kompilation).also {
-                        result.completed.kompilation = CompiledSourceResult(it)
-                        result.completedTasks.add(Task.kompile)
+                        response.completed.kompilation = CompiledSourceResult(it)
+                        response.completedTasks.add(Task.kompile)
                     }
                 }
                 else -> {
@@ -228,62 +196,62 @@ class Job(
 
             if (tasks.contains(Task.checkstyle)) {
                 check(actualSource.type == Source.FileType.JAVA) { "can't run checkstyle on non-Java sources" }
-                result.completed.checkstyle = actualSource.checkstyle(arguments.checkstyle)
-                result.completedTasks.add(Task.checkstyle)
+                response.completed.checkstyle = actualSource.checkstyle(arguments.checkstyle)
+                response.completedTasks.add(Task.checkstyle)
             }
 
             if (tasks.contains(Task.complexity)) {
                 check(actualSource.type == Source.FileType.JAVA) { "can't run complexity on non-Java sources" }
-                result.completed.complexity = FlatComplexityResults(actualSource.complexity())
-                result.completedTasks.add(Task.complexity)
+                response.completed.complexity = FlatComplexityResults(actualSource.complexity())
+                response.completedTasks.add(Task.complexity)
             }
 
             if (tasks.contains(Task.execute)) {
                 check(compiledSource != null) { "should have compiled source before executing" }
                 val executionResult = compiledSource.execute(arguments.execution)
                 if (executionResult.threw != null) {
-                    result.failed.execution = ExecutionFailedResult(ExecutionFailed(executionResult.threw!!))
-                    result.failedTasks.add(Task.execute)
+                    response.failed.execution = ExecutionFailedResult(ExecutionFailed(executionResult.threw!!))
+                    response.failedTasks.add(Task.execute)
                 } else {
-                    result.completed.execution = SourceTaskResults(executionResult, arguments.execution)
-                    result.completedTasks.add(Task.execute)
+                    response.completed.execution = SourceTaskResults(executionResult, arguments.execution)
+                    response.completedTasks.add(Task.execute)
                 }
             }
         } catch (templatingFailed: TemplatingFailed) {
-            result.failed.template = templatingFailed
-            result.failedTasks.add(Task.template)
+            response.failed.template = templatingFailed
+            response.failedTasks.add(Task.template)
         } catch (snippetFailed: SnippetTransformationFailed) {
-            result.failed.snippet = snippetFailed
-            result.failedTasks.add(Task.snippet)
+            response.failed.snippet = snippetFailed
+            response.failedTasks.add(Task.snippet)
         } catch (compilationFailed: CompilationFailed) {
             if (tasks.contains(Task.compile)) {
-                result.failed.compilation = compilationFailed
-                result.failedTasks.add(Task.compile)
+                response.failed.compilation = compilationFailed
+                response.failedTasks.add(Task.compile)
             } else if (tasks.contains(Task.kompile)) {
-                result.failed.kompilation = compilationFailed
-                result.failedTasks.add(Task.kompile)
+                response.failed.kompilation = compilationFailed
+                response.failedTasks.add(Task.kompile)
             }
         } catch (checkstyleFailed: CheckstyleFailed) {
-            result.failed.checkstyle = checkstyleFailed
-            result.failedTasks.add(Task.checkstyle)
+            response.failed.checkstyle = checkstyleFailed
+            response.failedTasks.add(Task.checkstyle)
         } catch (complexityFailed: ComplexityFailed) {
-            result.failed.complexity = complexityFailed
-            result.failedTasks.add(Task.complexity)
+            response.failed.complexity = complexityFailed
+            response.failedTasks.add(Task.complexity)
         } catch (executionFailed: ExecutionFailed) {
-            result.failed.execution = ExecutionFailedResult(executionFailed)
-            result.failedTasks.add(Task.execute)
+            response.failed.execution = ExecutionFailedResult(executionFailed)
+            response.failedTasks.add(Task.execute)
         } finally {
-            currentStatus.counts.completedJobs++
-            result.interval = Interval(started, Instant.now())
+            currentStatus.counts.completed++
+            response.interval = Interval(started, Instant.now())
         }
         if (mongoCollection != null) {
             val resultSave = GlobalScope.async {
                 @Suppress("TooGenericExceptionCaught")
                 try {
-                    mongoCollection?.insertOne(BsonDocument.parse(result.json).also {
+                    mongoCollection?.insertOne(BsonDocument.parse(response.json).also {
                         it.append("receivedSemester", BsonString(configuration[TopLevel.semester]))
                     })
-                    currentStatus.counts.savedJobs++
+                    currentStatus.counts.saved++
                 } catch (e: Exception) {
                     logger.error("Saving job failed: $e")
                     if (requireSave) {
@@ -297,151 +265,11 @@ class Job(
                 resultSave.await()
             }
         }
-        return result
+        return response
     }
 
     companion object {
         var mongoCollection: MongoCollection<BsonDocument>? = null
         var googleTokenVerifier: GoogleIdTokenVerifier? = null
     }
-}
-
-class Result(val job: Job) {
-    val email = job.email
-    val status = currentStatus
-
-    val completedTasks: MutableSet<Task> = mutableSetOf()
-    val completed: CompletedTasks = CompletedTasks()
-
-    val failedTasks: MutableSet<Task> = mutableSetOf()
-    val failed: FailedTasks = FailedTasks()
-
-    lateinit var interval: Interval
-
-    val json: String
-        get() = resultAdapter.toJson(this)
-
-    companion object {
-        val resultAdapter: JsonAdapter<Result> = moshi.adapter(Result::class.java)
-        fun from(response: String?): Result {
-            check(response != null) { "can't deserialize null string" }
-            return resultAdapter.fromJson(response) ?: check { "failed to deserialize result" }
-        }
-    }
-}
-
-@JsonClass(generateAdapter = true)
-class CompletedTasks(
-    var snippet: Snippet? = null,
-    var template: TemplatedSourceResult? = null,
-    var compilation: CompiledSourceResult? = null,
-    var kompilation: CompiledSourceResult? = null,
-    var checkstyle: CheckstyleResults? = null,
-    var complexity: FlatComplexityResults? = null,
-    var execution: SourceTaskResults? = null
-)
-
-@JsonClass(generateAdapter = true)
-class FailedTasks(
-    var template: TemplatingFailed? = null,
-    var snippet: SnippetTransformationFailed? = null,
-    var compilation: CompilationFailed? = null,
-    var kompilation: CompilationFailed? = null,
-    var checkstyle: CheckstyleFailed? = null,
-    var complexity: ComplexityFailed? = null,
-    var execution: ExecutionFailedResult? = null
-)
-
-@JsonClass(generateAdapter = true)
-data class FlatSource(val path: String, val contents: String)
-
-fun List<FlatSource>.toSource(): Map<String, String> {
-    require(this.map { it.path }.distinct().size == this.size) { "duplicate paths in source list" }
-    return this.map { it.path to it.contents }.toMap()
-}
-
-fun Map<String, String>.toFlatSources(): List<FlatSource> {
-    return this.map { FlatSource(it.key, it.value) }
-}
-
-@JsonClass(generateAdapter = true)
-data class FlatClassComplexity(val name: String, val path: String, val range: SourceRange, val complexity: Int) {
-    constructor(classComplexity: ClassComplexity, prefix: String) : this(
-        classComplexity.name,
-        "$prefix.${classComplexity.name}",
-        classComplexity.range,
-        classComplexity.complexity
-    )
-}
-
-@JsonClass(generateAdapter = true)
-data class FlatMethodComplexity(val name: String, val path: String, val range: SourceRange, val complexity: Int) {
-    constructor(methodComplexity: MethodComplexity, prefix: String) : this(
-        methodComplexity.name,
-        "$prefix.${methodComplexity.name}",
-        methodComplexity.range,
-        methodComplexity.complexity
-    )
-}
-
-@JsonClass(generateAdapter = true)
-data class FlatComplexityResult(
-    val source: String,
-    val classes: List<FlatClassComplexity>,
-    val methods: List<FlatMethodComplexity>
-) {
-    companion object {
-        fun from(source: String, complexityResults: Map<String, ClassComplexity>): FlatComplexityResult {
-            val classes: MutableList<FlatClassComplexity> = mutableListOf()
-            val methods: MutableList<FlatMethodComplexity> = mutableListOf()
-            complexityResults.forEach { (_, classComplexity) ->
-                addFromClass(classComplexity, "", classes, methods)
-            }
-            return FlatComplexityResult(source, classes, methods)
-        }
-
-        private fun addFromMethod(
-            methodComplexity: MethodComplexity,
-            prefix: String,
-            classes: MutableList<FlatClassComplexity>,
-            methods: MutableList<FlatMethodComplexity>
-        ) {
-            methods.add(FlatMethodComplexity(methodComplexity, prefix))
-            val nextPrefix = if (prefix.isBlank()) {
-                methodComplexity.name
-            } else {
-                "$prefix.${methodComplexity.name}"
-            }
-            methodComplexity.classes.forEach {
-                addFromClass(it.value as ClassComplexity, nextPrefix, classes, methods)
-            }
-        }
-
-        private fun addFromClass(
-            classComplexity: ClassComplexity,
-            prefix: String,
-            classes: MutableList<FlatClassComplexity>,
-            methods: MutableList<FlatMethodComplexity>
-        ) {
-            classes.add(FlatClassComplexity(classComplexity, prefix))
-            val nextPrefix = if (prefix.isBlank()) {
-                classComplexity.name
-            } else {
-                "$prefix.${classComplexity.name}"
-            }
-            classComplexity.classes.values.forEach {
-                addFromClass(it as ClassComplexity, nextPrefix, classes, methods)
-            }
-            classComplexity.methods.values.forEach {
-                addFromMethod(it as MethodComplexity, nextPrefix, classes, methods)
-            }
-        }
-    }
-}
-
-@JsonClass(generateAdapter = true)
-data class FlatComplexityResults(val results: List<FlatComplexityResult>) {
-    constructor(complexityResults: ComplexityResults) : this(complexityResults.results.map { (source, results) ->
-        FlatComplexityResult.from(source, results)
-    })
 }

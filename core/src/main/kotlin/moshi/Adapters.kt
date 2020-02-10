@@ -23,6 +23,9 @@ import edu.illinois.cs.cs125.jeed.core.TemplatedSource
 import edu.illinois.cs.cs125.jeed.core.TemplatingError
 import edu.illinois.cs.cs125.jeed.core.TemplatingFailed
 import edu.illinois.cs.cs125.jeed.core.check
+import edu.illinois.cs.cs125.jeed.core.server.FlatSource
+import edu.illinois.cs.cs125.jeed.core.server.toFlatSources
+import edu.illinois.cs.cs125.jeed.core.server.toSource
 import java.security.Permission
 import java.time.Instant
 
@@ -37,7 +40,8 @@ val Adapters = setOf(
     CheckstyleFailedAdapter(),
     ComplexityFailedAdapter(),
     TemplatingErrorAdapter(),
-    TemplatingFailedAdapter()
+    TemplatingFailedAdapter(),
+    TemplatedSourceResultAdapter()
 )
 
 class InstantAdapter {
@@ -343,4 +347,25 @@ class SourceTaskResults(
         taskResults.executionInterval,
         taskResults.truncatedLines
     )
+}
+
+@JsonClass(generateAdapter = true)
+data class TemplatedSourceResultJson(val sources: List<FlatSource>, val originalSources: List<FlatSource>)
+
+class TemplatedSourceResultAdapter {
+    @FromJson
+    fun templatedSourceResultFromJson(templatedSourceResultJson: TemplatedSourceResultJson): TemplatedSourceResult {
+        return TemplatedSourceResult(
+            templatedSourceResultJson.sources.toSource(),
+            templatedSourceResultJson.originalSources.toSource()
+        )
+    }
+
+    @ToJson
+    fun templatedSourceResultToJson(templatedSourceResult: TemplatedSourceResult): TemplatedSourceResultJson {
+        return TemplatedSourceResultJson(
+            templatedSourceResult.sources.toFlatSources(),
+            templatedSourceResult.originalSources.toFlatSources()
+        )
+    }
 }

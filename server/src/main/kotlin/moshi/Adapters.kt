@@ -4,27 +4,25 @@ import com.squareup.moshi.FromJson
 import com.squareup.moshi.JsonClass
 import com.squareup.moshi.ToJson
 import edu.illinois.cs.cs125.jeed.core.Interval
-import edu.illinois.cs.cs125.jeed.core.moshi.TemplatedSourceResult
-import edu.illinois.cs.cs125.jeed.server.CompletedTasks
-import edu.illinois.cs.cs125.jeed.server.FailedTasks
-import edu.illinois.cs.cs125.jeed.server.FlatSource
-import edu.illinois.cs.cs125.jeed.server.Job
-import edu.illinois.cs.cs125.jeed.server.Result
+import edu.illinois.cs.cs125.jeed.core.server.CompletedTasks
+import edu.illinois.cs.cs125.jeed.core.server.FailedTasks
+import edu.illinois.cs.cs125.jeed.core.server.FlatSource
+import edu.illinois.cs.cs125.jeed.core.server.Task
+import edu.illinois.cs.cs125.jeed.core.server.TaskArguments
+import edu.illinois.cs.cs125.jeed.core.server.toFlatSources
+import edu.illinois.cs.cs125.jeed.core.server.toSource
+import edu.illinois.cs.cs125.jeed.server.Request
+import edu.illinois.cs.cs125.jeed.server.Response
 import edu.illinois.cs.cs125.jeed.server.Status
-import edu.illinois.cs.cs125.jeed.server.Task
-import edu.illinois.cs.cs125.jeed.server.TaskArguments
-import edu.illinois.cs.cs125.jeed.server.toFlatSources
-import edu.illinois.cs.cs125.jeed.server.toSource
 
 @JvmField
 val Adapters = setOf(
     JobAdapter(),
-    ResultAdapter(),
-    TemplatedSourceResultAdapter()
+    ResultAdapter()
 )
 
 @JsonClass(generateAdapter = true)
-class JobJson(
+class RequestJson(
     val sources: List<FlatSource>?,
     val templates: List<FlatSource>?,
     val snippet: String?,
@@ -38,43 +36,43 @@ class JobJson(
 
 class JobAdapter {
     @FromJson
-    fun jobFromJson(jobJson: JobJson): Job {
-        assert(!(jobJson.sources != null && jobJson.snippet != null)) { "can't set both snippet and sources" }
-        assert(jobJson.sources != null || jobJson.snippet != null) { "must set either sources or snippet" }
-        return Job(
-            jobJson.sources?.toSource(),
-            jobJson.templates?.toSource(),
-            jobJson.snippet,
-            jobJson.tasks,
-            jobJson.arguments,
-            jobJson.authToken,
-            jobJson.label,
-            jobJson.waitForSave ?: false,
-            jobJson.requireSave ?: true
+    fun jobFromJson(requestJson: RequestJson): Request {
+        assert(!(requestJson.sources != null && requestJson.snippet != null)) { "can't set both snippet and sources" }
+        assert(requestJson.sources != null || requestJson.snippet != null) { "must set either sources or snippet" }
+        return Request(
+            requestJson.sources?.toSource(),
+            requestJson.templates?.toSource(),
+            requestJson.snippet,
+            requestJson.tasks,
+            requestJson.arguments,
+            requestJson.authToken,
+            requestJson.label,
+            requestJson.waitForSave ?: false,
+            requestJson.requireSave ?: true
         )
     }
 
     @ToJson
-    fun jobToJson(job: Job): JobJson {
-        assert(!(job.source != null && job.snippet != null)) { "can't set both snippet and sources" }
-        return JobJson(
-            job.source?.toFlatSources(),
-            job.templates?.toFlatSources(),
-            job.snippet,
-            job.tasks,
-            job.arguments,
+    fun jobToJson(request: Request): RequestJson {
+        assert(!(request.source != null && request.snippet != null)) { "can't set both snippet and sources" }
+        return RequestJson(
+            request.source?.toFlatSources(),
+            request.templates?.toFlatSources(),
+            request.snippet,
+            request.tasks,
+            request.arguments,
             null,
-            job.label,
-            job.waitForSave,
-            job.requireSave
+            request.label,
+            request.waitForSave,
+            request.requireSave
         )
     }
 }
 
 @JsonClass(generateAdapter = true)
-data class ResultJson(
+data class ResponseJson(
     val email: String?,
-    val job: Job,
+    val request: Request,
     val status: Status,
     val completed: CompletedTasks,
     val completedTasks: Set<Task>,
@@ -87,65 +85,44 @@ class ResultAdapter {
     @Throws(Exception::class)
     @Suppress("UNUSED_PARAMETER")
     @FromJson
-    fun resultFromJson(resultJson: ResultJson): Result {
-        val result = Result(resultJson.job)
+    fun resultFromJson(responseJson: ResponseJson): Response {
+        val result = Response(responseJson.request)
 
-        result.completed.snippet = resultJson.completed.snippet
-        result.completed.compilation = resultJson.completed.compilation
-        result.completed.kompilation = resultJson.completed.kompilation
-        result.completed.template = resultJson.completed.template
-        result.completed.checkstyle = resultJson.completed.checkstyle
-        result.completed.complexity = resultJson.completed.complexity
-        result.completed.execution = resultJson.completed.execution
+        result.completed.snippet = responseJson.completed.snippet
+        result.completed.compilation = responseJson.completed.compilation
+        result.completed.kompilation = responseJson.completed.kompilation
+        result.completed.template = responseJson.completed.template
+        result.completed.checkstyle = responseJson.completed.checkstyle
+        result.completed.complexity = responseJson.completed.complexity
+        result.completed.execution = responseJson.completed.execution
 
-        result.completedTasks.addAll(resultJson.completedTasks)
+        result.completedTasks.addAll(responseJson.completedTasks)
 
-        result.failed.snippet = resultJson.failed.snippet
-        result.failed.compilation = resultJson.failed.compilation
-        result.failed.kompilation = resultJson.failed.kompilation
-        result.failed.template = resultJson.failed.template
-        result.failed.checkstyle = resultJson.failed.checkstyle
-        result.failed.complexity = resultJson.failed.complexity
-        result.failed.execution = resultJson.failed.execution
-        result.failedTasks.addAll(resultJson.failedTasks)
+        result.failed.snippet = responseJson.failed.snippet
+        result.failed.compilation = responseJson.failed.compilation
+        result.failed.kompilation = responseJson.failed.kompilation
+        result.failed.template = responseJson.failed.template
+        result.failed.checkstyle = responseJson.failed.checkstyle
+        result.failed.complexity = responseJson.failed.complexity
+        result.failed.execution = responseJson.failed.execution
+        result.failedTasks.addAll(responseJson.failedTasks)
 
-        result.interval = resultJson.interval
+        result.interval = responseJson.interval
 
         return result
     }
 
     @ToJson
-    fun resultToJson(result: Result): ResultJson {
-        return ResultJson(
-            result.email,
-            result.job,
-            result.status,
-            result.completed,
-            result.completedTasks,
-            result.failed,
-            result.failedTasks,
-            result.interval
-        )
-    }
-}
-
-@JsonClass(generateAdapter = true)
-data class TemplatedSourceResultJson(val sources: List<FlatSource>, val originalSources: List<FlatSource>)
-
-class TemplatedSourceResultAdapter {
-    @FromJson
-    fun templatedSourceResultFromJson(templatedSourceResultJson: TemplatedSourceResultJson): TemplatedSourceResult {
-        return TemplatedSourceResult(
-            templatedSourceResultJson.sources.toSource(),
-            templatedSourceResultJson.originalSources.toSource()
-        )
-    }
-
-    @ToJson
-    fun templatedSourceResultToJson(templatedSourceResult: TemplatedSourceResult): TemplatedSourceResultJson {
-        return TemplatedSourceResultJson(
-            templatedSourceResult.sources.toFlatSources(),
-            templatedSourceResult.originalSources.toFlatSources()
+    fun resultToJson(response: Response): ResponseJson {
+        return ResponseJson(
+            response.email,
+            response.request,
+            response.status,
+            response.completed,
+            response.completedTasks,
+            response.failed,
+            response.failedTasks,
+            response.interval
         )
     }
 }
