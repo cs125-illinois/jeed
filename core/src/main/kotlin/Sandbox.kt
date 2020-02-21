@@ -422,6 +422,7 @@ object Sandbox {
             threadGroup.enumerate(activeThreads)
             activeThreads.filterNotNull().filter { !stoppedThreads.contains(it) }.forEach {
                 stoppedThreads.add(it)
+                it.setUncaughtExceptionHandler { _, _ -> throw ThreadDeath() }
                 @Suppress("DEPRECATION") it.stop()
             }
             threadGroup.maxPriority = Thread.NORM_PRIORITY

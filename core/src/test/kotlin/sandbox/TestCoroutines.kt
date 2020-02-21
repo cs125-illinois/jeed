@@ -13,6 +13,7 @@ import io.kotlintest.specs.StringSpec
 import kotlinx.coroutines.GlobalScope
 import kotlinx.coroutines.launch
 
+@Suppress("ASSIGNED_BUT_NEVER_ACCESSED_VARIABLE")
 class TestCoroutines : StringSpec({
 
     "should allow coroutines to run" {
