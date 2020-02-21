@@ -38,10 +38,12 @@ object Sandbox {
     class ClassLoaderConfiguration(
         val whitelistedClasses: Set<String> = DEFAULT_WHITELISTED_CLASSES,
         blacklistedClasses: Set<String> = DEFAULT_BLACKLISTED_CLASSES,
-        unsafeExceptions: Set<String> = DEFAULT_UNSAFE_EXCEPTIONS
+        unsafeExceptions: Set<String> = DEFAULT_UNSAFE_EXCEPTIONS,
+        isolatedClasses: Set<String> = DEFAULT_ISOLATED_CLASSES
     ) {
         val blacklistedClasses = blacklistedClasses.union(PERMANENTLY_BLACKLISTED_CLASSES)
         val unsafeExceptions = unsafeExceptions.union(ALWAYS_UNSAFE_EXCEPTIONS)
+        val isolatedClasses = isolatedClasses.union(ALWAYS_ISOLATED_CLASSES)
 
         init {
             require(!whitelistedClasses.any { whitelistedClass ->
@@ -69,14 +71,15 @@ object Sandbox {
             val DEFAULT_WHITELISTED_CLASSES = setOf<String>()
             val DEFAULT_BLACKLISTED_CLASSES = setOf("java.lang.reflect.")
             val DEFAULT_UNSAFE_EXCEPTIONS = setOf<String>()
+            val DEFAULT_ISOLATED_CLASSES = setOf<String>()
             val PERMANENTLY_BLACKLISTED_CLASSES =
                 setOf(
                     "edu.illinois.cs.cs125.jeed.",
                     "org.objectweb.asm.",
-                    "java.lang.invoke.MethodHandles",
-                    "kotlinx.coroutines.GlobalScope"
+                    "java.lang.invoke.MethodHandles"
                 )
             val ALWAYS_UNSAFE_EXCEPTIONS = setOf("java.lang.Error")
+            val ALWAYS_ISOLATED_CLASSES = setOf("kotlin.coroutines.", "kotlinx.coroutines.")
         }
     }
 
@@ -410,31 +413,29 @@ object Sandbox {
             assert(threadGroups.toList().filterNotNull().map { it.activeCount() }.sum() == 0)
         }
 
-        runBlocking {
-            val stoppedThreads: MutableSet<Thread> = mutableSetOf()
-            val threadGroupShutdownRetries = (0..MAX_THREAD_SHUTDOWN_RETRIES).find {
-                if (threadGroup.activeCount() == 0) {
-                    return@find true
-                }
-                val activeThreads = arrayOfNulls<Thread>(threadGroup.activeCount() * 2)
-                threadGroup.enumerate(activeThreads)
-                activeThreads.filterNotNull().filter { !stoppedThreads.contains(it) }.forEach {
-                    stoppedThreads.add(it)
-                    @Suppress("DEPRECATION") it.stop()
-                }
-                threadGroup.maxPriority = Thread.NORM_PRIORITY
-                stoppedThreads.filter { it.isAlive }.forEach {
-                    it.priority = Thread.NORM_PRIORITY
-                    it.join(THREAD_SHUTDOWN_DELAY)
-                    it.priority = Thread.MIN_PRIORITY
-                }
-                false
+        val stoppedThreads: MutableSet<Thread> = mutableSetOf()
+        val threadGroupShutdownRetries = (0..MAX_THREAD_SHUTDOWN_RETRIES).find {
+            if (threadGroup.activeCount() == 0) {
+                return@find true
             }
-
-            assert(threadGroupShutdownRetries != null) { "failed to shut down thread group" }
-            threadGroup.destroy()
-            assert(threadGroup.isDestroyed)
+            val activeThreads = arrayOfNulls<Thread>(threadGroup.activeCount() * 2)
+            threadGroup.enumerate(activeThreads)
+            activeThreads.filterNotNull().filter { !stoppedThreads.contains(it) }.forEach {
+                stoppedThreads.add(it)
+                @Suppress("DEPRECATION") it.stop()
+            }
+            threadGroup.maxPriority = Thread.NORM_PRIORITY
+            stoppedThreads.filter { it.isAlive }.forEach {
+                it.priority = Thread.NORM_PRIORITY
+                it.join(THREAD_SHUTDOWN_DELAY)
+                it.priority = Thread.MIN_PRIORITY
+            }
+            false
         }
+
+        assert(threadGroupShutdownRetries != null) { "failed to shut down thread group" }
+        threadGroup.destroy()
+        assert(threadGroup.isDestroyed)
 
         if (confinedTask.truncatedLines == 0) {
             for (console in TaskResults.OutputLine.Console.values()) {
@@ -476,11 +477,12 @@ object Sandbox {
     }
 
     class SandboxedClassLoader(
-        sandboxableClassLoader: SandboxableClassLoader,
+        private val sandboxableClassLoader: SandboxableClassLoader,
         classLoaderConfiguration: ClassLoaderConfiguration
     ) : ClassLoader(sandboxableClassLoader.classLoader.parent), EnumerableClassLoader {
         private val whitelistedClasses = classLoaderConfiguration.whitelistedClasses
         private val blacklistedClasses = classLoaderConfiguration.blacklistedClasses
+        private val isolatedClasses = classLoaderConfiguration.isolatedClasses
         val unsafeExceptionClasses: Set<Class<*>> = classLoaderConfiguration.unsafeExceptions.map { name ->
             val klass = Class.forName(name) ?: error("$name does not refer to a Java class")
             require(Throwable::class.java.isAssignableFrom(klass)) { "$name does not refer to a Java Throwable" }
@@ -490,6 +492,9 @@ object Sandbox {
         override val definedClasses: Set<String> get() = knownClasses.keys.toSet()
         override val providedClasses: MutableSet<String> = mutableSetOf()
         override val loadedClasses: MutableSet<String> = mutableSetOf()
+
+        private val reloadedClasses: MutableMap<String, Class<*>> = mutableMapOf()
+        private val reloader = TrustedReloader(this)
 
         @Suppress("MemberVisibilityCanBePrivate")
         val knownClasses: Map<String, ByteArray>
@@ -511,7 +516,6 @@ object Sandbox {
             }
         }
 
-        private val filter = whitelistedClasses.isNotEmpty() || blacklistedClasses.isNotEmpty()
         private val isWhiteList = whitelistedClasses.isNotEmpty()
         private fun delegateClass(name: String): Class<*> {
             val klass = super.loadClass(name)
@@ -521,11 +525,13 @@ object Sandbox {
 
         @Suppress("ReturnCount")
         override fun loadClass(name: String): Class<*> {
-            if (!filter) {
-                return delegateClass(name)
-            }
             val confinedTask = confinedTaskByThreadGroup() ?: return super.loadClass(name)
 
+            if (isolatedClasses.any { name.startsWith(it) }) {
+                return reloadedClasses.getOrPut(name) {
+                    reloader.reload(name)
+                }
+            }
             if (knownClasses.containsKey(name)) {
                 return delegateClass(name)
             }
@@ -561,6 +567,17 @@ object Sandbox {
             private val ALWAYS_ALLOWED_CLASS_NAMES =
                 setOf(RewriteTryCatchFinally::class.java.name, InvocationTargetException::class.java.name)
         }
+
+        class TrustedReloader(private val sandboxLoader: SandboxedClassLoader) {
+            fun reload(name: String): Class<*> {
+                val classBytes = sandboxLoader.sandboxableClassLoader.classLoader.parent
+                    .getResourceAsStream("${name.replace('.', '/')}.class")?.readAllBytes()
+                    ?: throw ClassNotFoundException()
+                sandboxLoader.loadedClasses.add(name)
+                return sandboxLoader.defineClass(name, classBytes, 0, classBytes.size)
+            }
+        }
+
     }
 
     object EmptyClassLoader : ClassLoader(getSystemClassLoader()), SandboxableClassLoader {
@@ -687,8 +704,14 @@ object Sandbox {
     private object SandboxSecurityManager : SecurityManager() {
         private fun confinedTaskByClassLoader(): ConfinedTask<*>? {
             val confinedTask = confinedTaskByThreadGroup() ?: return null
-            val classIsConfined = classContext.toList().subList(1, classContext.size).reversed().any { klass ->
-                klass.classLoader == confinedTask.classLoader
+            var classIsConfined = false
+            classContext.forEach { klass ->
+                if (klass.classLoader == confinedTask.classLoader) {
+                    classIsConfined = true
+                    return@forEach
+                } else if (klass == SandboxedClassLoader.TrustedReloader::class.java) {
+                    return null
+                }
             }
             return if (classIsConfined) confinedTask else null
         }

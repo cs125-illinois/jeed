@@ -8,12 +8,10 @@ import edu.illinois.cs.cs125.jeed.core.haveOutput
 import edu.illinois.cs.cs125.jeed.core.haveTimedOut
 import edu.illinois.cs.cs125.jeed.core.kompile
 import io.kotlintest.should
-import io.kotlintest.shouldBe
 import io.kotlintest.shouldNot
 import io.kotlintest.specs.StringSpec
 import kotlinx.coroutines.GlobalScope
 import kotlinx.coroutines.launch
-import java.util.PropertyPermission
 
 class TestCoroutines : StringSpec({
 
@@ -30,16 +28,19 @@ fun main() {
     val job = GlobalScope.launch {
         i = 1
     }
-    Thread.sleep(50L)
+    runBlocking {
+        job.join()
+    }
     println(i)
 }
 """.trimIndent()
         )).kompile().execute(executionArguments = SourceExecutionArguments(
-            //permissions = setOf(PropertyPermission("java.specification.version", "read"))
+            timeout = 500,
+            maxExtraThreads = 2
         ))
         executionResult shouldNot haveTimedOut()
-        executionResult should haveOutput("1")
         executionResult should haveCompleted()
+        executionResult should haveOutput("1")
     }
 
     "should capture output from coroutines" {
@@ -59,8 +60,8 @@ fun main() {
 }
 """.trimIndent()
         )).kompile().execute(executionArguments = SourceExecutionArguments(
-            maxExtraThreads = 4,
-            permissions = setOf(PropertyPermission("java.specification.version", "read"))
+            maxExtraThreads = 2,
+            timeout = 500
         ))
         executionResult shouldNot haveTimedOut()
         executionResult should haveOutput("Hello\nWorld!")
@@ -76,17 +77,18 @@ import kotlinx.coroutines.*
 
 fun main() {
     val job = GlobalScope.launch {
-        //System.exit(-1);
+        System.exit(-1)
     }
-    Thread.sleep(50L)
+    runBlocking {
+        job.join()
+    }
 }
 """.trimIndent()
         )).kompile().execute(executionArguments = SourceExecutionArguments(
-            maxExtraThreads = 4,
-            permissions = setOf(PropertyPermission("java.specification.version", "read"))
+            maxExtraThreads = 2,
+            timeout = 500
         ))
-        // TODO: Uncomment the System.exit call
-        executionResult.permissionDenied shouldBe true
+        assert(executionResult.permissionRequests.any { it.permission.name == "exitVM.-1" && !it.granted })
     }
 
 })
