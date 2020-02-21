@@ -17,9 +17,6 @@ import kotlinx.coroutines.launch
 class TestCoroutines : StringSpec({
 
     "should allow coroutines to run" {
-        // Dummy task to force GlobalScope to be initialized before the test runs
-        var i = 0
-        GlobalScope.launch { i = 1 }
         val executionResult = Source(mapOf(
             "Main.kt" to """
 import kotlinx.coroutines.*
