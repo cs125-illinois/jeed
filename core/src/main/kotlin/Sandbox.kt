@@ -537,7 +537,7 @@ object Sandbox {
                     throw ClassNotFoundException(name)
                 }
                 return reloadedClasses.getOrPut(name) {
-                    reloader.reload(name)
+                    reloader.reload(name).also { loadedClasses.add(name) }
                 }
             }
             if (knownClasses.containsKey(name)) {
@@ -574,13 +574,16 @@ object Sandbox {
         companion object {
             private val ALWAYS_ALLOWED_CLASS_NAMES =
                 setOf(RewriteTryCatchFinally::class.java.name, InvocationTargetException::class.java.name)
+            private val reloadedBytecodeCache = mutableMapOf<String, ByteArray>()
         }
 
         internal inner class TrustedReloader {
             fun reload(name: String): Class<*> {
-                val classBytes = sandboxableClassLoader.classLoader.parent
-                    .getResourceAsStream("${name.replace('.', '/')}.class")?.readAllBytes()
-                    ?: throw ClassNotFoundException("failed to reload $name")
+                val classBytes = reloadedBytecodeCache.getOrPut(name) {
+                    sandboxableClassLoader.classLoader.parent
+                        .getResourceAsStream("${name.replace('.', '/')}.class")?.readAllBytes()
+                        ?: throw ClassNotFoundException("failed to reload $name")
+                }
                 loadedClasses.add(name)
                 return defineClass(name, classBytes, 0, classBytes.size)
             }
