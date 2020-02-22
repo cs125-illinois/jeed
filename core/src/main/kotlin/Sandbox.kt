@@ -495,7 +495,7 @@ object Sandbox {
         override val loadedClasses: MutableSet<String> = mutableSetOf()
 
         private val reloadedClasses: MutableMap<String, Class<*>> = mutableMapOf()
-        private val reloader = TrustedReloader(this)
+        private val reloader = TrustedReloader()
 
         @Suppress("MemberVisibilityCanBePrivate")
         val knownClasses: Map<String, ByteArray>
@@ -529,6 +529,13 @@ object Sandbox {
             val confinedTask = confinedTaskByThreadGroup() ?: return super.loadClass(name)
 
             if (isolatedClasses.any { name.startsWith(it) }) {
+                if (!isWhiteList && blacklistedClasses.any { name.startsWith(it) }) {
+                    confinedTask.addPermissionRequest(
+                        RuntimePermission("loadIsolatedClass $name"),
+                        granted = false,
+                        throwException = false)
+                    throw ClassNotFoundException(name)
+                }
                 return reloadedClasses.getOrPut(name) {
                     reloader.reload(name)
                 }
@@ -569,13 +576,13 @@ object Sandbox {
                 setOf(RewriteTryCatchFinally::class.java.name, InvocationTargetException::class.java.name)
         }
 
-        class TrustedReloader(private val sandboxLoader: SandboxedClassLoader) {
+        internal inner class TrustedReloader {
             fun reload(name: String): Class<*> {
-                val classBytes = sandboxLoader.sandboxableClassLoader.classLoader.parent
+                val classBytes = sandboxableClassLoader.classLoader.parent
                     .getResourceAsStream("${name.replace('.', '/')}.class")?.readAllBytes()
-                    ?: throw ClassNotFoundException()
-                sandboxLoader.loadedClasses.add(name)
-                return sandboxLoader.defineClass(name, classBytes, 0, classBytes.size)
+                    ?: throw ClassNotFoundException("failed to reload $name")
+                loadedClasses.add(name)
+                return defineClass(name, classBytes, 0, classBytes.size)
             }
         }
 

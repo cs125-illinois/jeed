@@ -13,6 +13,8 @@ import io.kotlintest.specs.StringSpec
 import kotlinx.coroutines.GlobalScope
 import kotlinx.coroutines.launch
 
+private const val COROUTINE_TEST_TIMEOUT = 250L
+
 @Suppress("ASSIGNED_BUT_NEVER_ACCESSED_VARIABLE")
 class TestCoroutines : StringSpec({
 
@@ -33,7 +35,7 @@ fun main() {
 }
 """.trimIndent()
         )).kompile().execute(executionArguments = SourceExecutionArguments(
-            timeout = 500,
+            timeout = COROUTINE_TEST_TIMEOUT,
             maxExtraThreads = 2
         ))
         executionResult shouldNot haveTimedOut()
@@ -59,7 +61,7 @@ fun main() {
 """.trimIndent()
         )).kompile().execute(executionArguments = SourceExecutionArguments(
             maxExtraThreads = 2,
-            timeout = 500
+            timeout = COROUTINE_TEST_TIMEOUT
         ))
         executionResult shouldNot haveTimedOut()
         executionResult should haveOutput("Hello\nWorld!")
@@ -84,7 +86,7 @@ fun main() {
 """.trimIndent()
         )).kompile().execute(executionArguments = SourceExecutionArguments(
             maxExtraThreads = 2,
-            timeout = 500
+            timeout = COROUTINE_TEST_TIMEOUT
         ))
         assert(executionResult.permissionRequests.any { it.permission.name == "exitVM.-1" && !it.granted })
     }
