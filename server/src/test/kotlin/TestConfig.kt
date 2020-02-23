@@ -65,13 +65,13 @@ limits:
   "tasks": [ "compile", "execute" ],
   "arguments": {
     "execution": {
-      "timeout": "${configuration[Limits.Execution.timeout]}"
+      "timeout": "${configuration[Limits.Execution.timeout] + 1}"
     }
   }
 }""".trim()
                 )
             }.apply {
-                response.shouldHaveStatus(HttpStatusCode.OK.value)
+                response.shouldHaveStatus(HttpStatusCode.BadRequest.value)
             }
 
             handleRequest(HttpMethod.Post, "/") {
@@ -106,13 +106,13 @@ limits:
   "tasks": [ "compile", "execute" ],
   "arguments": {
     "execution": {
-      "maxExtraThreads": "${configuration[Limits.Execution.maxExtraThreads]}"
+      "maxExtraThreads": "${configuration[Limits.Execution.maxExtraThreads] + 1}"
     }
   }
 }""".trim()
                 )
             }.apply {
-                response.shouldHaveStatus(HttpStatusCode.OK.value)
+                response.shouldHaveStatus(HttpStatusCode.BadRequest.value)
             }
 
             handleRequest(HttpMethod.Post, "/") {

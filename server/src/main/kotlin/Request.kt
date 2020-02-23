@@ -103,7 +103,7 @@ class Request(
                     configuration[Limits.Execution.permissions].map { PermissionAdapter().permissionFromJson(it) }
                         .toSet()
                 require(allowedPermissions.containsAll(arguments.execution.permissions)) {
-                    "job is requesting unavailable permissions"
+                    "job is requesting unavailable permissions: ${arguments.execution.permissions}"
                 }
             }
             if (arguments?.execution?.classLoaderConfiguration != null) {
