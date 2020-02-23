@@ -3,18 +3,16 @@ package edu.illinois.cs.cs125.jeed.core.sandbox
 import edu.illinois.cs.cs125.jeed.core.Source
 import edu.illinois.cs.cs125.jeed.core.SourceExecutionArguments
 import edu.illinois.cs.cs125.jeed.core.execute
-import edu.illinois.cs.cs125.jeed.core.haveCompleted
 import edu.illinois.cs.cs125.jeed.core.haveOutput
 import edu.illinois.cs.cs125.jeed.core.haveTimedOut
 import edu.illinois.cs.cs125.jeed.core.kompile
 import io.kotlintest.should
+import io.kotlintest.shouldBe
 import io.kotlintest.shouldNot
 import io.kotlintest.specs.StringSpec
-import kotlinx.coroutines.GlobalScope
-import kotlinx.coroutines.delay
-import kotlinx.coroutines.launch
-import kotlinx.coroutines.runBlocking
 import java.util.PropertyPermission
+import kotlinx.coroutines.GlobalScope
+import kotlinx.coroutines.launch
 
 class TestCoroutines : StringSpec({
     "should prevent coroutines from escaping the sandbox" {
@@ -37,6 +35,7 @@ fun main() {
             maxExtraThreads = 4,
             permissions = setOf(PropertyPermission("java.specification.version", "read"))
         ))
+        i shouldBe 1
         executionResult shouldNot haveTimedOut()
         executionResult should haveOutput("Hello\nWorld!")
     }
