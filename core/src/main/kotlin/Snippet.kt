@@ -109,7 +109,7 @@ data class SnippetArguments(
 
 val VISIBILITY_PATTERN = """^\s*(public|private|protected)""".toRegex()
 
-@Suppress("LongMethod")
+@Suppress("LongMethod", "ComplexMethod")
 @Throws(SnippetTransformationFailed::class)
 fun Source.Companion.transformSnippet(
     originalSource: String,
@@ -140,12 +140,31 @@ fun Source.Companion.transformSnippet(
     val classNames = mutableSetOf<String>()
     val methodNames = mutableSetOf<String>()
 
-    object : SnippetParserBaseVisitor<Unit>() {
+    val visitorResults = object : SnippetParserBaseVisitor<Unit>() {
+        val errors = mutableListOf<SnippetTransformationError>()
+        var sawNonImport = false
+
         fun markAs(start: Int, stop: Int, type: String) {
+            if (type != "import") {
+                sawNonImport = true
+            } else if (type == "import" && sawNonImport) {
+                errors.add(
+                    SnippetTransformationError(
+                    start - 1, 0, "import statements must be at the top of the snippet"
+                ))
+            }
+
             for (lineNumber in start - 1 until stop) {
                 check(!contentMapping.containsKey(lineNumber)) { "line $lineNumber already marked" }
                 contentMapping[lineNumber] = type
             }
+        }
+
+        override fun visitPackageDeclaration(context: SnippetParser.PackageDeclarationContext) {
+            errors.add(SnippetTransformationError(
+                context.start.line, context.start.charPositionInLine,
+                "Snippets may not contain package declarations"
+            ))
         }
 
         override fun visitClassDeclaration(context: SnippetParser.ClassDeclarationContext) {
@@ -176,7 +195,11 @@ fun Source.Companion.transformSnippet(
                 super.visit(it)
             }
         }
-    }.visit(parseTree)
+    }.also { it.visit(parseTree) }
+
+    if (visitorResults.errors.isNotEmpty()) {
+        throw SnippetTransformationFailed(visitorResults.errors)
+    }
 
     val snippetClassName = generateName("Main", classNames)
     val snippetMainMethodName = generateName("main", methodNames)

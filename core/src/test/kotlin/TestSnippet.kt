@@ -13,6 +13,8 @@ class TestSnippet : StringSpec({
     "should parse snippets" {
         Source.transformSnippet(
             """
+import java.util.List;
+
 class Test {
     int me = 0;
     int anotherTest() {
@@ -23,7 +25,6 @@ int testing() {
     int j = 0;
     return 10;
 }
-import java.util.List;
 class AnotherTest { }
 int i = 0;
 i++;""".trim()
@@ -145,6 +146,32 @@ static String test(int arg) {
 System.out.println(test(0));
         """.trim()
         )
+    }
+    "should not allow package declarations in snippets" {
+        val exception = shouldThrow<SnippetTransformationFailed> {
+            Source.transformSnippet(
+                """
+package test.me;
+
+System.out.println("Hello, world!");
+        """.trim()
+            )
+        }
+        exception.errors shouldHaveSize 1
+        exception should haveParseErrorOnLine(1)
+    }
+    "should reject imports not at top of snippet" {
+        val exception = shouldThrow<SnippetTransformationFailed> {
+            Source.transformSnippet(
+                """
+public class Foo { }
+System.out.println("Hello, world!");
+import java.util.List;
+        """.trim()
+            )
+        }
+        exception.errors shouldHaveSize 1
+        exception should haveParseErrorOnLine(3)
     }
 })
 
