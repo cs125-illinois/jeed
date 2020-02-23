@@ -20,13 +20,14 @@ class Snippet(
     val snippetRange: SourceRange,
     val wrappedClassName: String,
     val looseCodeMethodName: String,
+    val fileType: FileType,
     @Transient private val remappedLineMapping: Map<Int, RemappedLine> = mapOf()
 ) : Source(
     sources,
     {
         require(sources.keys.size == 1) { "snippets should only provide a single source file" }
         require(sources.keys.first() == "") { "snippets should use a blank string as their filename" }
-        FileType.JAVA
+        fileType
     },
     { mapLocation(it, remappedLineMapping) }
 ) {
@@ -112,7 +113,8 @@ val VISIBILITY_PATTERN = """^\s*(public|private|protected)""".toRegex()
 @Throws(SnippetTransformationFailed::class)
 fun Source.Companion.transformSnippet(
     originalSource: String,
-    snippetArguments: SnippetArguments = SnippetArguments()
+    snippetArguments: SnippetArguments = SnippetArguments(),
+    fileType: Source.FileType = Source.FileType.JAVA
 ): Snippet {
     require(originalSource.isNotEmpty())
 
@@ -289,6 +291,7 @@ fun Source.Companion.transformSnippet(
         snippetRange,
         snippetClassName,
         "$snippetMainMethodName()",
+        fileType,
         remappedLineMapping
     )
 }

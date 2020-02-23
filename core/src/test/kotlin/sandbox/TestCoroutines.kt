@@ -1,7 +1,6 @@
 package edu.illinois.cs.cs125.jeed.core.sandbox
 
 import edu.illinois.cs.cs125.jeed.core.Source
-import edu.illinois.cs.cs125.jeed.core.SourceExecutionArguments
 import edu.illinois.cs.cs125.jeed.core.execute
 import edu.illinois.cs.cs125.jeed.core.haveCompleted
 import edu.illinois.cs.cs125.jeed.core.haveOutput
@@ -32,10 +31,7 @@ fun main() {
     println(i)
 }
 """.trimIndent()
-        )).kompile().execute(executionArguments = SourceExecutionArguments(
-            timeout = 200,
-            maxExtraThreads = 2
-        ))
+        )).kompile().execute()
         executionResult shouldNot haveTimedOut()
         executionResult should haveCompleted()
         executionResult should haveOutput("1")
@@ -56,9 +52,7 @@ fun main() {
     println("World!")
 }
 """.trimIndent()
-        )).kompile().execute(executionArguments = SourceExecutionArguments(
-            maxExtraThreads = 2
-        ))
+        )).kompile().execute()
         i shouldBe 1
         executionResult shouldNot haveTimedOut()
         executionResult should haveOutput("Hello\nWorld!")
@@ -80,9 +74,7 @@ fun main() {
     }
 }
 """.trimIndent()
-        )).kompile().execute(executionArguments = SourceExecutionArguments(
-            maxExtraThreads = 2
-        ))
+        )).kompile().execute()
         assert(executionResult.permissionRequests.any { it.permission.name == "exitVM.-1" && !it.granted })
     }
 })

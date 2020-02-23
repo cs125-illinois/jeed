@@ -1,18 +1,13 @@
 package edu.illinois.cs.cs125.jeed.core
 
 import com.squareup.moshi.JsonClass
-import edu.illinois.cs.cs125.jeed.core.antlr.JavaLexer
-import edu.illinois.cs.cs125.jeed.core.antlr.JavaParser
 import java.io.PrintWriter
 import java.io.StringWriter
 import java.lang.reflect.Method
 import java.time.Instant
 import mu.KotlinLogging
-import org.antlr.v4.runtime.BaseErrorListener
-import org.antlr.v4.runtime.CharStreams
-import org.antlr.v4.runtime.CommonTokenStream
-import org.antlr.v4.runtime.RecognitionException
-import org.antlr.v4.runtime.Recognizer
+import org.antlr.v4.runtime.CharStream
+import org.antlr.v4.runtime.tree.ParseTree
 
 @Suppress("UNUSED")
 val logger = KotlinLogging.logger {}
@@ -43,34 +38,23 @@ open class Source(
         return Location(resultSourceLocation.line, resultSourceLocation.column)
     }
 
-    @Transient
-    private lateinit var _parsed: Map<String, JavaParser.CompilationUnitContext>
-    val parsed: Map<String, JavaParser.CompilationUnitContext>
-        @Throws(JavaParsingException::class)
-        get() {
-            if (!this::_parsed.isInitialized) {
-                _parsed = sources.mapValues { entry ->
-                    val errorListener = JavaErrorListener(this, entry)
-
-                    val charStream = CharStreams.fromString(entry.value)
-                    val javaLexer = JavaLexer(charStream)
-                    javaLexer.removeErrorListeners()
-                    javaLexer.addErrorListener(errorListener)
-
-                    val tokenStream = CommonTokenStream(javaLexer)
-                    errorListener.check()
-
-                    val javaParser = JavaParser(tokenStream)
-                    javaParser.removeErrorListeners()
-                    javaParser.addErrorListener(errorListener)
-
-                    val toReturn = javaParser.compilationUnit()
-                    errorListener.check()
-                    toReturn
+    val parsed: Map<String, Pair<ParseTree, CharStream>> by lazy {
+        sources.mapValues { entry ->
+                    val (filename, _) = entry
+                    when (sourceFilenameToFileType(filename)) {
+                        FileType.JAVA -> parseJavaFile(entry)
+                        FileType.KOTLIN -> parseKotlinFile(entry)
+                    }
                 }
             }
-            return _parsed
+
+    fun sourceFilenameToFileType(filename: String): FileType {
+        if (this is Snippet) {
+            check(filename.isEmpty()) { "Snippets should not have a filename" }
+            return type
         }
+        return filenameToFileType(filename)
+    }
 
     companion object {
         private fun filenameToFileType(filename: String): FileType {
@@ -103,33 +87,6 @@ open class Source(
                 }
             }
             return fileTypes.first()
-        }
-    }
-}
-
-class JavaParseError(location: SourceLocation, message: String) : SourceError(location, message)
-class JavaParsingException(errors: List<SourceError>) : JeedError(errors)
-
-class JavaErrorListener(val source: Source, entry: Map.Entry<String, String>) : BaseErrorListener() {
-    private val name = entry.key
-    @Suppress("unused")
-    private val contents = entry.value
-
-    private val errors = mutableListOf<JavaParseError>()
-    override fun syntaxError(
-        recognizer: Recognizer<*, *>?,
-        offendingSymbol: Any?,
-        line: Int,
-        charPositionInLine: Int,
-        msg: String,
-        e: RecognitionException?
-    ) {
-        errors.add(JavaParseError(source.mapLocation(SourceLocation(name, line, charPositionInLine)), msg))
-    }
-
-    fun check() {
-        if (errors.size > 0) {
-            throw JavaParsingException(errors)
         }
     }
 }

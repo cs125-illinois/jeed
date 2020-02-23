@@ -327,7 +327,9 @@ class ComplexityResult(val source: Source, entry: Map.Entry<String, String>) : J
     }
 
     init {
-        ParseTreeWalker.DEFAULT.walk(this, source.parsed[name])
+        ParseTreeWalker.DEFAULT.walk(this, source.parsed[name]?.first ?: require {
+            "Can't parse file $name"
+        })
     }
 }
 
@@ -379,7 +381,7 @@ fun Source.complexity(names: Set<String> = sources.keys.toSet()): ComplexityResu
         }.mapValues {
             ComplexityResult(this, it).results
         })
-    } catch (e: JavaParsingException) {
+    } catch (e: JeedParsingException) {
         throw ComplexityFailed(e.errors)
     }
 }

@@ -16,6 +16,7 @@ import edu.illinois.cs.cs125.jeed.core.Sandbox
 import edu.illinois.cs.cs125.jeed.core.Snippet
 import edu.illinois.cs.cs125.jeed.core.SnippetTransformationError
 import edu.illinois.cs.cs125.jeed.core.SnippetTransformationFailed
+import edu.illinois.cs.cs125.jeed.core.Source
 import edu.illinois.cs.cs125.jeed.core.SourceError
 import edu.illinois.cs.cs125.jeed.core.SourceExecutionArguments
 import edu.illinois.cs.cs125.jeed.core.SourceRange
@@ -211,7 +212,8 @@ data class SnippetJson(
     val rewrittenSource: String,
     val snippetRange: SourceRange,
     val wrappedClassName: String,
-    val looseCodeMethodName: String
+    val looseCodeMethodName: String,
+    val fileType: String
 )
 
 class SnippetAdapter {
@@ -223,7 +225,8 @@ class SnippetAdapter {
             snippetJson.rewrittenSource,
             snippetJson.snippetRange,
             snippetJson.wrappedClassName,
-            snippetJson.looseCodeMethodName
+            snippetJson.looseCodeMethodName,
+            Source.FileType.valueOf(snippetJson.fileType)
         )
     }
 
@@ -235,7 +238,8 @@ class SnippetAdapter {
             snippet.rewrittenSource,
             snippet.snippetRange,
             snippet.wrappedClassName,
-            snippet.looseCodeMethodName
+            snippet.looseCodeMethodName,
+            snippet.fileType.type
         )
     }
 }
