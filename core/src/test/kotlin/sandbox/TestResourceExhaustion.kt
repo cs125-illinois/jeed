@@ -517,4 +517,29 @@ new A();
         """.trimIndent()
         ).compile().execute()
     }
+    "should terminate a parked thread" {
+        val executionResult = Source.transformSnippet(
+            """
+import java.util.concurrent.locks.LockSupport;
+public class Example implements Runnable {
+    public void run() {
+        while (true) {
+            Thread.interrupted();
+            LockSupport.park(Thread.currentThread());
+        }
+    }
+}
+Thread thread = new Thread(new Example());
+System.out.println("Started");
+thread.start();
+try {
+    thread.join();
+} catch (Throwable e) { }
+        """.trim()
+        ).compile().execute(SourceExecutionArguments(maxExtraThreads = 1))
+
+        executionResult shouldNot haveCompleted()
+        executionResult should haveTimedOut()
+        executionResult should haveOutput("Started")
+    }
 })

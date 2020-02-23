@@ -6,13 +6,14 @@ import java.lang.reflect.Method
 import java.lang.reflect.Modifier
 import java.lang.reflect.ReflectPermission
 import java.security.Permission
+import java.util.PropertyPermission
 
 @JsonClass(generateAdapter = true)
 class SourceExecutionArguments(
     var klass: String? = null,
     val method: String = DEFAULT_METHOD,
     timeout: Long = DEFAULT_TIMEOUT,
-    permissions: Set<Permission> = REQUIRED_PERMISSIONS,
+    permissions: Set<Permission> = setOf(),
     maxExtraThreads: Int = DEFAULT_MAX_EXTRA_THREADS,
     maxOutputLines: Int = DEFAULT_MAX_OUTPUT_LINES,
     classLoaderConfiguration: Sandbox.ClassLoaderConfiguration = Sandbox.ClassLoaderConfiguration()
@@ -27,6 +28,8 @@ class SourceExecutionArguments(
         const val DEFAULT_KLASS = "Main"
         const val DEFAULT_METHOD = "main()"
         val REQUIRED_PERMISSIONS = setOf(
+            // Required by newer versions of Kotlin
+            PropertyPermission("java.specification.version", "read"),
             RuntimePermission("accessDeclaredMembers"),
             ReflectPermission("suppressAccessChecks")
         )
