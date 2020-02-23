@@ -327,7 +327,7 @@ class ComplexityResult(val source: Source, entry: Map.Entry<String, String>) : J
     }
 
     init {
-        ParseTreeWalker.DEFAULT.walk(this, source.parsed[name]?.first ?: require {
+        ParseTreeWalker.DEFAULT.walk(this, source.parseTree[name]?.first ?: require {
             "Can't parse file $name"
         })
     }

@@ -1,6 +1,7 @@
 package edu.illinois.cs.cs125.jeed.core
 
 import io.kotlintest.should
+import io.kotlintest.shouldBe
 import io.kotlintest.specs.StringSpec
 
 class TestKompile : StringSpec({
@@ -42,5 +43,20 @@ fun main() {
 
         compiledSource should haveDefinedExactlyTheseClasses(setOf("Test", "Me"))
         compiledSource should haveProvidedThisManyClasses(0)
+    }
+    "should identify sources that use coroutines" {
+        val compiledSource = Source(mapOf(
+            "Me.kt" to """
+import kotlinx.coroutines.*
+fun main() {
+  println("Hello, world!")
+}
+            """.trim(),
+            "Test.kt" to "open class Test()"
+        )).kompile()
+
+        compiledSource.source.parsed shouldBe false
+        compiledSource.usesCoroutines() shouldBe true
+        compiledSource.source.parsed shouldBe true
     }
 })

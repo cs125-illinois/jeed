@@ -85,9 +85,11 @@ object Sandbox {
 
     @JsonClass(generateAdapter = true)
     open class ExecutionArguments(
-        val timeout: Long = DEFAULT_TIMEOUT,
+        // var because may be increased in the presence of coroutines
+        var timeout: Long = DEFAULT_TIMEOUT,
         val permissions: Set<Permission> = setOf(),
-        val maxExtraThreads: Int = DEFAULT_MAX_EXTRA_THREADS,
+        // var beacuse may be increased in the presence of coroutines
+        var maxExtraThreads: Int = DEFAULT_MAX_EXTRA_THREADS,
         val maxOutputLines: Int = DEFAULT_MAX_OUTPUT_LINES,
         val classLoaderConfiguration: ClassLoaderConfiguration = ClassLoaderConfiguration()
     ) {

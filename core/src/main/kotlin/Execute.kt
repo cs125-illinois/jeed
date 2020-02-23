@@ -60,6 +60,13 @@ suspend fun CompiledSource.execute(
         }
     }
 
+    // Coroutines need some extra time and threads to run.
+    if (this.source.type == Source.FileType.KOTLIN && this.usesCoroutines()) {
+        executionArguments.timeout = executionArguments.timeout.coerceAtLeast(KOTLIN_COROUTINE_MIN_TIMEOUT)
+        executionArguments.maxExtraThreads =
+            executionArguments.maxExtraThreads.coerceAtLeast(KOTLIN_COROUTINE_MIN_EXTRA_THREADS)
+    }
+
     // Fail fast if the class or method don't exist
     classLoader.findClassMethod(executionArguments.klass!!, executionArguments.method)
 

@@ -3,6 +3,7 @@
 package edu.illinois.cs.cs125.jeed.core
 
 import com.squareup.moshi.JsonClass
+import edu.illinois.cs.cs125.jeed.core.antlr.KotlinParser
 import io.github.classgraph.ClassGraph
 import java.nio.charset.Charset
 import java.time.Instant
@@ -142,4 +143,18 @@ private fun kompile(
 
 fun Source.kompile(kompilationArguments: KompilationArguments = KompilationArguments()): CompiledSource {
     return kompile(kompilationArguments, this)
+}
+
+private val KOTLIN_COROUTINE_IMPORTS = setOf("kotlinx.coroutines", "kotlin.coroutines")
+const val KOTLIN_COROUTINE_MIN_TIMEOUT = 400L
+const val KOTLIN_COROUTINE_MIN_EXTRA_THREADS = 2
+
+fun CompiledSource.usesCoroutines(): Boolean {
+    return this.source.parseTree.any { (_, parseResults) ->
+        val (parseTree, _) = parseResults
+        parseTree as? KotlinParser.KotlinFileContext ?: check { "Parse tree is not from a Kotlin file" }
+        parseTree.preamble().importList().importHeader().any { importName ->
+            KOTLIN_COROUTINE_IMPORTS.any { importName.identifier().text.startsWith(it) }
+        }
+    }
 }

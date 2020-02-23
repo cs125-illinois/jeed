@@ -38,15 +38,21 @@ open class Source(
         return Location(resultSourceLocation.line, resultSourceLocation.column)
     }
 
-    val parsed: Map<String, Pair<ParseTree, CharStream>> by lazy {
+    var parsed = false
+    var parseInterval: Interval? = null
+    val parseTree: Map<String, Pair<ParseTree, CharStream>> by lazy {
+        parsed = true
+        val parseStart = Instant.now()
         sources.mapValues { entry ->
                     val (filename, _) = entry
                     when (sourceFilenameToFileType(filename)) {
                         FileType.JAVA -> parseJavaFile(entry)
                         FileType.KOTLIN -> parseKotlinFile(entry)
                     }
-                }
-            }
+                }.also {
+            parseInterval = Interval(parseStart, Instant.now())
+        }
+    }
 
     fun sourceFilenameToFileType(filename: String): FileType {
         if (this is Snippet) {
