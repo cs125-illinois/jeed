@@ -11,14 +11,14 @@ import io.kotlintest.specs.StringSpec
 
 class TestCheckstyle : StringSpec({
     "should check strings without errors" {
-        val checkstyleResult = Source.transformSnippet("""
+        val checkstyleResult = Source.fromSnippet("""
 int i = 0;
 """.trim()).checkstyle()
 
         checkstyleResult shouldNot haveCheckstyleErrors()
     }
     "it should identify checkstyle errors in strings" {
-        val checkstyleErrors = Source.transformSnippet("""
+        val checkstyleErrors = Source.fromSnippet("""
 int i = 0;
 int y =1;
 """.trim()).checkstyle()
@@ -27,7 +27,7 @@ int y =1;
         checkstyleErrors should haveCheckstyleErrorAt(line = 2)
     }
     "should identify checkstyle errors in snippet results" {
-        val checkstyleErrors = Source.transformSnippet("""
+        val checkstyleErrors = Source.fromSnippet("""
 int i = 0;
 int y = 1;
 int add(int a, int b) {
@@ -40,7 +40,7 @@ add(i, y);
         checkstyleErrors should haveCheckstyleErrorAt(line = 4)
     }
     "should identify checkstyle errors in snippet static results" {
-        val checkstyleErrors = Source.transformSnippet("""
+        val checkstyleErrors = Source.fromSnippet("""
 int i = 0;
 int y = 1;
 static int add(int a, int b) {
@@ -53,7 +53,7 @@ add(i, y);
         checkstyleErrors should haveCheckstyleErrorAt(line = 4)
     }
     "should identify checkstyle errors in snippet results with modifiers" {
-        val checkstyleErrors = Source.transformSnippet("""
+        val checkstyleErrors = Source.fromSnippet("""
 int i = 0;
 int y = 1;
 public int add(int a, int b) {
@@ -96,7 +96,7 @@ public class Second {
         checkstyleErrors shouldNot haveCheckstyleErrors()
     }
     "should check indentation properly" {
-        val checkstyleErrors = Source.transformSnippet("""
+        val checkstyleErrors = Source.fromSnippet("""
 public int add(int a, int b) {
    return a + b;
  }
@@ -108,7 +108,7 @@ public int add(int a, int b) {
     }
     "should throw when configured" {
     val checkstyleError = shouldThrow<CheckstyleFailed> {
-            Source.transformSnippet("""
+            Source.fromSnippet("""
 public int add(int a,int b) {
     return a+ b;
 }

@@ -33,8 +33,9 @@ import org.jetbrains.kotlin.psi.KtFile
 
 private val classpath = ClassGraph().classpathFiles.joinToString(separator = File.pathSeparator)
 
-@JsonClass(generateAdapter = true)
+private const val KOTLIN_EMPTY_LOCATION = "/"
 
+@JsonClass(generateAdapter = true)
 @Suppress("MatchingDeclarationName")
 data class KompilationArguments(
     @Transient val parentClassLoader: ClassLoader = ClassLoader.getSystemClassLoader(),
@@ -83,7 +84,8 @@ private class JeedMessageCollector(val source: Source, val allWarningsAsErrors: 
             return
         }
         require(location != null) { "location should not be null (severity $severity): $message" }
-        val originalLocation = SourceLocation(location.path, location.line, location.column)
+        val actualLocation = if (location.path == KOTLIN_EMPTY_LOCATION) { "" } else { location.path }
+        val originalLocation = SourceLocation(actualLocation, location.line, location.column)
         messages.add(CompilationMessage(severity.presentableName, source.mapLocation(originalLocation), message))
     }
 }

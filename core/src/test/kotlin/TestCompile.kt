@@ -11,13 +11,13 @@ import io.kotlintest.specs.StringSpec
 
 class TestCompile : StringSpec({
     "should compile simple snippets" {
-        val compiledSource = Source.transformSnippet("int i = 1;").compile()
+        val compiledSource = Source.fromSnippet("int i = 1;").compile()
 
         compiledSource should haveDefinedExactlyTheseClasses(setOf("Main"))
         compiledSource should haveProvidedThisManyClasses(0)
     }
     "should compile snippets that include method definitions" {
-        val compiledSource = Source.transformSnippet(
+        val compiledSource = Source.fromSnippet(
             """
 int i = 0;
 private static int main() {
@@ -29,7 +29,7 @@ private static int main() {
         compiledSource should haveProvidedThisManyClasses(0)
     }
     "should compile snippets that include class definitions" {
-        val compiledSource = Source.transformSnippet(
+        val compiledSource = Source.fromSnippet(
             """
 int i = 0;
 public class Foo {
@@ -146,13 +146,13 @@ public class Test {
     }
     "should identify compilation errors in simple snippets" {
         val failedCompilation = shouldThrow<CompilationFailed> {
-            Source.transformSnippet("int i = a;").compile()
+            Source.fromSnippet("int i = a;").compile()
         }
         failedCompilation should haveCompilationErrorAt(line = 1)
     }
     "should identify compilation errors in simple snippets when static is added" {
         val failedCompilation = shouldThrow<CompilationFailed> {
-            Source.transformSnippet("""
+            Source.fromSnippet("""
 void test(blah it) {
   System.out.println(it);
 }
@@ -162,7 +162,7 @@ void test(blah it) {
     }
     "should identify compilation errors in simple snippets when static is added to public" {
         val failedCompilation = shouldThrow<CompilationFailed> {
-            Source.transformSnippet("""
+            Source.fromSnippet("""
 public void test(blah it) {
   System.out.println(it);
 }
@@ -172,7 +172,7 @@ public void test(blah it) {
     }
     "should identify multiple compilation errors in simple snippets" {
         val failedCompilation = shouldThrow<CompilationFailed> {
-            Source.transformSnippet(
+            Source.fromSnippet(
                 """
 int i = a;
 Foo f = new Foo();
@@ -185,7 +185,7 @@ Foo f = new Foo();
     }
     "should identify multiple compilation errors in reordered simple snippets" {
         val failedCompilation = shouldThrow<CompilationFailed> {
-            Source.transformSnippet(
+            Source.fromSnippet(
                 """
 public void foo() {
     return;
@@ -201,7 +201,7 @@ Foo f = new Foo();
         failedCompilation should haveCompilationErrorAt(line = 6)
     }
     "should identify warnings in snippets" {
-        val compiledSource = Source.transformSnippet(
+        val compiledSource = Source.fromSnippet(
             """
 import java.util.List;
 import java.util.ArrayList;
@@ -213,7 +213,7 @@ List test = new ArrayList();
         compiledSource should haveCompilationMessageAt(line = 3)
     }
     "should not identify warnings in snippets when warnings are disabled" {
-        val compiledSource = Source.transformSnippet(
+        val compiledSource = Source.fromSnippet(
             """
 import java.util.List;
 import java.util.ArrayList;
@@ -225,7 +225,7 @@ List test = new ArrayList();
     }
     "should fail when warnings are treated as errors" {
         val exception = shouldThrow<CompilationFailed> {
-            Source.transformSnippet(
+            Source.fromSnippet(
                 """
 import java.util.List;
 import java.util.ArrayList;
@@ -237,7 +237,7 @@ List test = new ArrayList();
         exception should haveCompilationErrorAt(line = 3)
     }
     "should enumerate and load classes correctly after execution" {
-        val compiledSource = Source.transformSnippet(
+        val compiledSource = Source.fromSnippet(
             """
 class Test {}
 class Me {}
@@ -299,7 +299,7 @@ public class Foo extends Me { }
         compiledFooSource should haveProvidedThisManyClasses(0)
     }
     "should compile with classes from Java standard libraries" {
-        val compiledSource = Source.transformSnippet(
+        val compiledSource = Source.fromSnippet(
             """
 import java.util.List;
 import java.util.ArrayList;
@@ -312,7 +312,7 @@ List list = new ArrayList();
         compiledSource should haveProvidedThisManyClasses(0)
     }
     "should compile with classes from nonstandard libraries" {
-        val compiledSource = Source.transformSnippet(
+        val compiledSource = Source.fromSnippet(
             """
 import com.puppycrawl.tools.checkstyle.Checker;
 
@@ -322,7 +322,7 @@ System.out.println(new Checker());
         compiledSource should haveDefinedExactlyTheseClasses(setOf("Main"))
     }
     "should compile with classes from .class files" {
-        val compiledSource = Source.transformSnippet(
+        val compiledSource = Source.fromSnippet(
             """
 import edu.illinois.cs.cs125.testingjeed.importable.*;
 

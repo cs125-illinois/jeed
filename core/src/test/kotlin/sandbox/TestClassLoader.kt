@@ -6,7 +6,7 @@ import edu.illinois.cs.cs125.jeed.core.SourceExecutionArguments
 import edu.illinois.cs.cs125.jeed.core.compile
 import edu.illinois.cs.cs125.jeed.core.execute
 import edu.illinois.cs.cs125.jeed.core.haveCompleted
-import edu.illinois.cs.cs125.jeed.core.transformSnippet
+import edu.illinois.cs.cs125.jeed.core.fromSnippet
 import io.kotlintest.should
 import io.kotlintest.shouldBe
 import io.kotlintest.shouldNot
@@ -16,7 +16,7 @@ import java.lang.IllegalArgumentException
 
 class TestClassLoader : StringSpec({
     "should prohibit default blacklisted imports" {
-        val executionResult = Source.transformSnippet(
+        val executionResult = Source.fromSnippet(
             """
 import edu.illinois.cs.cs125.jeed.core.*;
 
@@ -28,7 +28,7 @@ System.out.println(Sandbox.class.getMethods().length);
         executionResult.permissionDenied shouldBe true
     }
     "should blacklist java.lang.reflect.* by default" {
-        val compiledSource = Source.transformSnippet(
+        val compiledSource = Source.fromSnippet(
             """
 import java.lang.reflect.*;
 
@@ -50,7 +50,7 @@ System.out.println(methods[0].getName());
         successfulExecutionResult should haveCompleted()
     }
     "should prohibit configured blacklisted imports" {
-        val successfulExecutionResult = Source.transformSnippet(
+        val successfulExecutionResult = Source.fromSnippet(
             """
 import java.util.List;
 import java.util.ArrayList;
@@ -61,7 +61,7 @@ List list = new ArrayList<String>();
 
         successfulExecutionResult should haveCompleted()
 
-        val failedExecutionResult = Source.transformSnippet(
+        val failedExecutionResult = Source.fromSnippet(
             """
 import java.util.List;
 import java.util.ArrayList;
@@ -82,7 +82,7 @@ List list = new ArrayList<String>();
         failedExecutionResult.permissionDenied shouldBe true
     }
     "should allow only whitelisted imports" {
-        val successfulExecutionResult = Source.transformSnippet(
+        val successfulExecutionResult = Source.fromSnippet(
             """
 String s = new String("test");
         """.trim()
@@ -97,7 +97,7 @@ String s = new String("test");
 
         successfulExecutionResult should haveCompleted()
 
-        val failedExecutionResult = Source.transformSnippet(
+        val failedExecutionResult = Source.fromSnippet(
             """
 import java.util.List;
 import java.util.ArrayList;
@@ -118,7 +118,7 @@ List list = new ArrayList<String>();
     }
     "should not allow edu.illinois.cs.cs125.jeed. to be whitelisted" {
         shouldThrow<IllegalArgumentException> {
-            Source.transformSnippet(
+            Source.fromSnippet(
                 """
 System.out.println("Here");
             """.trim()
@@ -131,7 +131,7 @@ System.out.println("Here");
             )
         }
         shouldThrow<IllegalArgumentException> {
-            Source.transformSnippet(
+            Source.fromSnippet(
                 """
 System.out.println("Here");
             """.trim()

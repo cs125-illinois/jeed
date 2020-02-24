@@ -6,7 +6,7 @@ import io.kotlintest.specs.StringSpec
 
 class TestComplexity : StringSpec({
     "should calculate complexity for snippets" {
-        val complexityResults = Source.transformSnippet(
+        val complexityResults = Source.fromSnippet(
             """
 int add(int i, int j) {
     return i + j;

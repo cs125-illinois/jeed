@@ -7,7 +7,7 @@ import edu.illinois.cs.cs125.jeed.core.compile
 import edu.illinois.cs.cs125.jeed.core.execute
 import edu.illinois.cs.cs125.jeed.core.haveCompleted
 import edu.illinois.cs.cs125.jeed.core.haveOutput
-import edu.illinois.cs.cs125.jeed.core.transformSnippet
+import edu.illinois.cs.cs125.jeed.core.fromSnippet
 import io.kotlintest.matchers.collections.shouldHaveSize
 import io.kotlintest.should
 import io.kotlintest.shouldBe
@@ -21,7 +21,7 @@ import java.util.PropertyPermission
 
 class TestPermissions : StringSpec({
     "should prevent threads from populating a new thread group" {
-        val executionResult = Source.transformSnippet(
+        val executionResult = Source.fromSnippet(
             """
 public class Example implements Runnable {
     public void run() {
@@ -43,7 +43,7 @@ System.out.println("There");
         executionResult.permissionDenied shouldBe true
     }
     "should prevent snippets from exiting" {
-        val executionResult = Source.transformSnippet(
+        val executionResult = Source.fromSnippet(
             """
 System.exit(2);
         """.trim()
@@ -53,7 +53,7 @@ System.exit(2);
         executionResult.permissionDenied shouldBe true
     }
     "should prevent snippets from redirecting System.out" {
-        val executionResult = Source.transformSnippet(
+        val executionResult = Source.fromSnippet(
             """
 import java.io.*;
 
@@ -77,7 +77,7 @@ System.setOut(printStream);
         executionResult.permissionDenied shouldBe true
     }
     "should prevent snippets from reading files" {
-        val executionResult = Source.transformSnippet(
+        val executionResult = Source.fromSnippet(
             """
 import java.io.*;
 System.out.println(new File("/").listFiles().length);
@@ -88,7 +88,7 @@ System.out.println(new File("/").listFiles().length);
         executionResult.permissionDenied shouldBe true
     }
     "should prevent snippets from reading system properties" {
-        val executionResult = Source.transformSnippet(
+        val executionResult = Source.fromSnippet(
             """
 System.out.println(System.getProperty("file.separator"));
         """.trim()
@@ -98,7 +98,7 @@ System.out.println(System.getProperty("file.separator"));
         executionResult.permissionDenied shouldBe true
     }
     "should allow snippets to read system properties if allowed" {
-        val executionResult = Source.transformSnippet(
+        val executionResult = Source.fromSnippet(
             """
 System.out.println(System.getProperty("file.separator"));
         """.trim()
@@ -108,7 +108,7 @@ System.out.println(System.getProperty("file.separator"));
         executionResult.permissionDenied shouldBe false
     }
     "should allow permissions to be changed between runs" {
-        val compiledSource = Source.transformSnippet(
+        val compiledSource = Source.fromSnippet(
             """
 System.out.println(System.getProperty("file.separator"));
         """.trim()
@@ -127,7 +127,7 @@ System.out.println(System.getProperty("file.separator"));
         successfulExecution.permissionDenied shouldBe false
     }
     "should prevent snippets from starting threads by default" {
-        val executionResult = Source.transformSnippet(
+        val executionResult = Source.fromSnippet(
             """
 public class Example implements Runnable {
     public void run() { }
@@ -142,7 +142,7 @@ System.out.println("Started");
         executionResult.permissionDenied shouldBe true
     }
     "should allow snippets to start threads when configured" {
-        val compiledSource = Source.transformSnippet(
+        val compiledSource = Source.fromSnippet(
             """
 public class Example implements Runnable {
     public void run() {
@@ -171,7 +171,7 @@ try {
     }
     "should not allow unsafe permissions to be provided" {
         shouldThrow<IllegalArgumentException> {
-            Source.transformSnippet(
+            Source.fromSnippet(
                 """
 System.exit(3);
             """.trim()
@@ -181,7 +181,7 @@ System.exit(3);
         }
     }
     "should allow Java streams with default permissions" {
-        val executionResult = Source.transformSnippet(
+        val executionResult = Source.fromSnippet(
             """
 import java.util.List;
 import java.util.ArrayList;
@@ -226,7 +226,7 @@ public class Main {
         executionResult should haveOutput("8")
     }
     "it should not allow snippets to read from the internet" {
-        val executionResult = Source.transformSnippet(
+        val executionResult = Source.fromSnippet(
             """
 import java.io.BufferedReader;
 import java.io.InputStreamReader;
@@ -254,7 +254,7 @@ if (br != null) {
         executionResult.permissionDenied shouldBe true
     }
     "it should not allow snippets to execute commands" {
-        val executionResult = Source.transformSnippet(
+        val executionResult = Source.fromSnippet(
             """
 import java.io.*;
 
@@ -273,7 +273,7 @@ while ((line = in.readLine()) != null) {
         executionResult.permissionDenied shouldBe true
     }
     "should not allow SecurityManager to be set again through reflection" {
-        val executionResult = Source.transformSnippet(
+        val executionResult = Source.fromSnippet(
             """
 Class<System> c = System.class;
 System s = c.newInstance();
@@ -283,7 +283,7 @@ System s = c.newInstance();
         executionResult shouldNot haveCompleted()
     }
     "should not allow SecurityManager to be created again through reflection" {
-        val executionResult = Source.transformSnippet(
+        val executionResult = Source.fromSnippet(
             """
 Class<SecurityManager> c = SecurityManager.class;
 SecurityManager s = c.newInstance();
@@ -294,7 +294,7 @@ SecurityManager s = c.newInstance();
         executionResult.permissionDenied shouldBe true
     }
     "should not allow access to the compiler" {
-        val executionResult = Source.transformSnippet(
+        val executionResult = Source.fromSnippet(
             """
 import java.lang.reflect.*;
 
@@ -319,7 +319,7 @@ Object compiledSource = compile.invoke(null, snippet, compileArgs);
         executionResult.permissionDenied shouldBe true
     }
     "should not allow reflection to disable the sandbox" {
-        val executionResult = Source.transformSnippet(
+        val executionResult = Source.fromSnippet(
             """
 import java.lang.reflect.*;
 import java.util.Map;
@@ -390,7 +390,7 @@ public class Example {
         executionResult.outputLines.all { (_, line) -> line.trim() == "Example" } shouldBe true
     }
     "should not allow LambdaMetafactory to escape the sandbox" {
-        val executionResult = Source.transformSnippet(
+        val executionResult = Source.fromSnippet(
             """
 import java.lang.invoke.*;
             
@@ -415,7 +415,7 @@ try {
         executionResult.permissionDenied shouldBe true
     }
     "should not allow MethodHandle-based reflection to dodge the sandbox" {
-        val executionResult = Source.transformSnippet(
+        val executionResult = Source.fromSnippet(
             """
 import java.lang.invoke.*;
 import com.puppycrawl.tools.checkstyle.api.CheckstyleException;
@@ -442,7 +442,7 @@ try {
         executionResult.permissionDenied shouldBe true
     }
     "should not allow MethodHandles to alter the security manager" {
-        val executionResult = Source.transformSnippet(
+        val executionResult = Source.fromSnippet(
             """
 import java.lang.invoke.*;
 import java.util.Map;

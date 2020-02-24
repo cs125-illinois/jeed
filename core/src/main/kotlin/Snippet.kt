@@ -2,6 +2,9 @@ package edu.illinois.cs.cs125.jeed.core
 
 import com.squareup.moshi.JsonClass
 import edu.illinois.cs.cs125.jeed.core.antlr.JavaLexer
+import edu.illinois.cs.cs125.jeed.core.antlr.KnippetLexer
+import edu.illinois.cs.cs125.jeed.core.antlr.KnippetParser
+import edu.illinois.cs.cs125.jeed.core.antlr.KotlinLexer
 import edu.illinois.cs.cs125.jeed.core.antlr.SnippetLexer
 import edu.illinois.cs.cs125.jeed.core.antlr.SnippetParser
 import edu.illinois.cs.cs125.jeed.core.antlr.SnippetParserBaseVisitor
@@ -44,7 +47,7 @@ class Snippet(
 
     companion object {
         fun mapLocation(input: SourceLocation, remappedLineMapping: Map<Int, RemappedLine>): SourceLocation {
-            check(input.source == SNIPPET_SOURCE)
+            check(input.source == SNIPPET_SOURCE) { "Incorrect input source: ${input.source}" }
             val remappedLineInfo = remappedLineMapping[input.line]
             check(remappedLineInfo != null) {
                 "can't remap line ${input.line}: ${remappedLineMapping.values.joinToString(
@@ -70,7 +73,9 @@ class SnippetTransformationError(
 
 class SnippetTransformationFailed(errors: List<SnippetTransformationError>) : JeedError(errors)
 
-class SnippetErrorListener(private val sourceLines: List<Int>) : BaseErrorListener() {
+class SnippetErrorListener(
+    private val sourceLines: List<Int>, private val decrement: Boolean = true
+) : BaseErrorListener() {
     private val errors = mutableListOf<SnippetTransformationError>()
     override fun syntaxError(
         recognizer: Recognizer<*, *>?,
@@ -81,7 +86,7 @@ class SnippetErrorListener(private val sourceLines: List<Int>) : BaseErrorListen
         e: RecognitionException?
     ) {
         // Decrement line number by 1 to account for added braces
-        var actualLine = line - 1
+        var actualLine = if (decrement) { line - 1 } else { line }
         var actualCharPositionInLine = charPositionInLine
         var actualMsg = msg
 
@@ -107,33 +112,157 @@ data class SnippetArguments(
     val indent: Int = 4
 )
 
-val VISIBILITY_PATTERN = """^\s*(public|private|protected)""".toRegex()
-
 @Suppress("LongMethod", "ComplexMethod")
 @Throws(SnippetTransformationFailed::class)
-fun Source.Companion.transformSnippet(
+fun Source.Companion.fromSnippet(
     originalSource: String,
     snippetArguments: SnippetArguments = SnippetArguments(),
     fileType: Source.FileType = Source.FileType.JAVA
 ): Snippet {
     require(originalSource.isNotEmpty())
+    return when (fileType) {
+        Source.FileType.JAVA -> sourceFromJavaSnippet(originalSource, snippetArguments)
+        Source.FileType.KOTLIN -> sourceFromKotlinSnippet(originalSource, snippetArguments)
+    }
+}
 
+@Suppress("LongMethod", "ComplexMethod")
+private fun sourceFromKotlinSnippet(originalSource: String, snippetArguments: SnippetArguments): Snippet {
+    val sourceLines = originalSource.lines()
+    val errorListener = SnippetErrorListener(sourceLines.map { it.trim().length }, false)
+
+    val parseTree = KnippetLexer(CharStreams.fromString(originalSource + "\n")).let {
+        it.removeErrorListeners()
+        it.addErrorListener(errorListener)
+        CommonTokenStream(it)
+    }.also {
+        errorListener.check()
+    }.let {
+        KnippetParser(it)
+    }.let {
+        it.removeErrorListeners()
+        it.addErrorListener(errorListener)
+        it.kotlinFile()
+    }.also {
+        errorListener.check()
+    }
+
+    val snippetRange = SourceRange(
+        SNIPPET_SOURCE,
+        Location(parseTree.start.line, parseTree.start.charPositionInLine),
+        Location(parseTree.stop.line, parseTree.stop.charPositionInLine)
+    )
+
+    val rewrittenSourceLines: MutableList<String> = mutableListOf()
+    var currentOutputLineNumber = 1
+    val remappedLineMapping = hashMapOf<Int, Snippet.RemappedLine>()
+
+    parseTree.preamble()?.packageHeader()?.let {
+        if (it.identifier() != null) {
+            throw SnippetTransformationFailed(
+                listOf(
+                    SnippetTransformationError(
+                        SourceLocation(SNIPPET_SOURCE, it.start.line, it.start.charPositionInLine),
+                        "package declarations not allowed in snippets"
+                    )
+                )
+            )
+        }
+    }
+
+    val preambleStart = parseTree.preamble()?.start?.line ?: 0
+    val preambleStop = parseTree.preamble()?.stop?.line?.inc() ?: 0
+    for (lineNumber in preambleStart until preambleStop) {
+        rewrittenSourceLines.add(sourceLines[lineNumber - 1].trimEnd())
+        remappedLineMapping[currentOutputLineNumber] = Snippet.RemappedLine(lineNumber, currentOutputLineNumber)
+        currentOutputLineNumber++
+    }
+
+    rewrittenSourceLines.addAll("""class MainKt {
+${" ".repeat(snippetArguments.indent)}fun main() {""".lines())
+    currentOutputLineNumber += 2
+
+    val topLevelStart = parseTree.topLevelObject()?.first()?.start?.line ?: 0
+    val topLevelEnd = parseTree.topLevelObject()?.last()?.stop?.line ?: 0
+    for (lineNumber in topLevelStart..topLevelEnd) {
+        rewrittenSourceLines.add(" ".repeat(snippetArguments.indent * 2) + sourceLines[lineNumber - 1].trimEnd())
+        remappedLineMapping[currentOutputLineNumber] =
+            Snippet.RemappedLine(lineNumber, currentOutputLineNumber, snippetArguments.indent * 2)
+        currentOutputLineNumber++
+    }
+
+    rewrittenSourceLines.addAll("""
+${" ".repeat(snippetArguments.indent)}}
+}
+""".lines())
+
+    val looseLines: MutableList<String> = mutableListOf()
+    val looseCodeMapping: MutableMap<Int, Int> = mutableMapOf()
+
+    parseTree.topLevelObject()?.map { it.statement() }?.filter { it.isNotEmpty() }?.forEach {
+        val looseStart = it?.first()?.start?.line ?: 0
+        val looseEnd = it?.last()?.stop?.line ?: 0
+        for (lineNumber in looseStart..looseEnd) {
+            looseCodeMapping[looseLines.size + 1] = lineNumber
+            looseLines.add(sourceLines[lineNumber - 1])
+        }
+    }
+    KotlinLexer(CharStreams.fromString(looseLines.joinToString(separator = "\n"))).let {
+        it.removeErrorListeners()
+        CommonTokenStream(it)
+    }.also {
+        it.fill()
+    }.tokens.filter {
+        it.type == KotlinLexer.RETURN
+    }.map {
+        SnippetTransformationError(
+            SourceLocation(
+                SNIPPET_SOURCE,
+                looseCodeMapping[it.line] ?: require { "Missing loose code mapping " },
+                it.charPositionInLine
+            ),
+            "return statements not allowed at top level in snippets"
+        )
+    }.let {
+        if (it.isNotEmpty()) {
+            throw SnippetTransformationFailed(it)
+        }
+    }
+
+    val rewrittenSource = rewrittenSourceLines.joinToString(separator = "\n")
+    return Snippet(
+        hashMapOf(SNIPPET_SOURCE to rewrittenSource),
+        originalSource,
+        rewrittenSource,
+        snippetRange,
+        "MainKt",
+        "main()",
+        Source.FileType.KOTLIN,
+        remappedLineMapping
+    )
+}
+
+private val JAVA_VISIBILITY_PATTERN = """^\s*(public|private|protected)""".toRegex()
+@Suppress("LongMethod", "ComplexMethod")
+private fun sourceFromJavaSnippet(originalSource: String, snippetArguments: SnippetArguments): Snippet {
     val sourceLines = originalSource.lines().map { it.trim().length }
     val errorListener = SnippetErrorListener(sourceLines)
-    val charStream = CharStreams.fromString("{\n$originalSource\n}")
-    val snippetLexer = SnippetLexer(charStream)
-    snippetLexer.removeErrorListeners()
-    snippetLexer.addErrorListener(errorListener)
 
-    val tokenStream = CommonTokenStream(snippetLexer)
-    errorListener.check()
-
-    val snippetParser = SnippetParser(tokenStream)
-    snippetParser.removeErrorListeners()
-    snippetParser.addErrorListener(errorListener)
-
-    val parseTree = snippetParser.block()
-    errorListener.check()
+    val parseTree = SnippetLexer(CharStreams.fromString("{\n$originalSource\n}")).let {
+        it.removeErrorListeners()
+        it.addErrorListener(errorListener)
+        CommonTokenStream(it)
+    }.also {
+        errorListener.check()
+    }.let {
+        SnippetParser(it)
+    }.let {
+        it.removeErrorListeners()
+        it.addErrorListener(errorListener)
+        it.block()
+    }.also {
+        errorListener.check()
+    }
 
     lateinit var snippetRange: SourceRange
     val contentMapping = mutableMapOf<Int, String>()
@@ -241,9 +370,9 @@ fun Source.Companion.transformSnippet(
                         """\bstatic\b""".toRegex()
                     )
                 ) {
-                    val matchVisibilityModifier = VISIBILITY_PATTERN.find(line)
+                    val matchVisibilityModifier = JAVA_VISIBILITY_PATTERN.find(line)
                     if (matchVisibilityModifier != null) {
-                        val rewrittenLine = line.replace(VISIBILITY_PATTERN, "").let {
+                        val rewrittenLine = line.replace(JAVA_VISIBILITY_PATTERN, "").let {
                             "${matchVisibilityModifier.value} static$it"
                         }
                         Pair(rewrittenLine, "static ".length)
@@ -281,7 +410,7 @@ fun Source.Companion.transformSnippet(
         }
     }
 
-    checkLooseCode(looseCode.joinToString(separator = "\n"), looseCodeStart, remappedLineMapping)
+    checkJavaLooseCode(looseCode.joinToString(separator = "\n"), looseCodeStart, remappedLineMapping)
 
     assert(originalSource.lines().size == remappedLineMapping.keys.size)
 
@@ -314,12 +443,12 @@ fun Source.Companion.transformSnippet(
         snippetRange,
         snippetClassName,
         "$snippetMainMethodName()",
-        fileType,
+        Source.FileType.JAVA,
         remappedLineMapping
     )
 }
 
-private fun checkLooseCode(
+private fun checkJavaLooseCode(
     looseCode: String,
     looseCodeStart: Int,
     remappedLineMapping: Map<Int, Snippet.RemappedLine>

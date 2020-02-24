@@ -8,7 +8,7 @@ import edu.illinois.cs.cs125.jeed.core.execute
 import edu.illinois.cs.cs125.jeed.core.haveCompleted
 import edu.illinois.cs.cs125.jeed.core.haveOutput
 import edu.illinois.cs.cs125.jeed.core.haveTimedOut
-import edu.illinois.cs.cs125.jeed.core.transformSnippet
+import edu.illinois.cs.cs125.jeed.core.fromSnippet
 import io.kotlintest.matchers.collections.shouldContain
 import io.kotlintest.matchers.collections.shouldHaveSize
 import io.kotlintest.matchers.numerics.shouldBeGreaterThan
@@ -20,7 +20,7 @@ import kotlinx.coroutines.async
 
 class TestResourceExhaustion : StringSpec({
     "should timeout correctly on snippet" {
-        val executionResult = Source.transformSnippet(
+        val executionResult = Source.fromSnippet(
             """
 int i = 0;
 while (true) {
@@ -54,7 +54,7 @@ public class Main {
         executionResult should haveOutput()
     }
     "should return output after timeout" {
-        val executionResult = Source.transformSnippet(
+        val executionResult = Source.fromSnippet(
             """
 System.out.println("Here");
 int i = 0;
@@ -68,7 +68,7 @@ while (true) {
         executionResult should haveOutput("Here")
     }
     "should shut down a runaway thread" {
-        val executionResult = Source.transformSnippet(
+        val executionResult = Source.fromSnippet(
             """
 public class Example implements Runnable {
     public void run() {
@@ -93,7 +93,7 @@ try {
         executionResult should haveOutput("Started")
     }
     "should shut down small thread bombs" {
-        val executionResult = Source.transformSnippet(
+        val executionResult = Source.fromSnippet(
             """
 public class Example implements Runnable {
     public void run() {
@@ -119,7 +119,7 @@ for (long i = 0;; i++) {
         executionResult.stdoutLines.map { it.line } shouldContain "15"
     }
     "should shut down nasty thread bombs" {
-        val executionResult = Source.transformSnippet(
+        val executionResult = Source.fromSnippet(
             """
 public class Example implements Runnable {
     public void run() {
@@ -145,7 +145,7 @@ while (true) {
         executionResult should haveTimedOut()
     }
     "should shut down sleep bombs" {
-        val executionResult = Source.transformSnippet(
+        val executionResult = Source.fromSnippet(
             """
 public class Example implements Runnable {
     public void run() {
@@ -169,7 +169,7 @@ while (true) {
         executionResult should haveTimedOut()
     }
     "should shut down exit bombs" {
-        val executionResult = Source.transformSnippet(
+        val executionResult = Source.fromSnippet(
             """
 public class Example implements Runnable {
     public void run() {
@@ -194,7 +194,7 @@ while (true) {
         executionResult should haveTimedOut()
     }
     "should shut down spin bombs" {
-        val executionResult = Source.transformSnippet(
+        val executionResult = Source.fromSnippet(
             """
 public class Example implements Runnable {
     public void run() {
@@ -218,7 +218,7 @@ while (true) {
         executionResult should haveTimedOut()
     }
     "should shut down reflection-protected thread bombs" {
-        val executionResult = Source.transformSnippet(
+        val executionResult = Source.fromSnippet(
             """
 public class Example implements Runnable {
     public void run() {
@@ -246,7 +246,7 @@ try {
         executionResult should haveTimedOut()
     }
     "should shut down recursive thread bombs" {
-        val executionResult = Source.transformSnippet(
+        val executionResult = Source.fromSnippet(
             """
 public class Example implements Runnable {
     public void run() {
@@ -282,7 +282,7 @@ try {
         executionResult should haveTimedOut()
     }
     "should shut down finally-protected thread bombs" {
-        val executionResult = Source.transformSnippet(
+        val executionResult = Source.fromSnippet(
             """
 public class Example implements Runnable {
     public void run() {
@@ -320,7 +320,7 @@ try {
     "should shut down parallel recursive thread bombs" {
         (0..16).toList().map {
             async {
-                Source.transformSnippet(
+                Source.fromSnippet(
                     """
 public class Example implements Runnable {
     public void run() {
@@ -360,7 +360,7 @@ try {
         }
     }
     "should shut down memory exhaustion bombs" {
-        Source.transformSnippet(
+        Source.fromSnippet(
             """
 import java.util.List;
 import java.util.ArrayList;
@@ -387,7 +387,7 @@ while (true) {
         ).compile().execute(SourceExecutionArguments(maxExtraThreads = 16, timeout = 1000L))
     }
     "should recover from excessive memory usage" {
-        Source.transformSnippet(
+        Source.fromSnippet(
             """
 import java.util.List;
 import java.util.ArrayList;
@@ -405,7 +405,7 @@ while (true) {
     }
     "should recover from excessive console printing" {
         for (i in 0..32) {
-            val result = Source.transformSnippet(
+            val result = Source.fromSnippet(
                 """
     for (long i = 0; i < 10000000L; i++) {
         System.out.println(i);
@@ -423,7 +423,7 @@ while (true) {
         (0..8).toList().map { value ->
             async {
                 Pair(
-                    Source.transformSnippet(
+                    Source.fromSnippet(
                         """
 for (int i = 0; i < (($value + 10) * 10000); i++) {
     System.out.println($value);
@@ -444,7 +444,7 @@ for (int i = 0; i < (($value + 10) * 10000); i++) {
         // It's only a problem if it dies at a time that causes a ConfinedTask to be leaked
 
         // From https://stackoverflow.com/a/42301131/
-        Source.transformSnippet(
+        Source.fromSnippet(
             """
 class A {
     {
@@ -518,7 +518,7 @@ new A();
         ).compile().execute()
     }
     "should terminate a parked thread" {
-        val executionResult = Source.transformSnippet(
+        val executionResult = Source.fromSnippet(
             """
 import java.util.concurrent.locks.LockSupport;
 public class Example implements Runnable {
