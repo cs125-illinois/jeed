@@ -127,6 +127,46 @@ fun main() {
                 }
             }
         }
+        "kotlin coroutines should work by default" {
+            withTestApplication(Application::jeed) {
+                handleRequest(HttpMethod.Post, "/") {
+                    addHeader("content-type", "application/json")
+                    setBody(
+                        """
+{
+"label": "test",
+"sources": [
+  {
+    "path": "Main.kt",
+    "contents": "
+import kotlinx.coroutines.*
+fun main() {
+  val job = GlobalScope.launch {
+    println(\"Here\")
+  }
+  runBlocking {
+    job.join()
+  }
+}"
+  }
+],
+"tasks": [ "kompile", "execute" ]
+}""".trim()
+                    )
+                }.apply {
+                    response.shouldHaveStatus(HttpStatusCode.OK.value)
+                    Request.mongoCollection?.countDocuments() shouldBe 1
+
+                    val jeedResponse = Response.from(response.content)
+                    jeedResponse.completed.execution?.klass shouldBe "MainKt"
+                    jeedResponse.completed.execution?.outputLines?.joinToString(separator = "\n") {
+                        it.line
+                    }?.trim() shouldBe "Here"
+                    jeedResponse.completedTasks.size shouldBe 2
+                    jeedResponse.failedTasks.size shouldBe 0
+                }
+            }
+        }
         "should accept good source checkstyle request" {
             withTestApplication(Application::jeed) {
                 handleRequest(HttpMethod.Post, "/") {

@@ -14,6 +14,7 @@ import edu.illinois.cs.cs125.jeed.core.checkstyle
 import edu.illinois.cs.cs125.jeed.core.compile
 import edu.illinois.cs.cs125.jeed.core.complexity
 import edu.illinois.cs.cs125.jeed.core.execute
+import edu.illinois.cs.cs125.jeed.core.fromSnippet
 import edu.illinois.cs.cs125.jeed.core.fromTemplates
 import edu.illinois.cs.cs125.jeed.core.kompile
 import edu.illinois.cs.cs125.jeed.core.moshi.CompiledSourceResult
@@ -24,7 +25,6 @@ import edu.illinois.cs.cs125.jeed.core.moshi.TemplatedSourceResult
 import edu.illinois.cs.cs125.jeed.core.server.FlatComplexityResults
 import edu.illinois.cs.cs125.jeed.core.server.Task
 import edu.illinois.cs.cs125.jeed.core.server.TaskArguments
-import edu.illinois.cs.cs125.jeed.core.transformSnippet
 import java.time.Instant
 import kotlinx.coroutines.GlobalScope
 import kotlinx.coroutines.async
@@ -80,48 +80,42 @@ class Request(
             tasksToRun.add(Task.template)
         }
         tasks = tasksToRun.toSet()
+    }
 
+    fun check(): Request {
         @Suppress("MaxLineLength")
         if (Task.execute in tasks) {
-            if (arguments?.execution?.timeout != null) {
-                require(arguments.execution.timeout <= configuration[Limits.Execution.timeout]) {
+            require(arguments.execution.timeout <= configuration[Limits.Execution.timeout]) {
                     "job timeout of ${arguments.execution.timeout} too long (> ${configuration[Limits.Execution.timeout]})"
-                }
             }
-            if (arguments?.execution?.maxExtraThreads != null) {
-                require(arguments.execution.maxExtraThreads <= configuration[Limits.Execution.maxExtraThreads]) {
+            require(arguments.execution.maxExtraThreads <= configuration[Limits.Execution.maxExtraThreads]) {
                     "job maxExtraThreads of ${arguments.execution.maxExtraThreads} is too large (> ${configuration[Limits.Execution.maxExtraThreads]}"
-                }
             }
-            if (arguments?.execution?.maxOutputLines != null) {
-                require(arguments.execution.maxOutputLines <= configuration[Limits.Execution.maxOutputLines]) {
-                    "job maxOutputLines of ${arguments.execution.maxOutputLines} is too large (> ${configuration[Limits.Execution.maxOutputLines]}"
-                }
+            require(arguments.execution.maxOutputLines <= configuration[Limits.Execution.maxOutputLines]) {
+                "job maxOutputLines of ${arguments.execution.maxOutputLines} is too large (> ${configuration[Limits.Execution.maxOutputLines]}"
             }
-            if (arguments?.execution?.permissions != null) {
-                val allowedPermissions =
-                    configuration[Limits.Execution.permissions].map { PermissionAdapter().permissionFromJson(it) }
-                        .toSet()
-                require(allowedPermissions.containsAll(arguments.execution.permissions)) {
-                    "job is requesting unavailable permissions: ${arguments.execution.permissions}"
-                }
+            val allowedPermissions =
+                configuration[Limits.Execution.permissions].map { PermissionAdapter().permissionFromJson(it) }
+                    .toSet()
+            require(allowedPermissions.containsAll(arguments.execution.permissions)) {
+                "job is requesting unavailable permissions: ${arguments.execution.permissions}"
             }
-            if (arguments?.execution?.classLoaderConfiguration != null) {
-                val blacklistedClasses = configuration[Limits.Execution.ClassLoaderConfiguration.blacklistedClasses]
 
-                require(arguments.execution.classLoaderConfiguration.blacklistedClasses.containsAll(blacklistedClasses)) {
-                    "job is trying to remove blacklisted classes"
-                }
-                val whitelistedClasses = configuration[Limits.Execution.ClassLoaderConfiguration.whitelistedClasses]
-                require(arguments.execution.classLoaderConfiguration.whitelistedClasses.containsAll(whitelistedClasses)) {
-                    "job is trying to add whitelisted classes"
-                }
-                val unsafeExceptions = configuration[Limits.Execution.ClassLoaderConfiguration.unsafeExceptions]
-                require(arguments.execution.classLoaderConfiguration.unsafeExceptions.containsAll(unsafeExceptions)) {
-                    "job is trying to remove unsafe exceptions"
-                }
+            val blacklistedClasses = configuration[Limits.Execution.ClassLoaderConfiguration.blacklistedClasses]
+
+            require(arguments.execution.classLoaderConfiguration.blacklistedClasses.containsAll(blacklistedClasses)) {
+                "job is trying to remove blacklisted classes"
+            }
+            val whitelistedClasses = configuration[Limits.Execution.ClassLoaderConfiguration.whitelistedClasses]
+            require(arguments.execution.classLoaderConfiguration.whitelistedClasses.containsAll(whitelistedClasses)) {
+                "job is trying to add whitelisted classes"
+            }
+            val unsafeExceptions = configuration[Limits.Execution.ClassLoaderConfiguration.unsafeExceptions]
+            require(arguments.execution.classLoaderConfiguration.unsafeExceptions.containsAll(unsafeExceptions)) {
+                "job is trying to remove unsafe exceptions"
             }
         }
+        return this
     }
 
     @Suppress("ComplexMethod", "NestedBlockDepth")
@@ -170,7 +164,7 @@ class Request(
                     }
                 }
             } else {
-                Source.transformSnippet(snippet ?: assert { "should have a snippet" }, arguments.snippet).also {
+                Source.fromSnippet(snippet ?: assert { "should have a snippet" }, arguments.snippet).also {
                     response.completedTasks.add(Task.snippet)
                     response.completed.snippet = it
                 }

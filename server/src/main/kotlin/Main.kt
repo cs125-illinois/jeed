@@ -64,7 +64,7 @@ fun Application.jeed() {
         post("/") {
             @Suppress("TooGenericExceptionCaught")
             val job = try {
-                call.receive<Request>()
+                call.receive<Request>().check()
             } catch (e: Exception) {
                 logger.warn(e.toString())
                 call.respond(HttpStatusCode.BadRequest)

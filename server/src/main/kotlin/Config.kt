@@ -31,12 +31,11 @@ object Auth : ConfigSpec() {
 }
 
 object Limits : ConfigSpec() {
+
     object Execution : ConfigSpec() {
         val timeout by optional(Sandbox.ExecutionArguments.DEFAULT_TIMEOUT)
         val permissions by optional(SourceExecutionArguments.REQUIRED_PERMISSIONS.toList().map {
-            PermissionAdapter().permissionToJson(
-                it
-            )
+            PermissionAdapter().permissionToJson(it)
         })
         val maxExtraThreads by optional(Sandbox.ExecutionArguments.DEFAULT_MAX_EXTRA_THREADS)
         val maxOutputLines by optional(Sandbox.ExecutionArguments.DEFAULT_MAX_OUTPUT_LINES)
