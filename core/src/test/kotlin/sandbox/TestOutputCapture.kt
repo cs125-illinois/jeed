@@ -6,12 +6,12 @@ import edu.illinois.cs.cs125.jeed.core.SourceExecutionArguments
 import edu.illinois.cs.cs125.jeed.core.compile
 import edu.illinois.cs.cs125.jeed.core.execute
 import edu.illinois.cs.cs125.jeed.core.findClassMethod
+import edu.illinois.cs.cs125.jeed.core.fromSnippet
 import edu.illinois.cs.cs125.jeed.core.haveCompleted
 import edu.illinois.cs.cs125.jeed.core.haveOutput
 import edu.illinois.cs.cs125.jeed.core.haveStderr
 import edu.illinois.cs.cs125.jeed.core.haveStdout
 import edu.illinois.cs.cs125.jeed.core.haveTimedOut
-import edu.illinois.cs.cs125.jeed.core.fromSnippet
 import io.kotlintest.matchers.collections.shouldNotContain
 import io.kotlintest.should
 import io.kotlintest.shouldBe

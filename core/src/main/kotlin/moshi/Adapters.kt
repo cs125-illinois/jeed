@@ -239,7 +239,7 @@ class SnippetAdapter {
             snippet.snippetRange,
             snippet.wrappedClassName,
             snippet.looseCodeMethodName,
-            snippet.fileType.type
+            snippet.fileType.name
         )
     }
 }

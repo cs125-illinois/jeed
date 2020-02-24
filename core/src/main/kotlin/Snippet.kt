@@ -74,7 +74,8 @@ class SnippetTransformationError(
 class SnippetTransformationFailed(errors: List<SnippetTransformationError>) : JeedError(errors)
 
 class SnippetErrorListener(
-    private val sourceLines: List<Int>, private val decrement: Boolean = true
+    private val sourceLines: List<Int>,
+    private val decrement: Boolean = true
 ) : BaseErrorListener() {
     private val errors = mutableListOf<SnippetTransformationError>()
     override fun syntaxError(
