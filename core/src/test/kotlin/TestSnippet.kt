@@ -182,7 +182,7 @@ fun test() {
 val i = 0
 println(i)
 test()
-""".trim(), fileType = Source.FileType.KOTLIN)
+""".trim(), SnippetArguments(fileType = Source.FileType.KOTLIN))
     }
     "should identify parse errors in broken kotlin snippets" {
         val exception = shouldThrow<SnippetTransformationFailed> {
@@ -197,8 +197,7 @@ fun test() {
 val i = 0
 println(i)
 test()
-""".trim(), fileType = Source.FileType.KOTLIN
-            )
+""".trim(), SnippetArguments(fileType = Source.FileType.KOTLIN))
         }
         exception.errors shouldHaveSize 1
         exception should haveParseErrorOnLine(6)
@@ -215,7 +214,7 @@ i = 0
 println(i)
 test()
 """.trim()
-        val source = Source.fromSnippet(snippet, fileType = Source.FileType.KOTLIN)
+        val source = Source.fromSnippet(snippet, SnippetArguments(fileType = Source.FileType.KOTLIN))
 
         source.originalSource shouldBe (snippet)
         source.rewrittenSource shouldNotBe (snippet)
@@ -226,7 +225,7 @@ test()
             Source.fromSnippet(
                 """
 return
-        """.trim(), fileType = Source.FileType.KOTLIN)
+        """.trim(), SnippetArguments(fileType = Source.FileType.KOTLIN))
         }
         exception.errors shouldHaveSize 1
         exception should haveParseErrorOnLine(1)
@@ -239,7 +238,7 @@ val i = 0
 if (i < 1) {
     return
 }
-        """.trim(), fileType = Source.FileType.KOTLIN)
+        """.trim(), SnippetArguments(fileType = Source.FileType.KOTLIN))
         }
         exception.errors shouldHaveSize 1
         exception should haveParseErrorOnLine(3)
@@ -251,7 +250,7 @@ if (i < 1) {
 package test.me
 
 println("Hello, world!")
-        """.trim(), fileType = Source.FileType.KOTLIN)
+        """.trim(), SnippetArguments(fileType = Source.FileType.KOTLIN))
         }
         exception.errors shouldHaveSize 1
         exception should haveParseErrorOnLine(1)
@@ -263,7 +262,7 @@ println("Hello, world!")
 class MainKt() { }
 
 println("Hello, world!")
-        """.trim(), fileType = Source.FileType.KOTLIN)
+        """.trim(), SnippetArguments(fileType = Source.FileType.KOTLIN))
         }
         exception.errors shouldHaveSize 1
         exception should haveParseErrorOnLine(1)

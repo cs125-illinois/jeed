@@ -18,6 +18,7 @@ import io.ktor.server.testing.setBody
 import io.ktor.server.testing.withTestApplication
 import org.bson.BsonDocument
 
+@Suppress("LargeClass")
 class TestHTTP : StringSpec() {
     override fun beforeSpec(spec: Spec) {
         configuration[TopLevel.mongodb]?.let {
@@ -59,6 +60,29 @@ class TestHTTP : StringSpec() {
 
                     val jeedResponse = Response.from(response.content)
                     jeedResponse.completed.execution?.klass shouldBe "Main"
+                    jeedResponse.completedTasks.size shouldBe 3
+                    jeedResponse.failedTasks.size shouldBe 0
+                }
+            }
+        }
+        "should accept good kotlin snippet request" {
+            withTestApplication(Application::jeed) {
+                handleRequest(HttpMethod.Post, "/") {
+                    addHeader("content-type", "application/json")
+                    setBody(
+                        """
+{
+"label": "test",
+"snippet": "println(\"Here\")",
+"tasks": [ "kompile", "execute" ]
+}""".trim()
+                    )
+                }.apply {
+                    response.shouldHaveStatus(HttpStatusCode.OK.value)
+                    Request.mongoCollection?.countDocuments() shouldBe 1
+
+                    val jeedResponse = Response.from(response.content)
+                    jeedResponse.completed.execution?.klass shouldBe "MainKt"
                     jeedResponse.completedTasks.size shouldBe 3
                     jeedResponse.failedTasks.size shouldBe 0
                 }

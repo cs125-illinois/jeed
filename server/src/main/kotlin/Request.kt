@@ -164,6 +164,13 @@ class Request(
                     }
                 }
             } else {
+                arguments.snippet.fileType = if (tasks.contains(Task.kompile)) {
+                    Source.FileType.KOTLIN
+                } else if (tasks.contains(Task.compile)) {
+                    Source.FileType.JAVA
+                } else {
+                    arguments.snippet.fileType
+                }
                 Source.fromSnippet(snippet ?: assert { "should have a snippet" }, arguments.snippet).also {
                     response.completedTasks.add(Task.snippet)
                     response.completed.snippet = it

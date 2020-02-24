@@ -301,7 +301,7 @@ public class Main {
     "should execute Kotlin snippets" {
         val executionMainResult = Source.fromSnippet("""
 println("Here")
-                """.trim(), fileType = Source.FileType.KOTLIN).kompile().execute()
+                """.trim(), SnippetArguments(fileType = Source.FileType.KOTLIN)).kompile().execute()
         executionMainResult should haveCompleted()
         executionMainResult shouldNot haveTimedOut()
         executionMainResult should haveStdout("Here")
@@ -312,7 +312,7 @@ data class Foo(var i: Int)
 val foo = Foo(5);
 foo.i = 4;
 println(foo.i);
-            """.trim(), fileType = Source.FileType.KOTLIN).kompile().execute()
+            """.trim(), SnippetArguments(fileType = Source.FileType.KOTLIN)).kompile().execute()
         executeMainResult should haveCompleted()
         executeMainResult should haveOutput("4")
     }
@@ -322,7 +322,7 @@ fun test(): String {
     return "Hello, world!"
 }
 println(test())
-            """.trim(), fileType = Source.FileType.KOTLIN).kompile().execute()
+            """.trim(), SnippetArguments(fileType = Source.FileType.KOTLIN)).kompile().execute()
         executeMainResult should haveCompleted()
         executeMainResult should haveOutput("Hello, world!")
     }

@@ -47,3 +47,6 @@ detekt {
     input = files("core/src/main/kotlin", "server/src/main/kotlin")
     config = files("config/detekt/detekt.yml")
 }
+tasks.register("check") {
+    dependsOn("detekt", "formatKotlin")
+}

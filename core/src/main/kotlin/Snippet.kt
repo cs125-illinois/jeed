@@ -110,18 +110,18 @@ class SnippetErrorListener(
 
 @JsonClass(generateAdapter = true)
 data class SnippetArguments(
-    val indent: Int = 4
+    val indent: Int = 4,
+    var fileType: Source.FileType = Source.FileType.JAVA
 )
 
 @Suppress("LongMethod", "ComplexMethod")
 @Throws(SnippetTransformationFailed::class)
 fun Source.Companion.fromSnippet(
     originalSource: String,
-    snippetArguments: SnippetArguments = SnippetArguments(),
-    fileType: Source.FileType = Source.FileType.JAVA
+    snippetArguments: SnippetArguments = SnippetArguments()
 ): Snippet {
     require(originalSource.isNotEmpty())
-    return when (fileType) {
+    return when (snippetArguments.fileType) {
         Source.FileType.JAVA -> sourceFromJavaSnippet(originalSource, snippetArguments)
         Source.FileType.KOTLIN -> sourceFromKotlinSnippet(originalSource, snippetArguments)
     }
@@ -179,13 +179,16 @@ private fun sourceFromKotlinSnippet(originalSource: String, snippetArguments: Sn
         currentOutputLineNumber++
     }
 
-    rewrittenSourceLines.addAll("""class MainKt {
+    """class MainKt {
 ${" ".repeat(snippetArguments.indent)}companion object {
-${" ".repeat(snippetArguments.indent * 2)}@JvmStatic fun main() {""".lines())
-    currentOutputLineNumber += 3
+${" ".repeat(snippetArguments.indent * 2)}@JvmStatic fun main() {""".lines().let {
+        rewrittenSourceLines.addAll(it)
+        currentOutputLineNumber += it.size
+    }
 
     val topLevelStart = parseTree.topLevelObject()?.first()?.start?.line ?: 0
     val topLevelEnd = parseTree.topLevelObject()?.last()?.stop?.line?.inc() ?: 0
+    @Suppress("MagicNumber")
     for (lineNumber in topLevelStart until topLevelEnd) {
         rewrittenSourceLines.add(" ".repeat(snippetArguments.indent * 3) + sourceLines[lineNumber - 1].trimEnd())
         remappedLineMapping[currentOutputLineNumber] =
