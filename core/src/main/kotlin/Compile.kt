@@ -1,5 +1,7 @@
 package edu.illinois.cs.cs125.jeed.core
 
+import com.github.benmanes.caffeine.cache.Cache
+import com.github.benmanes.caffeine.cache.Caffeine
 import com.squareup.moshi.JsonClass
 import java.io.ByteArrayInputStream
 import java.io.ByteArrayOutputStream
@@ -36,12 +38,26 @@ val systemCompilerVersion = systemCompilerName.let {
     }
 }
 
+class CachedCompilationResults(
+    val compiled: Instant,
+    val messages: List<CompilationMessage>,
+    val classLoader: JeedClassLoader,
+    val fileManager: JeedFileManager,
+    @Suppress("unused") val compilerName: String = systemCompilerName
+)
+
+const val DEFAULT_CACHE_SIZE = 128L
+var compilationCache: Cache<String, CachedCompilationResults>? = Caffeine.newBuilder()
+    .maximumSize(DEFAULT_CACHE_SIZE)
+    .build()
+
 @JsonClass(generateAdapter = true)
 data class CompilationArguments(
     val wError: Boolean = DEFAULT_WERROR,
     @Suppress("ConstructorParameterNaming") val Xlint: String = DEFAULT_XLINT,
     @Transient val parentFileManager: JavaFileManager? = null,
-    @Transient val parentClassLoader: ClassLoader? = null
+    @Transient val parentClassLoader: ClassLoader? = null,
+    val useCache: Boolean = false
 ) {
     companion object {
         const val DEFAULT_WERROR = false
@@ -66,12 +82,15 @@ class CompilationMessage(@Suppress("unused") val kind: String, location: SourceL
 class CompiledSource(
     val source: Source,
     val messages: List<CompilationMessage>,
+    val compiled: Instant,
     val interval: Interval,
     @Transient val classLoader: JeedClassLoader,
     @Transient val fileManager: JeedFileManager,
-    @Suppress("unused") val compilerName: String = systemCompilerName
+    @Suppress("unused") val compilerName: String = systemCompilerName,
+    val cached: Boolean = false
 )
 
+@Suppress("LongMethod")
 @Throws(CompilationFailed::class)
 private fun compile(
     source: Source,
@@ -82,6 +101,20 @@ private fun compile(
     require(source.type == Source.FileType.JAVA) { "Java compiler needs Java sources" }
 
     val started = Instant.now()
+    if (compilationArguments.useCache) {
+        compilationCache?.getIfPresent(source.md5)?.let {
+            return CompiledSource(
+                source,
+                it.messages,
+                it.compiled,
+                Interval(started, Instant.now()),
+                it.classLoader,
+                it.fileManager,
+                it.compilerName,
+                true
+            )
+        }
+    }
 
     val units = source.sources.entries.map { Unit(it) }
     val results = Results()
@@ -121,7 +154,18 @@ private fun compile(
         JeedClassLoader(fileManager, parentClassLoader)
     })
 
-    return CompiledSource(source, messages, Interval(started, Instant.now()), classLoader, fileManager)
+    if (compilationArguments.useCache) {
+        compilationCache?.put(
+            source.md5, CachedCompilationResults(
+                started,
+                messages,
+                classLoader,
+                fileManager
+            )
+        )
+    }
+
+    return CompiledSource(source, messages, started, Interval(started, Instant.now()), classLoader, fileManager)
 }
 
 fun Source.compile(

@@ -48,5 +48,5 @@ detekt {
     config = files("config/detekt/detekt.yml")
 }
 tasks.register("check") {
-    dependsOn("detekt", "formatKotlin")
+    dependsOn("detekt")
 }

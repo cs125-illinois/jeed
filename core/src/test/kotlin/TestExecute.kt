@@ -20,6 +20,25 @@ System.out.println(i);
         executeMainResult should haveCompleted()
         executeMainResult should haveOutput("1")
     }
+    "f:should execute cached snippets" {
+        Source.fromSnippet("""
+int i = 0;
+i++;
+System.out.println(i);
+            """.trim()).compile(CompilationArguments(useCache = true)).execute()
+
+        val executeMainResult = Source.fromSnippet("""
+int i = 0;
+i++;
+System.out.println(i);
+            """.trim()).compile(CompilationArguments(useCache = true)).let {
+            it.cached shouldBe true
+            it.execute()
+        }
+
+        executeMainResult should haveCompleted()
+        executeMainResult should haveOutput("1")
+    }
     "should execute snippets that include class definitions" {
         val executeMainResult = Source.fromSnippet("""
 public class Foo {
@@ -326,6 +345,30 @@ println(test())
         executeMainResult should haveCompleted()
         executeMainResult should haveOutput("Hello, world!")
     }
+    "f:should execute cached kotlin snippets that include method definitions" {
+        Source.fromSnippet(
+            """
+fun test(): String {
+    return "Hello, world!"
+}
+println(test())
+            """.trim(), SnippetArguments(fileType = Source.FileType.KOTLIN)
+        ).kompile(KompilationArguments(useCache = true)).execute()
+        val executeMainResult = Source.fromSnippet(
+            """
+fun test(): String {
+    return "Hello, world!"
+}
+println(test())
+            """.trim(), SnippetArguments(fileType = Source.FileType.KOTLIN)
+        )
+            .kompile(KompilationArguments(useCache = true)).let {
+                it.cached shouldBe true
+                it.execute()
+        }
+        executeMainResult should haveCompleted()
+        executeMainResult should haveOutput("Hello, world!")
+    }
     "should execute simple Kotlin sources" {
         val executionMainResult = Source(mapOf(
                 "Main.kt" to """
@@ -337,7 +380,7 @@ fun main() {
         executionMainResult shouldNot haveTimedOut()
         executionMainResult should haveStdout("Here")
     }
-    "should execute simple multiple Kotlin sources" {
+    "should execute simple Kotlin sources with cross-method calls" {
         val executionMainResult = Source(mapOf(
                 "Main.kt" to """
 fun main() {

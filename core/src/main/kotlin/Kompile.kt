@@ -40,7 +40,8 @@ private const val KOTLIN_EMPTY_LOCATION = "/"
 data class KompilationArguments(
     @Transient val parentClassLoader: ClassLoader = ClassLoader.getSystemClassLoader(),
     val verbose: Boolean = DEFAULT_VERBOSE,
-    val allWarningsAsErrors: Boolean = DEFAULT_ALLWARNINGSASERRORS
+    val allWarningsAsErrors: Boolean = DEFAULT_ALLWARNINGSASERRORS,
+    val useCache: Boolean = false
 ) {
     val arguments: K2JVMCompilerArguments = K2JVMCompilerArguments()
 
@@ -75,6 +76,13 @@ private class JeedMessageCollector(val source: Source, val allWarningsAsErrors: 
             CompilationError(it.location, it.message)
         }
 
+    val warnings: List<CompilationMessage>
+        get() = messages.filter {
+            it.kind != CompilerMessageSeverity.ERROR.presentableName
+        }.map {
+            CompilationMessage("warning", it.location, it.message)
+        }
+
     override fun hasErrors(): Boolean {
         return errors.isNotEmpty()
     }
@@ -84,12 +92,26 @@ private class JeedMessageCollector(val source: Source, val allWarningsAsErrors: 
             return
         }
         require(location != null) { "location should not be null (severity $severity): $message" }
-        val actualLocation = if (location.path == KOTLIN_EMPTY_LOCATION) { "" } else { location.path }
+        val actualLocation = if (location.path == KOTLIN_EMPTY_LOCATION) {
+            ""
+        } else {
+            location.path
+        }
         val originalLocation = SourceLocation(actualLocation, location.line, location.column)
         messages.add(CompilationMessage(severity.presentableName, source.mapLocation(originalLocation), message))
     }
 }
 
+private val standardFileManager = run {
+    val results = Results()
+    ToolProvider.getSystemJavaCompiler().getStandardFileManager(results, Locale.US, Charset.forName("UTF-8")).also {
+        check(results.diagnostics.isEmpty()) {
+            "fileManager generated errors ${results.diagnostics}"
+        }
+    }
+}
+
+@Suppress("LongMethod")
 @Throws(CompilationFailed::class)
 private fun kompile(
     kompilationArguments: KompilationArguments,
@@ -98,6 +120,20 @@ private fun kompile(
     require(source.type == Source.FileType.KOTLIN) { "Kotlin compiler needs Kotlin sources" }
 
     val started = Instant.now()
+    if (kompilationArguments.useCache) {
+        compilationCache?.getIfPresent(source.md5)?.let {
+            return CompiledSource(
+                source,
+                it.messages,
+                it.compiled,
+                Interval(started, Instant.now()),
+                it.classLoader,
+                it.fileManager,
+                it.compilerName,
+                true
+            )
+        }
+    }
 
     val rootDisposable = Disposer.newDisposable()
     val messageCollector = JeedMessageCollector(source, kompilationArguments.arguments.allWarningsAsErrors)
@@ -130,17 +166,26 @@ private fun kompile(
     }
     check(state != null) { "compilation should have succeeded" }
 
-    val results = Results()
     val fileManager = JeedFileManager(
-        ToolProvider.getSystemJavaCompiler().getStandardFileManager(
-            results, Locale.US, Charset.forName("UTF-8")
-        ), GeneratedClassLoader(state.factory, kompilationArguments.parentClassLoader)
+        standardFileManager,
+        GeneratedClassLoader(state.factory, kompilationArguments.parentClassLoader)
     )
-    require(results.diagnostics.size == 0) { "fileManager generated errors during Kotlin compilation" }
-
     val classLoader = JeedClassLoader(fileManager, kompilationArguments.parentClassLoader)
 
-    return CompiledSource(source, listOf(), Interval(started, Instant.now()), classLoader, fileManager)
+    if (kompilationArguments.useCache) {
+        compilationCache?.put(
+            source.md5, CachedCompilationResults(
+                started,
+                messageCollector.warnings,
+                classLoader,
+                fileManager
+            )
+        )
+    }
+
+    return CompiledSource(
+        source, messageCollector.warnings, started, Interval(started, Instant.now()), classLoader, fileManager
+    )
 }
 
 fun Source.kompile(kompilationArguments: KompilationArguments = KompilationArguments()): CompiledSource {

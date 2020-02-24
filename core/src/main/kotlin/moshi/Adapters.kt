@@ -267,11 +267,12 @@ data class ExecutionFailedResult(
 @JsonClass(generateAdapter = true)
 class CompiledSourceResult(
     val messages: List<CompilationMessage>,
+    val compiled: Instant,
     val interval: Interval,
     val compilerName: String
 ) {
     constructor(compiledSource: CompiledSource) : this(
-        compiledSource.messages, compiledSource.interval, compiledSource.compilerName
+        compiledSource.messages, compiledSource.compiled, compiledSource.interval, compiledSource.compilerName
     )
 }
 

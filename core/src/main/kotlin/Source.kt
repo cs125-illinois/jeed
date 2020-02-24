@@ -1,9 +1,13 @@
 package edu.illinois.cs.cs125.jeed.core
 
 import com.squareup.moshi.JsonClass
+import com.squareup.moshi.Moshi
+import edu.illinois.cs.cs125.jeed.core.server.FlatSource
+import edu.illinois.cs.cs125.jeed.core.server.toFlatSources
 import java.io.PrintWriter
 import java.io.StringWriter
 import java.lang.reflect.Method
+import java.security.MessageDigest
 import java.time.Instant
 import mu.KotlinLogging
 import org.antlr.v4.runtime.CharStream
@@ -39,6 +43,7 @@ open class Source(
     }
 
     var parsed = false
+    @Suppress("MemberVisibilityCanBePrivate")
     var parseInterval: Interval? = null
     val parseTree: Map<String, Pair<ParseTree, CharStream>> by lazy {
         parsed = true
@@ -62,7 +67,36 @@ open class Source(
         return filenameToFileType(filename)
     }
 
+    @JsonClass(generateAdapter = true)
+    data class FlattenedSources(val sources: List<FlatSource>)
+
+    val md5: String by lazy {
+        MessageDigest.getInstance("MD5")?.let { message ->
+            message.digest(
+                moshi.adapter(FlattenedSources::class.java).toJson(
+                    FlattenedSources(sources.toFlatSources().sortedBy { it.path })
+                ).toByteArray()
+            )
+        }?.joinToString(separator = "") {
+            String.format("%02x", it)
+        } ?: require { "Problem computing hash" }
+    }
+
+    override fun equals(other: Any?): Boolean {
+        if (this === other) return true
+        if (javaClass != other?.javaClass) return false
+        other as Source
+        return md5 == other.md5
+    }
+
+    override fun hashCode(): Int {
+        return md5.toBigInteger(radix = 16).toInt()
+    }
+
     companion object {
+        private val moshi by lazy {
+            Moshi.Builder().build()
+        }
         private fun filenameToFileType(filename: String): FileType {
             return when (val extension = filename.split("/").last().split(".").last()) {
                 "java" -> FileType.JAVA
@@ -154,7 +188,11 @@ abstract class JeedError(val errors: List<SourceError>) : Exception() {
 }
 
 @JsonClass(generateAdapter = true)
-data class Interval(val start: Instant, val end: Instant)
+data class Interval(val start: Instant, val end: Instant) {
+    val length by lazy {
+        end.toEpochMilli() - start.toEpochMilli()
+    }
+}
 
 fun Throwable.getStackTraceAsString(): String {
     val stringWriter = StringWriter()
