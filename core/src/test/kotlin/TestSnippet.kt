@@ -256,6 +256,18 @@ println("Hello, world!")
         exception.errors shouldHaveSize 1
         exception should haveParseErrorOnLine(1)
     }
+    "should not allow a class named MainKt in kotlin snippets" {
+        val exception = shouldThrow<SnippetTransformationFailed> {
+            Source.fromSnippet(
+                """
+class MainKt() { }
+
+println("Hello, world!")
+        """.trim(), fileType = Source.FileType.KOTLIN)
+        }
+        exception.errors shouldHaveSize 1
+        exception should haveParseErrorOnLine(1)
+    }
 })
 
 fun haveParseErrorOnLine(line: Int) = object : Matcher<SnippetTransformationFailed> {

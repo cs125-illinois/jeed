@@ -298,6 +298,34 @@ public class Main {
             executionResult should haveStdout("testing")
         }
     }
+    "should execute Kotlin snippets" {
+        val executionMainResult = Source.fromSnippet("""
+println("Here")
+                """.trim(), fileType = Source.FileType.KOTLIN).kompile().execute()
+        executionMainResult should haveCompleted()
+        executionMainResult shouldNot haveTimedOut()
+        executionMainResult should haveStdout("Here")
+    }
+    "should execute kotlin snippets that include class definitions" {
+        val executeMainResult = Source.fromSnippet("""
+data class Foo(var i: Int)
+val foo = Foo(5);
+foo.i = 4;
+println(foo.i);
+            """.trim(), fileType = Source.FileType.KOTLIN).kompile().execute()
+        executeMainResult should haveCompleted()
+        executeMainResult should haveOutput("4")
+    }
+    "should execute kotlin snippets that include method definitions" {
+        val executeMainResult = Source.fromSnippet("""
+fun test(): String {
+    return "Hello, world!"
+}
+println(test())
+            """.trim(), fileType = Source.FileType.KOTLIN).kompile().execute()
+        executeMainResult should haveCompleted()
+        executeMainResult should haveOutput("Hello, world!")
+    }
     "should execute simple Kotlin sources" {
         val executionMainResult = Source(mapOf(
                 "Main.kt" to """

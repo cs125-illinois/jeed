@@ -126,7 +126,7 @@ fun Source.Companion.fromSnippet(
     }
 }
 
-@Suppress("LongMethod", "ComplexMethod")
+@Suppress("LongMethod", "ComplexMethod", "ThrowsCount")
 private fun sourceFromKotlinSnippet(originalSource: String, snippetArguments: SnippetArguments): Snippet {
     val sourceLines = originalSource.lines()
     val errorListener = SnippetErrorListener(sourceLines.map { it.trim().length }, false)
@@ -179,19 +179,21 @@ private fun sourceFromKotlinSnippet(originalSource: String, snippetArguments: Sn
     }
 
     rewrittenSourceLines.addAll("""class MainKt {
-${" ".repeat(snippetArguments.indent)}fun main() {""".lines())
-    currentOutputLineNumber += 2
+${" ".repeat(snippetArguments.indent)}companion object {
+${" ".repeat(snippetArguments.indent * 2)}@JvmStatic fun main() {""".lines())
+    currentOutputLineNumber += 3
 
     val topLevelStart = parseTree.topLevelObject()?.first()?.start?.line ?: 0
-    val topLevelEnd = parseTree.topLevelObject()?.last()?.stop?.line ?: 0
-    for (lineNumber in topLevelStart..topLevelEnd) {
-        rewrittenSourceLines.add(" ".repeat(snippetArguments.indent * 2) + sourceLines[lineNumber - 1].trimEnd())
+    val topLevelEnd = parseTree.topLevelObject()?.last()?.stop?.line?.inc() ?: 0
+    for (lineNumber in topLevelStart until topLevelEnd) {
+        rewrittenSourceLines.add(" ".repeat(snippetArguments.indent * 3) + sourceLines[lineNumber - 1].trimEnd())
         remappedLineMapping[currentOutputLineNumber] =
-            Snippet.RemappedLine(lineNumber, currentOutputLineNumber, snippetArguments.indent * 2)
+            Snippet.RemappedLine(lineNumber, currentOutputLineNumber, snippetArguments.indent * 3)
         currentOutputLineNumber++
     }
 
     rewrittenSourceLines.addAll("""
+${" ".repeat(snippetArguments.indent * 2)}}
 ${" ".repeat(snippetArguments.indent)}}
 }
 """.lines())
@@ -227,6 +229,21 @@ ${" ".repeat(snippetArguments.indent)}}
         if (it.isNotEmpty()) {
             throw SnippetTransformationFailed(it)
         }
+    }
+
+    parseTree.topLevelObject()?.map { it.classDeclaration() }?.find {
+        it?.simpleIdentifier()?.text == "MainKt"
+    }?.let {
+        throw SnippetTransformationFailed(
+            listOf(SnippetTransformationError(
+                SourceLocation(
+                    SNIPPET_SOURCE,
+                    it.start.line,
+                    it.start.charPositionInLine
+                ),
+                "A class named MainKt cannot be declared at the top level in a snippet"
+            ))
+        )
     }
 
     val rewrittenSource = rewrittenSourceLines.joinToString(separator = "\n")
