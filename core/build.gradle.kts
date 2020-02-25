@@ -13,7 +13,7 @@ plugins {
 }
 
 group = "com.github.cs125-illinois"
-version = "2020.2.3"
+version = "2020.2.4"
 
 dependencies {
     kapt("com.squareup.moshi:moshi-kotlin-codegen:1.9.2")
@@ -42,9 +42,9 @@ dependencies {
 tasks.test {
     useJUnitPlatform()
     if (JavaVersion.current() >= JavaVersion.VERSION_11) {
-        jvmArgs("-ea", "-Xmx1G", "--enable-preview")
+        jvmArgs("-ea", "-Xmx1G", "-Xss256k", "--enable-preview")
     } else {
-        jvmArgs("-ea", "-Xmx1G")
+        jvmArgs("-ea", "-Xmx1G", "-Xss256k")
     }
     systemProperties["logback.configurationFile"] = File(projectDir, "src/test/resources/logback-test.xml").absolutePath
 }

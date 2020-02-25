@@ -5,10 +5,7 @@ import io.kotlintest.MatcherResult
 import io.kotlintest.SkipTestException
 import io.kotlintest.matchers.collections.shouldHaveSize
 import io.kotlintest.matchers.numerics.shouldBeGreaterThan
-import io.kotlintest.matchers.numerics.shouldBeLessThan
 import io.kotlintest.should
-import io.kotlintest.shouldBe
-import io.kotlintest.shouldNotBe
 import io.kotlintest.shouldThrow
 import io.kotlintest.specs.StringSpec
 
@@ -385,56 +382,6 @@ public class Test {
             compiledSource should haveDefinedExactlyTheseClasses(setOf("Test"))
             compiledSource should haveProvidedThisManyClasses(0)
         }
-    }
-    "should cache compiled simple snippets" {
-        val first = Source.fromSnippet(
-            "int weirdName = 8;"
-        ).compile(CompilationArguments(useCache = true))
-        val second = Source.fromSnippet(
-            "int weirdName = 8;"
-        ).compile(CompilationArguments(useCache = true))
-
-        first.cached shouldBe false
-        second.cached shouldBe true
-        second.interval.length shouldBeLessThan first.interval.length
-        first.compiled shouldBe second.compiled
-    }
-    "should cache compiled sources" {
-        val first = Source(
-            mapOf(
-                "Weird.java" to "public class Weird {}",
-                "Name.java" to "public class Name {}"
-            )
-        ).compile(CompilationArguments(useCache = true))
-        val second = Source(
-            mapOf(
-                "Name.java" to "public class Name {}",
-                "Weird.java" to "public class Weird {}"
-            )
-        ).compile(CompilationArguments(useCache = true))
-
-        first.cached shouldBe false
-        second.cached shouldBe true
-        second.interval.length shouldBeLessThan first.interval.length
-        first.compiled shouldBe second.compiled
-    }
-    "should not cache compiled sources when told not to" {
-        val first = Source(
-            mapOf(
-                "Testee.java" to "public class Testee {}",
-                "Meee.java" to "public class Meee {}"
-            )
-        ).compile(CompilationArguments(useCache = true))
-        val second = Source(
-            mapOf(
-                "Meee.java" to "public class Meee {}",
-                "Testee.java" to "public class Testee {}"
-            )
-        ).compile(CompilationArguments(useCache = false))
-
-        first.cached shouldBe false
-        second.cached shouldBe false
-        first.compiled shouldNotBe second.compiled
     }
 })
 

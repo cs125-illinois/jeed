@@ -1,3 +1,5 @@
+@file:Suppress("MagicNumber")
+
 package edu.illinois.cs.cs125.jeed.core.sandbox
 
 import edu.illinois.cs.cs125.jeed.core.Sandbox
@@ -87,6 +89,18 @@ System.out.println(new File("/").listFiles().length);
         executionResult shouldNot haveCompleted()
         executionResult.permissionDenied shouldBe true
     }
+    "should allow snippets to read system properties if allowed" {
+        val executionResult = Source.fromSnippet(
+            """
+System.out.println(System.getProperty("file.separator"));
+        """.trim()
+        ).compile().execute(
+            SourceExecutionArguments(permissions = setOf(PropertyPermission("*", "read")))
+        )
+
+        executionResult should haveCompleted()
+        executionResult.permissionDenied shouldBe false
+    }
     "should prevent snippets from reading system properties" {
         val executionResult = Source.fromSnippet(
             """
@@ -96,16 +110,6 @@ System.out.println(System.getProperty("file.separator"));
 
         executionResult shouldNot haveCompleted()
         executionResult.permissionDenied shouldBe true
-    }
-    "should allow snippets to read system properties if allowed" {
-        val executionResult = Source.fromSnippet(
-            """
-System.out.println(System.getProperty("file.separator"));
-        """.trim()
-        ).compile().execute(SourceExecutionArguments(permissions = setOf(PropertyPermission("*", "read"))))
-
-        executionResult should haveCompleted()
-        executionResult.permissionDenied shouldBe false
     }
     "should allow permissions to be changed between runs" {
         val compiledSource = Source.fromSnippet(

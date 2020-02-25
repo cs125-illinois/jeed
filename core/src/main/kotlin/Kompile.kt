@@ -41,7 +41,7 @@ data class KompilationArguments(
     @Transient val parentClassLoader: ClassLoader = ClassLoader.getSystemClassLoader(),
     val verbose: Boolean = DEFAULT_VERBOSE,
     val allWarningsAsErrors: Boolean = DEFAULT_ALLWARNINGSASERRORS,
-    val useCache: Boolean = false
+    val useCache: Boolean = useCompilationCache
 ) {
     val arguments: K2JVMCompilerArguments = K2JVMCompilerArguments()
 
@@ -53,10 +53,27 @@ data class KompilationArguments(
 
         arguments.noStdlib = true
     }
-
     companion object {
         const val DEFAULT_VERBOSE = false
         const val DEFAULT_ALLWARNINGSASERRORS = false
+    }
+    override fun equals(other: Any?): Boolean {
+        if (this === other) return true
+        if (javaClass != other?.javaClass) return false
+
+        other as KompilationArguments
+
+        if (verbose != other.verbose) return false
+        if (allWarningsAsErrors != other.allWarningsAsErrors) return false
+        if (useCache != other.useCache) return false
+
+        return true
+    }
+    override fun hashCode(): Int {
+        var result = verbose.hashCode()
+        result = 31 * result + allWarningsAsErrors.hashCode()
+        result = 31 * result + useCache.hashCode()
+        return result
     }
 }
 
@@ -120,20 +137,7 @@ private fun kompile(
     require(source.type == Source.FileType.KOTLIN) { "Kotlin compiler needs Kotlin sources" }
 
     val started = Instant.now()
-    if (kompilationArguments.useCache) {
-        compilationCache?.getIfPresent(source.md5)?.let {
-            return CompiledSource(
-                source,
-                it.messages,
-                it.compiled,
-                Interval(started, Instant.now()),
-                it.classLoader,
-                it.fileManager,
-                it.compilerName,
-                true
-            )
-        }
-    }
+    source.tryCache(kompilationArguments, started, systemCompilerName)?.let { return it }
 
     val rootDisposable = Disposer.newDisposable()
     val messageCollector = JeedMessageCollector(source, kompilationArguments.arguments.allWarningsAsErrors)
@@ -172,20 +176,11 @@ private fun kompile(
     )
     val classLoader = JeedClassLoader(fileManager, kompilationArguments.parentClassLoader)
 
-    if (kompilationArguments.useCache) {
-        compilationCache?.put(
-            source.md5, CachedCompilationResults(
-                started,
-                messageCollector.warnings,
-                classLoader,
-                fileManager
-            )
-        )
-    }
-
     return CompiledSource(
         source, messageCollector.warnings, started, Interval(started, Instant.now()), classLoader, fileManager
-    )
+    ).also {
+        it.cache(kompilationArguments)
+    }
 }
 
 fun Source.kompile(kompilationArguments: KompilationArguments = KompilationArguments()): CompiledSource {
