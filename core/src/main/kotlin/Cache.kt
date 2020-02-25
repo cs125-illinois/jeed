@@ -25,7 +25,7 @@ val useCompilationCache = try {
 }
 
 const val MB_TO_BYTES = 1024 * 1024
-var compilationCache: Cache<String, CachedCompilationResults> =
+val compilationCache: Cache<String, CachedCompilationResults> =
     Caffeine.newBuilder()
         .maximumWeight(compilationCacheSizeMB * MB_TO_BYTES)
         .weigher<String, CachedCompilationResults> { _, cachedCompilationResults ->

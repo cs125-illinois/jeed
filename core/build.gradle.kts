@@ -35,7 +35,7 @@ dependencies {
     implementation("io.github.microutils:kotlin-logging:1.7.8")
     implementation("io.github.classgraph:classgraph:4.8.65")
     implementation("net.java.dev.jna:jna:5.5.0")
-    implementation("com.github.ben-manes.caffeine:caffeine:2.8.1")
+    api("com.github.ben-manes.caffeine:caffeine:2.8.1")
 
     testImplementation("io.kotlintest:kotlintest-runner-junit5:3.4.2")
 }

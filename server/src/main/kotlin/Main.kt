@@ -59,7 +59,7 @@ fun Application.jeed() {
     }
     routing {
         get("/") {
-            call.respond(currentStatus)
+            call.respond(currentStatus.update())
         }
         post("/") {
             @Suppress("TooGenericExceptionCaught")
