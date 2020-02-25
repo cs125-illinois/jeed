@@ -379,6 +379,8 @@ object Sandbox {
     }
 
     private val confinedTasks: MutableMap<ThreadGroup, ConfinedTask<*>> = mutableMapOf()
+    private val confinedClassLoaders: MutableSet<SandboxedClassLoader> = mutableSetOf()
+
     private fun confinedTaskByThreadGroup(): ConfinedTask<*>? {
         return confinedTasks[Thread.currentThread().threadGroup]
     }
@@ -394,11 +396,18 @@ object Sandbox {
             override fun uncaughtException(t: Thread?, e: Throwable?) {
             }
         }
+        require(!confinedClassLoaders.contains(sandboxedClassLoader)) {
+            "Duplicate class loader for confined task"
+        }
+        require(!confinedTasks.containsKey(threadGroup)) {
+            "Duplicate thread group in confined tasks map"
+        }
         threadGroup.maxPriority = Thread.MIN_PRIORITY
         val task = FutureTask<T>(SandboxedCallable<T>(callable, sandboxedClassLoader))
         val thread = Thread(threadGroup, task)
         val confinedTask = ConfinedTask(sandboxedClassLoader, task, thread, executionArguments)
         confinedTasks[threadGroup] = confinedTask
+        confinedClassLoaders.add(sandboxedClassLoader)
         return confinedTask
     }
 
@@ -457,6 +466,7 @@ object Sandbox {
         }
 
         confinedTasks.remove(threadGroup)
+        confinedClassLoaders.remove(confinedTask.classLoader)
     }
 
     private class SandboxedCallable<T>(
@@ -788,6 +798,7 @@ object Sandbox {
         }
 
         override fun checkPermission(permission: Permission) {
+
             // Special case to prevent even trusted task code from calling System.setOut
             val confinedTask = if (permission == RuntimePermission("setIO")) {
                 confinedTaskByThreadGroup()

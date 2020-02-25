@@ -20,7 +20,7 @@ System.out.println(i);
         executeMainResult should haveCompleted()
         executeMainResult should haveOutput("1")
     }
-    "f:should execute cached snippets" {
+    "should execute cached snippets" {
         Source.fromSnippet("""
 int i = 0;
 i++;
@@ -268,6 +268,7 @@ public class Main {
         executionResult should haveStdout("Inner")
     }
     "should execute sources that use Java 12 features" {
+        @Suppress("MagicNumber")
         if (systemCompilerVersion < 12) {
             throw SkipTestException("Cannot run this test until Java 12")
         } else {
@@ -293,6 +294,7 @@ public class Main {
         }
     }
     "should execute sources that use Java 13 features" {
+        @Suppress("MagicNumber")
         if (systemCompilerVersion < 13) {
             throw SkipTestException("Cannot run this test until Java 13")
         } else {
@@ -345,7 +347,7 @@ println(test())
         executeMainResult should haveCompleted()
         executeMainResult should haveOutput("Hello, world!")
     }
-    "f:should execute cached kotlin snippets that include method definitions" {
+    "should execute cached kotlin snippets that include method definitions" {
         Source.fromSnippet(
             """
 fun test(): String {

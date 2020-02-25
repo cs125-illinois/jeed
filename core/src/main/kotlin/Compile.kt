@@ -1,7 +1,5 @@
 package edu.illinois.cs.cs125.jeed.core
 
-import com.github.benmanes.caffeine.cache.Cache
-import com.github.benmanes.caffeine.cache.Caffeine
 import com.squareup.moshi.JsonClass
 import java.io.ByteArrayInputStream
 import java.io.ByteArrayOutputStream
@@ -10,8 +8,6 @@ import java.io.InputStream
 import java.io.OutputStream
 import java.net.URI
 import java.nio.charset.Charset
-import java.security.AccessController
-import java.security.PrivilegedAction
 import java.time.Instant
 import java.util.Locale
 import javax.tools.Diagnostic
@@ -38,31 +34,34 @@ val systemCompilerVersion = systemCompilerName.let {
     }
 }
 
-class CachedCompilationResults(
-    val compiled: Instant,
-    val messages: List<CompilationMessage>,
-    val classLoader: JeedClassLoader,
-    val fileManager: JeedFileManager,
-    @Suppress("unused") val compilerName: String = systemCompilerName
-)
-
-const val DEFAULT_CACHE_SIZE = 128L
-var compilationCache: Cache<String, CachedCompilationResults>? = Caffeine.newBuilder()
-    .maximumSize(DEFAULT_CACHE_SIZE)
-    .build()
-
 @JsonClass(generateAdapter = true)
 data class CompilationArguments(
     val wError: Boolean = DEFAULT_WERROR,
     @Suppress("ConstructorParameterNaming") val Xlint: String = DEFAULT_XLINT,
     @Transient val parentFileManager: JavaFileManager? = null,
     @Transient val parentClassLoader: ClassLoader? = null,
-    val useCache: Boolean = false
+    val useCache: Boolean = useCompilationCache
 ) {
     companion object {
         const val DEFAULT_WERROR = false
         const val DEFAULT_XLINT = "all"
         const val PREVIEW_STARTED = 11
+    }
+    override fun equals(other: Any?): Boolean {
+        if (this === other) return true
+        if (javaClass != other?.javaClass) return false
+
+        other as CompilationArguments
+
+        if (wError != other.wError) return false
+        if (Xlint != other.Xlint) return false
+
+        return true
+    }
+    override fun hashCode(): Int {
+        var result = wError.hashCode()
+        result = 31 * result + Xlint.hashCode()
+        return result
     }
 }
 
@@ -101,20 +100,7 @@ private fun compile(
     require(source.type == Source.FileType.JAVA) { "Java compiler needs Java sources" }
 
     val started = Instant.now()
-    if (compilationArguments.useCache) {
-        compilationCache?.getIfPresent(source.md5)?.let {
-            return CompiledSource(
-                source,
-                it.messages,
-                it.compiled,
-                Interval(started, Instant.now()),
-                it.classLoader,
-                it.fileManager,
-                it.compilerName,
-                true
-            )
-        }
-    }
+    source.tryCache(compilationArguments, started, systemCompilerName)?.let { return it }
 
     val units = source.sources.entries.map { Unit(it) }
     val results = Results()
@@ -150,22 +136,17 @@ private fun compile(
         val remappedLocation = source.mapLocation(originalLocation)
         CompilationMessage(it.kind.toString(), remappedLocation, it.getMessage(Locale.US))
     }
-    val classLoader = AccessController.doPrivileged(PrivilegedAction<JeedClassLoader> {
-        JeedClassLoader(fileManager, parentClassLoader)
-    })
 
-    if (compilationArguments.useCache) {
-        compilationCache?.put(
-            source.md5, CachedCompilationResults(
-                started,
-                messages,
-                classLoader,
-                fileManager
-            )
-        )
+    return CompiledSource(
+        source,
+        messages,
+        started,
+        Interval(started, Instant.now()),
+        JeedClassLoader(fileManager, parentClassLoader),
+        fileManager
+    ).also {
+        it.cache(compilationArguments)
     }
-
-    return CompiledSource(source, messages, started, Interval(started, Instant.now()), classLoader, fileManager)
 }
 
 fun Source.compile(
@@ -225,6 +206,9 @@ class JeedFileManager(parentFileManager: JavaFileManager) :
     ForwardingJavaFileManager<JavaFileManager>(parentFileManager) {
     private val classFiles: MutableMap<String, JavaFileObject> = mutableMapOf()
 
+    val size: Int
+        get() = classFiles.values.filterIsInstance<ByteSource>().map { it.buffer.size() }.sum()
+
     private class ByteSource(path: String) :
         SimpleJavaFileObject(URI.create("bytearray:///$path"), JavaFileObject.Kind.CLASS) {
         init {
@@ -235,7 +219,6 @@ class JeedFileManager(parentFileManager: JavaFileManager) :
         override fun openInputStream(): InputStream {
             return ByteArrayInputStream(buffer.toByteArray())
         }
-
         override fun openOutputStream(): OutputStream {
             return buffer
         }

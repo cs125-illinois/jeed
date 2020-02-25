@@ -318,6 +318,7 @@ try {
         executionResult should haveTimedOut()
     }
     "should shut down parallel recursive thread bombs" {
+        @Suppress("MagicNumber")
         (0..16).toList().map {
             async {
                 Source.fromSnippet(
@@ -349,7 +350,7 @@ try {
     Thread.sleep(Long.MAX_VALUE);
 } catch (Throwable t) { }
         """.trim()
-                ).compile().execute(SourceExecutionArguments(maxExtraThreads = 256, timeout = 1000L))
+                ).compile().execute(SourceExecutionArguments(maxExtraThreads = 256, timeout = 2000L))
             }
         }.map {
             val executionResult = it.await()
@@ -404,22 +405,25 @@ while (true) {
         ).compile().execute(SourceExecutionArguments(maxExtraThreads = 256, timeout = 1000L))
     }
     "should recover from excessive console printing" {
+        @Suppress("MagicNumber")
         for (i in 0..32) {
             val result = Source.fromSnippet(
                 """
-    for (long i = 0; i < 10000000L; i++) {
-        System.out.println(i);
-    }
+for (long i = 0; i < 10000000L; i++) {
+    System.out.println(i);
+}
     """.trim()
             ).compile().execute(SourceExecutionArguments(timeout = 100L))
 
             result.outputLines[0].line shouldBe "0"
-            result.outputLines[Sandbox.ExecutionArguments.DEFAULT_MAX_OUTPUT_LINES - 1].line shouldBe (Sandbox.ExecutionArguments.DEFAULT_MAX_OUTPUT_LINES - 1).toString()
+            result.outputLines[Sandbox.ExecutionArguments.DEFAULT_MAX_OUTPUT_LINES - 1]
+                .line shouldBe (Sandbox.ExecutionArguments.DEFAULT_MAX_OUTPUT_LINES - 1).toString()
             result.outputLines shouldHaveSize Sandbox.ExecutionArguments.DEFAULT_MAX_OUTPUT_LINES
             result.truncatedLines shouldBeGreaterThan 0
         }
     }
     "should print correctly in parallel using coroutines" {
+        @Suppress("MagicNumber")
         (0..8).toList().map { value ->
             async {
                 Pair(

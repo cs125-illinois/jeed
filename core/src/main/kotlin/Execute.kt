@@ -16,7 +16,8 @@ class SourceExecutionArguments(
     permissions: Set<Permission> = setOf(),
     maxExtraThreads: Int = DEFAULT_MAX_EXTRA_THREADS,
     maxOutputLines: Int = DEFAULT_MAX_OUTPUT_LINES,
-    classLoaderConfiguration: Sandbox.ClassLoaderConfiguration = Sandbox.ClassLoaderConfiguration()
+    classLoaderConfiguration: Sandbox.ClassLoaderConfiguration = Sandbox.ClassLoaderConfiguration(),
+    val dryRun: Boolean = false
 ) : Sandbox.ExecutionArguments(
     timeout,
     permissions.union(REQUIRED_PERMISSIONS),
@@ -71,6 +72,10 @@ suspend fun CompiledSource.execute(
     classLoader.findClassMethod(executionArguments.klass!!, executionArguments.method)
 
     return Sandbox.execute(classLoader, executionArguments) { (classLoader) ->
+        if (executionArguments.dryRun) {
+            @Suppress("LABEL_NAME_CLASH")
+            return@execute
+        }
         try {
             val method = classLoader.findClassMethod(executionArguments.klass!!, executionArguments.method)
             if (method.parameterTypes.isEmpty()) {
