@@ -15,7 +15,7 @@ spec:
     spec:
       containers:
       - name: jeed
-        image: cs125/jeed:2020.2.4
+        image: cs125/jeed:2020.2.5
         ports:
         - containerPort: 8888
         env:

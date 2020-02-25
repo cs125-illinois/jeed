@@ -269,10 +269,15 @@ class CompiledSourceResult(
     val messages: List<CompilationMessage>,
     val compiled: Instant,
     val interval: Interval,
-    val compilerName: String
+    val compilerName: String,
+    val cached: Boolean
 ) {
     constructor(compiledSource: CompiledSource) : this(
-        compiledSource.messages, compiledSource.compiled, compiledSource.interval, compiledSource.compilerName
+        compiledSource.messages,
+        compiledSource.compiled,
+        compiledSource.interval,
+        compiledSource.compilerName,
+        compiledSource.cached
     )
 }
 
