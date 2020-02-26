@@ -68,6 +68,7 @@ data class PreAuthenticationRequest(val authToken: String)
 fun Application.jeed() {
     install(CORS) {
         anyHost()
+        allowCredentials = true
         allowNonSimpleContentTypes = true
     }
     install(ContentNegotiation) {

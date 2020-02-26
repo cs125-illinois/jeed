@@ -57,10 +57,17 @@ metadata:
     nginx.ingress.kubernetes.io/proxy-redirect-from: /
     nginx.ingress.kubernetes.io/proxy-redirect-to: /jeed/
     nginx.ingress.kubernetes.io/ssl-redirect: "false"
+    nginx.ingress.kubernetes.io/affinity: cookie
+    nginx.ingress.kubernetes.io/affinity-mode: balanced
+    nginx.ingress.kubernetes.io/session-cookie-path: "jeed"
+    nginx.ingress.kubernetes.io/session-cookie-max-age: "3600"
+    nginx.ingress.kubernetes.io/session-cookie-expires: "3600"
+    nginx.ingress.kubernetes.io/session-cookie-change-on-failure: "true"
   name: jeed-ingress
 spec:
   rules:
-  - http:
+  - host: cs125-cloud.cs.illinois.edu
+    http:
       paths:
       - path: /jeed(/|$)(.*)
         backend:
