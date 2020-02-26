@@ -1,5 +1,6 @@
 package edu.illinois.cs.cs125.jeed.core
 
+import io.kotlintest.matchers.numerics.shouldBeLessThan
 import io.kotlintest.should
 import io.kotlintest.shouldBe
 import io.kotlintest.specs.StringSpec
@@ -58,5 +59,23 @@ fun main() {
         compiledSource.source.parsed shouldBe false
         compiledSource.usesCoroutines() shouldBe true
         compiledSource.source.parsed shouldBe true
+    }
+    "should compile with predictable performance" {
+        val source = Source(mapOf(
+            "Test.kt" to """
+data class Person(val name: String)
+fun main() {
+  println("Here")
+}
+""".trim()
+        ))
+        val kompilationArguments = KompilationArguments(useCache = false)
+        source.kompile(kompilationArguments)
+
+        @Suppress("MagicNumber")
+        repeat(8) {
+            val kompilationResult = source.kompile(kompilationArguments)
+            kompilationResult.interval.length shouldBeLessThan 800L
+        }
     }
 })
