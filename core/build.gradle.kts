@@ -2,6 +2,9 @@ import java.io.File
 import java.io.StringWriter
 import java.util.Properties
 
+group = "com.github.cs125-illinois"
+version = "2020.2.7"
+
 plugins {
     kotlin("jvm")
     kotlin("kapt")
@@ -11,10 +14,6 @@ plugins {
     `maven-publish`
     id("org.jmailen.kotlinter")
 }
-
-group = "com.github.cs125-illinois"
-version = "2020.2.6"
-
 dependencies {
     kapt("com.squareup.moshi:moshi-kotlin-codegen:1.9.2")
 

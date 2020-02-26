@@ -46,6 +46,11 @@ class CachedCompilationResults(
     val kompilationArguments: KompilationArguments? = null
 )
 
+object MoreCacheStats {
+    var hits: Int = 0
+    var misses: Int = 0
+}
+
 @Suppress("ReturnCount")
 fun Source.tryCache(
     compilationArguments: CompilationArguments,
@@ -55,7 +60,13 @@ fun Source.tryCache(
     if (!compilationArguments.useCache) {
         return null
     }
-    val cachedResult = compilationCache.getIfPresent(md5) ?: return null
+    val cachedResult = compilationCache.getIfPresent(md5)
+    if (cachedResult == null) {
+        MoreCacheStats.misses++
+        return null
+    }
+    MoreCacheStats.hits++
+
     val cachedCompilationArguments = cachedResult.compilationArguments ?: require {
         "Cached compilation result missing arguments"
     }
@@ -80,7 +91,7 @@ fun Source.tryCache(
 }
 
 fun CompiledSource.cache(compilationArguments: CompilationArguments) {
-    if (!compilationArguments.useCache) {
+    if (cached || !compilationArguments.useCache) {
         return
     }
     GlobalScope.launch {
@@ -110,7 +121,12 @@ fun Source.tryCache(
     if (!kompilationArguments.useCache) {
         return null
     }
-    val cachedResult = compilationCache.getIfPresent(md5) ?: return null
+    val cachedResult = compilationCache.getIfPresent(md5)
+    if (cachedResult == null) {
+        MoreCacheStats.misses++
+        return null
+    }
+    MoreCacheStats.hits++
     val cachedKompilationArguments = cachedResult.kompilationArguments ?: require {
         "Cached kompilation result missing arguments"
     }
@@ -133,7 +149,7 @@ fun Source.tryCache(
 }
 
 fun CompiledSource.cache(kompilationArguments: KompilationArguments) {
-    if (!kompilationArguments.useCache) {
+    if (cached || !kompilationArguments.useCache) {
         return
     }
     GlobalScope.launch {

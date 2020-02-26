@@ -3,6 +3,7 @@ package edu.illinois.cs.cs125.jeed.server
 import com.squareup.moshi.JsonAdapter
 import com.squareup.moshi.JsonClass
 import com.uchuhimo.konf.Config
+import edu.illinois.cs.cs125.jeed.core.MoreCacheStats
 import edu.illinois.cs.cs125.jeed.core.compilationCache
 import edu.illinois.cs.cs125.jeed.core.compilationCacheSizeMB
 import edu.illinois.cs.cs125.jeed.core.systemCompilerName as COMPILER_NAME
@@ -42,12 +43,16 @@ class Status(
     data class Cache(
         val inUse: Boolean = useCompilationCache,
         val sizeInMB: Long = compilationCacheSizeMB,
+        var hits: Int = 0,
+        var misses: Int = 0,
         var hitRate: Double = 0.0,
         var evictionCount: Long = 0,
         var averageLoadPenalty: Double = 0.0
     )
     fun update(): Status {
         compilationCache.stats().also {
+            cache.hits = MoreCacheStats.hits
+            cache.misses = MoreCacheStats.misses
             cache.hitRate = it.hitRate()
             cache.evictionCount = it.evictionCount()
             cache.averageLoadPenalty = it.averageLoadPenalty()
