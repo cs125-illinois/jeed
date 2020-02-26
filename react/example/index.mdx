@@ -10,11 +10,46 @@ npm i @cs125/react-jeed
 
 Visit the documentation [here](https://github.com/cs125-illinois/jeed/blob/master/react/README.md).
 
-## Demo
+## Java
+
+Jeed can run Java. In snippet mode loose can can be run outside of a normal
+class or function definition. This is useful for the first few weeks of
+introduction to programming since this:
 
 ```java jeed snippet
-System.out.println("Whoa, baby!");
+System.out.println("Hello, world!");
 ```
+
+Is much less frightening to beginners than this:
+
+```java jeed
+public class Main {
+  public static void main() {
+    System.out.println("Hello, world!");
+  }
+}
+```
+
+Snippets can include and method and class definitions:
+
+```java jeed snippet
+public class Person {
+  String name;
+  Person(String setName) {
+    name = setName;
+  }
+  public String toString() {
+    return "name : " + name;
+  }
+}
+int add(int first, int second) {
+  return first + second;
+}
+System.out.println(add(4, 5));
+System.out.println(new Person("Lily"));
+```
+
+## Kotlin
 
 ```kotlin jeed
 fun main() {

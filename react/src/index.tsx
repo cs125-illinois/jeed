@@ -32,10 +32,14 @@ const TaskArguments = io.partial({
   kompilation: io.partial({
     verbose: io.boolean,
     allWarningsAsErrors: io.boolean,
+    useCache: io.boolean,
+    waitForCache: io.boolean,
   }),
   checkstyle: io.partial({
     sources: io.array(io.string),
     failOnError: io.boolean,
+    useCache: io.boolean,
+    waitForCache: io.boolean,
   }),
   execution: io.partial({
     klass: io.string,
@@ -114,6 +118,13 @@ const ServerStatus = io.partial({
       clientID: io.string,
     }),
   }),
+  cache: io.partial({
+    inUse: io.boolean,
+    sizeInMB: io.Int,
+    hitRate: io.number,
+    evictionCount: io.Int,
+    averageLoadPenalty: io.number,
+  }),
 })
 
 export type ServerStatus = io.TypeOf<typeof ServerStatus>
@@ -141,8 +152,10 @@ const CompilationMessage = io.type({
 })
 const CompiledSourceResult = io.type({
   messages: io.array(CompilationMessage),
+  compiled: Instant,
   interval: Interval,
   compilerName: io.string,
+  cached: io.boolean,
 })
 const CheckstyleError = io.type({
   severity: io.string,
