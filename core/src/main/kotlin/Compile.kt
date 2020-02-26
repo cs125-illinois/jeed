@@ -40,7 +40,8 @@ data class CompilationArguments(
     @Suppress("ConstructorParameterNaming") val Xlint: String = DEFAULT_XLINT,
     @Transient val parentFileManager: JavaFileManager? = null,
     @Transient val parentClassLoader: ClassLoader? = null,
-    val useCache: Boolean = useCompilationCache
+    val useCache: Boolean = useCompilationCache,
+    val waitForCache: Boolean = false
 ) {
     companion object {
         const val DEFAULT_WERROR = false
@@ -105,7 +106,7 @@ private fun compile(
     val units = source.sources.entries.map { Unit(it) }
     val results = Results()
     val fileManager = JeedFileManager(
-        parentFileManager ?: ToolProvider.getSystemJavaCompiler().getStandardFileManager(
+        parentFileManager ?: systemCompiler.getStandardFileManager(
             results, Locale.US, Charset.forName("UTF-8")
         )
     )

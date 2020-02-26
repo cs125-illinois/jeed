@@ -41,7 +41,8 @@ data class KompilationArguments(
     @Transient val parentClassLoader: ClassLoader = ClassLoader.getSystemClassLoader(),
     val verbose: Boolean = DEFAULT_VERBOSE,
     val allWarningsAsErrors: Boolean = DEFAULT_ALLWARNINGSASERRORS,
-    val useCache: Boolean = useCompilationCache
+    val useCache: Boolean = useCompilationCache,
+    val waitForCache: Boolean = false
 ) {
     val arguments: K2JVMCompilerArguments = K2JVMCompilerArguments()
 

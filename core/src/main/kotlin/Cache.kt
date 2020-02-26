@@ -5,6 +5,9 @@ package edu.illinois.cs.cs125.jeed.core
 import com.github.benmanes.caffeine.cache.Cache
 import com.github.benmanes.caffeine.cache.Caffeine
 import java.time.Instant
+import kotlinx.coroutines.GlobalScope
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.runBlocking
 
 const val JEED_DEFAULT_COMPILATION_CACHE_SIZE_MB = 256L
 @Suppress("TooGenericExceptionCaught")
@@ -80,16 +83,22 @@ fun CompiledSource.cache(compilationArguments: CompilationArguments) {
     if (!compilationArguments.useCache) {
         return
     }
-    compilationCache.put(
-        source.md5,
-        CachedCompilationResults(
-            compiled,
-            messages,
-            fileManager,
-            compilerName,
-            compilationArguments = compilationArguments
+    GlobalScope.launch {
+        compilationCache.put(
+            source.md5,
+            CachedCompilationResults(
+                compiled,
+                messages,
+                fileManager,
+                compilerName,
+                compilationArguments = compilationArguments
+            )
         )
-    )
+    }.also {
+        if (compilationArguments.waitForCache) {
+            runBlocking { it.join() }
+        }
+    }
 }
 
 @Suppress("ReturnCount")
@@ -127,14 +136,20 @@ fun CompiledSource.cache(kompilationArguments: KompilationArguments) {
     if (!kompilationArguments.useCache) {
         return
     }
-    compilationCache.put(
-        source.md5,
-        CachedCompilationResults(
-            compiled,
-            messages,
-            fileManager,
-            compilerName,
-            kompilationArguments = kompilationArguments
+    GlobalScope.launch {
+        compilationCache.put(
+            source.md5,
+            CachedCompilationResults(
+                compiled,
+                messages,
+                fileManager,
+                compilerName,
+                kompilationArguments = kompilationArguments
+            )
         )
-    )
+    }.also {
+        if (kompilationArguments.waitForCache) {
+            runBlocking { it.join() }
+        }
+    }
 }
