@@ -86,10 +86,10 @@ class Request(
         @Suppress("MaxLineLength")
         if (Task.execute in tasks) {
             require(arguments.execution.timeout <= configuration[Limits.Execution.timeout]) {
-                    "job timeout of ${arguments.execution.timeout} too long (> ${configuration[Limits.Execution.timeout]})"
+                "job timeout of ${arguments.execution.timeout} too long (> ${configuration[Limits.Execution.timeout]})"
             }
             require(arguments.execution.maxExtraThreads <= configuration[Limits.Execution.maxExtraThreads]) {
-                    "job maxExtraThreads of ${arguments.execution.maxExtraThreads} is too large (> ${configuration[Limits.Execution.maxExtraThreads]}"
+                "job maxExtraThreads of ${arguments.execution.maxExtraThreads} is too large (> ${configuration[Limits.Execution.maxExtraThreads]}"
             }
             require(arguments.execution.maxOutputLines <= configuration[Limits.Execution.maxOutputLines]) {
                 "job maxOutputLines of ${arguments.execution.maxOutputLines} is too large (> ${configuration[Limits.Execution.maxOutputLines]}"
@@ -164,12 +164,16 @@ class Request(
                     }
                 }
             } else {
-                arguments.snippet.fileType = if (tasks.contains(Task.kompile)) {
-                    Source.FileType.KOTLIN
-                } else if (tasks.contains(Task.compile)) {
-                    Source.FileType.JAVA
-                } else {
-                    arguments.snippet.fileType
+                arguments.snippet.fileType = when {
+                    tasks.contains(Task.kompile) -> {
+                        Source.FileType.KOTLIN
+                    }
+                    tasks.contains(Task.compile) -> {
+                        Source.FileType.JAVA
+                    }
+                    else -> {
+                        arguments.snippet.fileType
+                    }
                 }
                 Source.fromSnippet(snippet ?: assert { "should have a snippet" }, arguments.snippet).also {
                     response.completedTasks.add(Task.snippet)

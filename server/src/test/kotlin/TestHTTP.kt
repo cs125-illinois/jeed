@@ -1,3 +1,5 @@
+@file:Suppress("MagicNumber")
+
 package edu.illinois.cs.cs125.jeed.server
 
 import com.mongodb.MongoClient

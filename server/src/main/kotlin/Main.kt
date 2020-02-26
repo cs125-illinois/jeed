@@ -1,3 +1,5 @@
+@file:Suppress("MatchingDeclarationName")
+
 package edu.illinois.cs.cs125.jeed.server
 
 import com.google.api.client.googleapis.auth.oauth2.GoogleIdTokenVerifier
@@ -5,11 +7,21 @@ import com.google.api.client.http.javanet.NetHttpTransport
 import com.google.api.client.json.jackson2.JacksonFactory
 import com.mongodb.MongoClient
 import com.mongodb.MongoClientURI
+import com.mongodb.client.model.Filters
 import com.ryanharter.ktor.moshi.moshi
+import com.squareup.moshi.JsonClass
 import com.squareup.moshi.Moshi
 import com.uchuhimo.konf.source.json.toJson
+import edu.illinois.cs.cs125.jeed.core.SnippetArguments
+import edu.illinois.cs.cs125.jeed.core.Source
+import edu.illinois.cs.cs125.jeed.core.checkstyle
+import edu.illinois.cs.cs125.jeed.core.compile
+import edu.illinois.cs.cs125.jeed.core.complexity
+import edu.illinois.cs.cs125.jeed.core.execute
+import edu.illinois.cs.cs125.jeed.core.fromSnippet
+import edu.illinois.cs.cs125.jeed.core.kompile
 import edu.illinois.cs.cs125.jeed.core.moshi.Adapters as JeedAdapters
-import edu.illinois.cs.cs125.jeed.server.moshi.Adapters as Adapters
+import edu.illinois.cs.cs125.jeed.server.moshi.Adapters
 import io.ktor.application.Application
 import io.ktor.application.ApplicationCallPipeline
 import io.ktor.application.call
@@ -28,6 +40,10 @@ import java.net.URI
 import java.time.Instant
 import java.util.Collections
 import java.util.Properties
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.GlobalScope
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import mu.KotlinLogging
 import org.apache.http.auth.AuthenticationException
 import org.bson.BsonDocument
@@ -45,7 +61,10 @@ val VERSION: String = Properties().also {
 
 val currentStatus = Status()
 
-@Suppress("ComplexMethod")
+@JsonClass(generateAdapter = true)
+data class PreAuthenticationRequest(val authToken: String)
+
+@Suppress("ComplexMethod", "LongMethod")
 fun Application.jeed() {
     install(CORS) {
         anyHost()
@@ -60,6 +79,26 @@ fun Application.jeed() {
     routing {
         get("/") {
             call.respond(currentStatus.update())
+        }
+        @Suppress("TooGenericExceptionCaught")
+        post("/auth") {
+            if (Request.googleTokenVerifier == null) {
+                call.respond(HttpStatusCode.ExpectationFailed)
+                return@post
+            }
+            val preAuthenticationRequest = try {
+                call.receive<PreAuthenticationRequest>()
+            } catch (e: Exception) {
+                call.respond(HttpStatusCode.BadRequest)
+                return@post
+            }
+            try {
+                withContext(Dispatchers.IO) { Request.googleTokenVerifier!!.verify(preAuthenticationRequest.authToken) }
+            } catch (e: Exception) {
+                call.respond(HttpStatusCode.Unauthorized)
+            } finally {
+                call.respond(HttpStatusCode.OK)
+            }
         }
         post("/") {
             @Suppress("TooGenericExceptionCaught")
@@ -113,6 +152,25 @@ fun main() {
         Request.googleTokenVerifier = GoogleIdTokenVerifier.Builder(NetHttpTransport(), JacksonFactory())
                 .setAudience(Collections.singletonList(it))
                 .build()
+    }
+
+    GlobalScope.launch {
+        logger.info(
+            Source.fromSnippet(
+                """System.out.println("javac initialized");""",
+                SnippetArguments(indent = 2)
+            ).also {
+                it.checkstyle()
+                it.complexity()
+            }.compile().execute().output
+        )
+        logger.info(
+            Source.fromSnippet(
+                """println("kotlinc initialized")""",
+                SnippetArguments(fileType = Source.FileType.KOTLIN)
+            ).kompile().execute().output
+        )
+        Request.mongoCollection?.find(Filters.eq("_id", ""))
     }
 
     embeddedServer(Netty, host = httpUri.host, port = httpUri.port, module = Application::jeed).start(wait = true)
