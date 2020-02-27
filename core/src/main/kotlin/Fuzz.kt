@@ -1,14 +1,16 @@
 package edu.illinois.cs.cs125.jeed.core
 
-import org.antlr.v4.runtime.*
-import org.antlr.v4.runtime.tree.ParseTreeWalker
 import edu.illinois.cs.cs125.jeed.core.antlr.JavaLexer
 import edu.illinois.cs.cs125.jeed.core.antlr.JavaParser
 import edu.illinois.cs.cs125.jeed.core.antlr.JavaParserBaseListener
+import org.antlr.v4.runtime.BaseErrorListener
+import org.antlr.v4.runtime.CharStreams
 import org.antlr.v4.runtime.CommonTokenStream
+import org.antlr.v4.runtime.RecognitionException
+import org.antlr.v4.runtime.Recognizer
+import org.antlr.v4.runtime.tree.ParseTreeWalker
+import java.util.Stack
 import kotlin.math.roundToInt
-import java.util.*
-import kotlin.collections.HashMap
 
 
 private const val EQUAL_TO = "equal to"
@@ -138,13 +140,15 @@ $modifiedSource
  */
 //passed the source code to default of fuzz config so IdSupplier can get all of the non-fuzzy identifiers
 fun fuzzCompilationUnit(unit: String, fuzzConfiguration: FuzzConfiguration = FuzzConfiguration()): String {
-    val fuzzyJavaParseTree = parseJava(unit).compilationUnit()
+    val javaParseTree = parseJava(unit).compilationUnit()
     val fuzzer = Fuzzer(fuzzConfiguration)
     val walker = ParseTreeWalker()
 
+    /** TODO: Fix this
+
     if (fuzzConfiguration.fuzzyIdentifierTargets == null) { // In case the user does not provide any identifier targets
         val idCollector = IdentifierListener()
-        walker.walk(idCollector, fuzzyJavaParseTree) //Pass to collect non-fuzzy ids
+        walker.walk(idCollector, javaParseTree) //Pass to collect non-fuzzy ids
         fuzzConfiguration.fuzzyIdentifierTargets = IdSupplier(idCollector.getIdentifiers())
     }
     assert(fuzzConfiguration.fuzzyIdentifierTargets != null)
@@ -152,7 +156,9 @@ fun fuzzCompilationUnit(unit: String, fuzzConfiguration: FuzzConfiguration = Fuz
         fuzzConfiguration.fuzzyLiteralTargets = LiteralSupplier()
     }
     assert(fuzzConfiguration.fuzzyLiteralTargets != null)
-    walker.walk(fuzzer, fuzzyJavaParseTree) // Pass to fuzz source
+    walker.walk(fuzzer, javaParseTree) // Pass to fuzz source
+
+    */
 
     val sourceModifications = fuzzer.sourceModifications.map { it.value }.toSet()
     var modifiedSource = sourceModifications.apply(unit)
@@ -180,6 +186,8 @@ fun fuzzCompilationUnitWithoutParse(unit: String, fuzzConfiguration: FuzzConfigu
     val fuzzer = Fuzzer(fuzzConfiguration)
     val walker = ParseTreeWalker()
 
+    /** TODO: Fix this
+
     if (fuzzConfiguration.fuzzyIdentifierTargets == null) { // In case the user does not provide any identifier targets
         val idCollector = IdentifierListener()
         walker.walk(idCollector, fuzzyJavaParseTree) //Pass to collect non-fuzzy ids
@@ -192,10 +200,12 @@ fun fuzzCompilationUnitWithoutParse(unit: String, fuzzConfiguration: FuzzConfigu
     assert(fuzzConfiguration.fuzzyLiteralTargets != null)
     walker.walk(fuzzer, fuzzyJavaParseTree) // Pass to fuzz source
 
+    */
+
     val sourceModifications = fuzzer.sourceModifications.map { it.value }.toSet()
     var modifiedSource = sourceModifications.apply(unit)
 
-    return modifiedSource;
+    return modifiedSource
 }
 
 private fun document(source : String, sourceModifications : Set<SourceModification>): String {
@@ -215,16 +225,16 @@ internal fun parseFuzzyJava(source: String): JavaParser {
     val tokenStream = CommonTokenStream(fuzzyJavaLexer)
     return JavaParser(tokenStream)
 }
+
 /**
  * A class that holds information about what went wrong while parsing Java code.
  */
-class JavaParseError(
-    val line: Int, val column: Int, message: String
-) : Exception(message)
+class JavaParseException(val line: Int, val column: Int, message: String) : Exception(message)
+
 /**
  * A class that creates a Java Listener.
  */
-private class JavaErrorListener : BaseErrorListener() {
+private class JavaExceptionListener : BaseErrorListener() {
     /**
      * Detects Java syntax errors.
      *
@@ -234,11 +244,11 @@ private class JavaErrorListener : BaseErrorListener() {
      * @param charPositionInLine - The character position of [offendingSymbol] within the [line].
      * @param msg - Error message to display.
      * @param e -
-     * @throws [JavaParseError]
+     * @throws [JavaParseException]
      */
     @Override
     override fun syntaxError(recognizer: Recognizer<*, *>?, offendingSymbol: Any?, line: Int, charPositionInLine: Int, msg: String, e: RecognitionException?) {
-        throw JavaParseError(line, charPositionInLine, msg)
+        throw JavaParseException(line, charPositionInLine, msg)
     }
 }
 /**
@@ -248,7 +258,7 @@ private class JavaErrorListener : BaseErrorListener() {
  * @return Returns a parser.
  */
 private fun parseJava(source: String): JavaParser {
-    val javaErrorListener = JavaErrorListener()
+    val javaErrorListener = JavaExceptionListener()
     val charStream = CharStreams.fromString(source)
     val javaLexer = JavaLexer(charStream)
     javaLexer.removeErrorListeners()
