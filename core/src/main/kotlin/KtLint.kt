@@ -29,7 +29,7 @@ data class KtLintResults(val errors: List<KtLintError>)
 private val editorConfigPath = object {}::class.java.getResource("/ktlint/.editorconfig").path
 
 fun Source.ktLint(ktLintArguments: KtLintArguments = KtLintArguments()): KtLintResults {
-    require(this.type == Source.FileType.KOTLIN) { "Can't run ktlint on non-Kotlin sources" }
+    require(type == Source.FileType.KOTLIN) { "Can't run ktlint on non-Kotlin sources" }
 
     val names = ktLintArguments.sources ?: sources.keys
 
@@ -48,6 +48,7 @@ fun Source.ktLint(ktLintArguments: KtLintArguments = KtLintArguments()): KtLintR
             )
         }
     }
+
     if (errors.isNotEmpty() && ktLintArguments.failOnError) {
         throw KtLintFailed(errors)
     }

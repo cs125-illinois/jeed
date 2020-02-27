@@ -6,6 +6,7 @@ import com.uchuhimo.konf.Config
 import edu.illinois.cs.cs125.jeed.core.MoreCacheStats
 import edu.illinois.cs.cs125.jeed.core.compilationCache
 import edu.illinois.cs.cs125.jeed.core.compilationCacheSizeMB
+import edu.illinois.cs.cs125.jeed.core.server.Task
 import edu.illinois.cs.cs125.jeed.core.systemCompilerName as COMPILER_NAME
 import edu.illinois.cs.cs125.jeed.core.useCompilationCache
 import edu.illinois.cs.cs125.jeed.core.version as JEED_VERSION
@@ -15,6 +16,7 @@ import java.time.Instant
 @JsonClass(generateAdapter = true)
 @Suppress("Unused", "MemberVisibilityCanBePrivate")
 class Status(
+    val tasks: Set<Task> = Task.values().toSet(),
     val started: Instant = Instant.now(),
     val hostname: String = InetAddress.getLocalHost().hostName,
     var lastRequest: Instant? = null,

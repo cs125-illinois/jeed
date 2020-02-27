@@ -225,6 +225,36 @@ public static void main() {
                 }
             }
         }
+        "should accept good source ktlint request" {
+            withTestApplication(Application::jeed) {
+                handleRequest(HttpMethod.Post, "/") {
+                    addHeader("content-type", "application/json")
+                    setBody(
+                        """
+{
+"label": "test",
+"sources": [
+  {
+    "path": "Main.kt",
+    "contents": "
+fun main() {
+  println(\"Hello, world!\")
+}"
+  }
+],
+"tasks": [ "ktlint", "kompile", "execute" ]
+}""".trim()
+                    )
+                }.apply {
+                    response.shouldHaveStatus(HttpStatusCode.OK.value)
+                    Request.mongoCollection?.countDocuments() shouldBe 1
+
+                    val jeedResponse = Response.from(response.content)
+                    jeedResponse.completedTasks.size shouldBe 3
+                    jeedResponse.failedTasks.size shouldBe 0
+                }
+            }
+        }
         "should reject checkstyle request for non-Java sources" {
             withTestApplication(Application::jeed) {
                 handleRequest(HttpMethod.Post, "/") {

@@ -4,6 +4,7 @@ import com.squareup.moshi.JsonClass
 import edu.illinois.cs.cs125.jeed.core.CheckstyleArguments
 import edu.illinois.cs.cs125.jeed.core.CompilationArguments
 import edu.illinois.cs.cs125.jeed.core.KompilationArguments
+import edu.illinois.cs.cs125.jeed.core.KtLintArguments
 import edu.illinois.cs.cs125.jeed.core.SnippetArguments
 import edu.illinois.cs.cs125.jeed.core.SourceExecutionArguments
 
@@ -14,6 +15,7 @@ enum class Task {
     compile,
     kompile,
     checkstyle,
+    ktlint,
     complexity,
     execute,
 }
@@ -24,6 +26,7 @@ class TaskArguments(
     val compilation: CompilationArguments = CompilationArguments(),
     val kompilation: KompilationArguments = KompilationArguments(),
     val checkstyle: CheckstyleArguments = CheckstyleArguments(),
+    val ktlint: KtLintArguments = KtLintArguments(),
     // val complexity: currently accepts no arguments
     val execution: SourceExecutionArguments = SourceExecutionArguments()
 )

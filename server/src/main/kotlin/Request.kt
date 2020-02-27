@@ -7,6 +7,7 @@ import edu.illinois.cs.cs125.jeed.core.CompilationFailed
 import edu.illinois.cs.cs125.jeed.core.ComplexityFailed
 import edu.illinois.cs.cs125.jeed.core.ExecutionFailed
 import edu.illinois.cs.cs125.jeed.core.Interval
+import edu.illinois.cs.cs125.jeed.core.KtLintFailed
 import edu.illinois.cs.cs125.jeed.core.SnippetTransformationFailed
 import edu.illinois.cs.cs125.jeed.core.Source
 import edu.illinois.cs.cs125.jeed.core.TemplatingFailed
@@ -17,6 +18,7 @@ import edu.illinois.cs.cs125.jeed.core.execute
 import edu.illinois.cs.cs125.jeed.core.fromSnippet
 import edu.illinois.cs.cs125.jeed.core.fromTemplates
 import edu.illinois.cs.cs125.jeed.core.kompile
+import edu.illinois.cs.cs125.jeed.core.ktLint
 import edu.illinois.cs.cs125.jeed.core.moshi.CompiledSourceResult
 import edu.illinois.cs.cs125.jeed.core.moshi.ExecutionFailedResult
 import edu.illinois.cs.cs125.jeed.core.moshi.PermissionAdapter
@@ -203,6 +205,10 @@ class Request(
                 check(actualSource.type == Source.FileType.JAVA) { "can't run checkstyle on non-Java sources" }
                 response.completed.checkstyle = actualSource.checkstyle(arguments.checkstyle)
                 response.completedTasks.add(Task.checkstyle)
+            } else if (tasks.contains(Task.ktlint)) {
+                check(actualSource.type == Source.FileType.KOTLIN) { "can't run ktlint on non-Kotlin sources" }
+                response.completed.ktlint = actualSource.ktLint(arguments.ktlint)
+                response.completedTasks.add(Task.ktlint)
             }
 
             if (tasks.contains(Task.complexity)) {
@@ -239,6 +245,9 @@ class Request(
         } catch (checkstyleFailed: CheckstyleFailed) {
             response.failed.checkstyle = checkstyleFailed
             response.failedTasks.add(Task.checkstyle)
+        } catch (ktlintFailed: KtLintFailed) {
+            response.failed.ktlint = ktlintFailed
+            response.failedTasks.add(Task.ktlint)
         } catch (complexityFailed: ComplexityFailed) {
             response.failed.complexity = complexityFailed
             response.failedTasks.add(Task.complexity)

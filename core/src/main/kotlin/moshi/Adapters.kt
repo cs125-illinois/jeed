@@ -12,6 +12,8 @@ import edu.illinois.cs.cs125.jeed.core.CompiledSource
 import edu.illinois.cs.cs125.jeed.core.ComplexityFailed
 import edu.illinois.cs.cs125.jeed.core.ExecutionFailed
 import edu.illinois.cs.cs125.jeed.core.Interval
+import edu.illinois.cs.cs125.jeed.core.KtLintError
+import edu.illinois.cs.cs125.jeed.core.KtLintFailed
 import edu.illinois.cs.cs125.jeed.core.Sandbox
 import edu.illinois.cs.cs125.jeed.core.Snippet
 import edu.illinois.cs.cs125.jeed.core.SnippetTransformationError
@@ -39,6 +41,7 @@ val Adapters = setOf(
     SnippetTransformationFailedAdapter(),
     CompilationFailedAdapter(),
     CheckstyleFailedAdapter(),
+    KtLintFailedAdapter(),
     ComplexityFailedAdapter(),
     TemplatingErrorAdapter(),
     TemplatingFailedAdapter(),
@@ -87,6 +90,22 @@ class CheckstyleFailedAdapter {
     @ToJson
     fun checkstyleFailedToJson(checkstyleFailed: CheckstyleFailed): CheckstyleFailedJson {
         return CheckstyleFailedJson(checkstyleFailed.errors as List<CheckstyleError>)
+    }
+}
+
+@JsonClass(generateAdapter = true)
+data class KtLintFailedJson(val errors: List<KtLintError>)
+
+class KtLintFailedAdapter {
+    @FromJson
+    fun ktLintFailedFromJson(ktLintFailedJson: KtLintFailedJson): KtLintFailed {
+        return KtLintFailed(ktLintFailedJson.errors)
+    }
+
+    @Suppress("UNCHECKED_CAST")
+    @ToJson
+    fun ktLintFailedToJson(ktLintFailed: KtLintFailed): KtLintFailedJson {
+        return KtLintFailedJson(ktLintFailed.errors as List<KtLintError>)
     }
 }
 

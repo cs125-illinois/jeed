@@ -7,6 +7,8 @@ import edu.illinois.cs.cs125.jeed.core.ClassComplexity
 import edu.illinois.cs.cs125.jeed.core.CompilationFailed
 import edu.illinois.cs.cs125.jeed.core.ComplexityFailed
 import edu.illinois.cs.cs125.jeed.core.ComplexityResults
+import edu.illinois.cs.cs125.jeed.core.KtLintFailed
+import edu.illinois.cs.cs125.jeed.core.KtLintResults
 import edu.illinois.cs.cs125.jeed.core.MethodComplexity
 import edu.illinois.cs.cs125.jeed.core.Snippet
 import edu.illinois.cs.cs125.jeed.core.SnippetTransformationFailed
@@ -24,6 +26,7 @@ class CompletedTasks(
     var compilation: CompiledSourceResult? = null,
     var kompilation: CompiledSourceResult? = null,
     var checkstyle: CheckstyleResults? = null,
+    var ktlint: KtLintResults? = null,
     var complexity: FlatComplexityResults? = null,
     var execution: SourceTaskResults? = null
 )
@@ -35,6 +38,7 @@ class FailedTasks(
     var compilation: CompilationFailed? = null,
     var kompilation: CompilationFailed? = null,
     var checkstyle: CheckstyleFailed? = null,
+    var ktlint: KtLintFailed? = null,
     var complexity: ComplexityFailed? = null,
     var execution: ExecutionFailedResult? = null
 )
