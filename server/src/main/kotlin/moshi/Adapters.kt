@@ -93,6 +93,7 @@ class ResultAdapter {
         result.completed.kompilation = responseJson.completed.kompilation
         result.completed.template = responseJson.completed.template
         result.completed.checkstyle = responseJson.completed.checkstyle
+        result.completed.ktlint = responseJson.completed.ktlint
         result.completed.complexity = responseJson.completed.complexity
         result.completed.execution = responseJson.completed.execution
 
@@ -103,6 +104,7 @@ class ResultAdapter {
         result.failed.kompilation = responseJson.failed.kompilation
         result.failed.template = responseJson.failed.template
         result.failed.checkstyle = responseJson.failed.checkstyle
+        result.failed.ktlint = responseJson.failed.ktlint
         result.failed.complexity = responseJson.failed.complexity
         result.failed.execution = responseJson.failed.execution
         result.failedTasks.addAll(responseJson.failedTasks)

@@ -12,6 +12,8 @@ import com.ryanharter.ktor.moshi.moshi
 import com.squareup.moshi.JsonClass
 import com.squareup.moshi.Moshi
 import com.uchuhimo.konf.source.json.toJson
+import edu.illinois.cs.cs125.jeed.core.CheckstyleArguments
+import edu.illinois.cs.cs125.jeed.core.KtLintArguments
 import edu.illinois.cs.cs125.jeed.core.SnippetArguments
 import edu.illinois.cs.cs125.jeed.core.Source
 import edu.illinois.cs.cs125.jeed.core.checkstyle
@@ -20,6 +22,7 @@ import edu.illinois.cs.cs125.jeed.core.complexity
 import edu.illinois.cs.cs125.jeed.core.execute
 import edu.illinois.cs.cs125.jeed.core.fromSnippet
 import edu.illinois.cs.cs125.jeed.core.kompile
+import edu.illinois.cs.cs125.jeed.core.ktLint
 import edu.illinois.cs.cs125.jeed.core.moshi.Adapters as JeedAdapters
 import edu.illinois.cs.cs125.jeed.server.moshi.Adapters
 import io.ktor.application.Application
@@ -41,8 +44,7 @@ import java.time.Instant
 import java.util.Collections
 import java.util.Properties
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.GlobalScope
-import kotlinx.coroutines.launch
+import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.withContext
 import mu.KotlinLogging
 import org.apache.http.auth.AuthenticationException
@@ -155,26 +157,32 @@ fun main() {
                 .build()
     }
 
-    GlobalScope.launch {
-        logger.info(
-            Source.fromSnippet(
-                """System.out.println("javac initialized");""",
-                SnippetArguments(indent = 2)
-            ).also {
-                it.checkstyle()
-                it.complexity()
-            }.compile().execute().output
-        )
-        logger.info(
-            Source.fromSnippet(
-                """println("kotlinc initialized")""",
-                SnippetArguments(fileType = Source.FileType.KOTLIN)
-            ).kompile().execute().output
-        )
-        Request.mongoCollection?.find(Filters.eq("_id", ""))
+    runBlocking {
+        warm()
     }
 
     embeddedServer(Netty, host = httpUri.host, port = httpUri.port, module = Application::jeed).start(wait = true)
+}
+
+suspend fun warm() {
+    logger.info(
+        Source.fromSnippet(
+            """System.out.println("javac initialized");""",
+            SnippetArguments(indent = 2)
+        ).also {
+            it.checkstyle(CheckstyleArguments(failOnError = true))
+            it.complexity()
+        }.compile().execute().output
+    )
+    logger.info(
+        Source.fromSnippet(
+            """println("kotlinc initialized")""",
+            SnippetArguments(indent = 2, fileType = Source.FileType.KOTLIN)
+        ).also {
+            it.ktLint(KtLintArguments(failOnError = true))
+        }.kompile().execute().output
+    )
+    Request.mongoCollection?.find(Filters.eq("_id", ""))
 }
 
 fun assert(block: () -> String): Nothing { throw AssertionError(block()) }

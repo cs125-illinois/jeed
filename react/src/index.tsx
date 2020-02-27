@@ -28,6 +28,8 @@ const TaskArguments = io.partial({
   compilation: io.partial({
     wError: io.boolean,
     Xlint: io.string,
+    useCache: io.boolean,
+    waitForCache: io.boolean,
   }),
   kompilation: io.partial({
     verbose: io.boolean,
@@ -38,8 +40,10 @@ const TaskArguments = io.partial({
   checkstyle: io.partial({
     sources: io.array(io.string),
     failOnError: io.boolean,
-    useCache: io.boolean,
-    waitForCache: io.boolean,
+  }),
+  ktlint: io.partial({
+    sources: io.array(io.string),
+    failOnError: io.boolean,
   }),
   execution: io.partial({
     klass: io.string,
@@ -65,6 +69,7 @@ const Task = io.keyof({
   compile: null,
   kompile: null,
   checkstyle: null,
+  ktlint: null,
   execute: null,
 })
 export type Task = io.TypeOf<typeof Task>
@@ -162,6 +167,11 @@ const CheckstyleError = io.type({
   location: SourceLocation,
   message: io.string,
 })
+const KtLintError = io.type({
+  ruleId: io.string,
+  detail: io.string,
+  location: SourceLocation,
+})
 const ThrownException = io.intersection([io.type({ klass: io.string }), io.partial({ message: io.string })])
 const Console = io.keyof({
   STDOUT: null,
@@ -202,6 +212,9 @@ const Response = io.intersection([
       checkstyle: io.type({
         errors: io.array(CheckstyleError),
       }),
+      ktlint: io.type({
+        errors: io.array(KtLintError),
+      }),
       execution: io.intersection([
         io.partial({
           returned: io.string,
@@ -230,7 +243,10 @@ const Response = io.intersection([
       compilation: CompilationFailed,
       kompilation: CompilationFailed,
       checkstyle: io.type({
-        errors: io.array(io.type({ severity: io.string, location: SourceLocation, message: io.string })),
+        errors: io.array(CheckstyleError),
+      }),
+      ktlint: io.type({
+        errors: io.array(KtLintError),
       }),
       execution: io.partial({
         classNotFound: io.string,
@@ -431,6 +447,16 @@ ${errorCount} error${errorCount > 1 ? "s" : ""}`
         })
         .join("\n") || ""
     const errorCount = Object.keys(response.failed.checkstyle?.errors || {}).length
+    return `${output}
+${errorCount} error${errorCount > 1 ? "s" : ""}`
+  } else if (response.failed.ktlint) {
+    const output =
+      response.failed.ktlint?.errors
+        .map(({ location: { source, line }, detail }) => {
+          return `${source === "" ? "Line " : `${source}:`}${line}: ktlint error: ${detail}`
+        })
+        .join("\n") || ""
+    const errorCount = Object.keys(response.failed.ktlint?.errors || {}).length
     return `${output}
 ${errorCount} error${errorCount > 1 ? "s" : ""}`
   } else if (response.failed.execution) {

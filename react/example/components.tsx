@@ -55,6 +55,7 @@ export default class JeedAce extends Component<JeedAceProps, JeedAceState> {
     autoPadding: 2,
     snippet: false,
     nocheckstyle: false,
+    noktlint: false,
   }
 
   private originalValue: string
@@ -84,7 +85,7 @@ export default class JeedAce extends Component<JeedAceProps, JeedAceState> {
     this.setState({ value })
   }
   runCode = (): void => {
-    const { name: label, mode, snippet, nocheckstyle } = this.props
+    const { name: label, mode, snippet, nocheckstyle, noktlint } = this.props
     const { value, busy } = this.state
     const { run, connected } = this.context
 
@@ -97,10 +98,26 @@ export default class JeedAce extends Component<JeedAceProps, JeedAceState> {
     const tasks = [mode == "java" ? "compile" : "kompile", "execute"] as Array<Task>
     if (mode == "java" && !nocheckstyle) {
       tasks.push("checkstyle")
+    } else if (mode == "kotlin" && !noktlint) {
+      tasks.push("ktlint")
     }
     const request: Request = snippet
       ? { label, tasks, snippet: value }
       : { label, tasks, sources: [{ path: mode == "java" ? "Main.java" : "Main.kt", contents: value }] }
+
+    if (mode == "java" && !nocheckstyle) {
+      request.arguments = {
+        checkstyle: {
+          failOnError: true,
+        },
+      }
+    } else if (mode == "kotlin" && !noktlint) {
+      request.arguments = {
+        ktlint: {
+          failOnError: true,
+        },
+      }
+    }
 
     run(request)
       .then(response => {
