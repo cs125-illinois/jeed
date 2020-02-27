@@ -44,7 +44,10 @@ data class FuzzConfiguration(
     var fuzzyLiteralTargets: LiteralSupplier? = null,
 
     // This is a list of optional transformations that the user may supply - defaults to empty for no transformations
-    var fuzzyTransformations: MutableList<Transformation>? = mutableListOf()
+    var fuzzyTransformations: MutableList<Transformation>? = mutableListOf(),
+
+    var conditionals_boundary: Boolean = true
+
 )
 /**
  * Applies source modifications to the source code
