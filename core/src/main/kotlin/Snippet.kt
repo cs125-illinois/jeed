@@ -196,8 +196,7 @@ ${" ".repeat(snippetArguments.indent * 2)}@JvmStatic fun main() {""".lines().let
         currentOutputLineNumber++
     }
 
-    rewrittenSourceLines.addAll("""
-${" ".repeat(snippetArguments.indent * 2)}}
+    rewrittenSourceLines.addAll("""${" ".repeat(snippetArguments.indent * 2)}}
 ${" ".repeat(snippetArguments.indent)}}
 }
 """.lines())

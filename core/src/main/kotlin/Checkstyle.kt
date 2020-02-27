@@ -30,6 +30,7 @@ class CheckstyleFailed(errors: List<CheckstyleError>) : JeedError(errors) {
 }
 @JsonClass(generateAdapter = true)
 data class CheckstyleResults(val errors: List<CheckstyleError>)
+
 class ConfiguredChecker(configurationString: String) {
     private val checker: Checker
     init {
@@ -91,9 +92,13 @@ val defaultChecker = run {
 }
 @Throws(CheckstyleFailed::class)
 fun Source.checkstyle(checkstyleArguments: CheckstyleArguments = CheckstyleArguments()): CheckstyleResults {
+    require(this.type == Source.FileType.JAVA) { "Can't run checkstyle on non-Java sources" }
+
     val names = checkstyleArguments.sources ?: sources.keys
-    val checkstyleResults = defaultChecker.check(this.sources.filter { names.contains(it.key) }).values.flatten().map {
-        CheckstyleError(it.severity, this.mapLocation(it.location), it.message)
+    val checkstyleResults = defaultChecker.check(sources.filter {
+        names.contains(it.key)
+    }).values.flatten().map {
+        CheckstyleError(it.severity, mapLocation(it.location), it.message)
     }.sortedWith(compareBy({ it.location.source }, { it.location.line }))
 
     if (checkstyleArguments.failOnError && checkstyleResults.any { it.severity == "error" }) {
