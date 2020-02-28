@@ -340,6 +340,7 @@ export const JeedProvider: React.FC<JeedProviderProps> = ({
       method: "post",
       body: JSON.stringify(jeedRequest),
       headers: { "Content-Type": "application/json" },
+      credentials: "include",
     })
       .then(response => {
         return response.json()
