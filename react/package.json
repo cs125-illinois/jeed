@@ -9,7 +9,7 @@
     "build": "rollup -c",
     "check": "npm run build && npm run tsc:check && npm run eslint && npm run prettier && npm run depcheck",
     "tsc:check": "tsc --noEmit && tsc --project example --noEmit",
-    "prettier": "prettier --write **/*.{js,json,ts,tsx} .*.js",
+    "prettier": "prettier --write **/*.{js,json,ts,tsx} *.{js,json} .*.js",
     "eslint": "eslint src/**/* example/index.tsx",
     "eslint:fix": "eslint --fix src/**/* example/index.tsx",
     "depcheck:src": "depcheck --ignore-dirs example --ignores depcheck",
@@ -22,8 +22,8 @@
   },
   "devDependencies": {
     "@types/react": "^16.9.23",
-    "@typescript-eslint/eslint-plugin": "^2.21.0",
-    "@typescript-eslint/parser": "^2.21.0",
+    "@typescript-eslint/eslint-plugin": "^2.22.0",
+    "@typescript-eslint/parser": "^2.22.0",
     "concurrently": "^5.1.0",
     "depcheck": "^0.9.2",
     "env-cmd": "^10.1.0",
@@ -33,14 +33,14 @@
     "eslint-plugin-react": "^7.18.3",
     "husky": "^4.2.3",
     "lint-staged": "^10.0.8",
-    "npm-check-updates": "^4.0.1",
+    "npm-check-updates": "^4.0.3",
     "prettier": "^1.19.1",
     "react": "^16.12.0",
-    "rollup": "^1.31.1",
+    "rollup": "^1.32.0",
     "rollup-plugin-commonjs": "^10.1.0",
     "rollup-plugin-node-resolve": "^5.2.0",
     "rollup-plugin-typescript2": "^0.26.0",
-    "typescript": "^3.8.2"
+    "typescript": "^3.8.3"
   },
   "peerDependencies": {
     "prop-types": "^15.7.2",
@@ -76,7 +76,7 @@
     ]
   },
   "dependencies": {
-    "fp-ts": "^2.5.1",
+    "fp-ts": "^2.5.3",
     "io-ts": "^2.1.2"
   }
 }
