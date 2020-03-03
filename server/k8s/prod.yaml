@@ -28,11 +28,11 @@ spec:
             secretKeyRef:
               name: mongo
               key: MONGO
-        - name: AUTH_GOOGLE_CLIENTID
+        - name: AUTH_GOOGLE_CLIENTIDS
           valueFrom:
             secretKeyRef:
-              name: google-client-id
-              key: GOOGLE_CLIENT_ID
+              name: google-client-ids
+              key: GOOGLE_CLIENT_IDS
 ---
 apiVersion: v1
 kind: Service

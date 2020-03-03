@@ -8,6 +8,8 @@ import edu.illinois.cs.cs125.jeed.core.server.Task
 
 class Response(val request: Request) {
     val email = request.email
+    val audience = request.audience
+
     val status = currentStatus
 
     val completedTasks: MutableSet<Task> = mutableSetOf()

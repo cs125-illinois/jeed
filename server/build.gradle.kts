@@ -3,7 +3,7 @@ import java.io.StringWriter
 import java.util.Properties
 
 group = "edu.illinois.cs.cs125"
-version = "2020.2.10"
+version = "2020.3.0"
 
 plugins {
     kotlin("jvm")
@@ -32,7 +32,7 @@ dependencies {
     implementation("com.uchuhimo:konf-core:0.22.1")
     implementation("com.uchuhimo:konf-yaml:0.22.1")
     implementation("io.github.microutils:kotlin-logging:1.7.8")
-    implementation("com.google.api-client:google-api-client:1.30.8")
+    implementation("com.google.api-client:google-api-client:1.30.9")
 
     val kotlintestVersion = "3.4.2"
     testImplementation("io.kotlintest:kotlintest-runner-junit5:$kotlintestVersion")
@@ -83,5 +83,6 @@ tasks.processResources {
     dependsOn("createProperties")
 }
 kapt {
+    useBuildCache = true
     includeCompileClasspath = false
 }

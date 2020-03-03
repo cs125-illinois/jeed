@@ -26,7 +26,7 @@ object Auth : ConfigSpec() {
 
     object Google : ConfigSpec() {
         val hostedDomain by optional<String?>(null)
-        val clientID by optional<String?>(null)
+        val clientIDs by optional<List<String>>(listOf())
     }
 }
 

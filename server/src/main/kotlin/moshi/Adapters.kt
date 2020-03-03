@@ -72,6 +72,7 @@ class JobAdapter {
 @JsonClass(generateAdapter = true)
 data class ResponseJson(
     val email: String?,
+    val audience: List<String>?,
     val request: Request,
     val status: Status,
     val completed: CompletedTasks,
@@ -118,6 +119,7 @@ class ResultAdapter {
     fun resultToJson(response: Response): ResponseJson {
         return ResponseJson(
             response.email,
+            response.audience,
             response.request,
             response.status,
             response.completed,

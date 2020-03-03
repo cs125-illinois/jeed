@@ -49,6 +49,7 @@ class Request(
     val arguments = arguments ?: TaskArguments()
 
     var email: String? = null
+    var audience: List<String>? = null
 
     init {
         val tasksToRun = passedTasks.toMutableSet()
@@ -130,6 +131,7 @@ class Request(
                         require(it.payload.hostedDomain == configuration[Auth.Google.hostedDomain])
                     }
                     email = it.payload.email
+                    audience = it.payload.audienceAsList
                 }
             }
         } catch (e: IllegalArgumentException) {

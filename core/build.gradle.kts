@@ -3,7 +3,7 @@ import java.io.StringWriter
 import java.util.Properties
 
 group = "com.github.cs125-illinois"
-version = "2020.2.8"
+version = "2020.3.0"
 
 plugins {
     kotlin("jvm")
@@ -23,9 +23,9 @@ dependencies {
     implementation(kotlin("compiler-embeddable"))
 
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-core:1.3.3")
-    implementation("com.puppycrawl.tools:checkstyle:8.29")
-    implementation("com.pinterest.ktlint:ktlint-core:0.35.0")
-    implementation("com.pinterest.ktlint:ktlint-ruleset-standard:0.35.0")
+    implementation("com.puppycrawl.tools:checkstyle:8.30")
+    implementation("com.pinterest.ktlint:ktlint-core:0.36.0")
+    implementation("com.pinterest.ktlint:ktlint-ruleset-standard:0.36.0")
     implementation("org.jetbrains.kotlin:kotlin-reflect:1.3.61")
     implementation("com.github.jknack:handlebars:4.1.2")
     implementation("com.squareup.moshi:moshi:1.9.2")
@@ -77,5 +77,6 @@ task("createProperties") {
     }
 }
 kapt {
+    useBuildCache = true
     includeCompileClasspath = false
 }

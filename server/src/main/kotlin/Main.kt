@@ -41,7 +41,6 @@ import io.ktor.server.engine.embeddedServer
 import io.ktor.server.netty.Netty
 import java.net.URI
 import java.time.Instant
-import java.util.Collections
 import java.util.Properties
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.runBlocking
@@ -151,10 +150,12 @@ fun main() {
             .getDatabase(database)
             .getCollection(collection, BsonDocument::class.java)
     }
-    configuration[Auth.Google.clientID]?.let {
-        Request.googleTokenVerifier = GoogleIdTokenVerifier.Builder(NetHttpTransport(), JacksonFactory())
-                .setAudience(Collections.singletonList(it))
+    configuration[Auth.Google.clientIDs].let {
+        if (it.isNotEmpty()) {
+            Request.googleTokenVerifier = GoogleIdTokenVerifier.Builder(NetHttpTransport(), JacksonFactory())
+                .setAudience(it)
                 .build()
+        }
     }
 
     runBlocking {
