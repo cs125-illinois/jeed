@@ -281,12 +281,14 @@ interface JeedProviderProps {
   defaultArguments?: TaskArguments
   validate?: boolean
   children: React.ReactNode
+  authToken?: string
 }
 export const JeedProvider: React.FC<JeedProviderProps> = ({
   server,
   defaultArguments = {},
   validate = false,
   children,
+  authToken,
 }) => {
   const [connected, setConnected] = useState<boolean>(false)
   const [status, setStatus] = useState<ServerStatus | null>(null)
@@ -324,7 +326,9 @@ export const JeedProvider: React.FC<JeedProviderProps> = ({
 
   const run = (request: Request): Promise<Response> => {
     request.arguments = Object.assign({}, request.arguments, jeedDefaultArguments)
-
+    if (authToken) {
+      request.authToken = authToken
+    }
     console.debug(request)
 
     const jeedRequest = validate
@@ -384,6 +388,7 @@ JeedProvider.propTypes = {
   },
   validate: PropTypes.bool,
   children: PropTypes.node.isRequired,
+  authToken: PropTypes.string,
 }
 
 export const useJeed = (): JeedContext => {

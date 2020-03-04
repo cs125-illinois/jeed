@@ -4,8 +4,8 @@
     "start": "parcel index.html"
   },
   "devDependencies": {
-    "@babel/core": "^7.8.4",
-    "@babel/preset-env": "^7.8.4",
+    "@babel/core": "^7.8.6",
+    "@babel/preset-env": "^7.8.6",
     "@babel/preset-react": "^7.8.3",
     "@cs125/react-jeed": "file:..",
     "@mdx-js/parcel-plugin-mdx": "^1.5.7",
@@ -20,14 +20,14 @@
     "prop-types": "^15.7.2",
     "react-ace": "^8.0.0",
     "react-app-polyfill": "^1.0.6",
-    "react-children-utilities": "^2.0.7",
-    "react-dom": "^16.12.0",
+    "react-children-utilities": "^2.0.8",
+    "react-dom": "^16.13.0",
     "react-hot-loader": "^4.12.19",
     "react-syntax-highlighter": "^12.2.1",
     "semantic-ui-css": "^2.4.1",
     "semantic-ui-react": "^0.88.2",
     "styled-components": "^5.0.1",
-    "typescript": "^3.8.2"
+    "typescript": "^3.8.3"
   },
   "alias": {
     "react": "../node_modules/react"
