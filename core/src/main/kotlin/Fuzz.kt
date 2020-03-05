@@ -30,7 +30,10 @@ data class FuzzConfiguration(
     var conditionals_boundary_rand: Boolean = true,
 
     var increment: Boolean = false,
-    var increment_rand: Boolean = true
+    var increment_rand: Boolean = true,
+
+    var invert_negs: Boolean = false,
+    var invert_negs_rand: Boolean = true
 
 )
 
@@ -318,6 +321,32 @@ class Fuzzer(private val configuration: FuzzConfiguration) : JavaParserBaseListe
                         SourceModification(
                             ctx.text, startLine, startCol,
                             endLine, endCol, "--", "++")
+                    })
+                }
+            }
+            if (left.text == "+") { // + (sign)
+                if (configuration.invert_negs && (!configuration.invert_negs_rand || Math.random() > 0.5)) {
+                    var startLine = ctx.start.line
+                    var startCol = ctx.start.charPositionInLine
+                    var endLine = ctx.start.line
+                    var endCol = ctx.start.charPositionInLine + left.text.length
+                    sourceModifications.add(lazy {
+                        SourceModification(
+                            ctx.text, startLine, startCol,
+                            endLine, endCol, "+", "-")
+                    })
+                }
+            }
+            if (left.text == "-") { // - (sign)
+                if (configuration.invert_negs && (!configuration.invert_negs_rand || Math.random() > 0.5)) {
+                    var startLine = ctx.start.line
+                    var startCol = ctx.start.charPositionInLine
+                    var endLine = ctx.start.line
+                    var endCol = ctx.start.charPositionInLine + left.text.length
+                    sourceModifications.add(lazy {
+                        SourceModification(
+                            ctx.text, startLine, startCol,
+                            endLine, endCol, "-", "")
                     })
                 }
             }
