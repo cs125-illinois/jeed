@@ -535,7 +535,61 @@ class Fuzzer(private val configuration: FuzzConfiguration) : JavaParserBaseListe
     */
 
     override fun enterExpression(ctx: JavaParser.ExpressionContext) {
-
+        if (ctx.childCount == 3) {
+            val op = ctx.getChild(1)
+            if (op.text == ">=") {
+                if (configuration.conditionals_boundary && (!configuration.conditionals_boundary_rand || Math.random() > 0.5)) {
+                    var startLine = ctx.start.line
+                    var startCol = ctx.start.charPositionInLine + ctx.getChild(0).text.length
+                    var endLine = ctx.start.line
+                    var endCol = ctx.stop.charPositionInLine + 1 - ctx.getChild(2).text.length
+                    sourceModifications.add(lazy {
+                        SourceModification(
+                            ctx.text, startLine, startCol,
+                            endLine, endCol, ">=", ">")
+                    })
+                }
+            }
+            else if (op.text == "<=") {
+                if (configuration.conditionals_boundary && (!configuration.conditionals_boundary_rand || Math.random() > 0.5)) {
+                    var startLine = ctx.start.line
+                    var startCol = ctx.start.charPositionInLine + ctx.getChild(0).text.length
+                    var endLine = ctx.start.line
+                    var endCol = ctx.stop.charPositionInLine + 1 - ctx.getChild(2).text.length
+                    sourceModifications.add(lazy {
+                        SourceModification(
+                            ctx.text, startLine, startCol,
+                            endLine, endCol, "<=", "<")
+                    })
+                }
+            }
+            else if (op.text == ">") {
+                if (configuration.conditionals_boundary && (!configuration.conditionals_boundary_rand || Math.random() > 0.5)) {
+                    var startLine = ctx.start.line
+                    var startCol = ctx.start.charPositionInLine + ctx.getChild(0).text.length
+                    var endLine = ctx.start.line
+                    var endCol = ctx.stop.charPositionInLine + 1 - ctx.getChild(2).text.length
+                    sourceModifications.add(lazy {
+                        SourceModification(
+                            ctx.text, startLine, startCol,
+                            endLine, endCol, ">", ">=")
+                    })
+                }
+            }
+            else if (op.text == "<") {
+                if (configuration.conditionals_boundary && (!configuration.conditionals_boundary_rand || Math.random() > 0.5)) {
+                    var startLine = ctx.start.line
+                    var startCol = ctx.start.charPositionInLine + ctx.getChild(0).text.length
+                    var endLine = ctx.start.line
+                    var endCol = ctx.stop.charPositionInLine + 1 - ctx.getChild(2).text.length
+                    sourceModifications.add(lazy {
+                        SourceModification(
+                            ctx.text, startLine, startCol,
+                            endLine, endCol, "<", "<=")
+                    })
+                }
+            }
+        }
     }
 }
 /**
