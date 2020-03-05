@@ -113,7 +113,7 @@ $block
         it.copy(startLine = it.startLine - 1, endLine = it.endLine - 1)
     }.toSet()
     var modifiedSource = sourceModifications.apply(block)
-    modifiedSource = document(modifiedSource, sourceModifications)
+    //modifiedSource = document(modifiedSource, sourceModifications)
 
     parseJava("""{
 $modifiedSource
@@ -152,7 +152,7 @@ fun fuzzCompilationUnit(unit: String, fuzzConfiguration: FuzzConfiguration = Fuz
 
     val sourceModifications = fuzzer.sourceModifications.map { it.value }.toSet()
     var modifiedSource = sourceModifications.apply(unit)
-    modifiedSource = document(modifiedSource, sourceModifications)
+    //modifiedSource = document(modifiedSource, sourceModifications)
 
     parseJava("""{
 $modifiedSource
