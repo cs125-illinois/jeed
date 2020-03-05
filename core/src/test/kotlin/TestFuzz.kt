@@ -36,6 +36,7 @@ for (int i = 0; i < 5; i++) {
     foo--;
 }
 ++foo;
+double bar = 7 + --foo;
 """.trim()
         val expectedFuzzedSource = """
 int foo = 5;
@@ -43,10 +44,32 @@ for (int i = 0; i < 5; i--) {
     foo++;
 }
 --foo;
+double bar = 7 + ++foo;
 """.trim()
         val fuzzConfiguration = FuzzConfiguration()
         fuzzConfiguration.increment = true
         fuzzConfiguration.increment_rand = false
+        val fuzzedSource = fuzzBlock(source, fuzzConfiguration)
+        println(fuzzedSource)
+        fuzzedSource shouldBe expectedFuzzedSource
+    }
+
+    // Invert Negatives
+
+    "invert negatives (all)" {
+        val source = """
+int i = -(4 + 5);
+int j = -i + 1;
+int k = +j;
+""".trim()
+        val expectedFuzzedSource = """
+int i = (4 + 5);
+int j = i + 1;
+int k = -j;
+""".trim()
+        val fuzzConfiguration = FuzzConfiguration()
+        fuzzConfiguration.invert_negs = true
+        fuzzConfiguration.invert_negs_rand = false
         val fuzzedSource = fuzzBlock(source, fuzzConfiguration)
         println(fuzzedSource)
         fuzzedSource shouldBe expectedFuzzedSource
