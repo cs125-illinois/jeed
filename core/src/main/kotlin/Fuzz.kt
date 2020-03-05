@@ -36,7 +36,10 @@ data class FuzzConfiguration(
     var invert_negs_rand: Boolean = true,
 
     var math: Boolean = false,
-    var math_rand: Boolean = true
+    var math_rand: Boolean = true,
+
+    var conditionals_neg: Boolean = false,
+    var conditionals_neg_rand: Boolean = true
 
 )
 
@@ -381,7 +384,7 @@ class Fuzzer(private val configuration: FuzzConfiguration) : JavaParserBaseListe
             }
         }
         if (ctx.childCount == 3) {
-            val op = ctx.getChild(1).text // >=, <=, >, <, -, *, /, %, &, |, ^, <<, >>, >>>
+            val op = ctx.getChild(1).text // >=, <=, >, <, ==, !=, -, *, /, %, &, |, ^, <<, >>, >>>
             if (op == ">=") { // >=
                 if (configuration.conditionals_boundary && (!configuration.conditionals_boundary_rand || Math.random() > 0.5)) {
                     var startLine = ctx.start.line
@@ -392,6 +395,17 @@ class Fuzzer(private val configuration: FuzzConfiguration) : JavaParserBaseListe
                         SourceModification(
                             ctx.text, startLine, startCol,
                             endLine, endCol, ">=", ">")
+                    })
+                }
+                else if (configuration.conditionals_neg && (!configuration.conditionals_neg_rand || Math.random() > 0.5)) {
+                    var startLine = ctx.start.line
+                    var startCol = ctx.start.charPositionInLine + ctx.getChild(0).text.length
+                    var endLine = ctx.start.line
+                    var endCol = ctx.stop.charPositionInLine + 1 - ctx.getChild(2).text.length
+                    sourceModifications.add(lazy {
+                        SourceModification(
+                            ctx.text, startLine, startCol,
+                            endLine, endCol, ">=", "<")
                     })
                 }
             }
@@ -407,6 +421,17 @@ class Fuzzer(private val configuration: FuzzConfiguration) : JavaParserBaseListe
                             endLine, endCol, "<=", "<")
                     })
                 }
+                else if (configuration.conditionals_neg && (!configuration.conditionals_neg_rand || Math.random() > 0.5)) {
+                    var startLine = ctx.start.line
+                    var startCol = ctx.start.charPositionInLine + ctx.getChild(0).text.length
+                    var endLine = ctx.start.line
+                    var endCol = ctx.stop.charPositionInLine + 1 - ctx.getChild(2).text.length
+                    sourceModifications.add(lazy {
+                        SourceModification(
+                            ctx.text, startLine, startCol,
+                            endLine, endCol, "<=", ">")
+                    })
+                }
             }
             else if (op == ">") { // >
                 if (configuration.conditionals_boundary && (!configuration.conditionals_boundary_rand || Math.random() > 0.5)) {
@@ -420,6 +445,17 @@ class Fuzzer(private val configuration: FuzzConfiguration) : JavaParserBaseListe
                             endLine, endCol, ">", ">=")
                     })
                 }
+                else if (configuration.conditionals_neg && (!configuration.conditionals_neg_rand || Math.random() > 0.5)) {
+                    var startLine = ctx.start.line
+                    var startCol = ctx.start.charPositionInLine + ctx.getChild(0).text.length
+                    var endLine = ctx.start.line
+                    var endCol = ctx.stop.charPositionInLine + 1 - ctx.getChild(2).text.length
+                    sourceModifications.add(lazy {
+                        SourceModification(
+                            ctx.text, startLine, startCol,
+                            endLine, endCol, ">", "<=")
+                    })
+                }
             }
             else if (op == "<") { // <
                 if (configuration.conditionals_boundary && (!configuration.conditionals_boundary_rand || Math.random() > 0.5)) {
@@ -431,6 +467,43 @@ class Fuzzer(private val configuration: FuzzConfiguration) : JavaParserBaseListe
                         SourceModification(
                             ctx.text, startLine, startCol,
                             endLine, endCol, "<", "<=")
+                    })
+                }
+                else if (configuration.conditionals_neg && (!configuration.conditionals_neg_rand || Math.random() > 0.5)) {
+                    var startLine = ctx.start.line
+                    var startCol = ctx.start.charPositionInLine + ctx.getChild(0).text.length
+                    var endLine = ctx.start.line
+                    var endCol = ctx.stop.charPositionInLine + 1 - ctx.getChild(2).text.length
+                    sourceModifications.add(lazy {
+                        SourceModification(
+                            ctx.text, startLine, startCol,
+                            endLine, endCol, "<", ">=")
+                    })
+                }
+            }
+            else if (op == "==") { // ==
+                if (configuration.conditionals_neg && (!configuration.conditionals_neg_rand || Math.random() > 0.5)) {
+                    var startLine = ctx.start.line
+                    var startCol = ctx.start.charPositionInLine + ctx.getChild(0).text.length
+                    var endLine = ctx.start.line
+                    var endCol = ctx.stop.charPositionInLine + 1 - ctx.getChild(2).text.length
+                    sourceModifications.add(lazy {
+                        SourceModification(
+                            ctx.text, startLine, startCol,
+                            endLine, endCol, "==", "!=")
+                    })
+                }
+            }
+            else if (op == "!=") { // !=
+                if (configuration.conditionals_neg && (!configuration.conditionals_neg_rand || Math.random() > 0.5)) {
+                    var startLine = ctx.start.line
+                    var startCol = ctx.start.charPositionInLine + ctx.getChild(0).text.length
+                    var endLine = ctx.start.line
+                    var endCol = ctx.stop.charPositionInLine + 1 - ctx.getChild(2).text.length
+                    sourceModifications.add(lazy {
+                        SourceModification(
+                            ctx.text, startLine, startCol,
+                            endLine, endCol, "!=", "==")
                     })
                 }
             }
