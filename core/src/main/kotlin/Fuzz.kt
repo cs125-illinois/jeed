@@ -46,7 +46,8 @@ data class FuzzConfiguration(
     // This is a list of optional transformations that the user may supply - defaults to empty for no transformations
     var fuzzyTransformations: MutableList<Transformation>? = mutableListOf(),
 
-    var conditionals_boundary: Boolean = true
+    var conditionals_boundary: Boolean = true,
+    var conditionals_boundary_rand: Boolean = true
 
 )
 /**
@@ -58,41 +59,24 @@ data class FuzzConfiguration(
 fun Set<SourceModification>.apply(source: String): String {
     val modifiedSource = source.lines().toMutableList()
 
-    val unappliedModifications = mutableListOf<SourceModification>().apply {
-        addAll(this@apply)
-    }
-    unappliedModifications.sortWith(compareBy({ it.startLine }, { it.startColumn }))
-
-    while (unappliedModifications.isNotEmpty()) {
-        val currentModification = unappliedModifications.first()
-
+    for(currentModification in this) {
         assert(currentModification.startLine == currentModification.endLine)
 
         val lineToModify = modifiedSource[currentModification.startLine - 1].toCharArray()
         val toReplace = lineToModify.slice(IntRange(currentModification.startColumn, currentModification.endColumn - 1)).joinToString(separator = "")
-        assert(toReplace == currentModification.content)
+        val replacement = toReplace.replace(currentModification.content, currentModification.replace)
+
         modifiedSource[currentModification.startLine - 1] =
             lineToModify.slice(IntRange(0, currentModification.startColumn - 1)).joinToString(separator = "") +
-                currentModification.replace +
+                replacement +
                 lineToModify.slice(IntRange(currentModification.endColumn, lineToModify.size - 1)).joinToString(separator = "")
 
-        val difference = currentModification.replace.length - currentModification.content.length
-        unappliedModifications.filter {
-            it.startLine == currentModification.startLine || it.endLine == currentModification.startLine
-        }.forEach {
-            if (it.startLine == currentModification.startLine) {
-                it.startColumn += difference
-            }
-            if (it.endLine == currentModification.startLine) {
-                it.endColumn += difference
-            }
-        }
-
-        unappliedModifications.remove(currentModification)
     }
 
     return modifiedSource.joinToString(separator = "\n")
 }
+
+
 /**
  * Fuzzes a "block" of template code.
  *
@@ -106,6 +90,9 @@ fun fuzzBlock(block: String, fuzzConfiguration: FuzzConfiguration = FuzzConfigur
 $block
 }""").block()
     val fuzzer = Fuzzer(fuzzConfiguration)
+
+
+
     val walker = ParseTreeWalker()
 
     if (fuzzConfiguration.fuzzyIdentifierTargets == null) { // In case the user does not provide any identifier targets
@@ -119,6 +106,7 @@ $block
     }
     assert(fuzzConfiguration.fuzzyLiteralTargets != null)
     walker.walk(fuzzer, fuzzyJavaParseTree) // Pass to fuzz source
+
     //sourceModifications.map { it.value }.toSet()
     val sourceModifications: Set<SourceModification> = fuzzer.sourceModifications.map { it.value }.map {
         assert(it.startLine > 1 && it.endLine > 1)
@@ -143,9 +131,8 @@ $modifiedSource
  */
 //passed the source code to default of fuzz config so IdSupplier can get all of the non-fuzzy identifiers
 fun fuzzCompilationUnit(unit: String, fuzzConfiguration: FuzzConfiguration = FuzzConfiguration()): String {
-    val javaParseTree = parseJava(unit).compilationUnit()
     val fuzzer = Fuzzer(fuzzConfiguration)
-    val walker = ParseTreeWalker()
+    //val walker = ParseTreeWalker()
 
     /** TODO: Fix this
 
@@ -546,6 +533,10 @@ class Fuzzer(private val configuration: FuzzConfiguration) : JavaParserBaseListe
         }
     }
     */
+
+    override fun enterExpression(ctx: JavaParser.ExpressionContext) {
+
+    }
 }
 /**
  * A class that collects all of the user defined identifiers.
@@ -627,9 +618,9 @@ class IdSupplier(private val definedIdentifiers: Set<Pair<String, String>>, priv
             return identifierPrefix + next++
         }
     } }.filter { Pair(CLASS, it) !in definedIdentifiers &&
-        Pair(ENUM_CONSTANT, it) !in definedIdentifiers &&
-        Pair(METHOD, it) !in definedIdentifiers &&
-        Pair(VARIABLE, it) !in definedIdentifiers
+    Pair(ENUM_CONSTANT, it) !in definedIdentifiers &&
+    Pair(METHOD, it) !in definedIdentifiers &&
+    Pair(VARIABLE, it) !in definedIdentifiers
     }
     /**
      * Getter method for the next identifier in the [sequenceOfIds].
