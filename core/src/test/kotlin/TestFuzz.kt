@@ -74,5 +74,43 @@ int k = -j;
         println(fuzzedSource)
         fuzzedSource shouldBe expectedFuzzedSource
     }
+
+    // Math
+
+    "math (all)" {
+        val source = """
+int i = -(4 - 5);
+int j = -i + 1; // This should not be changed
+int k = +j * i;
+int l = j / 2;
+int m = 3 % j;
+int n = l & i;
+int o = 7 | n;
+int p = j ^ n;
+int q = j << 2;
+int r = 8 >> 2;
+int s = 16 >>> 2;
+""".trim()
+        val expectedFuzzedSource = """
+int i = -(4 + 5);
+int j = -i + 1; // This should not be changed
+int k = +j / i;
+int l = j * 2;
+int m = 3 * j;
+int n = l | i;
+int o = 7 & n;
+int p = j & n;
+int q = j >> 2;
+int r = 8 << 2;
+int s = 16 << 2;
+""".trim()
+        val fuzzConfiguration = FuzzConfiguration()
+        fuzzConfiguration.math = true
+        fuzzConfiguration.math_rand = false
+        val fuzzedSource = fuzzBlock(source, fuzzConfiguration)
+        println(fuzzedSource)
+        fuzzedSource shouldBe expectedFuzzedSource
+    }
+
 })
 
