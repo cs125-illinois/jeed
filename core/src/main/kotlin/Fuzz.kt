@@ -27,7 +27,10 @@ data class SourceModification(
  */
 data class FuzzConfiguration(
     var conditionals_boundary: Boolean = false,
-    var conditionals_boundary_rand: Boolean = true
+    var conditionals_boundary_rand: Boolean = true,
+
+    var increment: Boolean = false,
+    var increment_rand: Boolean = true
 
 )
 
@@ -216,7 +219,6 @@ internal const val VARIABLE = "VARIABLE"
 
 const val FUZZY_COMPARISON = "?="
 
-//Todo: Better class descriptions
 /**
  * A class that listens for and bookmarks fuzzy tokens as well as what they map to.
  */
@@ -290,8 +292,64 @@ class Fuzzer(private val configuration: FuzzConfiguration) : JavaParserBaseListe
     }
 
     override fun enterExpression(ctx: JavaParser.ExpressionContext) {
+        if (ctx.childCount == 2) {
+            val left = ctx.getChild(0) // ++ (pre), -- (pre)
+            val right = ctx.getChild(1) // ++ (post), -- (post)
+            if (left.text == "++") { // ++ (pre)
+                if (configuration.increment && (!configuration.increment_rand || Math.random() > 0.5)) {
+                    var startLine = ctx.start.line
+                    var startCol = ctx.start.charPositionInLine
+                    var endLine = ctx.start.line
+                    var endCol = ctx.start.charPositionInLine + left.text.length
+                    sourceModifications.add(lazy {
+                        SourceModification(
+                            ctx.text, startLine, startCol,
+                            endLine, endCol, "++", "--")
+                    })
+                }
+            }
+            if (left.text == "--") { // -- (pre)
+                if (configuration.increment && (!configuration.increment_rand || Math.random() > 0.5)) {
+                    var startLine = ctx.start.line
+                    var startCol = ctx.start.charPositionInLine
+                    var endLine = ctx.start.line
+                    var endCol = ctx.start.charPositionInLine + left.text.length
+                    sourceModifications.add(lazy {
+                        SourceModification(
+                            ctx.text, startLine, startCol,
+                            endLine, endCol, "--", "++")
+                    })
+                }
+            }
+            if (right.text == "++") { // ++ (post)
+                if (configuration.increment && (!configuration.increment_rand || Math.random() > 0.5)) {
+                    var startLine = ctx.start.line
+                    var startCol = ctx.stop.charPositionInLine
+                    var endLine = ctx.start.line
+                    var endCol = ctx.stop.charPositionInLine + right.text.length
+                    sourceModifications.add(lazy {
+                        SourceModification(
+                            ctx.text, startLine, startCol,
+                            endLine, endCol, "++", "--")
+                    })
+                }
+            }
+            if (right.text == "--") { // -- (post)
+                if (configuration.increment && (!configuration.increment_rand || Math.random() > 0.5)) {
+                    var startLine = ctx.start.line
+                    var startCol = ctx.stop.charPositionInLine
+                    var endLine = ctx.start.line
+                    var endCol = ctx.stop.charPositionInLine + right.text.length
+                    sourceModifications.add(lazy {
+                        SourceModification(
+                            ctx.text, startLine, startCol,
+                            endLine, endCol, "--", "++")
+                    })
+                }
+            }
+        }
         if (ctx.childCount == 3) {
-            val op = ctx.getChild(1)
+            val op = ctx.getChild(1) // >=, <=, >, <
             if (op.text == ">=") {
                 if (configuration.conditionals_boundary && (!configuration.conditionals_boundary_rand || Math.random() > 0.5)) {
                     var startLine = ctx.start.line
