@@ -33,7 +33,10 @@ data class FuzzConfiguration(
     var increment_rand: Boolean = true,
 
     var invert_negs: Boolean = false,
-    var invert_negs_rand: Boolean = true
+    var invert_negs_rand: Boolean = true,
+
+    var math: Boolean = false,
+    var math_rand: Boolean = true
 
 )
 
@@ -296,14 +299,14 @@ class Fuzzer(private val configuration: FuzzConfiguration) : JavaParserBaseListe
 
     override fun enterExpression(ctx: JavaParser.ExpressionContext) {
         if (ctx.childCount == 2) {
-            val left = ctx.getChild(0) // ++ (pre), -- (pre)
-            val right = ctx.getChild(1) // ++ (post), -- (post)
-            if (left.text == "++") { // ++ (pre)
+            val left = ctx.getChild(0).text // ++ (pre), -- (pre)
+            val right = ctx.getChild(1).text // ++ (post), -- (post)
+            if (left == "++") { // ++ (pre)
                 if (configuration.increment && (!configuration.increment_rand || Math.random() > 0.5)) {
                     var startLine = ctx.start.line
                     var startCol = ctx.start.charPositionInLine
                     var endLine = ctx.start.line
-                    var endCol = ctx.start.charPositionInLine + left.text.length
+                    var endCol = ctx.start.charPositionInLine + left.length
                     sourceModifications.add(lazy {
                         SourceModification(
                             ctx.text, startLine, startCol,
@@ -311,12 +314,12 @@ class Fuzzer(private val configuration: FuzzConfiguration) : JavaParserBaseListe
                     })
                 }
             }
-            if (left.text == "--") { // -- (pre)
+            else if (left == "--") { // -- (pre)
                 if (configuration.increment && (!configuration.increment_rand || Math.random() > 0.5)) {
                     var startLine = ctx.start.line
                     var startCol = ctx.start.charPositionInLine
                     var endLine = ctx.start.line
-                    var endCol = ctx.start.charPositionInLine + left.text.length
+                    var endCol = ctx.start.charPositionInLine + left.length
                     sourceModifications.add(lazy {
                         SourceModification(
                             ctx.text, startLine, startCol,
@@ -324,12 +327,38 @@ class Fuzzer(private val configuration: FuzzConfiguration) : JavaParserBaseListe
                     })
                 }
             }
-            if (left.text == "+") { // + (sign)
+            else if (right == "++") { // ++ (post)
+                if (configuration.increment && (!configuration.increment_rand || Math.random() > 0.5)) {
+                    var startLine = ctx.start.line
+                    var startCol = ctx.stop.charPositionInLine
+                    var endLine = ctx.start.line
+                    var endCol = ctx.stop.charPositionInLine + right.length
+                    sourceModifications.add(lazy {
+                        SourceModification(
+                            ctx.text, startLine, startCol,
+                            endLine, endCol, "++", "--")
+                    })
+                }
+            }
+            else if (right == "--") { // -- (post)
+                if (configuration.increment && (!configuration.increment_rand || Math.random() > 0.5)) {
+                    var startLine = ctx.start.line
+                    var startCol = ctx.stop.charPositionInLine
+                    var endLine = ctx.start.line
+                    var endCol = ctx.stop.charPositionInLine + right.length
+                    sourceModifications.add(lazy {
+                        SourceModification(
+                            ctx.text, startLine, startCol,
+                            endLine, endCol, "--", "++")
+                    })
+                }
+            }
+            else if (left == "+") { // + (sign)
                 if (configuration.invert_negs && (!configuration.invert_negs_rand || Math.random() > 0.5)) {
                     var startLine = ctx.start.line
                     var startCol = ctx.start.charPositionInLine
                     var endLine = ctx.start.line
-                    var endCol = ctx.start.charPositionInLine + left.text.length
+                    var endCol = ctx.start.charPositionInLine + left.length
                     sourceModifications.add(lazy {
                         SourceModification(
                             ctx.text, startLine, startCol,
@@ -337,12 +366,12 @@ class Fuzzer(private val configuration: FuzzConfiguration) : JavaParserBaseListe
                     })
                 }
             }
-            if (left.text == "-") { // - (sign)
+            else if (left == "-") { // - (sign)
                 if (configuration.invert_negs && (!configuration.invert_negs_rand || Math.random() > 0.5)) {
                     var startLine = ctx.start.line
                     var startCol = ctx.start.charPositionInLine
                     var endLine = ctx.start.line
-                    var endCol = ctx.start.charPositionInLine + left.text.length
+                    var endCol = ctx.start.charPositionInLine + left.length
                     sourceModifications.add(lazy {
                         SourceModification(
                             ctx.text, startLine, startCol,
@@ -350,36 +379,10 @@ class Fuzzer(private val configuration: FuzzConfiguration) : JavaParserBaseListe
                     })
                 }
             }
-            if (right.text == "++") { // ++ (post)
-                if (configuration.increment && (!configuration.increment_rand || Math.random() > 0.5)) {
-                    var startLine = ctx.start.line
-                    var startCol = ctx.stop.charPositionInLine
-                    var endLine = ctx.start.line
-                    var endCol = ctx.stop.charPositionInLine + right.text.length
-                    sourceModifications.add(lazy {
-                        SourceModification(
-                            ctx.text, startLine, startCol,
-                            endLine, endCol, "++", "--")
-                    })
-                }
-            }
-            if (right.text == "--") { // -- (post)
-                if (configuration.increment && (!configuration.increment_rand || Math.random() > 0.5)) {
-                    var startLine = ctx.start.line
-                    var startCol = ctx.stop.charPositionInLine
-                    var endLine = ctx.start.line
-                    var endCol = ctx.stop.charPositionInLine + right.text.length
-                    sourceModifications.add(lazy {
-                        SourceModification(
-                            ctx.text, startLine, startCol,
-                            endLine, endCol, "--", "++")
-                    })
-                }
-            }
         }
         if (ctx.childCount == 3) {
-            val op = ctx.getChild(1) // >=, <=, >, <
-            if (op.text == ">=") {
+            val op = ctx.getChild(1).text // >=, <=, >, <, -, *, /, %, &, |, ^, <<, >>, >>>
+            if (op == ">=") { // >=
                 if (configuration.conditionals_boundary && (!configuration.conditionals_boundary_rand || Math.random() > 0.5)) {
                     var startLine = ctx.start.line
                     var startCol = ctx.start.charPositionInLine + ctx.getChild(0).text.length
@@ -392,7 +395,7 @@ class Fuzzer(private val configuration: FuzzConfiguration) : JavaParserBaseListe
                     })
                 }
             }
-            else if (op.text == "<=") {
+            else if (op == "<=") { // <=
                 if (configuration.conditionals_boundary && (!configuration.conditionals_boundary_rand || Math.random() > 0.5)) {
                     var startLine = ctx.start.line
                     var startCol = ctx.start.charPositionInLine + ctx.getChild(0).text.length
@@ -405,7 +408,7 @@ class Fuzzer(private val configuration: FuzzConfiguration) : JavaParserBaseListe
                     })
                 }
             }
-            else if (op.text == ">") {
+            else if (op == ">") { // >
                 if (configuration.conditionals_boundary && (!configuration.conditionals_boundary_rand || Math.random() > 0.5)) {
                     var startLine = ctx.start.line
                     var startCol = ctx.start.charPositionInLine + ctx.getChild(0).text.length
@@ -418,7 +421,7 @@ class Fuzzer(private val configuration: FuzzConfiguration) : JavaParserBaseListe
                     })
                 }
             }
-            else if (op.text == "<") {
+            else if (op == "<") { // <
                 if (configuration.conditionals_boundary && (!configuration.conditionals_boundary_rand || Math.random() > 0.5)) {
                     var startLine = ctx.start.line
                     var startCol = ctx.start.charPositionInLine + ctx.getChild(0).text.length
@@ -428,6 +431,142 @@ class Fuzzer(private val configuration: FuzzConfiguration) : JavaParserBaseListe
                         SourceModification(
                             ctx.text, startLine, startCol,
                             endLine, endCol, "<", "<=")
+                    })
+                }
+            }
+            else if (op == "-") { // - (arithmetic)
+                if (configuration.math && (!configuration.math_rand || Math.random() > 0.5)) {
+                    var startLine = ctx.start.line
+                    var startCol = ctx.start.charPositionInLine + ctx.getChild(0).text.length
+                    var endLine = ctx.start.line
+                    var endCol = ctx.stop.charPositionInLine + 1 - ctx.getChild(2).text.length
+                    sourceModifications.add(lazy {
+                        SourceModification(
+                            ctx.text, startLine, startCol,
+                            endLine, endCol, "-", "+")
+                    })
+                }
+            }
+            else if (op == "*") { // *
+                if (configuration.math && (!configuration.math_rand || Math.random() > 0.5)) {
+                    var startLine = ctx.start.line
+                    var startCol = ctx.start.charPositionInLine + ctx.getChild(0).text.length
+                    var endLine = ctx.start.line
+                    var endCol = ctx.stop.charPositionInLine + 1 - ctx.getChild(2).text.length
+                    sourceModifications.add(lazy {
+                        SourceModification(
+                            ctx.text, startLine, startCol,
+                            endLine, endCol, "*", "/")
+                    })
+                }
+            }
+            else if (op == "/") { // /
+                if (configuration.math && (!configuration.math_rand || Math.random() > 0.5)) {
+                    var startLine = ctx.start.line
+                    var startCol = ctx.start.charPositionInLine + ctx.getChild(0).text.length
+                    var endLine = ctx.start.line
+                    var endCol = ctx.stop.charPositionInLine + 1 - ctx.getChild(2).text.length
+                    sourceModifications.add(lazy {
+                        SourceModification(
+                            ctx.text, startLine, startCol,
+                            endLine, endCol, "/", "*")
+                    })
+                }
+            }
+            else if (op == "%") { // %
+                if (configuration.math && (!configuration.math_rand || Math.random() > 0.5)) {
+                    var startLine = ctx.start.line
+                    var startCol = ctx.start.charPositionInLine + ctx.getChild(0).text.length
+                    var endLine = ctx.start.line
+                    var endCol = ctx.stop.charPositionInLine + 1 - ctx.getChild(2).text.length
+                    sourceModifications.add(lazy {
+                        SourceModification(
+                            ctx.text, startLine, startCol,
+                            endLine, endCol, "%", "*")
+                    })
+                }
+            }
+            else if (op == "&") { // &
+                if (configuration.math && (!configuration.math_rand || Math.random() > 0.5)) {
+                    var startLine = ctx.start.line
+                    var startCol = ctx.start.charPositionInLine + ctx.getChild(0).text.length
+                    var endLine = ctx.start.line
+                    var endCol = ctx.stop.charPositionInLine + 1 - ctx.getChild(2).text.length
+                    sourceModifications.add(lazy {
+                        SourceModification(
+                            ctx.text, startLine, startCol,
+                            endLine, endCol, "&", "|")
+                    })
+                }
+            }
+            else if (op == "|") { // |
+                if (configuration.math && (!configuration.math_rand || Math.random() > 0.5)) {
+                    var startLine = ctx.start.line
+                    var startCol = ctx.start.charPositionInLine + ctx.getChild(0).text.length
+                    var endLine = ctx.start.line
+                    var endCol = ctx.stop.charPositionInLine + 1 - ctx.getChild(2).text.length
+                    sourceModifications.add(lazy {
+                        SourceModification(
+                            ctx.text, startLine, startCol,
+                            endLine, endCol, "|", "&")
+                    })
+                }
+            }
+            else if (op == "^") { // ^
+                if (configuration.math && (!configuration.math_rand || Math.random() > 0.5)) {
+                    var startLine = ctx.start.line
+                    var startCol = ctx.start.charPositionInLine + ctx.getChild(0).text.length
+                    var endLine = ctx.start.line
+                    var endCol = ctx.stop.charPositionInLine + 1 - ctx.getChild(2).text.length
+                    sourceModifications.add(lazy {
+                        SourceModification(
+                            ctx.text, startLine, startCol,
+                            endLine, endCol, "^", "&")
+                    })
+                }
+            }
+        }
+        if (ctx.childCount == 4) {
+            val op = ctx.getChild(1).text + ctx.getChild(2).text // <<, >>
+            if (op == "<<") { // <<
+                if (configuration.math && (!configuration.math_rand || Math.random() > 0.5)) {
+                    var startLine = ctx.start.line
+                    var startCol = ctx.start.charPositionInLine + ctx.getChild(0).text.length
+                    var endLine = ctx.start.line
+                    var endCol = ctx.stop.charPositionInLine + 1 - ctx.getChild(3).text.length
+                    sourceModifications.add(lazy {
+                        SourceModification(
+                            ctx.text, startLine, startCol,
+                            endLine, endCol, "<<", ">>")
+                    })
+                }
+            }
+            else if (op == ">>") { // >>
+                if (configuration.math && (!configuration.math_rand || Math.random() > 0.5)) {
+                    var startLine = ctx.start.line
+                    var startCol = ctx.start.charPositionInLine + ctx.getChild(0).text.length
+                    var endLine = ctx.start.line
+                    var endCol = ctx.stop.charPositionInLine + 1 - ctx.getChild(3).text.length
+                    sourceModifications.add(lazy {
+                        SourceModification(
+                            ctx.text, startLine, startCol,
+                            endLine, endCol, ">>", "<<")
+                    })
+                }
+            }
+        }
+        if (ctx.childCount == 5) {
+            val op = ctx.getChild(1).text + ctx.getChild(2).text + ctx.getChild(3).text // <<<
+            if (op == ">>>") { // >>>
+                if (configuration.math && (!configuration.math_rand || Math.random() > 0.5)) {
+                    var startLine = ctx.start.line
+                    var startCol = ctx.start.charPositionInLine + ctx.getChild(0).text.length
+                    var endLine = ctx.start.line
+                    var endCol = ctx.stop.charPositionInLine + 1 - ctx.getChild(2).text.length
+                    sourceModifications.add(lazy {
+                        SourceModification(
+                            ctx.text, startLine, startCol,
+                            endLine, endCol, ">>>", "<<")
                     })
                 }
             }
