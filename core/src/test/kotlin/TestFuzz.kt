@@ -112,5 +112,37 @@ int s = 16 << 2;
         fuzzedSource shouldBe expectedFuzzedSource
     }
 
+    // Conditionals Negate
+
+    "conditionals negate (all)" {
+        val source = """
+bool foo = 5 == 5;
+for (int i = 0; i < 5; i++) {
+    foo = 1 != i;
+}
+if (5 > 1) {
+    foo = 3 < 2;
+    foo = 2 >= 2;
+}
+double bar = foo && 4 <= 2;
+""".trim()
+        val expectedFuzzedSource = """
+bool foo = 5 != 5;
+for (int i = 0; i >= 5; i++) {
+    foo = 1 == i;
+}
+if (5 <= 1) {
+    foo = 3 >= 2;
+    foo = 2 < 2;
+}
+double bar = foo && 4 > 2;
+""".trim()
+        val fuzzConfiguration = FuzzConfiguration()
+        fuzzConfiguration.conditionals_neg = true
+        fuzzConfiguration.conditionals_neg_rand = false
+        val fuzzedSource = fuzzBlock(source, fuzzConfiguration)
+        println(fuzzedSource)
+        fuzzedSource shouldBe expectedFuzzedSource
+    }
 })
 
