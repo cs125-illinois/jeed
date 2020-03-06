@@ -1,8 +1,13 @@
 {
   "scripts": {
-    "start": "parcel index.html"
+    "start": "concurrently -n parcel,jeed --handle-input \"npm run parcel\" \"npm run jeed\"",
+    "parcel": "parcel index.html",
+    "jeed": "env-cmd docker run -p 8888:8888 cs125/jeed:latest",
+    "prettier": "prettier --write *"
   },
   "devDependencies": {
+    "concurrently": "^5.1.0",
+    "env-cmd": "^10.1.0",
     "parcel-bundler": "^1.12.4",
     "prettier": "^1.19.1"
   }

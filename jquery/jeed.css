@@ -1,0 +1,9 @@
+.jeed.output {
+  margin: 0;
+}
+.jeed.blank {
+  color: green;
+}
+.jeed.error {
+  color: red;
+}
