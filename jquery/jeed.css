@@ -1,3 +1,8 @@
+pre.code {
+  border: 1px dotted grey;
+  margin: 0;
+  white-space: normal;
+}
 .jeed.output {
   margin: 0;
 }
