@@ -1,5 +1,5 @@
 (function($) {
-  function runWithJeed(snippet, language) {
+  function runWithJeed(server, snippet, language) {
     const tasks = { execute: true };
     if (language === "java") {
       tasks.compile = true;
@@ -20,7 +20,7 @@
     request.tasks = Object.keys(tasks);
     console.debug(request);
     return $.ajax({
-      url: process.env.JEED,
+      url: server,
       type: "POST",
       data: JSON.stringify(request),
       contentType: "application/json; charset=utf-8",
@@ -131,37 +131,57 @@ ${errorCount} error${errorCount > 1 ? "s" : ""}`;
     return resultOutput.trim();
   }
 
-  let outputIndex = 0;
+  const defaultCloseButton =
+    '<button class="jeed close" style="position: absolute; right: 2px; top: 2px;">Close</button>';
+  const defaultRunButton =
+    '<button class="jeed play" style="position: absolute; right: 2px; bottom: 2px;">Run</button>';
+  const defaultRunningBanner =
+    '<div class="jeed running" style="display: none;"><pre>Running...</pre></div>';
 
-  $.fn.jeed = function(language) {
+  $.fn.jeed = function(language, server, options = {}) {
     this.each(function(index, elem) {
       $(elem)
         .parent("pre")
         .css({ position: "relative" });
 
-      const wrapper = $('<div class="jeed wrapper"></div>').attr({
-        id: "jeed-wrapper-" + outputIndex
-      });
+      const wrapper = $('<div class="jeed wrapper"></div>');
       $(elem)
         .parent("pre")
         .wrap(wrapper);
 
-      const output = $('<pre class="jeed output"></pre>')
-        .css({
-          display: "none"
-        })
-        .attr({
-          id: "jeed-output-" + outputIndex++
-        });
+      const outputWrapper = $(
+        '<div class="jeed output" style="position: relative;"><pre></pre></div>'
+      ).css({
+        display: "none"
+      });
+      const runningBanner = $(options.runningBanner || defaultRunningBanner);
+      outputWrapper.append(runningBanner);
 
-      const button = $('<button class="jeed play">Play</button>')
-        .css({
-          position: "absolute",
-          right: 0,
-          bottom: 0
-        })
-        .on("click", function() {
+      const closeButton = $(options.closeButton || defaultCloseButton).on(
+        "click",
+        function() {
+          $(this)
+            .parent()
+            .css({ display: "none" });
+        }
+      );
+      outputWrapper.append(closeButton);
+
+      const output = $(outputWrapper)
+        .children("pre")
+        .eq(0);
+      output.css({ display: "none" });
+
+      let timer;
+      const runButton = $(options.runButton || defaultRunButton).on(
+        "click",
+        function() {
+          $(outputWrapper).css({ display: "block" });
+          timer = setTimeout(() => {
+            runningBanner.css({ display: "block" });
+          }, 100);
           runWithJeed(
+            server,
             $(this)
               .prev()
               .text(),
@@ -176,7 +196,9 @@ ${errorCount} error${errorCount > 1 ? "s" : ""}`;
                   '<span class="jeed blank">(No output produced)</span>'
                 );
               }
-              $(output).css({ display: "block" });
+              clearTimeout(timer);
+              output.css({ display: "block" });
+              runningBanner.css({ display: "none" });
             })
             .fail((xhr, status, error) => {
               console.error("Request failed");
@@ -186,15 +208,19 @@ ${errorCount} error${errorCount > 1 ? "s" : ""}`;
               $(output).html(
                 '<span class="jeed error">An error occurred</span>'
               );
+              clearTimeout(timer);
+              output.css({ display: "block" });
+              runningBanner.css({ display: "none" });
             });
-        });
+        }
+      );
 
       $(elem)
         .parent("pre")
-        .append(button);
+        .append(runButton);
       $(elem)
         .parents("div.jeed.wrapper")
-        .append(output);
+        .append(outputWrapper);
     });
   };
 })(jQuery);

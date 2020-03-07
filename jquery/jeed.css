@@ -3,11 +3,25 @@ pre.code {
   margin: 0;
   white-space: normal;
 }
+code {
+  white-space: pre;
+}
 .jeed.output {
   margin: 0;
 }
+.jeed.output pre {
+  margin: 0;
+  max-height: 32em;
+  overflow-y: auto;
+  padding: 0.5em 0em 0.5em 0.5em;
+  color: white;
+  background-color: black;
+}
+.jeed.output pre::-webkit-scrollbar-thumb {
+  background-color: white;
+}
 .jeed.blank {
-  color: green;
+  color: LightGreen;
 }
 .jeed.error {
   color: red;
