@@ -138,16 +138,24 @@ ${errorCount} error${errorCount > 1 ? "s" : ""}`;
   const defaultRunningBanner =
     '<div class="jeed running" style="display: none;"><pre>Running...</pre></div>';
 
-  $.fn.jeed = function(language, server, options = {}) {
+  $.fn.jeed = function(server, options = {}) {
     this.each(function(index, elem) {
-      $(elem)
-        .parent("pre")
-        .css({ position: "relative" });
+      if ($(elem).children("code").length !== 1) {
+        return
+      }
+      const code = $(elem).children("code").eq(0)
+      if (!(code.hasClass("lang-java") || code.hasClass("lang-kotlin"))) {
+        return
+      }
 
-      const wrapper = $('<div class="jeed wrapper"></div>');
-      $(elem)
-        .parent("pre")
-        .wrap(wrapper);
+      let language
+      if (code.hasClass("lang-java")) {
+        language = "java"
+      } else if (code.hasClass("lang-kotlin")) {
+        language = "kotlin"
+      }
+
+      $(elem).css({ position: "relative" });
 
       const outputWrapper = $(
         '<div class="jeed output" style="position: relative;"><pre></pre></div>'
@@ -215,12 +223,8 @@ ${errorCount} error${errorCount > 1 ? "s" : ""}`;
         }
       );
 
-      $(elem)
-        .parent("pre")
-        .append(runButton);
-      $(elem)
-        .parents("div.jeed.wrapper")
-        .append(outputWrapper);
+      $(elem).append(runButton);
+      $(elem).append(outputWrapper);
     });
   };
 })(jQuery);
