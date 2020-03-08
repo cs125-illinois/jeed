@@ -155,7 +155,7 @@ ${errorCount} error${errorCount > 1 ? "s" : ""}`;
         language = "kotlin"
       }
 
-      $(elem).css({ position: "relative" });
+      code.css({ position: "relative" });
 
       const outputWrapper = $(
         '<div class="jeed output" style="position: relative;"><pre></pre></div>'
@@ -181,8 +181,10 @@ ${errorCount} error${errorCount > 1 ? "s" : ""}`;
       output.css({ display: "none" });
 
       let timer;
-      const runButton = $(options.runButton || defaultRunButton).on(
+      const runButton = $(options.runButton || defaultRunButton)
+      code.on(
         "click",
+        "button",
         function() {
           $(outputWrapper).css({ display: "block" });
           timer = setTimeout(() => {
@@ -191,7 +193,7 @@ ${errorCount} error${errorCount > 1 ? "s" : ""}`;
           runWithJeed(
             server,
             $(this)
-              .prev()
+              .parent("code")
               .text(),
             language
           )
@@ -223,7 +225,7 @@ ${errorCount} error${errorCount > 1 ? "s" : ""}`;
         }
       );
 
-      $(elem).append(runButton);
+      code.append(runButton);
       $(elem).append(outputWrapper);
     });
   };
