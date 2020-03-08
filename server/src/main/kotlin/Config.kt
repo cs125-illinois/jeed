@@ -13,6 +13,7 @@ const val NAME = "jeed"
 
 object TopLevel : ConfigSpec("") {
     val http by optional(DEFAULT_HTTP)
+    val hosts by optional<List<String>>(listOf())
     val semester by optional<String?>(null)
     val mongodb by optional<String?>(null)
 

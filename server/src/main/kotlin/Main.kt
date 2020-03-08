@@ -12,18 +12,8 @@ import com.ryanharter.ktor.moshi.moshi
 import com.squareup.moshi.JsonClass
 import com.squareup.moshi.Moshi
 import com.uchuhimo.konf.source.json.toJson
-import edu.illinois.cs.cs125.jeed.core.CheckstyleArguments
-import edu.illinois.cs.cs125.jeed.core.KtLintArguments
-import edu.illinois.cs.cs125.jeed.core.SnippetArguments
-import edu.illinois.cs.cs125.jeed.core.Source
-import edu.illinois.cs.cs125.jeed.core.checkstyle
-import edu.illinois.cs.cs125.jeed.core.compile
-import edu.illinois.cs.cs125.jeed.core.complexity
-import edu.illinois.cs.cs125.jeed.core.execute
-import edu.illinois.cs.cs125.jeed.core.fromSnippet
-import edu.illinois.cs.cs125.jeed.core.kompile
-import edu.illinois.cs.cs125.jeed.core.ktLint
 import edu.illinois.cs.cs125.jeed.core.moshi.Adapters as JeedAdapters
+import edu.illinois.cs.cs125.jeed.core.warm
 import edu.illinois.cs.cs125.jeed.server.moshi.Adapters
 import io.ktor.application.Application
 import io.ktor.application.ApplicationCallPipeline
@@ -43,7 +33,8 @@ import java.net.URI
 import java.time.Instant
 import java.util.Properties
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.runBlocking
+import kotlinx.coroutines.GlobalScope
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import mu.KotlinLogging
 import org.apache.http.auth.AuthenticationException
@@ -68,7 +59,24 @@ data class PreAuthenticationRequest(val authToken: String)
 @Suppress("ComplexMethod", "LongMethod")
 fun Application.jeed() {
     install(CORS) {
-        anyHost()
+        configuration[TopLevel.hosts].union(listOf(configuration[TopLevel.http])).toSet().forEach { hostname ->
+            if (hostname == "*") {
+                anyHost()
+            } else {
+                @Suppress("MagicNumber")
+                URI(hostname).let {
+                    require(it.host != null && it.scheme != null) { "Bad hostname: $hostname" }
+
+                    val hostWithPort = if (it.port != -1) {
+                        "${it.host}:${it.port}"
+                    } else {
+                        it.host
+                    }
+                    host(hostWithPort, schemes = listOf(it.scheme))
+                }
+            }
+        }
+
         allowCredentials = true
         allowNonSimpleContentTypes = true
     }
@@ -158,32 +166,10 @@ fun main() {
         }
     }
 
-    runBlocking {
-        warm()
-    }
+    GlobalScope.launch { warm(2) }
+    GlobalScope.launch { Request.mongoCollection?.find(Filters.eq("_id", "")) }
 
     embeddedServer(Netty, host = httpUri.host, port = httpUri.port, module = Application::jeed).start(wait = true)
-}
-
-suspend fun warm() {
-    logger.info(
-        Source.fromSnippet(
-            """System.out.println("javac initialized");""",
-            SnippetArguments(indent = 2)
-        ).also {
-            it.checkstyle(CheckstyleArguments(failOnError = true))
-            it.complexity()
-        }.compile().execute().output
-    )
-    logger.info(
-        Source.fromSnippet(
-            """println("kotlinc initialized")""",
-            SnippetArguments(indent = 2, fileType = Source.FileType.KOTLIN)
-        ).also {
-            it.ktLint(KtLintArguments(failOnError = true))
-        }.kompile().execute().output
-    )
-    Request.mongoCollection?.find(Filters.eq("_id", ""))
 }
 
 fun assert(block: () -> String): Nothing { throw AssertionError(block()) }
