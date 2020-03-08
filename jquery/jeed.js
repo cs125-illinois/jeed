@@ -186,8 +186,8 @@ ${errorCount} error${errorCount > 1 ? "s" : ""}`;
         "button",
         function() {
           $(output).text("")
-          $(outputWrapper).css({ display: "block" });
           timer = setTimeout(() => {
+            $(outputWrapper).css({ display: "block" });
             runningBanner.css({ display: "block" });
           }, 100);
           runWithJeed(
@@ -198,6 +198,7 @@ ${errorCount} error${errorCount > 1 ? "s" : ""}`;
             language
           )
             .done(result => {
+              $(outputWrapper).css({ display: "block" });
               const jeedOutput = formatJeedResult(result);
               if (jeedOutput !== "") {
                 $(output).text(formatJeedResult(result));
