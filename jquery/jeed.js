@@ -18,7 +18,6 @@
       }
     };
     request.tasks = Object.keys(tasks);
-    console.debug(request);
     return $.ajax({
       url: server,
       type: "POST",
@@ -186,6 +185,7 @@ ${errorCount} error${errorCount > 1 ? "s" : ""}`;
         "click",
         "button",
         function() {
+          $(output).text("")
           $(outputWrapper).css({ display: "block" });
           timer = setTimeout(() => {
             runningBanner.css({ display: "block" });
