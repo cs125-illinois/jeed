@@ -15,10 +15,12 @@ spec:
     spec:
       containers:
       - name: jeed
-        image: cs125/jeed:2020.3.1
+        image: cs125/jeed:2020.3.2
         ports:
         - containerPort: 8888
         env:
+        - name: HOSTS
+          value: https://cs125.cs.illinois.edu,https://kotlin.cs.illinois.edu,https://kotlin-forum.cs.illinois.edu
         - name: SEMESTER
           value: Spring2020
         - name: HTTP

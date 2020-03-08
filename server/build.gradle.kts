@@ -3,7 +3,7 @@ import java.io.StringWriter
 import java.util.Properties
 
 group = "edu.illinois.cs.cs125"
-version = "2020.3.2"
+version = "2020.3.3"
 
 plugins {
     kotlin("jvm")

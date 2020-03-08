@@ -16,6 +16,8 @@ import java.time.Instant
 @JsonClass(generateAdapter = true)
 @Suppress("Unused", "MemberVisibilityCanBePrivate")
 class Status(
+    val semester: String? = configuration[TopLevel.semester],
+    val hosts: List<String> = configuration[TopLevel.hosts],
     val tasks: Set<Task> = Task.values().toSet(),
     val started: Instant = Instant.now(),
     val hostname: String = InetAddress.getLocalHost().hostName,
