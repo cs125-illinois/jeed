@@ -8,5 +8,6 @@ const closeButton =
   '<button class="jeed play" style="position: absolute; right: 2px; top: 2px;"><i class="fa fa-close"></i></button>';
 
 $("pre").jeed(process.env.JEED, {
-  runButton, closeButton
-})
+  runButton,
+  closeButton
+});

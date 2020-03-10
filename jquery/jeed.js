@@ -140,18 +140,20 @@ ${errorCount} error${errorCount > 1 ? "s" : ""}`;
   $.fn.jeed = function(server, options = {}) {
     this.each(function(index, elem) {
       if ($(elem).children("code").length !== 1) {
-        return
+        return;
       }
-      const code = $(elem).children("code").eq(0)
+      const code = $(elem)
+        .children("code")
+        .eq(0);
       if (!(code.hasClass("lang-java") || code.hasClass("lang-kotlin"))) {
-        return
+        return;
       }
 
-      let language
+      let language;
       if (code.hasClass("lang-java")) {
-        language = "java"
+        language = "java";
       } else if (code.hasClass("lang-kotlin")) {
-        language = "kotlin"
+        language = "kotlin";
       }
 
       code.css({ position: "relative" });
@@ -180,51 +182,45 @@ ${errorCount} error${errorCount > 1 ? "s" : ""}`;
       output.css({ display: "none" });
 
       let timer;
-      const runButton = $(options.runButton || defaultRunButton)
-      code.on(
-        "click",
-        "button",
-        function() {
-          $(output).text("")
-          timer = setTimeout(() => {
+      const runButton = $(options.runButton || defaultRunButton);
+      code.on("click", "button", function() {
+        $(output).text("");
+        timer = setTimeout(() => {
+          $(outputWrapper).css({ display: "block" });
+          runningBanner.css({ display: "block" });
+        }, 100);
+        runWithJeed(
+          server,
+          $(this)
+            .parent("code")
+            .text(),
+          language
+        )
+          .done(result => {
             $(outputWrapper).css({ display: "block" });
-            runningBanner.css({ display: "block" });
-          }, 100);
-          runWithJeed(
-            server,
-            $(this)
-              .parent("code")
-              .text(),
-            language
-          )
-            .done(result => {
-              $(outputWrapper).css({ display: "block" });
-              const jeedOutput = formatJeedResult(result);
-              if (jeedOutput !== "") {
-                $(output).text(formatJeedResult(result));
-              } else {
-                $(output).html(
-                  '<span class="jeed blank">(No output produced)</span>'
-                );
-              }
-              clearTimeout(timer);
-              output.css({ display: "block" });
-              runningBanner.css({ display: "none" });
-            })
-            .fail((xhr, status, error) => {
-              console.error("Request failed");
-              console.error(JSON.stringify(xhr, null, 2));
-              console.error(JSON.stringify(status, null, 2));
-              console.error(JSON.stringify(error, null, 2));
+            const jeedOutput = formatJeedResult(result);
+            if (jeedOutput !== "") {
+              $(output).text(formatJeedResult(result));
+            } else {
               $(output).html(
-                '<span class="jeed error">An error occurred</span>'
+                '<span class="jeed blank">(No output produced)</span>'
               );
-              clearTimeout(timer);
-              output.css({ display: "block" });
-              runningBanner.css({ display: "none" });
-            });
-        }
-      );
+            }
+            clearTimeout(timer);
+            output.css({ display: "block" });
+            runningBanner.css({ display: "none" });
+          })
+          .fail((xhr, status, error) => {
+            console.error("Request failed");
+            console.error(JSON.stringify(xhr, null, 2));
+            console.error(JSON.stringify(status, null, 2));
+            console.error(JSON.stringify(error, null, 2));
+            $(output).html('<span class="jeed error">An error occurred</span>');
+            clearTimeout(timer);
+            output.css({ display: "block" });
+            runningBanner.css({ display: "none" });
+          });
+      });
 
       code.append(runButton);
       $(elem).append(outputWrapper);
