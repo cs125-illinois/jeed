@@ -105,7 +105,9 @@ fun Source.ktLint(ktLintArguments: KtLintArguments = KtLintArguments()): KtLintR
                     if (source is Snippet) { "MainKt.kt" } else { filename },
                     contents,
                     listOf(jeedRuleSet),
-                    cb = { e, _ -> add(KtLintError(e.ruleId, e.detail, SourceLocation(filename, e.line, e.col))) },
+                    cb = { e, _
+                        -> add(KtLintError(e.ruleId, e.detail, mapLocation(SourceLocation(filename, e.line, e.col))))
+                    },
                     editorConfigPath = editorConfigPath
                 )
             )

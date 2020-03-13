@@ -5,6 +5,7 @@ package edu.illinois.cs.cs125.jeed.core
 import io.kotlintest.matchers.beEmpty
 import io.kotlintest.matchers.collections.shouldHaveSize
 import io.kotlintest.should
+import io.kotlintest.shouldBe
 import io.kotlintest.shouldThrow
 import io.kotlintest.specs.StringSpec
 
@@ -27,5 +28,17 @@ class TestKtLint : StringSpec({
 
         ktLintFailed.errors shouldHaveSize 3
         ktLintFailed.errors.filterIsInstance<KtLintError>().filter { it.ruleId == "indent" } shouldHaveSize 3
+    }
+    "f:it should check kotlin snippets and get the line numbers right" {
+        val ktLintFailed = shouldThrow<KtLintFailed> {
+            Source.fromSnippet(
+                """ println("Hello, world!")""",
+                SnippetArguments(fileType = Source.FileType.KOTLIN)
+            ).ktLint(KtLintArguments(failOnError = true))
+        }
+
+        ktLintFailed.errors shouldHaveSize 1
+        ktLintFailed.errors.filterIsInstance<KtLintError>().filter { it.ruleId == "indent" } shouldHaveSize 1
+        ktLintFailed.errors.first().location.line shouldBe 1
     }
 })

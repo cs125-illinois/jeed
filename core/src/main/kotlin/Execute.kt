@@ -47,7 +47,11 @@ class ExecutionFailed(
 
     constructor(classMissing: ClassMissingException) : this(classMissing, null, null)
     constructor(methodNotFound: MethodNotFoundException) : this(null, methodNotFound, null)
-    constructor(throwable: Throwable) : this(null, null, throwable.getStackTraceAsString())
+    constructor(throwable: Throwable, source: Source) : this(
+        null,
+        null,
+        throwable.getStackTraceForSource(source)
+    )
 }
 
 @Throws(ExecutionFailed::class)

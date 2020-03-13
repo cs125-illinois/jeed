@@ -223,7 +223,9 @@ class Request(
                 check(compiledSource != null) { "should have compiled source before executing" }
                 val executionResult = compiledSource.execute(arguments.execution)
                 if (executionResult.threw != null) {
-                    response.failed.execution = ExecutionFailedResult(ExecutionFailed(executionResult.threw!!))
+                    response.failed.execution = ExecutionFailedResult(
+                        ExecutionFailed(executionResult.threw!!, actualSource)
+                    )
                     response.failedTasks.add(Task.execute)
                 } else {
                     response.completed.execution = SourceTaskResults(executionResult, arguments.execution)

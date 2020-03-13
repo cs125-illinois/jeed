@@ -3,6 +3,7 @@ package edu.illinois.cs.cs125.jeed.core
 import io.kotlintest.Matcher
 import io.kotlintest.MatcherResult
 import io.kotlintest.SkipTestException
+import io.kotlintest.matchers.collections.shouldHaveSize
 import io.kotlintest.should
 import io.kotlintest.shouldBe
 import io.kotlintest.shouldNot
@@ -393,10 +394,52 @@ fun main() {
 fun test(): List<String> {
   return listOf("test", "me")
 }
-                """.trimIndent())).kompile().execute()
+                """.trim())).kompile().execute()
         executionMainResult should haveCompleted()
         executionMainResult shouldNot haveTimedOut()
         executionMainResult should haveStdout("""[test, me]""")
+    }
+    "should trim stack traces properly" {
+        val source = Source.fromSnippet(
+            """
+Object o = null;
+o.toString();
+        """.trim())
+
+        val executionFailed = source.compile().execute()
+        executionFailed.threw!!.getStackTraceForSource(source).lines() shouldHaveSize 2
+    }
+    "should trim deep stack traces properly" {
+        val source = Source.fromSnippet(
+            """
+void test() {
+  Object o = null;
+  o.toString();
+}
+test();
+        """.trim())
+
+        val executionFailed = source.compile().execute()
+        val stacktrace = executionFailed.threw!!.getStackTraceForSource(source).lines()
+        stacktrace shouldHaveSize 3
+        stacktrace[1].trim() shouldBe "at test(:3)"
+    }
+    "should trim deep stack traces from classes properly" {
+        val source = Source.fromSnippet(
+            """
+class Test {
+  public static void test() {
+    Object o = null;
+    o.toString();
+  }
+}
+Test.test();
+        """.trim())
+
+        val executionFailed = source.compile().execute()
+        val stacktrace = executionFailed.threw!!.getStackTraceForSource(source).lines()
+        stacktrace shouldHaveSize 3
+        stacktrace[1].trim() shouldBe "at Test.test(:4)"
     }
 })
 

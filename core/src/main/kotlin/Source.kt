@@ -207,7 +207,7 @@ fun Throwable.getStackTraceForSource(source: Source): String {
     val originalStackTrace = this.getStackTraceAsString().lines().toMutableList()
     val firstLine = originalStackTrace.removeAt(0)
 
-    val betterStackTrace = mutableListOf("""Exception in thread "main" $firstLine""")
+    val betterStackTrace = mutableListOf(firstLine)
     @Suppress("LoopWithTooManyJumpStatements")
     for (line in originalStackTrace) {
         if (line.trim()
@@ -223,10 +223,11 @@ fun Throwable.getStackTraceForSource(source: Source): String {
             betterStackTrace.add(line)
             continue
         }
-        val (_, _, name, correctLine) = parsedLine.destructured
-        val originalLocation = SourceLocation(name, correctLine.toInt(), 0)
-        val correctLocation = source.mapLocation(originalLocation)
-        betterStackTrace.add("  at line ${correctLocation.line}")
+        val (klass, method, name, correctLine) = parsedLine.destructured
+        val fixedKlass = if (klass == source.wrappedClassName) { "" } else { "$klass." }
+        val fixedMethod = if (method == source.looseCodeMethodName) { "" } else { method }
+        val correctLocation = source.mapLocation(SourceLocation(name, correctLine.toInt(), 0))
+        betterStackTrace.add("  at $fixedKlass$fixedMethod(:${correctLocation.line})")
     }
     return betterStackTrace.joinToString(separator = "\n")
 }
