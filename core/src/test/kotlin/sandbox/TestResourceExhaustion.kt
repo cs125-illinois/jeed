@@ -546,4 +546,22 @@ try {
         executionResult should haveTimedOut()
         executionResult should haveOutput("Started")
     }
+    "should terminate a blocked thread" {
+        val executionResult = Source.fromSnippet(
+            """
+Object monitor = new Object();
+synchronized (monitor) {
+    try {
+        monitor.wait();
+    } catch (Exception e) {
+        System.out.println("Failed to wait");
+    }
+}
+        """.trim()
+        ).compile().execute()
+
+        executionResult shouldNot haveCompleted()
+        executionResult should haveTimedOut()
+        executionResult shouldNot haveOutput("Failed to wait")
+    }
 })
