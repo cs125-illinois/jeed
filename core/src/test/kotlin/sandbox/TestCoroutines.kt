@@ -1,11 +1,13 @@
 package edu.illinois.cs.cs125.jeed.core.sandbox
 
 import edu.illinois.cs.cs125.jeed.core.Source
+import edu.illinois.cs.cs125.jeed.core.SourceExecutionArguments
 import edu.illinois.cs.cs125.jeed.core.execute
 import edu.illinois.cs.cs125.jeed.core.haveCompleted
 import edu.illinois.cs.cs125.jeed.core.haveOutput
 import edu.illinois.cs.cs125.jeed.core.haveTimedOut
 import edu.illinois.cs.cs125.jeed.core.kompile
+import io.kotlintest.matchers.beLessThan
 import io.kotlintest.should
 import io.kotlintest.shouldBe
 import io.kotlintest.shouldNot
@@ -76,5 +78,37 @@ fun main() {
 """.trimIndent()
         )).kompile().execute()
         assert(executionResult.permissionRequests.any { it.permission.name == "exitVM.-1" && !it.granted })
+    }
+    "should allow coroutines to try to finish in time" {
+        val executionResult = Source(mapOf(
+            "Main.kt" to """
+import kotlinx.coroutines.*
+
+fun main() {
+    GlobalScope.launch {
+        delay(100)
+        println("Finished")
+    }
+}
+""".trimIndent()
+        )).kompile().execute()
+        executionResult should haveCompleted()
+        executionResult should haveOutput("Finished")
+    }
+    "should not give coroutines more time than they need" {
+        val executionResult = Source(mapOf(
+            "Main.kt" to """
+import kotlinx.coroutines.*
+
+fun main() {
+    GlobalScope.launch {
+        println("Finished")
+    }
+}
+""".trimIndent()
+        )).kompile().execute(SourceExecutionArguments(timeout = 9000L))
+        executionResult should haveCompleted()
+        executionResult should haveOutput("Finished")
+        executionResult.executionInterval.length should beLessThan(5000L)
     }
 })

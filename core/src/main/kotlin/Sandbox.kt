@@ -253,8 +253,18 @@ object Sandbox {
                     confinedTask.task.cancel(true)
                     TaskResult(null, null, true)
                 } catch (e: Throwable) {
-                    TaskResult(null, e.cause)
+                    TaskResult(null, e.cause ?: e)
                 }
+                fun threadGroupActive(): Boolean {
+                    val threads = Array<Thread?>(confinedTask.threadGroup.activeCount() * 2) { null }
+                    confinedTask.threadGroup.enumerate(threads)
+                    return threads.filterNotNull().any { it.state !in setOf(Thread.State.WAITING) }
+                }
+                while (Instant.now().isBefore(executionStarted.plusMillis(executionArguments.timeout)) && threadGroupActive()) {
+                    // Give non-main tasks like coroutines a chance to finish
+                    Thread.yield()
+                }
+
                 val executionEnded = Instant.now()
                 release(confinedTask)
 
@@ -403,7 +413,7 @@ object Sandbox {
             "Duplicate thread group in confined tasks map"
         }
         threadGroup.maxPriority = Thread.MIN_PRIORITY
-        val task = FutureTask<T>(SandboxedCallable<T>(callable, sandboxedClassLoader))
+        val task = FutureTask(SandboxedCallable<T>(callable, sandboxedClassLoader))
         val thread = Thread(threadGroup, task)
         val confinedTask = ConfinedTask(sandboxedClassLoader, task, thread, executionArguments)
         confinedTasks[threadGroup] = confinedTask
