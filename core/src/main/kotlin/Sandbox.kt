@@ -30,6 +30,9 @@ import org.objectweb.asm.Label
 import org.objectweb.asm.MethodVisitor
 import org.objectweb.asm.Opcodes
 import org.objectweb.asm.Type
+import kotlin.reflect.KProperty
+import kotlin.reflect.full.memberProperties
+import kotlin.reflect.jvm.isAccessible
 
 private typealias SandboxCallableArguments<T> = (Pair<ClassLoader, (() -> Unit) -> Pair<String, String>>) -> T
 
@@ -258,9 +261,24 @@ object Sandbox {
                 fun threadGroupActive(): Boolean {
                     val threads = Array<Thread?>(confinedTask.threadGroup.activeCount() * 2) { null }
                     confinedTask.threadGroup.enumerate(threads)
-                    return threads.filterNotNull().any { it.state !in setOf(Thread.State.WAITING) }
+                    return threads.filterNotNull().any { it.state !in setOf(Thread.State.WAITING, Thread.State.TIMED_WAITING) }
                 }
-                while (Instant.now().isBefore(executionStarted.plusMillis(executionArguments.timeout)) && threadGroupActive()) {
+                fun anyActiveCoroutines(): Boolean {
+                    val defaultExecutorName = "kotlinx.coroutines.DefaultExecutor"
+                    try {
+                        if (defaultExecutorName !in sandboxedClassLoader.loadedClasses) return false
+                        val defaultExecutorClass = sandboxedClassLoader.loadClass(defaultExecutorName)
+                        if (!sandboxedClassLoader.isClassReloaded(defaultExecutorClass)) return false // Shenanigans
+                        val defaultExecutor = defaultExecutorClass.kotlin.objectInstance
+                        val emptyProp = defaultExecutorClass.kotlin.memberProperties
+                            .first { it.name == "isEmpty" }.also { it.isAccessible = true } as KProperty<*>
+                        return emptyProp.getter.call(defaultExecutor) == false
+                    } catch (e: Exception) {
+                        return false
+                    }
+                }
+                while (Instant.now().isBefore(executionStarted.plusMillis(executionArguments.timeout))
+                    && (threadGroupActive() || anyActiveCoroutines())) {
                     // Give non-main tasks like coroutines a chance to finish
                     Thread.yield()
                 }
@@ -591,6 +609,10 @@ object Sandbox {
                     delegateClass(name)
                 }
             }
+        }
+
+        internal fun isClassReloaded(clazz: Class<*>): Boolean {
+            return reloadedClasses[clazz.name] == clazz
         }
 
         companion object {
