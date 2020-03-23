@@ -26,7 +26,7 @@ dependencies {
     implementation("com.puppycrawl.tools:checkstyle:8.30")
     implementation("com.pinterest.ktlint:ktlint-core:0.36.0")
     implementation("com.pinterest.ktlint:ktlint-ruleset-standard:0.36.0")
-    implementation("org.jetbrains.kotlin:kotlin-reflect:1.3.70")
+    implementation("org.jetbrains.kotlin:kotlin-reflect:1.3.71")
     implementation("com.github.jknack:handlebars:4.1.2")
     implementation("com.squareup.moshi:moshi:1.9.2")
     implementation("org.ow2.asm:asm:7.3.1")
