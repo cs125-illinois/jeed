@@ -300,7 +300,7 @@ public class Example implements Runnable {
                 if (depthToGo > 0) recursive(depthToGo - 1);
                 thread = new Thread(new Example());
                 thread.start();
-            } catch (Throwable e) {} finally {
+            } finally {
                 recursive(depthToGo - 1);
             }
         }
@@ -547,21 +547,24 @@ try {
         executionResult should haveOutput("Started")
     }
     "should terminate a blocked thread" {
-        val executionResult = Source.fromSnippet(
-            """
-Object monitor = new Object();
-synchronized (monitor) {
-    try {
-        monitor.wait();
-    } catch (Exception e) {
-        System.out.println("Failed to wait");
+        val compileResult = Source(mapOf("Main.java" to """
+public class Main {
+    public static void main() {
+        Object monitor = new Object();
+        synchronized (monitor) {
+            try {
+                monitor.wait();
+            } catch (Exception e) {
+                System.out.println("Failed to wait");
+            }
+        }
     }
-}
-        """.trim()
-        ).compile().execute()
+}""".trim())).compile()
 
-        executionResult shouldNot haveCompleted()
-        executionResult should haveTimedOut()
-        executionResult shouldNot haveOutput("Failed to wait")
+        (1..8).forEach { _ -> // Flaky
+            val executionResult = compileResult.execute()
+            executionResult shouldNot haveCompleted()
+            executionResult should haveTimedOut()
+        }
     }
 })

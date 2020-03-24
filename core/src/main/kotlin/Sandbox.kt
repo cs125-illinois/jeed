@@ -461,7 +461,7 @@ object Sandbox {
             threadGroup.enumerate(activeThreads)
             activeThreads.filterNotNull().filter { !stoppedThreads.contains(it) }.forEach {
                 stoppedThreads.add(it)
-                it.setUncaughtExceptionHandler { _, _ -> throw ThreadDeath() }
+                it.setUncaughtExceptionHandler { _, _ -> throw SandboxDeath() }
                 @Suppress("DEPRECATION") it.stop()
             }
             threadGroup.maxPriority = Thread.NORM_PRIORITY
@@ -655,7 +655,7 @@ object Sandbox {
             val confinedTask = confinedTaskByThreadGroup()
                 ?: error("only confined tasks should call this method")
             if (confinedTask.shuttingDown) {
-                throw ThreadDeath()
+                throw SandboxDeath()
             }
             // This check is required because of how we handle finally blocks
             if (confinedTask.classLoader.unsafeExceptionClasses.any { it.isAssignableFrom(throwable.javaClass) }) {
@@ -697,6 +697,16 @@ object Sandbox {
             private var rewroteLabel = false
 
             override fun visitTryCatchBlock(start: Label, end: Label, handler: Label, type: String?) {
+                if (start == handler) {
+                    /*
+                     * For unclear reasons, the Java compiler sometimes emits exception table entries that catch any
+                     * exception and transfer control to the start of the same block. This produces an infinite loop
+                     * if an exception is thrown, e.g. by our checkException function. Since any exception during
+                     * non-sandboxed execution would also cause this infinite loop, the table entry must not serve any
+                     * purpose. Drop it to avoid the infinite loop.
+                     */
+                    return
+                }
                 if (type == null) {
                     labelsToRewrite.add(handler)
                 } else {
@@ -704,9 +714,7 @@ object Sandbox {
                         ?: error("no class for type $type")
 
                     if (unsafeExceptionClasses.any {
-                            exceptionClass.isAssignableFrom(it) || it.isAssignableFrom(
-                                exceptionClass
-                            )
+                            exceptionClass.isAssignableFrom(it) || it.isAssignableFrom(exceptionClass)
                         }) {
                         labelsToRewrite.add(handler)
                     }
@@ -747,7 +755,7 @@ object Sandbox {
             }
 
             override fun visitEnd() {
-                assert(labelsToRewrite.isEmpty())
+                assert(labelsToRewrite.isEmpty()) { "failed to write all flagged labels" }
                 super.visitEnd()
             }
         }
@@ -787,7 +795,7 @@ object Sandbox {
             if (thread.threadGroup != Thread.currentThread().threadGroup) {
                 confinedTask.addPermissionRequest(RuntimePermission("changeThreadGroup"), false)
             } else {
-                if (confinedTask.shuttingDown) throw ThreadDeath()
+                if (confinedTask.shuttingDown) throw SandboxDeath()
                 systemSecurityManager?.checkAccess(thread)
             }
         }
@@ -814,7 +822,7 @@ object Sandbox {
                         false
                     )
                 )
-                throw ThreadDeath()
+                throw SandboxDeath()
             }
             if (Thread.currentThread().threadGroup.activeCount() >= confinedTask.maxExtraThreads + 1) {
                 confinedTask.permissionRequests.add(
@@ -1046,6 +1054,11 @@ object Sandbox {
         override fun write(byteArray: ByteArray) {
             taskPrintStream.write(byteArray)
         }
+    }
+
+    // Save a bit of time by not filling in the stack trace
+    private class SandboxDeath : ThreadDeath() {
+        override fun fillInStackTrace() = this
     }
 
     init {
