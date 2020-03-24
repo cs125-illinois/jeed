@@ -111,4 +111,20 @@ fun main() {
         executionResult should haveOutput("Finished")
         executionResult.executionInterval.length should beLessThan(5000L)
     }
+    "should terminate runaway coroutines" {
+        val executionResult = Source(mapOf(
+            "Main.kt" to """
+import kotlinx.coroutines.*
+
+fun main() {
+    val job = GlobalScope.launch {
+        println("Coroutine")
+        while (true) {}
+    }
+}
+""".trimIndent()
+        )).kompile().execute()
+        // execute will throw if the sandbox couldn't be shut down
+        executionResult should haveOutput("Coroutine")
+    }
 })

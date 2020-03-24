@@ -461,7 +461,6 @@ object Sandbox {
             threadGroup.enumerate(activeThreads)
             activeThreads.filterNotNull().filter { !stoppedThreads.contains(it) }.forEach {
                 stoppedThreads.add(it)
-                it.setUncaughtExceptionHandler { _, _ -> throw SandboxDeath() }
                 @Suppress("DEPRECATION") it.stop()
             }
             threadGroup.maxPriority = Thread.NORM_PRIORITY
@@ -624,9 +623,10 @@ object Sandbox {
         internal inner class TrustedReloader {
             fun reload(name: String): Class<*> {
                 val classBytes = reloadedBytecodeCache.getOrPut(name) {
-                    sandboxableClassLoader.classLoader.parent
+                    val originalBytes = sandboxableClassLoader.classLoader.parent
                         .getResourceAsStream("${name.replace('.', '/')}.class")?.readAllBytes()
                         ?: throw ClassNotFoundException("failed to reload $name")
+                    RewriteTryCatchFinally.rewrite(originalBytes, unsafeExceptionClasses)
                 }
                 loadedClasses.add(name)
                 return defineClass(name, classBytes, 0, classBytes.size)
