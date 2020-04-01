@@ -31,6 +31,7 @@ class SourceExecutionArguments(
         val REQUIRED_PERMISSIONS = setOf(
             // Required by newer versions of Kotlin
             PropertyPermission("java.specification.version", "read"),
+            PropertyPermission("kotlinx.coroutines.*", "read"),
             RuntimePermission("accessDeclaredMembers"),
             ReflectPermission("suppressAccessChecks")
         )

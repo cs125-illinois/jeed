@@ -190,7 +190,7 @@ fun Source.kompile(kompilationArguments: KompilationArguments = KompilationArgum
 
 private val KOTLIN_COROUTINE_IMPORTS = setOf("kotlinx.coroutines", "kotlin.coroutines")
 const val KOTLIN_COROUTINE_MIN_TIMEOUT = 400L
-const val KOTLIN_COROUTINE_MIN_EXTRA_THREADS = 2
+const val KOTLIN_COROUTINE_MIN_EXTRA_THREADS = 4
 
 fun CompiledSource.usesCoroutines(): Boolean {
     return this.source.parseTree.any { (_, parseResults) ->

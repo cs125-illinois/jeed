@@ -13,6 +13,7 @@ import java.security.SecurityPermission
 import java.time.Duration
 import java.time.Instant
 import java.util.Locale
+import java.util.Properties
 import java.util.concurrent.Callable
 import java.util.concurrent.ExecutorService
 import java.util.concurrent.Executors
@@ -850,7 +851,6 @@ object Sandbox {
         }
 
         override fun checkPermission(permission: Permission) {
-
             // Special case to prevent even trusted task code from calling System.setOut
             val confinedTask = if (permission == RuntimePermission("setIO")) {
                 confinedTaskByThreadGroup()
@@ -869,8 +869,22 @@ object Sandbox {
         }
     }
 
+    private class SandboxedProperties(val properties: Properties) : Properties(properties) {
+        @Suppress("ReturnCount")
+        override fun getProperty(key: String?): String? {
+            val confinedTask = confinedTaskByThreadGroup() ?: return super.getProperty(key)
+            if (key == "kotlinx.coroutines.scheduler.max.pool.size") {
+                return confinedTask.maxExtraThreads.toString()
+            } else if (key == "kotlinx.coroutines.scheduler.core.pool.size") {
+                return "1"
+            }
+            return super.getProperty(key)
+        }
+    }
+
     init {
         System.setSecurityManager(SandboxSecurityManager)
+        System.setProperties(SandboxedProperties(System.getProperties()))
     }
 
     @JvmStatic

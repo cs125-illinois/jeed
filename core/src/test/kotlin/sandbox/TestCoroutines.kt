@@ -25,6 +25,7 @@ import kotlinx.coroutines.*
 fun main() {
     var i = 0
     val job = GlobalScope.launch {
+        delay(1)
         i = 1
     }
     runBlocking {
@@ -58,6 +59,32 @@ fun main() {
         i shouldBe 1
         executionResult shouldNot haveTimedOut()
         executionResult should haveOutput("Hello\nWorld!")
+    }
+    "should support multiple coroutines" {
+        val executionResult = Source(mapOf(
+            "Main.kt" to """
+import kotlinx.coroutines.*
+
+suspend fun work(value: Int) {
+  delay(10)
+}
+
+fun main() {
+  runBlocking {
+    (0..1024).map {
+      GlobalScope.launch {
+        work(it)
+      }
+    }.forEach {
+      it.join()
+    }
+  }
+}
+""".trimIndent()
+        )).kompile().execute()
+
+        executionResult should haveCompleted()
+        executionResult shouldNot haveTimedOut()
     }
     "should prevent coroutines from escaping the sandbox" {
         // Dummy task to force GlobalScope to be initialized before the test runs
