@@ -19,6 +19,10 @@ import java.util.concurrent.Executors
 import java.util.concurrent.FutureTask
 import java.util.concurrent.TimeUnit
 import java.util.concurrent.TimeoutException
+import kotlin.math.min
+import kotlin.reflect.KProperty
+import kotlin.reflect.full.memberProperties
+import kotlin.reflect.jvm.isAccessible
 import kotlin.reflect.jvm.javaMethod
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.coroutineScope
@@ -30,9 +34,6 @@ import org.objectweb.asm.Label
 import org.objectweb.asm.MethodVisitor
 import org.objectweb.asm.Opcodes
 import org.objectweb.asm.Type
-import kotlin.reflect.KProperty
-import kotlin.reflect.full.memberProperties
-import kotlin.reflect.jvm.isAccessible
 
 private typealias SandboxCallableArguments<T> = (Pair<ClassLoader, (() -> Unit) -> Pair<String, String>>) -> T
 
@@ -91,7 +92,7 @@ object Sandbox {
         // var because may be increased in the presence of coroutines
         var timeout: Long = DEFAULT_TIMEOUT,
         val permissions: Set<Permission> = setOf(),
-        // var beacuse may be increased in the presence of coroutines
+        // var because may be increased in the presence of coroutines
         var maxExtraThreads: Int = DEFAULT_MAX_EXTRA_THREADS,
         val maxOutputLines: Int = DEFAULT_MAX_OUTPUT_LINES,
         val classLoaderConfiguration: ClassLoaderConfiguration = ClassLoaderConfiguration()
@@ -214,12 +215,20 @@ object Sandbox {
     private const val MAX_THREAD_SHUTDOWN_RETRIES = 256
     private const val THREAD_SHUTDOWN_DELAY = 20L
 
+    @Suppress("TooGenericExceptionCaught")
+    private val MAX_THREAD_POOL_SIZE = try {
+        System.getenv("JEED_MAX_THREAD_POOL_SIZE").toInt()
+    } catch (e: Exception) {
+        Runtime.getRuntime().availableProcessors()
+    }
+
     private var threadPool: ExecutorService? = null
     private val threadPoolSynclock = Object()
     private fun submitToThreadPool(task: Executor<*>) {
         synchronized(threadPoolSynclock) {
+            val size = min(Runtime.getRuntime().availableProcessors(), MAX_THREAD_POOL_SIZE)
             if (threadPool == null) {
-                threadPool = Executors.newFixedThreadPool(Runtime.getRuntime().availableProcessors())
+                threadPool = Executors.newFixedThreadPool(size)
                     ?: error("thread pool should be available")
             }
             threadPool!!.submit(task)
@@ -244,6 +253,7 @@ object Sandbox {
     ) : Callable<Any> {
         private data class TaskResult<T>(val returned: T, val threw: Throwable? = null, val timeout: Boolean = false)
 
+        @Suppress("ComplexMethod", "ReturnCount")
         override fun call() {
             @Suppress("TooGenericExceptionCaught")
             try {
@@ -261,7 +271,9 @@ object Sandbox {
                 fun threadGroupActive(): Boolean {
                     val threads = Array<Thread?>(confinedTask.threadGroup.activeCount() * 2) { null }
                     confinedTask.threadGroup.enumerate(threads)
-                    return threads.filterNotNull().any { it.state !in setOf(Thread.State.WAITING, Thread.State.TIMED_WAITING) }
+                    return threads.filterNotNull().any {
+                        it.state !in setOf(Thread.State.WAITING, Thread.State.TIMED_WAITING)
+                    }
                 }
                 fun anyActiveCoroutines(): Boolean {
                     val defaultExecutorName = "kotlinx.coroutines.DefaultExecutor"
@@ -277,8 +289,8 @@ object Sandbox {
                         return false
                     }
                 }
-                while (Instant.now().isBefore(executionStarted.plusMillis(executionArguments.timeout))
-                    && (threadGroupActive() || anyActiveCoroutines())) {
+                while (Instant.now().isBefore(executionStarted.plusMillis(executionArguments.timeout)) &&
+                    (threadGroupActive() || anyActiveCoroutines())) {
                     // Give non-main tasks like coroutines a chance to finish
                     Thread.yield()
                 }

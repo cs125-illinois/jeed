@@ -3,7 +3,7 @@ import java.io.StringWriter
 import java.util.Properties
 
 group = "edu.illinois.cs.cs125"
-version = "2020.3.4"
+version = "2020.4.0"
 
 plugins {
     kotlin("jvm")
@@ -17,7 +17,7 @@ repositories {
     maven(url = "https://maven.google.com/")
 }
 dependencies {
-    val ktorVersion = "1.3.1"
+    val ktorVersion = "1.3.2"
 
     kapt("com.squareup.moshi:moshi-kotlin-codegen:1.9.2")
 
@@ -25,13 +25,13 @@ dependencies {
     implementation(kotlin("stdlib"))
     implementation("io.ktor:ktor-server-netty:$ktorVersion")
     implementation("org.mongodb:mongodb-driver:3.12.2")
-    implementation("org.jetbrains.kotlinx:kotlinx-coroutines-core:1.3.4")
+    implementation("org.jetbrains.kotlinx:kotlinx-coroutines-core:1.3.5")
     implementation("com.squareup.moshi:moshi-kotlin-codegen:1.9.2")
     implementation("com.github.cs125-illinois:ktor-moshi:1.0.3")
     implementation("ch.qos.logback:logback-classic:1.2.3")
     implementation("com.uchuhimo:konf-core:0.22.1")
     implementation("com.uchuhimo:konf-yaml:0.22.1")
-    implementation("io.github.microutils:kotlin-logging:1.7.8")
+    implementation("io.github.microutils:kotlin-logging:1.7.9")
     implementation("com.google.api-client:google-api-client:1.30.9")
 
     val kotlintestVersion = "3.4.2"

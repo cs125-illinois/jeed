@@ -32,7 +32,7 @@ tasks.dependencyUpdates {
     resolutionStrategy {
         componentSelection {
             all {
-                if (listOf("alpha", "beta", "rc", "cr", "m", "preview", "b", "ea", "eap").any { qualifier ->
+                if (listOf("alpha", "beta", "rc", "cr", "m", "preview", "b", "ea", "eap", "release").any { qualifier ->
                     candidate.version.matches(Regex("(?i).*[.-]$qualifier[.\\d-+]*"))
                 }) {
                     reject("Release candidate")
