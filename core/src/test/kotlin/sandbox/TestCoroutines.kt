@@ -60,7 +60,7 @@ fun main() {
         executionResult shouldNot haveTimedOut()
         executionResult should haveOutput("Hello\nWorld!")
     }
-    "should support multiple coroutines" {
+    "should support multiple unscoped coroutines" {
         val executionResult = Source(mapOf(
             "Main.kt" to """
 import kotlinx.coroutines.*
@@ -86,6 +86,34 @@ fun main() {
         executionResult should haveCompleted()
         executionResult shouldNot haveTimedOut()
     }
+    "should support multiple coroutines joined automatically" {
+        val executionResult = Source(mapOf(
+            "Main.kt" to """
+import kotlinx.coroutines.*
+
+suspend fun work(value: Int) {
+  delay(10)
+  println(value)
+}
+
+fun main() {
+  runBlocking {
+    (1..1024).map {
+      launch {
+        work(it)
+      }
+    }
+  }
+  println("Last")
+}
+""".trimIndent()
+        )).kompile().execute(SourceExecutionArguments(maxOutputLines = 1500))
+
+        executionResult should haveCompleted()
+        executionResult shouldNot haveTimedOut()
+        executionResult.outputLines.size shouldBe 1025
+        executionResult.outputLines[1024].line shouldBe "Last"
+    }
     "should prevent coroutines from escaping the sandbox" {
         // Dummy task to force GlobalScope to be initialized before the test runs
         var i = 0
@@ -107,7 +135,7 @@ fun main() {
         assert(executionResult.permissionRequests.any { it.permission.name == "exitVM.-1" && !it.granted })
     }
     "should allow coroutines to try to finish in time" {
-        val executionResult = Source(mapOf(
+        val kompileResult = Source(mapOf(
             "Main.kt" to """
 import kotlinx.coroutines.*
 
@@ -116,11 +144,16 @@ fun main() {
         delay(100)
         println("Finished")
     }
+    println("Started")
 }
 """.trimIndent()
-        )).kompile().execute()
-        executionResult should haveCompleted()
-        executionResult should haveOutput("Finished")
+        )).kompile()
+        repeat(8) { // Flaky
+            val executionResult = kompileResult.execute()
+            executionResult shouldNot haveTimedOut()
+            executionResult should haveCompleted()
+            executionResult should haveOutput("Started\nFinished")
+        }
     }
     "should not give coroutines more time than they need" {
         val executionResult = Source(mapOf(
@@ -138,7 +171,7 @@ fun main() {
         executionResult should haveOutput("Finished")
         executionResult.executionInterval.length should beLessThan(5000L)
     }
-    "should terminate runaway coroutines" {
+    "should terminate runaway unscoped coroutines" {
         val executionResult = Source(mapOf(
             "Main.kt" to """
 import kotlinx.coroutines.*
@@ -153,5 +186,23 @@ fun main() {
         )).kompile().execute()
         // execute will throw if the sandbox couldn't be shut down
         executionResult should haveOutput("Coroutine")
+    }
+    "should terminate runaway child coroutines" {
+        val executionResult = Source(mapOf(
+            "Main.kt" to """
+import kotlinx.coroutines.*
+
+fun main() = runBlocking {
+    (1..16).forEach {
+        println(it)
+        launch {
+            while (true) {}
+        }
+    }
+}
+""".trimIndent()
+        )).kompile().execute()
+        executionResult should haveTimedOut()
+        executionResult.outputLines.size shouldBe 16
     }
 })
