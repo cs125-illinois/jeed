@@ -276,10 +276,11 @@ object Sandbox {
                         it.state !in setOf(Thread.State.WAITING, Thread.State.TIMED_WAITING)
                     }
                 }
+                val coroutinesUsed = sandboxedClassLoader.loadedClasses.any { it.startsWith("kotlinx.coroutines.") }
                 fun anyActiveCoroutines(): Boolean {
-                    val defaultExecutorName = "kotlinx.coroutines.DefaultExecutor"
                     try {
-                        if (defaultExecutorName !in sandboxedClassLoader.loadedClasses) return false
+                        if (!coroutinesUsed) return false
+                        val defaultExecutorName = "kotlinx.coroutines.DefaultExecutor"
                         val defaultExecutorClass = sandboxedClassLoader.loadClass(defaultExecutorName)
                         if (!sandboxedClassLoader.isClassReloaded(defaultExecutorClass)) return false // Shenanigans
                         val defaultExecutor = defaultExecutorClass.kotlin.objectInstance
@@ -290,8 +291,23 @@ object Sandbox {
                         return false
                     }
                 }
-                while (Instant.now().isBefore(executionStarted.plusMillis(executionArguments.timeout)) &&
-                    (threadGroupActive() || anyActiveCoroutines())) {
+                fun workPending(): Boolean {
+                    if (threadGroupActive() || anyActiveCoroutines()) return true
+                    if (coroutinesUsed) {
+                        /*
+                         * Our checks might happen right in the time between a coroutine continuation being taken off
+                         * the queue and actually getting started running, in which case we would miss it in both places,
+                         * shutting down the thread pool before it had a chance to run. Check a few times to increase
+                         * the chance of noticing it.
+                         */
+                        repeat(3) {
+                            Thread.yield()
+                            if (threadGroupActive() || anyActiveCoroutines()) return true
+                        }
+                    }
+                    return false
+                }
+                while (Instant.now().isBefore(executionStarted.plusMillis(executionArguments.timeout)) && workPending()) {
                     // Give non-main tasks like coroutines a chance to finish
                     Thread.yield()
                 }

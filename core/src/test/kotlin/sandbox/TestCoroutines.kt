@@ -134,7 +134,7 @@ fun main() {
         )).kompile().execute()
         assert(executionResult.permissionRequests.any { it.permission.name == "exitVM.-1" && !it.granted })
     }
-    "should allow coroutines to try to finish in time" {
+    "should allow an unscoped coroutine to try to finish in time" {
         val kompileResult = Source(mapOf(
             "Main.kt" to """
 import kotlinx.coroutines.*
@@ -148,11 +148,35 @@ fun main() {
 }
 """.trimIndent()
         )).kompile()
-        repeat(8) { // Flaky
+        repeat(16) { // Flaky
             val executionResult = kompileResult.execute()
             executionResult shouldNot haveTimedOut()
             executionResult should haveCompleted()
             executionResult should haveOutput("Started\nFinished")
+        }
+    }
+    "should allow multiple unscoped coroutines to try to finish in time" {
+        val kompileResult = Source(mapOf(
+            "Main.kt" to """
+import kotlinx.coroutines.*
+
+fun main() {
+    (1..256).forEach {
+        GlobalScope.launch {
+            delay(100)
+            println(it)
+        }
+    }
+    println("Started")
+}
+""".trimIndent()
+        )).kompile()
+        repeat(8) { // Flaky
+            val executionResult = kompileResult.execute()
+            executionResult shouldNot haveTimedOut()
+            executionResult should haveCompleted()
+            executionResult.outputLines.size shouldBe 257
+            executionResult.outputLines[0].line shouldBe "Started"
         }
     }
     "should not give coroutines more time than they need" {
