@@ -1,12 +1,5 @@
-package edu.illinois.cs.cs125.jeed.core.sandbox
+package edu.illinois.cs.cs125.jeed.core
 
-import edu.illinois.cs.cs125.jeed.core.Source
-import edu.illinois.cs.cs125.jeed.core.SourceExecutionArguments
-import edu.illinois.cs.cs125.jeed.core.execute
-import edu.illinois.cs.cs125.jeed.core.haveCompleted
-import edu.illinois.cs.cs125.jeed.core.haveOutput
-import edu.illinois.cs.cs125.jeed.core.haveTimedOut
-import edu.illinois.cs.cs125.jeed.core.kompile
 import io.kotlintest.matchers.beLessThan
 import io.kotlintest.should
 import io.kotlintest.shouldBe
@@ -228,5 +221,28 @@ fun main() = runBlocking {
         )).kompile().execute()
         executionResult should haveTimedOut()
         executionResult.outputLines.size shouldBe 16
+    }
+    "should run suspending main" {
+        val executionResult = Source(mapOf(
+            "Main.kt" to """
+import kotlinx.coroutines.*
+
+suspend fun getUser(id: Int): String? {
+  val users = listOf("Harsh", "Amirtha", "Geoff")
+  delay(40) // simulated load time
+  return users.elementAtOrNull(id);
+}
+
+suspend fun main() = coroutineScope {
+  val first =  async { getUser(1) } 
+  val second = async { getUser(2) }
+  println("Hello '$'{first.await()}")
+  println("Hello '$'{second.await()}")
+}
+""".trimIndent()
+        )).kompile().execute()
+
+        executionResult should haveCompleted()
+        executionResult.outputLines.size shouldBe 2
     }
 })

@@ -103,7 +103,7 @@ fun ClassLoader.findClassMethod(
     try {
         return loadClass(klass).declaredMethods.find { method ->
             @Suppress("ComplexCondition")
-            if (name == "main(String[])" &&
+            if ((name == "main(String[])" || name == "main()") &&
                 method.name == "main" &&
                 Modifier.isStatic(method.modifiers) &&
                 Modifier.isPublic(method.modifiers) &&
