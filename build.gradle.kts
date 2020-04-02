@@ -6,7 +6,7 @@ plugins {
     kotlin("kapt") version kotlinVersion apply false
     id("org.jmailen.kotlinter") version "2.3.2" apply false
     id("com.github.ben-manes.versions") version "0.28.0"
-    id("io.gitlab.arturbosch.detekt") version "1.6.0"
+    id("io.gitlab.arturbosch.detekt") version "1.7.3"
 }
 allprojects {
     repositories {
@@ -43,7 +43,6 @@ tasks.dependencyUpdates {
     gradleReleaseChannel = "current"
 }
 detekt {
-    toolVersion = "1.1.1"
     input = files("core/src/main/kotlin", "server/src/main/kotlin")
     config = files("config/detekt/detekt.yml")
 }

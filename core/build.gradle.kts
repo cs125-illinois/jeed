@@ -3,7 +3,7 @@ import java.io.StringWriter
 import java.util.Properties
 
 group = "com.github.cs125-illinois"
-version = "2020.4.1"
+version = "2020.4.2"
 
 plugins {
     kotlin("jvm")
@@ -34,7 +34,7 @@ dependencies {
     implementation("org.slf4j:slf4j-api:1.7.30")
     implementation("ch.qos.logback:logback-classic:1.2.3")
     implementation("io.github.microutils:kotlin-logging:1.7.9")
-    implementation("io.github.classgraph:classgraph:4.8.66")
+    implementation("io.github.classgraph:classgraph:4.8.67")
     implementation("net.java.dev.jna:jna:5.5.0")
     api("com.github.ben-manes.caffeine:caffeine:2.8.1")
 

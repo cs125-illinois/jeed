@@ -12,9 +12,11 @@ import java.security.ProtectionDomain
 import java.security.SecurityPermission
 import java.time.Duration
 import java.time.Instant
+import java.util.Collections
 import java.util.Locale
 import java.util.Properties
 import java.util.concurrent.Callable
+import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.ExecutorService
 import java.util.concurrent.Executors
 import java.util.concurrent.FutureTask
@@ -215,6 +217,7 @@ object Sandbox {
 
     private const val MAX_THREAD_SHUTDOWN_RETRIES = 256
     private const val THREAD_SHUTDOWN_DELAY = 20L
+    private const val MAX_COROUTINE_SHUTDOWN_RETRIES = 3
 
     @Suppress("TooGenericExceptionCaught")
     private val MAX_THREAD_POOL_SIZE = try {
@@ -296,18 +299,19 @@ object Sandbox {
                     if (coroutinesUsed) {
                         /*
                          * Our checks might happen right in the time between a coroutine continuation being taken off
-                         * the queue and actually getting started running, in which case we would miss it in both places,
-                         * shutting down the thread pool before it had a chance to run. Check a few times to increase
-                         * the chance of noticing it.
+                         * the queue and actually getting started running, in which case we would miss it in both
+                         * places, shutting down the thread pool before it had a chance to run. Check a few times to
+                         * increase the chance of noticing it.
                          */
-                        repeat(3) {
+                        repeat(MAX_COROUTINE_SHUTDOWN_RETRIES) {
                             Thread.yield()
                             if (threadGroupActive() || anyActiveCoroutines()) return true
                         }
                     }
                     return false
                 }
-                while (Instant.now().isBefore(executionStarted.plusMillis(executionArguments.timeout)) && workPending()) {
+                while (Instant.now().isBefore(executionStarted.plusMillis(executionArguments.timeout)) &&
+                    workPending()) {
                     // Give non-main tasks like coroutines a chance to finish
                     Thread.yield()
                 }
@@ -560,7 +564,7 @@ object Sandbox {
 
         override val definedClasses: Set<String> get() = knownClasses.keys.toSet()
         override val providedClasses: MutableSet<String> = mutableSetOf()
-        override val loadedClasses: MutableSet<String> = mutableSetOf()
+        override val loadedClasses: MutableSet<String> = Collections.newSetFromMap(ConcurrentHashMap())
 
         private val reloadedClasses: MutableMap<String, Class<*>> = mutableMapOf()
         private val reloader = TrustedReloader()
