@@ -358,7 +358,7 @@ public class Test {
         }
     }
     "should compile sources that use Java 13 features" {
-        if (systemCompilerVersion < 12) {
+        if (systemCompilerVersion < 13) {
             throw SkipTestException("Cannot run this test until Java 13")
         } else {
             val compiledSource = Source(
@@ -374,6 +374,32 @@ public class Test {
     }
     public static void main() {
         System.out.println(testYieldKeyword(1));
+    }
+}""".trim()
+                )
+            ).compile()
+
+            compiledSource should haveDefinedExactlyTheseClasses(setOf("Test"))
+            compiledSource should haveProvidedThisManyClasses(0)
+        }
+    }
+
+    "should compile sources that use Java 14 features" {
+        if (systemCompilerVersion < 14) {
+            throw SkipTestException("Cannot run this test until Java 14")
+        } else {
+            val compiledSource = Source(
+                mapOf(
+                    "Test.java" to """
+public class Test {
+    public static void testInstanceOfPatternMatching() {
+        Object o = "Test";
+        if (o instanceof String s) {
+            System.out.println(s.length());
+        }
+    }
+    public static void main() {
+        testInstanceOfPatternMatching();
     }
 }""".trim()
                 )
