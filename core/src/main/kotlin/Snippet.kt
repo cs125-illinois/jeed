@@ -67,11 +67,11 @@ class SnippetTransformationError(
     line: Int,
     column: Int,
     message: String
-) : SourceError(SourceLocation(SNIPPET_SOURCE, line, column), message) {
+) : AlwaysLocatedSourceError(SourceLocation(SNIPPET_SOURCE, line, column), message) {
     constructor(location: SourceLocation, message: String) : this(location.line, location.column, message)
 }
 
-class SnippetTransformationFailed(errors: List<SnippetTransformationError>) : JeedError(errors)
+class SnippetTransformationFailed(errors: List<SnippetTransformationError>) : AlwaysLocatedJeedError(errors)
 
 class SnippetErrorListener(
     private val sourceLines: List<Int>,

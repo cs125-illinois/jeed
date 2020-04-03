@@ -33,9 +33,9 @@ class TemplatingError(
     line: Int,
     column: Int,
     message: String
-) : SourceError(SourceLocation(name, line, column), message)
+) : AlwaysLocatedSourceError(SourceLocation(name, line, column), message)
 
-class TemplatingFailed(errors: List<TemplatingError>) : JeedError(errors)
+class TemplatingFailed(errors: List<TemplatingError>) : AlwaysLocatedJeedError(errors)
 
 @Throws(TemplatingFailed::class)
 @Suppress("LongMethod")

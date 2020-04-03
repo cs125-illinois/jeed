@@ -109,14 +109,10 @@ private class JeedMessageCollector(val source: Source, val allWarningsAsErrors: 
         if (severity == CompilerMessageSeverity.LOGGING || severity == CompilerMessageSeverity.INFO) {
             return
         }
-        require(location != null) { "location should not be null (severity $severity): $message" }
-        val actualLocation = if (location.path == KOTLIN_EMPTY_LOCATION) {
-            ""
-        } else {
-            location.path
-        }
-        val originalLocation = SourceLocation(actualLocation, location.line, location.column)
-        messages.add(CompilationMessage(severity.presentableName, source.mapLocation(originalLocation), message))
+        val sourceLocation = location
+            ?.let { if (it.path == KOTLIN_EMPTY_LOCATION) null else it.path }
+            ?.let { source.mapLocation(SourceLocation(it, location.line, location.column)) }
+        messages.add(CompilationMessage(severity.presentableName, sourceLocation, message))
     }
 }
 

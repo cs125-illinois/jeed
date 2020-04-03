@@ -67,7 +67,7 @@ data class CompilationArguments(
 }
 
 @JsonClass(generateAdapter = true)
-class CompilationError(location: SourceLocation, message: String) : SourceError(location, message)
+class CompilationError(location: SourceLocation?, message: String) : SourceError(location, message)
 
 class CompilationFailed(errors: List<CompilationError>) : JeedError(errors) {
     override fun toString(): String {
@@ -76,7 +76,7 @@ class CompilationFailed(errors: List<CompilationError>) : JeedError(errors) {
 }
 
 @JsonClass(generateAdapter = true)
-class CompilationMessage(@Suppress("unused") val kind: String, location: SourceLocation, message: String) :
+class CompilationMessage(@Suppress("unused") val kind: String, location: SourceLocation?, message: String) :
     SourceError(location, message)
 
 class CompiledSource(
@@ -121,21 +121,24 @@ private fun compile(
     systemCompiler.getTask(null, fileManager, results, options.toList(), null, units).call()
     fileManager.close()
 
+    fun getMappedLocation(diagnostic: Diagnostic<out JavaFileObject>): SourceLocation? {
+        return diagnostic
+            .let { if (it.source == null) null else it }
+            ?.let { msg -> SourceLocation(msg.source.name, msg.lineNumber.toInt(), msg.columnNumber.toInt()) }
+            ?.let { loc -> source.mapLocation(loc) }
+    }
+
     val errors = results.diagnostics.filter {
         it.kind == Diagnostic.Kind.ERROR || (it.kind == Diagnostic.Kind.WARNING && compilationArguments.wError)
     }.map {
-        val originalLocation = SourceLocation(it.source.name, it.lineNumber.toInt(), it.columnNumber.toInt())
-        val remappedLocation = source.mapLocation(originalLocation)
-        CompilationError(remappedLocation, it.getMessage(Locale.US))
+        CompilationError(getMappedLocation(it), it.getMessage(Locale.US))
     }
     if (errors.isNotEmpty()) {
         throw CompilationFailed(errors)
     }
 
     val messages = results.diagnostics.map {
-        val originalLocation = SourceLocation(it.source.name, it.lineNumber.toInt(), it.columnNumber.toInt())
-        val remappedLocation = source.mapLocation(originalLocation)
-        CompilationMessage(it.kind.toString(), remappedLocation, it.getMessage(Locale.US))
+        CompilationMessage(it.kind.toString(), getMappedLocation(it), it.getMessage(Locale.US))
     }
 
     return CompiledSource(

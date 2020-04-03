@@ -22,8 +22,8 @@ class CheckstyleError(
     val severity: String,
     location: SourceLocation,
     message: String
-) : SourceError(location, message)
-class CheckstyleFailed(errors: List<CheckstyleError>) : JeedError(errors) {
+) : AlwaysLocatedSourceError(location, message)
+class CheckstyleFailed(errors: List<CheckstyleError>) : AlwaysLocatedJeedError(errors) {
     override fun toString(): String {
         return "checkstyle errors were encountered: ${errors.joinToString(separator = ",")}"
     }

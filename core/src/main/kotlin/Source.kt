@@ -173,19 +173,27 @@ open class LocatedMethod(
 
 @JsonClass(generateAdapter = true)
 open class SourceError(
-    val location: SourceLocation,
+    open val location: SourceLocation?,
     val message: String
 ) {
     override fun toString(): String {
-        return "$location: $message"
+        return if (location == null) message else "$location: $message"
     }
 }
 
-abstract class JeedError(val errors: List<SourceError>) : Exception() {
+@JsonClass(generateAdapter = true)
+open class AlwaysLocatedSourceError(
+    final override val location: SourceLocation,
+    message: String
+) : SourceError(location, message)
+
+abstract class JeedError(open val errors: List<SourceError>) : Exception() {
     override fun toString(): String {
         return javaClass.name + ":\n" + errors.joinToString(separator = "\n")
     }
 }
+
+abstract class AlwaysLocatedJeedError(final override val errors: List<AlwaysLocatedSourceError>) : JeedError(errors)
 
 @JsonClass(generateAdapter = true)
 data class Interval(val start: Instant, val end: Instant) {

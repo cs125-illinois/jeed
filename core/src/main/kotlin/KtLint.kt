@@ -41,9 +41,9 @@ class KtLintError(
     val ruleId: String,
     val detail: String,
     location: SourceLocation
-) : SourceError(location, "$ruleId: $detail")
+) : AlwaysLocatedSourceError(location, "$ruleId: $detail")
 
-class KtLintFailed(errors: List<KtLintError>) : JeedError(errors) {
+class KtLintFailed(errors: List<KtLintError>) : AlwaysLocatedJeedError(errors) {
     override fun toString(): String {
         return "ktlint errors were encountered: ${errors.joinToString(separator = ",")}"
     }

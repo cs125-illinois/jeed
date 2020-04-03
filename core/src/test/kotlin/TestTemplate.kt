@@ -131,7 +131,7 @@ public class Question {
             templatedSource.compile()
         }
         compilationFailed.errors shouldHaveSize 1
-        compilationFailed.errors[0].location.line shouldBe 1
-        compilationFailed.errors[0].location.column shouldBe 9
+        compilationFailed.errors[0].location!!.line shouldBe 1
+        compilationFailed.errors[0].location!!.column shouldBe 9
     }
 })
