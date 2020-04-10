@@ -889,14 +889,14 @@ object Sandbox {
         }
     }
 
-    private class SandboxedProperties(val properties: Properties) : Properties(properties) {
+    private class SandboxedProperties(properties: Properties) : Properties(properties) {
         @Suppress("ReturnCount")
         override fun getProperty(key: String?): String? {
             val confinedTask = confinedTaskByThreadGroup() ?: return super.getProperty(key)
             if (key == "kotlinx.coroutines.scheduler.max.pool.size") {
                 return confinedTask.maxExtraThreads.toString()
             } else if (key == "kotlinx.coroutines.scheduler.core.pool.size") {
-                return "1"
+                return (confinedTask.maxExtraThreads - 1).toString()
             }
             return super.getProperty(key)
         }

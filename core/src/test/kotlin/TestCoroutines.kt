@@ -4,6 +4,7 @@ import io.kotlintest.matchers.beLessThan
 import io.kotlintest.should
 import io.kotlintest.shouldBe
 import io.kotlintest.shouldNot
+import io.kotlintest.shouldNotBe
 import io.kotlintest.specs.StringSpec
 import kotlinx.coroutines.GlobalScope
 import kotlinx.coroutines.launch
@@ -76,6 +77,7 @@ fun main() {
 """.trimIndent()
         )).kompile().execute()
 
+        println(executionResult.permissionRequests.filter { !it.granted })
         executionResult should haveCompleted()
         executionResult shouldNot haveTimedOut()
     }
@@ -244,5 +246,40 @@ suspend fun main() = coroutineScope {
 
         executionResult should haveCompleted()
         executionResult.outputLines.size shouldBe 2
+    }
+    "coroutines should run concurrently" {
+        val executionResult = Source(mapOf(
+            "Main.kt" to """
+import kotlinx.coroutines.*
+import java.util.concurrent.atomic.*
+
+var counter = 0
+var atomicCounter = AtomicInteger()
+fun main() {
+  runBlocking {
+    withContext(Dispatchers.Default) {
+      coroutineScope {
+        repeat(100) {
+          launch {
+            repeat(1000) {
+              counter++
+              atomicCounter.incrementAndGet()
+            }
+          }
+        }
+      }
+    }
+  }
+  println(counter)
+  println(atomicCounter)
+}
+""".trimIndent()
+        )).kompile().execute()
+
+        executionResult should haveCompleted()
+        executionResult shouldNot haveTimedOut()
+        executionResult.outputLines.size shouldBe 2
+        executionResult.outputLines[0].line.toInt() shouldNotBe 100000
+        executionResult.outputLines[1].line.toInt() shouldBe 100000
     }
 })
