@@ -98,12 +98,14 @@ object Sandbox {
         // var because may be increased in the presence of coroutines
         var maxExtraThreads: Int = DEFAULT_MAX_EXTRA_THREADS,
         val maxOutputLines: Int = DEFAULT_MAX_OUTPUT_LINES,
-        val classLoaderConfiguration: ClassLoaderConfiguration = ClassLoaderConfiguration()
+        val classLoaderConfiguration: ClassLoaderConfiguration = ClassLoaderConfiguration(),
+        val waitForShutdown: Boolean = DEFAULT_WAIT_FOR_SHUTDOWN
     ) {
         companion object {
             const val DEFAULT_TIMEOUT = 100L
             const val DEFAULT_MAX_EXTRA_THREADS = 0
             const val DEFAULT_MAX_OUTPUT_LINES = 1024
+            const val DEFAULT_WAIT_FOR_SHUTDOWN = false
         }
     }
 
@@ -310,10 +312,12 @@ object Sandbox {
                     }
                     return false
                 }
-                while (Instant.now().isBefore(executionStarted.plusMillis(executionArguments.timeout)) &&
-                    workPending()) {
-                    // Give non-main tasks like coroutines a chance to finish
-                    Thread.yield()
+                if (executionArguments.waitForShutdown) {
+                    while (Instant.now().isBefore(executionStarted.plusMillis(executionArguments.timeout)) &&
+                        workPending()) {
+                        // Give non-main tasks like coroutines a chance to finish
+                        Thread.yield()
+                    }
                 }
 
                 val executionEnded = Instant.now()
@@ -465,7 +469,7 @@ object Sandbox {
         }
         threadGroup.maxPriority = Thread.MIN_PRIORITY
         val task = FutureTask(SandboxedCallable<T>(callable, sandboxedClassLoader))
-        val thread = Thread(threadGroup, task)
+        val thread = Thread(threadGroup, task, "main")
         val confinedTask = ConfinedTask(sandboxedClassLoader, task, thread, executionArguments)
         confinedTasks[threadGroup] = confinedTask
         confinedClassLoaders.add(sandboxedClassLoader)

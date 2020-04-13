@@ -143,8 +143,9 @@ fun main() {
 }
 """.trimIndent()
         )).kompile()
+        val executionArguments = SourceExecutionArguments(waitForShutdown = true)
         repeat(16) { // Flaky
-            val executionResult = kompileResult.execute()
+            val executionResult = kompileResult.execute(executionArguments = executionArguments)
             executionResult shouldNot haveTimedOut()
             executionResult should haveCompleted()
             executionResult should haveOutput("Started\nFinished")
@@ -166,8 +167,9 @@ fun main() {
 }
 """.trimIndent()
         )).kompile()
+        val executionArguments = SourceExecutionArguments(waitForShutdown = true)
         repeat(8) { // Flaky
-            val executionResult = kompileResult.execute()
+            val executionResult = kompileResult.execute(executionArguments = executionArguments)
             executionResult shouldNot haveTimedOut()
             executionResult should haveCompleted()
             executionResult.outputLines.size shouldBe 257
@@ -185,7 +187,7 @@ fun main() {
     }
 }
 """.trimIndent()
-        )).kompile().execute(SourceExecutionArguments(timeout = 9000L))
+        )).kompile().execute(SourceExecutionArguments(timeout = 9000L, waitForShutdown = true))
         executionResult should haveCompleted()
         executionResult should haveOutput("Finished")
         executionResult.executionInterval.length should beLessThan(5000L)
@@ -202,7 +204,7 @@ fun main() {
     }
 }
 """.trimIndent()
-        )).kompile().execute()
+        )).kompile().execute(SourceExecutionArguments(waitForShutdown = true))
         // execute will throw if the sandbox couldn't be shut down
         executionResult should haveOutput("Coroutine")
     }
@@ -220,7 +222,7 @@ fun main() = runBlocking {
     }
 }
 """.trimIndent()
-        )).kompile().execute()
+        )).kompile().execute(SourceExecutionArguments(waitForShutdown = true))
         executionResult should haveTimedOut()
         executionResult.outputLines.size shouldBe 16
     }
@@ -281,5 +283,24 @@ fun main() {
         executionResult.outputLines.size shouldBe 2
         executionResult.outputLines[0].line.toInt() shouldNotBe 100000
         executionResult.outputLines[1].line.toInt() shouldBe 100000
+    }
+    "coroutines started on GlobalScope should not produce timeouts" {
+        val executionResult = Source(mapOf(
+            "Main.kt" to """
+import kotlinx.coroutines.*
+
+fun main() = runBlocking {
+    GlobalScope.launch {
+      repeat(1000) {
+        delay(100)
+      }
+    }
+    delay(50)
+}
+""".trimIndent()
+        )).kompile().execute()
+
+        executionResult should haveCompleted()
+        executionResult shouldNot haveTimedOut()
     }
 })

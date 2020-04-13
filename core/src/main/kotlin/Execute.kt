@@ -17,13 +17,15 @@ class SourceExecutionArguments(
     maxExtraThreads: Int = DEFAULT_MAX_EXTRA_THREADS,
     maxOutputLines: Int = DEFAULT_MAX_OUTPUT_LINES,
     classLoaderConfiguration: Sandbox.ClassLoaderConfiguration = Sandbox.ClassLoaderConfiguration(),
-    val dryRun: Boolean = false
+    val dryRun: Boolean = false,
+    waitForShutdown: Boolean = DEFAULT_WAIT_FOR_SHUTDOWN
 ) : Sandbox.ExecutionArguments(
     timeout,
     permissions.union(REQUIRED_PERMISSIONS),
     maxExtraThreads,
     maxOutputLines,
-    classLoaderConfiguration
+    classLoaderConfiguration,
+    waitForShutdown
 ) {
     companion object {
         const val DEFAULT_KLASS = "Main"
