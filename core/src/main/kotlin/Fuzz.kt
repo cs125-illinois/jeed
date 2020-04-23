@@ -22,26 +22,87 @@ data class SourceModification(
     val content: String,
     val replace: String
 )
+
 /**
  * Holds information about how the user would like to fuzz the code.
  */
-data class FuzzConfiguration(
-    var conditionals_boundary: Boolean = false,
-    var conditionals_boundary_rand: Boolean = true,
+class FuzzConfiguration {
+    /**
+     * The proportion of eligible transformations that should be performed if they are configured to random
+     */
+    var proportion_rand_transformed : Double = 0.50
 
-    var increment: Boolean = false,
-    var increment_rand: Boolean = true,
+    private var transformation_set : MutableSet<Transformation> = mutableSetOf()
 
-    var invert_negs: Boolean = false,
-    var invert_negs_rand: Boolean = true,
+    /**
+     * Adds transformation if there is no other transformation of its type in the set
+     */
+    fun addTransformation(transformation_type : TransformationType, rand : Boolean = true) {
+        if (transformation_set.find { it.type == transformation_type } == null) { // If transformation type does not already exist (we cannot have a random and all transformation of the same type)
+            transformation_set.add(Transformation(transformation_type, rand))
+        }
+    }
 
-    var math: Boolean = false,
-    var math_rand: Boolean = true,
+    /**
+     * Used to check if a certain transformation should be performed as per the user's configuration
+     */
+    public fun shouldTransform(transformation_type : TransformationType) : Boolean {
+        var transformation : Transformation? = transformation_set.find { it.type == transformation_type }
+        if (transformation == null) {
+            return false // If there is no transformation of this type
+        }
+        else {
+            if (!transformation.rand) {
+                return true // The transformation is applied every time
+            }
+            else {
+                return Math.random() < proportion_rand_transformed // The transformation is applied randomly
+            }
+        }
+    }
 
-    var conditionals_neg: Boolean = false,
-    var conditionals_neg_rand: Boolean = true
+    private data class Transformation(var type : TransformationType, var rand : Boolean = true)
+}
 
-)
+/**
+ * A type of transformation to be performed on the source code
+ *
+ * For more information on each of these, go to: https://pitest.org/quickstart/mutators/
+ */
+enum class TransformationType {
+    /**
+     * Flips < with <=, > with >=, and vice versa. Cannot be used with CONDITIONALS_NEG or REMOVE_CONDITIONALS
+     */
+    CONDITIONALS_BOUNDARY,
+
+    /**
+     * Flips ++ with -- and vice versa. Cannot be used with REMOVE_INCREMENTS
+     */
+    INCREMENT,
+
+    /**
+     * Flips the non-operational + with - and vice versa (so "-1" to to "1" but NOT "1 + 1" to "1 - 1")
+     */
+    INVERT_NEGS,
+
+    /**
+     * Flips mathematical operators according to the following table:
+     *
+     * - to + (but NOT vice versa)
+     * * to / and vice versa
+     * % to * (but NOT vice versa)
+     * >> to << (and vice versa)
+     * >>> to << (but NOT vice versa)
+     *
+     * NOTE: We do not mutate the + operator because it is used for string concatenation
+     */
+    MATH,
+
+    /**
+     * Flips == to !=, >= to <, <= to >, and vice versa
+     */
+    CONDITIONALS_NEG
+}
 
 /**
  * Applies source modifications to the source code
@@ -305,7 +366,7 @@ class Fuzzer(private val configuration: FuzzConfiguration) : JavaParserBaseListe
             val left = ctx.getChild(0).text // ++ (pre), -- (pre)
             val right = ctx.getChild(1).text // ++ (post), -- (post)
             if (left == "++") { // ++ (pre)
-                if (configuration.increment && (!configuration.increment_rand || Math.random() > 0.5)) {
+                if (configuration.shouldTransform(TransformationType.INCREMENT)) {
                     var startLine = ctx.start.line
                     var startCol = ctx.start.charPositionInLine
                     var endLine = ctx.start.line
@@ -318,7 +379,7 @@ class Fuzzer(private val configuration: FuzzConfiguration) : JavaParserBaseListe
                 }
             }
             else if (left == "--") { // -- (pre)
-                if (configuration.increment && (!configuration.increment_rand || Math.random() > 0.5)) {
+                if (configuration.shouldTransform(TransformationType.INCREMENT)) {
                     var startLine = ctx.start.line
                     var startCol = ctx.start.charPositionInLine
                     var endLine = ctx.start.line
@@ -331,7 +392,7 @@ class Fuzzer(private val configuration: FuzzConfiguration) : JavaParserBaseListe
                 }
             }
             else if (right == "++") { // ++ (post)
-                if (configuration.increment && (!configuration.increment_rand || Math.random() > 0.5)) {
+                if (configuration.shouldTransform(TransformationType.INCREMENT)) {
                     var startLine = ctx.start.line
                     var startCol = ctx.stop.charPositionInLine
                     var endLine = ctx.start.line
@@ -344,7 +405,7 @@ class Fuzzer(private val configuration: FuzzConfiguration) : JavaParserBaseListe
                 }
             }
             else if (right == "--") { // -- (post)
-                if (configuration.increment && (!configuration.increment_rand || Math.random() > 0.5)) {
+                if (configuration.shouldTransform(TransformationType.INCREMENT)) {
                     var startLine = ctx.start.line
                     var startCol = ctx.stop.charPositionInLine
                     var endLine = ctx.start.line
@@ -357,7 +418,7 @@ class Fuzzer(private val configuration: FuzzConfiguration) : JavaParserBaseListe
                 }
             }
             else if (left == "+") { // + (sign)
-                if (configuration.invert_negs && (!configuration.invert_negs_rand || Math.random() > 0.5)) {
+                if (configuration.shouldTransform(TransformationType.INVERT_NEGS)) {
                     var startLine = ctx.start.line
                     var startCol = ctx.start.charPositionInLine
                     var endLine = ctx.start.line
@@ -370,7 +431,7 @@ class Fuzzer(private val configuration: FuzzConfiguration) : JavaParserBaseListe
                 }
             }
             else if (left == "-") { // - (sign)
-                if (configuration.invert_negs && (!configuration.invert_negs_rand || Math.random() > 0.5)) {
+                if (configuration.shouldTransform(TransformationType.INVERT_NEGS)) {
                     var startLine = ctx.start.line
                     var startCol = ctx.start.charPositionInLine
                     var endLine = ctx.start.line
@@ -386,7 +447,7 @@ class Fuzzer(private val configuration: FuzzConfiguration) : JavaParserBaseListe
         if (ctx.childCount == 3) {
             val op = ctx.getChild(1).text // >=, <=, >, <, ==, !=, -, *, /, %, &, |, ^, <<, >>, >>>
             if (op == ">=") { // >=
-                if (configuration.conditionals_boundary && (!configuration.conditionals_boundary_rand || Math.random() > 0.5)) {
+                if (configuration.shouldTransform(TransformationType.CONDITIONALS_BOUNDARY)) {
                     var startLine = ctx.start.line
                     var startCol = ctx.start.charPositionInLine + ctx.getChild(0).text.length
                     var endLine = ctx.start.line
@@ -397,7 +458,7 @@ class Fuzzer(private val configuration: FuzzConfiguration) : JavaParserBaseListe
                             endLine, endCol, ">=", ">")
                     })
                 }
-                else if (configuration.conditionals_neg && (!configuration.conditionals_neg_rand || Math.random() > 0.5)) {
+                else if (configuration.shouldTransform(TransformationType.CONDITIONALS_NEG)) {
                     var startLine = ctx.start.line
                     var startCol = ctx.start.charPositionInLine + ctx.getChild(0).text.length
                     var endLine = ctx.start.line
@@ -410,7 +471,7 @@ class Fuzzer(private val configuration: FuzzConfiguration) : JavaParserBaseListe
                 }
             }
             else if (op == "<=") { // <=
-                if (configuration.conditionals_boundary && (!configuration.conditionals_boundary_rand || Math.random() > 0.5)) {
+                if (configuration.shouldTransform(TransformationType.CONDITIONALS_BOUNDARY)) {
                     var startLine = ctx.start.line
                     var startCol = ctx.start.charPositionInLine + ctx.getChild(0).text.length
                     var endLine = ctx.start.line
@@ -421,7 +482,7 @@ class Fuzzer(private val configuration: FuzzConfiguration) : JavaParserBaseListe
                             endLine, endCol, "<=", "<")
                     })
                 }
-                else if (configuration.conditionals_neg && (!configuration.conditionals_neg_rand || Math.random() > 0.5)) {
+                else if (configuration.shouldTransform(TransformationType.CONDITIONALS_NEG)) {
                     var startLine = ctx.start.line
                     var startCol = ctx.start.charPositionInLine + ctx.getChild(0).text.length
                     var endLine = ctx.start.line
@@ -434,7 +495,7 @@ class Fuzzer(private val configuration: FuzzConfiguration) : JavaParserBaseListe
                 }
             }
             else if (op == ">") { // >
-                if (configuration.conditionals_boundary && (!configuration.conditionals_boundary_rand || Math.random() > 0.5)) {
+                if (configuration.shouldTransform(TransformationType.CONDITIONALS_BOUNDARY)) {
                     var startLine = ctx.start.line
                     var startCol = ctx.start.charPositionInLine + ctx.getChild(0).text.length
                     var endLine = ctx.start.line
@@ -445,7 +506,7 @@ class Fuzzer(private val configuration: FuzzConfiguration) : JavaParserBaseListe
                             endLine, endCol, ">", ">=")
                     })
                 }
-                else if (configuration.conditionals_neg && (!configuration.conditionals_neg_rand || Math.random() > 0.5)) {
+                else if (configuration.shouldTransform(TransformationType.CONDITIONALS_NEG)) {
                     var startLine = ctx.start.line
                     var startCol = ctx.start.charPositionInLine + ctx.getChild(0).text.length
                     var endLine = ctx.start.line
@@ -458,7 +519,7 @@ class Fuzzer(private val configuration: FuzzConfiguration) : JavaParserBaseListe
                 }
             }
             else if (op == "<") { // <
-                if (configuration.conditionals_boundary && (!configuration.conditionals_boundary_rand || Math.random() > 0.5)) {
+                if (configuration.shouldTransform(TransformationType.CONDITIONALS_BOUNDARY)) {
                     var startLine = ctx.start.line
                     var startCol = ctx.start.charPositionInLine + ctx.getChild(0).text.length
                     var endLine = ctx.start.line
@@ -469,7 +530,7 @@ class Fuzzer(private val configuration: FuzzConfiguration) : JavaParserBaseListe
                             endLine, endCol, "<", "<=")
                     })
                 }
-                else if (configuration.conditionals_neg && (!configuration.conditionals_neg_rand || Math.random() > 0.5)) {
+                else if (configuration.shouldTransform(TransformationType.CONDITIONALS_NEG)) {
                     var startLine = ctx.start.line
                     var startCol = ctx.start.charPositionInLine + ctx.getChild(0).text.length
                     var endLine = ctx.start.line
@@ -482,7 +543,7 @@ class Fuzzer(private val configuration: FuzzConfiguration) : JavaParserBaseListe
                 }
             }
             else if (op == "==") { // ==
-                if (configuration.conditionals_neg && (!configuration.conditionals_neg_rand || Math.random() > 0.5)) {
+                if (configuration.shouldTransform(TransformationType.CONDITIONALS_NEG)) {
                     var startLine = ctx.start.line
                     var startCol = ctx.start.charPositionInLine + ctx.getChild(0).text.length
                     var endLine = ctx.start.line
@@ -495,7 +556,7 @@ class Fuzzer(private val configuration: FuzzConfiguration) : JavaParserBaseListe
                 }
             }
             else if (op == "!=") { // !=
-                if (configuration.conditionals_neg && (!configuration.conditionals_neg_rand || Math.random() > 0.5)) {
+                if (configuration.shouldTransform(TransformationType.CONDITIONALS_NEG)) {
                     var startLine = ctx.start.line
                     var startCol = ctx.start.charPositionInLine + ctx.getChild(0).text.length
                     var endLine = ctx.start.line
@@ -508,7 +569,7 @@ class Fuzzer(private val configuration: FuzzConfiguration) : JavaParserBaseListe
                 }
             }
             else if (op == "-") { // - (arithmetic)
-                if (configuration.math && (!configuration.math_rand || Math.random() > 0.5)) {
+                if (configuration.shouldTransform(TransformationType.MATH)) {
                     var startLine = ctx.start.line
                     var startCol = ctx.start.charPositionInLine + ctx.getChild(0).text.length
                     var endLine = ctx.start.line
@@ -521,7 +582,7 @@ class Fuzzer(private val configuration: FuzzConfiguration) : JavaParserBaseListe
                 }
             }
             else if (op == "*") { // *
-                if (configuration.math && (!configuration.math_rand || Math.random() > 0.5)) {
+                if (configuration.shouldTransform(TransformationType.MATH)) {
                     var startLine = ctx.start.line
                     var startCol = ctx.start.charPositionInLine + ctx.getChild(0).text.length
                     var endLine = ctx.start.line
@@ -534,7 +595,7 @@ class Fuzzer(private val configuration: FuzzConfiguration) : JavaParserBaseListe
                 }
             }
             else if (op == "/") { // /
-                if (configuration.math && (!configuration.math_rand || Math.random() > 0.5)) {
+                if (configuration.shouldTransform(TransformationType.MATH)) {
                     var startLine = ctx.start.line
                     var startCol = ctx.start.charPositionInLine + ctx.getChild(0).text.length
                     var endLine = ctx.start.line
@@ -547,7 +608,7 @@ class Fuzzer(private val configuration: FuzzConfiguration) : JavaParserBaseListe
                 }
             }
             else if (op == "%") { // %
-                if (configuration.math && (!configuration.math_rand || Math.random() > 0.5)) {
+                if (configuration.shouldTransform(TransformationType.MATH)) {
                     var startLine = ctx.start.line
                     var startCol = ctx.start.charPositionInLine + ctx.getChild(0).text.length
                     var endLine = ctx.start.line
@@ -560,7 +621,7 @@ class Fuzzer(private val configuration: FuzzConfiguration) : JavaParserBaseListe
                 }
             }
             else if (op == "&") { // &
-                if (configuration.math && (!configuration.math_rand || Math.random() > 0.5)) {
+                if (configuration.shouldTransform(TransformationType.MATH)) {
                     var startLine = ctx.start.line
                     var startCol = ctx.start.charPositionInLine + ctx.getChild(0).text.length
                     var endLine = ctx.start.line
@@ -573,7 +634,7 @@ class Fuzzer(private val configuration: FuzzConfiguration) : JavaParserBaseListe
                 }
             }
             else if (op == "|") { // |
-                if (configuration.math && (!configuration.math_rand || Math.random() > 0.5)) {
+                if (configuration.shouldTransform(TransformationType.MATH)) {
                     var startLine = ctx.start.line
                     var startCol = ctx.start.charPositionInLine + ctx.getChild(0).text.length
                     var endLine = ctx.start.line
@@ -586,7 +647,7 @@ class Fuzzer(private val configuration: FuzzConfiguration) : JavaParserBaseListe
                 }
             }
             else if (op == "^") { // ^
-                if (configuration.math && (!configuration.math_rand || Math.random() > 0.5)) {
+                if (configuration.shouldTransform(TransformationType.MATH)) {
                     var startLine = ctx.start.line
                     var startCol = ctx.start.charPositionInLine + ctx.getChild(0).text.length
                     var endLine = ctx.start.line
@@ -602,7 +663,7 @@ class Fuzzer(private val configuration: FuzzConfiguration) : JavaParserBaseListe
         if (ctx.childCount == 4) {
             val op = ctx.getChild(1).text + ctx.getChild(2).text // <<, >>
             if (op == "<<") { // <<
-                if (configuration.math && (!configuration.math_rand || Math.random() > 0.5)) {
+                if (configuration.shouldTransform(TransformationType.MATH)) {
                     var startLine = ctx.start.line
                     var startCol = ctx.start.charPositionInLine + ctx.getChild(0).text.length
                     var endLine = ctx.start.line
@@ -615,7 +676,7 @@ class Fuzzer(private val configuration: FuzzConfiguration) : JavaParserBaseListe
                 }
             }
             else if (op == ">>") { // >>
-                if (configuration.math && (!configuration.math_rand || Math.random() > 0.5)) {
+                if (configuration.shouldTransform(TransformationType.MATH)) {
                     var startLine = ctx.start.line
                     var startCol = ctx.start.charPositionInLine + ctx.getChild(0).text.length
                     var endLine = ctx.start.line
@@ -631,7 +692,7 @@ class Fuzzer(private val configuration: FuzzConfiguration) : JavaParserBaseListe
         if (ctx.childCount == 5) {
             val op = ctx.getChild(1).text + ctx.getChild(2).text + ctx.getChild(3).text // <<<
             if (op == ">>>") { // >>>
-                if (configuration.math && (!configuration.math_rand || Math.random() > 0.5)) {
+                if (configuration.shouldTransform(TransformationType.MATH)) {
                     var startLine = ctx.start.line
                     var startCol = ctx.start.charPositionInLine + ctx.getChild(0).text.length
                     var endLine = ctx.start.line
