@@ -67,7 +67,7 @@ class FuzzConfiguration {
 /**
  * A type of transformation to be performed on the source code
  *
- * For more information on each of these, go to: https://pitest.org/quickstart/mutators/
+ * Mutations are based on (but slightly different from) the following: https://pitest.org/quickstart/mutators/
  */
 enum class TransformationType {
     /**
@@ -101,7 +101,36 @@ enum class TransformationType {
     /**
      * Flips == to !=, >= to <, <= to >, and vice versa
      */
-    CONDITIONALS_NEG
+    CONDITIONALS_NEG,
+
+    /**
+     * Removes method calls that are either void or do not have their return values used or stored (so, despite the name, non-void methods can be removed)
+     */
+    VOID_METHOD_CALLS,
+
+    /**
+     * Replaces new constructor call assignments with null (NOTE: this does not replace other constructor calls, unlike the PiTest version)
+     */
+    CONSTRUCTOR_CALLS,
+
+    /**
+     * Mutates numeric literals according to the following table:
+     *
+     * true to false and vice versa
+     * 1 to 0, -1 to 1, 5 to -1, and otherwise increment the mutated value by 1
+     * 1.0 to 0.0 and any other value to 1.0
+     */
+    INLINE_CONSTANT,
+
+    /**
+     * Replace controls in if statements with 'true' literal
+     */
+    REMOVE_CONDITIONALS,
+
+    /**
+     * Removes ++ and --
+     */
+    REMOVE_INCREMENTS
 }
 
 /**
@@ -118,8 +147,12 @@ fun Set<SourceModification>.apply(source: String): String {
 
         val lineToModify = modifiedSource[currentModification.startLine - 1].toCharArray()
         val toReplace = lineToModify.slice(IntRange(currentModification.startColumn, currentModification.endColumn - 1)).joinToString(separator = "")
-        val replacement = toReplace.replace(currentModification.content, currentModification.replace)
-
+        var content = currentModification.content
+        if (currentModification.content == "") {
+            content = toReplace
+        }
+        val replacement = toReplace.replace(content, currentModification.replace)
+        println(toReplace)
         modifiedSource[currentModification.startLine - 1] =
             lineToModify.slice(IntRange(0, currentModification.startColumn - 1)).joinToString(separator = "") +
                 replacement +
@@ -157,7 +190,7 @@ $block
     }.toSet()
     var modifiedSource = sourceModifications.apply(block)
     //modifiedSource = document(modifiedSource, sourceModifications)
-
+    println(modifiedSource)
     parseJava("""{
 $modifiedSource
 }""").block()
@@ -660,7 +693,7 @@ class Fuzzer(private val configuration: FuzzConfiguration) : JavaParserBaseListe
                 }
             }
         }
-        if (ctx.childCount == 4) {
+        else if (ctx.childCount == 4) {
             val op = ctx.getChild(1).text + ctx.getChild(2).text // <<, >>
             if (op == "<<") { // <<
                 if (configuration.shouldTransform(TransformationType.MATH)) {
@@ -689,7 +722,7 @@ class Fuzzer(private val configuration: FuzzConfiguration) : JavaParserBaseListe
                 }
             }
         }
-        if (ctx.childCount == 5) {
+        else if (ctx.childCount == 5) {
             val op = ctx.getChild(1).text + ctx.getChild(2).text + ctx.getChild(3).text // <<<
             if (op == ">>>") { // >>>
                 if (configuration.shouldTransform(TransformationType.MATH)) {
@@ -700,8 +733,87 @@ class Fuzzer(private val configuration: FuzzConfiguration) : JavaParserBaseListe
                     sourceModifications.add(lazy {
                         SourceModification(
                             ctx.text, startLine, startCol,
-                            endLine, endCol, ">>>", "<<")
+                            endLine, endCol, ">>>", "<<"
+                        )
                     })
+                }
+            }
+        }
+    }
+
+    override fun enterStatement(ctx: JavaParser.StatementContext?) {
+        if (ctx?.childCount == 2 && ctx.getChild(1).text == ";") { // Single statement
+            var expression = ctx.getChild(0)
+            if (expression.childCount == 1) {
+                var singular_expression = expression.getChild(0)
+                if (singular_expression.childCount == 3) {
+                    if (singular_expression.getChild(1).text == "(" && singular_expression.getChild(2).text == ")") {
+                        if (configuration.shouldTransform(TransformationType.VOID_METHOD_CALLS)) {
+                            var startLine = ctx.start.line
+                            var startCol = ctx.start.charPositionInLine
+                            var endLine = ctx.start.line
+                            var endCol = ctx.start.charPositionInLine + ctx.text.length
+                            sourceModifications.add(lazy {
+                                SourceModification(
+                                    ctx.text, startLine, startCol,
+                                    endLine, endCol, ctx.text, ""
+                                )
+                            })
+                        }
+                    }
+                }
+                else if (singular_expression.childCount == 4) {
+                    if (singular_expression.getChild(1).text == "(" && singular_expression.getChild(3).text == ")") {
+                        if (configuration.shouldTransform(TransformationType.VOID_METHOD_CALLS)) {
+                            var startLine = ctx.start.line
+                            var startCol = ctx.start.charPositionInLine
+                            var endLine = ctx.start.line
+                            var endCol = ctx.start.charPositionInLine + ctx.text.length
+                            sourceModifications.add(lazy {
+                                SourceModification(
+                                    ctx.text, startLine, startCol,
+                                    endLine, endCol, ctx.text, ""
+                                )
+                            })
+                        }
+                    }
+                }
+            }
+            else if (expression.childCount == 3) {
+                if (expression.getChild(1).text == ".") {
+                    var singular_expression = expression.getChild(2)
+                    if (singular_expression.childCount == 3) {
+                        if (singular_expression.getChild(1).text == "(" && singular_expression.getChild(2).text == ")") {
+                            if (configuration.shouldTransform(TransformationType.VOID_METHOD_CALLS)) {
+                                var startLine = ctx.start.line
+                                var startCol = ctx.start.charPositionInLine
+                                var endLine = ctx.start.line
+                                var endCol = ctx.start.charPositionInLine + ctx.text.length
+                                sourceModifications.add(lazy {
+                                    SourceModification(
+                                        ctx.text, startLine, startCol,
+                                        endLine, endCol, ctx.text, ""
+                                    )
+                                })
+                            }
+                        }
+                    }
+                    else if (singular_expression.childCount == 4) {
+                        if (singular_expression.getChild(1).text == "(" && singular_expression.getChild(3).text == ")") {
+                            if (configuration.shouldTransform(TransformationType.VOID_METHOD_CALLS)) {
+                                var startLine = ctx.start.line
+                                var startCol = ctx.start.charPositionInLine
+                                var endLine = ctx.start.line
+                                var endCol = ctx.start.charPositionInLine + ctx.text.length
+                                sourceModifications.add(lazy {
+                                    SourceModification(
+                                        ctx.text, startLine, startCol,
+                                        endLine, endCol, ctx.text, ""
+                                    )
+                                })
+                            }
+                        }
+                    }
                 }
             }
         }
