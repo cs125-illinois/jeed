@@ -3,7 +3,7 @@ import java.io.StringWriter
 import java.util.Properties
 
 group = "edu.illinois.cs.cs125"
-version = "2020.4.6"
+version = "2020.4.7"
 
 plugins {
     kotlin("jvm")
@@ -57,7 +57,7 @@ tasks.test {
         jvmArgs("-ea", "-Xmx1G")
     }
     systemProperties["logback.configurationFile"] = File(projectDir, "src/test/resources/logback-test.xml").absolutePath
-    environment["MONGODB"] = "mongodb://localhost:27038/cs125"
+    environment["MONGODB"] = "mongodb://localhost:27017/cs125"
     environment["SEMESTER"] = "Spring2020"
 }
 tasks.jar {
