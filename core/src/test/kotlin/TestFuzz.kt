@@ -139,5 +139,37 @@ double bar = foo && 4 > 2;
         println(fuzzedSource)
         fuzzedSource shouldBe expectedFuzzedSource
     }
+
+    // Void Method Calls
+
+    "void method calls (all)" {
+        val source = """
+Integer i = 123;
+Double d = new Double(i);
+System.out.println((new Boolean(i == 5)).toString());
+foo();
+String uniqueString = i.toString();
+System.out.println(uniqueString);
+uniqueString.toString();
+uniqueString;
+""".trim()
+        val expectedFuzzedSource = """
+Integer i = 123;
+Double d = new Double(i);
+System.out.println((new Boolean(i == 5)).toString());
+
+String uniqueString = i.toString();
+
+
+uniqueString;
+""".trim()
+        val fuzzConfiguration = FuzzConfiguration()
+        fuzzConfiguration.addTransformation(TransformationType.VOID_METHOD_CALLS, rand = false)
+        val fuzzedSource = fuzzBlock(source, fuzzConfiguration)
+        println(fuzzedSource)
+        fuzzedSource shouldBe expectedFuzzedSource
+    }
 })
+
+
 
