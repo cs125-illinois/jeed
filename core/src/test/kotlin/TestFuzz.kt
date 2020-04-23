@@ -20,8 +20,7 @@ boolean c = 3 < 2;
 boolean d = 4 > 4; 
 """.trim()
         val fuzzConfiguration = FuzzConfiguration()
-        fuzzConfiguration.conditionals_boundary = true
-        fuzzConfiguration.conditionals_boundary_rand = false
+        fuzzConfiguration.addTransformation(TransformationType.CONDITIONALS_BOUNDARY, rand = false)
         val fuzzedSource = fuzzBlock(source, fuzzConfiguration)
         println(fuzzedSource)
         fuzzedSource shouldBe expectedFuzzedSource
@@ -47,8 +46,7 @@ for (int i = 0; i < 5; i--) {
 double bar = 7 + ++foo;
 """.trim()
         val fuzzConfiguration = FuzzConfiguration()
-        fuzzConfiguration.increment = true
-        fuzzConfiguration.increment_rand = false
+        fuzzConfiguration.addTransformation(TransformationType.INCREMENT, rand = false)
         val fuzzedSource = fuzzBlock(source, fuzzConfiguration)
         println(fuzzedSource)
         fuzzedSource shouldBe expectedFuzzedSource
@@ -68,8 +66,7 @@ int j = i + 1;
 int k = -j;
 """.trim()
         val fuzzConfiguration = FuzzConfiguration()
-        fuzzConfiguration.invert_negs = true
-        fuzzConfiguration.invert_negs_rand = false
+        fuzzConfiguration.addTransformation(TransformationType.INVERT_NEGS, rand = false)
         val fuzzedSource = fuzzBlock(source, fuzzConfiguration)
         println(fuzzedSource)
         fuzzedSource shouldBe expectedFuzzedSource
@@ -105,8 +102,7 @@ int r = 8 << 2;
 int s = 16 << 2;
 """.trim()
         val fuzzConfiguration = FuzzConfiguration()
-        fuzzConfiguration.math = true
-        fuzzConfiguration.math_rand = false
+        fuzzConfiguration.addTransformation(TransformationType.MATH, rand = false)
         val fuzzedSource = fuzzBlock(source, fuzzConfiguration)
         println(fuzzedSource)
         fuzzedSource shouldBe expectedFuzzedSource
@@ -138,8 +134,7 @@ if (5 <= 1) {
 double bar = foo && 4 > 2;
 """.trim()
         val fuzzConfiguration = FuzzConfiguration()
-        fuzzConfiguration.conditionals_neg = true
-        fuzzConfiguration.conditionals_neg_rand = false
+        fuzzConfiguration.addTransformation(TransformationType.CONDITIONALS_NEG, rand = false)
         val fuzzedSource = fuzzBlock(source, fuzzConfiguration)
         println(fuzzedSource)
         fuzzedSource shouldBe expectedFuzzedSource
