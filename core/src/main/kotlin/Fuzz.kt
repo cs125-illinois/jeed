@@ -474,6 +474,24 @@ class Fuzzer(private val configuration: FuzzConfiguration) : JavaParserBaseListe
                     })
                 }
             }
+            else if (left == "new") {
+                if (configuration.shouldTransform(TransformationType.CONSTRUCTOR_CALLS)) {
+                    var startLine = ctx.start.line
+                    var startCol = ctx.start.charPositionInLine
+                    var endLine = ctx.start.line
+                    var endCol = ctx.stop.charPositionInLine + 1
+                    var whitespaceLength = endCol - startCol - left.length - right.length
+                    var whitespace : String = ""
+                    for (i in 1..whitespaceLength) {
+                        whitespace += " "
+                    }
+                    sourceModifications.add(lazy {
+                        SourceModification(
+                            ctx.text, startLine, startCol,
+                            endLine, endCol, "", "null")
+                    })
+                }
+            }
         }
         if (ctx.childCount == 3) {
             val op = ctx.getChild(1).text // >=, <=, >, <, ==, !=, -, *, /, %, &, |, ^, <<, >>, >>>
