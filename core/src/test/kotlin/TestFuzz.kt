@@ -12,12 +12,14 @@ boolean a = 1 > 0;
 boolean b = 5 < 5; 
 boolean c = 3 <= 2; 
 boolean d = 4 >= 4;
+boolean e = foo("egesrg <") > foo(">    " + "");
 """.trim()
         val expectedFuzzedSource = """
 boolean a = 1 >= 0; 
 boolean b = 5 <= 5; 
 boolean c = 3 < 2; 
-boolean d = 4 > 4; 
+boolean d = 4 > 4;
+boolean e = foo("egesrg <") >= foo(">    " + "");
 """.trim()
         val fuzzConfiguration = FuzzConfiguration()
         fuzzConfiguration.addTransformation(TransformationType.CONDITIONALS_BOUNDARY, rand = false)
