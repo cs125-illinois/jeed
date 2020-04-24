@@ -127,7 +127,7 @@ enum class TransformationType {
     /**
      * Replace controls in if statements with 'true' literal
      */
-    REMOVE_CONDITIONALS,
+    //REMOVE_CONDITIONALS,
 
     /**
      * Removes ++ and --
@@ -410,6 +410,17 @@ class Fuzzer(private val configuration: FuzzConfiguration) : JavaParserBaseListe
                             endLine, endCol, "++", "--")
                     })
                 }
+                else if (configuration.shouldTransform(TransformationType.REMOVE_INCREMENTS)) {
+                    var startLine = ctx.start.line
+                    var startCol = ctx.start.charPositionInLine
+                    var endLine = ctx.start.line
+                    var endCol = ctx.start.charPositionInLine + left.length
+                    sourceModifications.add(lazy {
+                        SourceModification(
+                            ctx.text, startLine, startCol,
+                            endLine, endCol, "++", "")
+                    })
+                }
             }
             else if (left == "--") { // -- (pre)
                 if (configuration.shouldTransform(TransformationType.INCREMENT)) {
@@ -421,6 +432,17 @@ class Fuzzer(private val configuration: FuzzConfiguration) : JavaParserBaseListe
                         SourceModification(
                             ctx.text, startLine, startCol,
                             endLine, endCol, "--", "++")
+                    })
+                }
+                else if (configuration.shouldTransform(TransformationType.REMOVE_INCREMENTS)) {
+                    var startLine = ctx.start.line
+                    var startCol = ctx.start.charPositionInLine
+                    var endLine = ctx.start.line
+                    var endCol = ctx.start.charPositionInLine + left.length
+                    sourceModifications.add(lazy {
+                        SourceModification(
+                            ctx.text, startLine, startCol,
+                            endLine, endCol, "--", "")
                     })
                 }
             }
@@ -436,6 +458,17 @@ class Fuzzer(private val configuration: FuzzConfiguration) : JavaParserBaseListe
                             endLine, endCol, "++", "--")
                     })
                 }
+                else if (configuration.shouldTransform(TransformationType.REMOVE_INCREMENTS)) {
+                    var startLine = ctx.start.line
+                    var startCol = ctx.stop.charPositionInLine
+                    var endLine = ctx.start.line
+                    var endCol = ctx.stop.charPositionInLine + right.length
+                    sourceModifications.add(lazy {
+                        SourceModification(
+                            ctx.text, startLine, startCol,
+                            endLine, endCol, "++", "")
+                    })
+                }
             }
             else if (right == "--") { // -- (post)
                 if (configuration.shouldTransform(TransformationType.INCREMENT)) {
@@ -447,6 +480,17 @@ class Fuzzer(private val configuration: FuzzConfiguration) : JavaParserBaseListe
                         SourceModification(
                             ctx.text, startLine, startCol,
                             endLine, endCol, "--", "++")
+                    })
+                }
+                else if (configuration.shouldTransform(TransformationType.REMOVE_INCREMENTS)) {
+                    var startLine = ctx.start.line
+                    var startCol = ctx.stop.charPositionInLine
+                    var endLine = ctx.start.line
+                    var endCol = ctx.stop.charPositionInLine + right.length
+                    sourceModifications.add(lazy {
+                        SourceModification(
+                            ctx.text, startLine, startCol,
+                            endLine, endCol, "--", "")
                     })
                 }
             }
@@ -755,7 +799,26 @@ class Fuzzer(private val configuration: FuzzConfiguration) : JavaParserBaseListe
     }
 
     override fun enterStatement(ctx: JavaParser.StatementContext?) {
-        if (ctx?.childCount == 2 && ctx.getChild(1).text == ";") { // Single statement
+        /**
+        if (ctx!!.getChild(0).text == "if") {
+            if (configuration.shouldTransform(TransformationType.REMOVE_CONDITIONALS)) {
+                var content = ctx.getChild(1).text // The parExpression that controls the if/elif statement
+                var replace = "(true)" // Thus the conditional executes each time
+                var startLine = ctx.start.line
+                var startCol = ctx.start.charPositionInLine
+                println(startCol)
+                var endLine = ctx.start.line
+                var endCol = ctx.start.charPositionInLine + ctx.getChild(0).text.length + 3 + ctx.getChild(1).text.length
+                println(endCol)
+                sourceModifications.add(lazy {
+                    SourceModification(
+                        ctx.text, startLine, startCol,
+                        endLine, endCol, content, replace
+                    )
+                })
+            }
+        } */
+        if (ctx!!.childCount == 2 && ctx.getChild(1).text == ";") { // Single statement
             var expression = ctx.getChild(0)
             if (expression.childCount == 1) {
                 var singular_expression = expression.getChild(0)
