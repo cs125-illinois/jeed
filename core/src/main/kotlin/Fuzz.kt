@@ -152,7 +152,6 @@ fun Set<SourceModification>.apply(source: String): String {
             content = toReplace
         }
         val replacement = toReplace.replace(content, currentModification.replace)
-        println(toReplace)
         modifiedSource[currentModification.startLine - 1] =
             lineToModify.slice(IntRange(0, currentModification.startColumn - 1)).joinToString(separator = "") +
                 replacement +
@@ -190,7 +189,6 @@ $block
     }.toSet()
     var modifiedSource = sourceModifications.apply(block)
     //modifiedSource = document(modifiedSource, sourceModifications)
-    println(modifiedSource)
     parseJava("""{
 $modifiedSource
 }""").block()
