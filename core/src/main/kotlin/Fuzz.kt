@@ -109,7 +109,9 @@ enum class TransformationType {
     VOID_METHOD_CALLS,
 
     /**
-     * Replaces new constructor call assignments with null (NOTE: this does not replace other constructor calls, unlike the PiTest version)
+     * Replaces constructor calls with null
+     *
+     * NOTE: This mutation is a little unstable and may cause compile errors
      */
     CONSTRUCTOR_CALLS,
 
@@ -117,7 +119,7 @@ enum class TransformationType {
      * Mutates numeric literals according to the following table:
      *
      * true to false and vice versa
-     * 1 to 0, -1 to 1, 5 to -1, and otherwise increment the mutated value by 1
+     * 0 and 5 to 1, -5 to -1, and otherwise increment the mutated value by 1 if positive and decrement by 1 if negative (0 is incremented)
      * 1.0 to 0.0 and any other value to 1.0
      */
     INLINE_CONSTANT,
@@ -480,11 +482,6 @@ class Fuzzer(private val configuration: FuzzConfiguration) : JavaParserBaseListe
                     var startCol = ctx.start.charPositionInLine
                     var endLine = ctx.start.line
                     var endCol = ctx.stop.charPositionInLine + 1
-                    var whitespaceLength = endCol - startCol - left.length - right.length
-                    var whitespace : String = ""
-                    for (i in 1..whitespaceLength) {
-                        whitespace += " "
-                    }
                     sourceModifications.add(lazy {
                         SourceModification(
                             ctx.text, startLine, startCol,
@@ -831,6 +828,78 @@ class Fuzzer(private val configuration: FuzzConfiguration) : JavaParserBaseListe
                         }
                     }
                 }
+            }
+        }
+    }
+
+    override fun enterFloatLiteral(ctx: JavaParser.FloatLiteralContext?) {
+        if (configuration.shouldTransform(TransformationType.INLINE_CONSTANT)) {
+            var num = ctx!!.text.toDouble()
+            if (num == 1.0) {
+                num = 0.0
+            }
+            else {
+                num = 1.0
+            }
+
+            var startLine = ctx.start.line
+            var startCol = ctx.start.charPositionInLine
+            var endLine = ctx.start.line
+            var endCol = ctx.start.charPositionInLine + ctx.text.length
+            sourceModifications.add(lazy {
+                SourceModification(
+                    ctx.text, startLine, startCol,
+                    endLine, endCol, ctx.text, num.toString())
+            })
+        }
+    }
+
+    override fun enterIntegerLiteral(ctx: JavaParser.IntegerLiteralContext?) {
+        if (configuration.shouldTransform(TransformationType.INLINE_CONSTANT)) {
+            var num = ctx!!.text.toInt()
+            if (num == 0) {
+                num = 1
+            }
+            else if (num == 5) {
+                num = 1
+            }
+            else {
+                num++
+            }
+
+            var startLine = ctx.start.line
+            var startCol = ctx.start.charPositionInLine
+            var endLine = ctx.start.line
+            var endCol = ctx.start.charPositionInLine + ctx.text.length
+            sourceModifications.add(lazy {
+                SourceModification(
+                    ctx.text, startLine, startCol,
+                    endLine, endCol, "", num.toString())
+            })
+        }
+    }
+
+    override fun enterLiteral(ctx: JavaParser.LiteralContext?) {
+        if (configuration.shouldTransform(TransformationType.INLINE_CONSTANT)) {
+            val content = ctx!!.text
+            var replace : String = ""
+            if (content == "true") {
+                replace = "false"
+            }
+            else if (content == "false") {
+                replace = "true"
+            }
+
+            if (replace != "") {
+                var startLine = ctx.start.line
+                var startCol = ctx.start.charPositionInLine
+                var endLine = ctx.start.line
+                var endCol = ctx.start.charPositionInLine + ctx.text.length
+                sourceModifications.add(lazy {
+                    SourceModification(
+                        ctx.text, startLine, startCol,
+                        endLine, endCol, "", replace)
+                })
             }
         }
     }
