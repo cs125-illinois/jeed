@@ -1,17 +1,21 @@
 {
   "scripts": {
-    "start": "concurrently -n parcel,jeed --handle-input \"npm run parcel\" \"npm run jeed\"",
+    "build": "babel jeed.js -d build/",
+    "jeed": "docker run -p 8888:8888 -e HOSTS=http://localhost:1234 cs125/jeed:latest",
+    "ncu": "ncu",
     "parcel": "parcel index.html",
-    "jeed": "env-cmd docker run -p 8888:8888 cs125/jeed:latest",
-    "prettier": "prettier --write *",
-    "build": "babel jeed.js -d build/"
+    "start": "concurrently -n parcel,jeed --handle-input \"npm run parcel\" \"npm run jeed\"",
+    "prettier": "prettier --write * && prettier-package-json --write"
   },
   "devDependencies": {
     "babel-cli": "^6.26.0",
+    "babel-core": "^6.26.3",
     "babel-preset-env": "^1.7.0",
     "concurrently": "^5.1.0",
     "env-cmd": "^10.1.0",
+    "npm-check-updates": "^4.1.2",
     "parcel-bundler": "^1.12.4",
-    "prettier": "^1.19.1"
+    "prettier": "^2.0.5",
+    "prettier-package-json": "^2.1.3"
   }
 }
