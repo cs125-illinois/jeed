@@ -238,6 +238,32 @@ boolean t = true;
         fuzzedSource shouldBe expectedFuzzedSource
     }
 
+    // Remove Increments
+
+    "remove increments (all)" {
+        val source = """
+int i = 0;
+int j = i++;
+int k = j-- + i;
+--k;
+++j;
+""".trim()
+        val expectedFuzzedSource = """
+int i = 0;
+int j = i;
+int k = j + i;
+k;
+j;
+""".trim()
+        val fuzzConfiguration = FuzzConfiguration()
+        fuzzConfiguration.addTransformation(TransformationType.REMOVE_INCREMENTS, rand = false)
+        val fuzzedSource = fuzzBlock(source, fuzzConfiguration)
+        println(fuzzedSource)
+        fuzzedSource shouldBe expectedFuzzedSource
+    }
+
+/* TODO: This mutator can currently not be done because of whitespace sensitivity issues
+
     // Remove Conditionals
 
     "remove conditionals (all)" {
@@ -268,7 +294,7 @@ else {
         val fuzzedSource = fuzzBlock(source, fuzzConfiguration)
         println(fuzzedSource)
         fuzzedSource shouldBe expectedFuzzedSource
-    }
+    } */
 })
 
 
