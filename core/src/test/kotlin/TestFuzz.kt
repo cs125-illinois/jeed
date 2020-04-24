@@ -199,6 +199,36 @@ uniqueString;
         println(fuzzedSource)
         fuzzedSource shouldBe expectedFuzzedSource
     }
+
+    // Inline Constants
+
+    "inline constants (all)" {
+        val source = """
+int i = 1
+int j = 1.0
+int k = 0
+int l = 0.0
+int m = 5.0
+int n = 4
+int o = 2.0
+int p = -1
+""".trim()
+        val expectedFuzzedSource = """
+int i = 0
+int j = 0.0
+int k = 1
+int l = 1.0
+int m = 1.0
+int n = 5
+int o = 1.0
+int p = 1
+""".trim()
+        val fuzzConfiguration = FuzzConfiguration()
+        fuzzConfiguration.addTransformation(TransformationType.CONSTRUCTOR_CALLS, rand = false)
+        val fuzzedSource = fuzzBlock(source, fuzzConfiguration)
+        println(fuzzedSource)
+        fuzzedSource shouldBe expectedFuzzedSource
+    }
 })
 
 
