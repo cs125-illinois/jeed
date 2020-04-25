@@ -7,6 +7,7 @@ arguments:
   compilation:
     wError: true
     Xlint: "none"
+    enablePreview: false
     useCache: false
     waitForCache: true
 authToken: "testing"

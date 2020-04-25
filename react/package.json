@@ -5,7 +5,7 @@
   "author": "Geoffrey Challen <geoffrey.challen@gmail.com>",
   "repository": "https://github.com/cs125-illinois/jeed",
   "bugs": "https://github.com/cs125-illinois/jeed/issues",
-  "version": "2020.4.0",
+  "version": "2020.4.9",
   "main": "dist/index.cjs.js",
   "files": [
     "dist/**/*"

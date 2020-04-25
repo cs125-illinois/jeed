@@ -108,6 +108,7 @@ export type SnippetArguments = Static<typeof SnippetArguments>
 export const CompilationArguments = Partial({
   wError: Boolean,
   XLint: String,
+  enablePreview: Boolean,
   useCache: Boolean,
   waitForCache: Boolean,
 })
