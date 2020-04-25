@@ -1,9 +1,5 @@
 !gradle-wrapper.jar
 /.gradle
-*.class
-*.swp
-*.swo
-*.iml
 .idea/workspace.xml
 .idea/tasks.xml
 .idea/.name
@@ -15,3 +11,7 @@ out/
 build/
 test-output/
 /email.txt
+*.class
+*.swp
+*.swo
+*.iml

@@ -21,12 +21,12 @@ dependencies {
 
     implementation(kotlin("stdlib"))
     implementation(kotlin("compiler-embeddable"))
+    implementation(kotlin("reflect"))
 
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-core:1.3.5")
     implementation("com.puppycrawl.tools:checkstyle:8.31")
     implementation("com.pinterest.ktlint:ktlint-core:0.36.0")
     implementation("com.pinterest.ktlint:ktlint-ruleset-standard:0.36.0")
-    implementation("org.jetbrains.kotlin:kotlin-reflect:1.3.72")
     implementation("com.github.jknack:handlebars:4.1.2")
     implementation("com.squareup.moshi:moshi:1.9.2")
     implementation("org.ow2.asm:asm:8.0.1")
