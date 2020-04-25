@@ -1,6 +1,6 @@
 import typescript from "rollup-plugin-typescript2"
 import resolve from "rollup-plugin-node-resolve"
-import commonjs from "rollup-plugin-commonjs"
+import commonJS from "@rollup/plugin-commonjs"
 
 export default {
   input: "./src/index.tsx",
@@ -9,10 +9,25 @@ export default {
     file: "./dist/index.cjs.js",
     sourcemap: true,
   },
-  plugins: [typescript(), resolve(), commonjs()],
+  plugins: [
+    typescript({
+      tsconfigDefaults: {
+        include: ["./src/**/*"],
+        compilerOptions: { declaration: true },
+      },
+    }),
+    resolve({ preferBuiltins: true }),
+    commonJS({
+      include: "node_modules/**",
+      namedExports: {
+        runtypes: ["Record", "Partial", "Number", "String", "Array", "Static", "Boolean", "Union", "Dictionary"],
+      },
+    }),
+  ],
   external: ["react", "prop-types"],
   onwarn: (warning, next) => {
-    if (warning.code === "THIS_IS_UNDEFINED") return
+    if (warning.code === "CIRCULAR_DEPENDENCY") return
+    if (warning.code === "EVAL") return
     next(warning)
   },
 }

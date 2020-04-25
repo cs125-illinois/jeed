@@ -1,48 +1,48 @@
-import React, { Component } from "react"
+import React, { Component, ReactElement, createRef } from "react"
 
-import AceEditor, { IAceOptions } from "react-ace"
+import { MaceEditor, withMaceConnected } from "@cs125/mace"
+import { withGoogleTokens } from "@cs125/react-google-login"
+
+import { IAceOptions } from "react-ace"
 import "ace-builds/src-noconflict/mode-java"
 import "ace-builds/src-noconflict/mode-kotlin"
 import "ace-builds/src-noconflict/theme-chrome"
 
-import { JeedContext, Request, Response, Task, responseToTerminalOutput } from "@cs125/react-jeed"
+import ace from "ace-builds/src-noconflict/ace"
+const CDN = "https://cdn.jsdelivr.net/npm/ace-builds@1.4.11/src-min-noconflict"
+ace.config.set("basePath", CDN)
 
-import Children from "react-children-utilities"
-import { Button, Icon, Dimmer, Container, Loader, Segment, Label } from "semantic-ui-react"
+import { JeedContext, Task, Request, Response, terminalOutput } from "@cs125/react-jeed"
+
+import { Button, Icon, Dimmer, Container, Loader, Segment, Label, Popup } from "semantic-ui-react"
 import styled from "styled-components"
 
-export const enum JeedLanguage {
+export const enum ExampleLanguage {
   Java = "java",
   Kotlin = "kotlin",
 }
-export interface JeedAceProps extends IAceOptions {
-  mode: JeedLanguage | string
-  children?: string | React.ReactNode
+export interface ExampleProps extends IAceOptions {
+  id: string
+  mode: ExampleLanguage | string
+  children?: string
   autoMin?: boolean
   autoPadding?: number
   snippet?: boolean
   nocheckstyle?: boolean
+  maxLines?: number
 }
-interface JeedAceState {
+interface ExampleState {
   value: string
   busy: boolean
   response?: Response
+  output?: ReactElement | string
+  outputLines: number
   showOutput: boolean
+  saved: boolean
+  saving: boolean
 }
-const RelativeContainer = styled(Container)({
-  position: "relative",
-  marginBottom: "1em",
-})
-const SnugLabel = styled(Label)({
-  top: "0!important",
-  right: "0!important",
-})
-const SnugPre = styled.pre`
-  margin-top: 0;
-  margin-bottom: 0;
-`
 
-export default class JeedAce extends Component<JeedAceProps, JeedAceState> {
+class Example extends Component<ExampleProps & { connected: boolean; authToken: string | undefined }, ExampleState> {
   static contextType = JeedContext
   declare context: React.ContextType<typeof JeedContext>
 
@@ -52,114 +52,195 @@ export default class JeedAce extends Component<JeedAceProps, JeedAceState> {
     mode: "java",
     theme: "chrome",
     autoMin: false,
-    autoPadding: 2,
+    autoPadding: 1,
     snippet: false,
     nocheckstyle: false,
-    noktlint: false,
+    maxLines: 16,
   }
 
+  private maceRef = createRef<MaceEditor>()
   private originalValue: string
   private minLines: number | undefined
+  private savedValue: string
+  private saveTimer: NodeJS.Timeout | undefined
 
-  constructor(props: JeedAceProps) {
+  constructor(props: ExampleProps & { connected: boolean; authToken: string | undefined }) {
     super(props)
-
-    this.originalValue = this.childrenToValue(props.children).trim()
+    this.originalValue = props.children as string
     this.minLines = props.autoMin
-      ? this.originalValue.split("\n").length + (props.autoPadding || JeedAce.defaultProps.autoPadding)
+      ? this.originalValue.split("\n").length + (props.autoPadding || Example.defaultProps.autoPadding)
       : props.minLines
+    this.savedValue = this.originalValue
     this.state = {
       value: this.originalValue,
       busy: false,
       showOutput: false,
+      outputLines: 0,
+      saved: true,
+      saving: false,
     }
-  }
-  childrenToValue = (children: string | React.ReactNode): string => {
-    if (children instanceof String) {
-      return children.trim()
-    } else {
-      return Children.onlyText(children)
-    }
-  }
-  onChange = (value: string): void => {
-    this.setState({ value })
   }
   runCode = (): void => {
-    const { name: label, mode, snippet, nocheckstyle, noktlint } = this.props
-    const { value, busy } = this.state
+    const { name: label, mode, snippet, nocheckstyle, maxLines } = this.props
+    const { value, busy, outputLines } = this.state
     const { run, connected } = this.context
 
     if (busy || !connected) {
       return
     }
 
-    this.setState({ busy: true, showOutput: true })
+    this.save()
+    this.setState({
+      busy: true,
+      showOutput: true,
+      output: Array(outputLines).join("\n"),
+    })
 
     const tasks = [mode == "java" ? "compile" : "kompile", "execute"] as Array<Task>
     if (mode == "java" && !nocheckstyle) {
       tasks.push("checkstyle")
-    } else if (mode == "kotlin" && !noktlint) {
-      tasks.push("ktlint")
     }
     const request: Request = snippet
       ? { label, tasks, snippet: value }
-      : { label, tasks, sources: [{ path: mode == "java" ? "Main.java" : "Main.kt", contents: value }] }
-
-    if (mode == "java" && !nocheckstyle) {
-      request.arguments = {
-        checkstyle: {
-          failOnError: true,
-        },
-      }
-    } else if (mode == "kotlin" && !noktlint) {
-      request.arguments = {
-        ktlint: {
-          failOnError: true,
-        },
-      }
-    }
+      : {
+          label,
+          tasks,
+          sources: [{ path: mode == "java" ? "Main.java" : "Main.kt", contents: value }],
+        }
 
     run(request)
-      .then(response => {
-        this.setState({ busy: false, response })
+      .then((response) => {
+        const output = terminalOutput(response)
+        this.setState({
+          busy: false,
+          response,
+          output: output !== "" ? output : <span style={{ color: "green" }}>{"(No Output)"}</span>,
+          outputLines: Math.min(output.split("\n").length, maxLines as number),
+        })
       })
       .catch(() => {
         this.setState({ busy: false })
       })
   }
+  save = (): void => {
+    if (this.state.saved) {
+      return
+    }
+    this.setState({ saving: true })
+    this.maceRef?.current?.save()
+  }
+  reload = (): void => {
+    const saved = this.originalValue === this.savedValue
+    this.setState({ value: this.originalValue, saved })
+    this.startSaveTimer(saved)
+  }
+  startSaveTimer = (saved: boolean): void => {
+    if (this.saveTimer) {
+      clearTimeout(this.saveTimer)
+    }
+    if (saved) {
+      return
+    }
+    this.saveTimer = global.setTimeout(() => {
+      this.save()
+    }, 1000)
+  }
   render(): React.ReactNode {
-    const { onChange, value, minLines, ...aceProps } = this.props // eslint-disable-line @typescript-eslint/no-unused-vars
-    const commands = (this.props.commands || []).concat([
+    const { onChange, minLines, ...aceProps } = this.props // eslint-disable-line @typescript-eslint/no-unused-vars
+    const { value } = this.state
+    const commands = [
       {
         name: "run",
         bindKey: { win: "Ctrl-Enter", mac: "Ctrl-Enter" },
         exec: this.runCode,
       },
-    ])
+      {
+        name: "save",
+        bindKey: { win: "Ctrl-s", mac: "Ctrl-s" },
+        exec: this.save,
+      },
+      {
+        name: "gotoline",
+        exec: (): boolean => {
+          return false
+        },
+      },
+    ]
     const empty = this.state.value.trim().length === 0
 
-    const { busy, showOutput, response } = this.state
+    let saveLabel = "Saved!"
+    if (this.state.saving) {
+      saveLabel = "Saving..."
+    } else if (!this.state.saved) {
+      saveLabel = "Click to Save"
+    }
+
+    const { busy, showOutput, output, saving, saved } = this.state
     return (
-      <RelativeContainer>
-        <div style={{ position: "absolute", top: 8, right: 8, zIndex: 10 }}>
-          <Button
-            icon
-            positive
-            circular
-            disabled={!this.context.connected || empty}
-            loading={busy}
-            onClick={this.runCode}
-          >
-            <Icon name="play" />
-          </Button>
-        </div>
-        <AceEditor
-          {...aceProps}
-          value={this.state.value}
-          onChange={this.onChange}
-          commands={commands}
-          minLines={this.minLines}
-        />
+      <div>
+        <RelativeContainer>
+          <div style={{ display: "flex", flexDirection: "row", position: "absolute", bottom: 8, right: 0, zIndex: 10 }}>
+            <Popup
+              position="top center"
+              content={"Reload"}
+              trigger={
+                <div>
+                  <Button icon circular disabled={value === this.originalValue} size="tiny" onClick={this.reload}>
+                    <Icon name="repeat" />
+                  </Button>
+                </div>
+              }
+            />
+            <Popup
+              position="top center"
+              content={saveLabel}
+              trigger={
+                <div>
+                  <Button icon circular disabled={saved} size="tiny" loading={saving} onClick={this.save}>
+                    <Icon name="check circle" />
+                  </Button>
+                </div>
+              }
+            />
+            <Popup
+              position="top center"
+              content={"Run Your Code"}
+              trigger={
+                <Button
+                  icon
+                  positive
+                  circular
+                  disabled={!this.context.connected || empty}
+                  size="tiny"
+                  loading={busy}
+                  onClick={this.runCode}
+                >
+                  <Icon name="play" />
+                </Button>
+              }
+            />
+          </div>
+          <MaceEditor
+            ref={this.maceRef}
+            {...aceProps}
+            value={value}
+            onExternalUpdate={({ value }): void => {
+              this.savedValue = value
+              this.setState({ value, saved: true })
+            }}
+            onSave={(value: string): void => {
+              this.savedValue = value
+              this.setState({ saving: false, saved: true })
+            }}
+            onChange={(value: string): void => {
+              const saved = value === this.savedValue
+              this.setState({ value, saved })
+              this.startSaveTimer(saved)
+            }}
+            commands={commands}
+            minLines={this.minLines}
+          />
+        </RelativeContainer>
         {showOutput && (
           <Dimmer.Dimmable as={Segment} inverted style={{ padding: 0 }}>
             <Dimmer active={busy} inverted>
@@ -174,12 +255,39 @@ export default class JeedAce extends Component<JeedAceProps, JeedAceState> {
             >
               <Icon size="tiny" name="close" />
             </SnugLabel>
-            <Segment inverted style={{ minHeight: "4em", maxHeight: "16em", overflow: "auto", margin: 0 }}>
-              <SnugPre>{responseToTerminalOutput(response)}</SnugPre>
+            <Segment
+              inverted
+              style={{
+                minHeight: "4em",
+                maxHeight: "16em",
+                overflow: "auto",
+                margin: 0,
+              }}
+            >
+              <SnugPre>{output}</SnugPre>
             </Segment>
           </Dimmer.Dimmable>
         )}
-      </RelativeContainer>
+      </div>
     )
   }
 }
+
+const RelativeContainer = styled(Container)({
+  position: "relative",
+  marginBottom: "1em",
+})
+const SnugLabel = styled(Label)({
+  top: "0!important",
+  right: "0!important",
+})
+const SnugPre = styled.pre`
+  margin-top: 0;
+  margin-bottom: 0;
+`
+const ExampleWrapper: React.FC<ExampleProps> = (props) => {
+  const connected = withMaceConnected()
+  const { idToken } = withGoogleTokens()
+  return <Example connected={connected} authToken={idToken} {...props} />
+}
+export default ExampleWrapper

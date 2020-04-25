@@ -1,0 +1,14 @@
+tasks: ["snippet", "compile", "execute"]
+label: testing
+snippet: System.out.println("Hello, world!");
+arguments:
+  snippet:
+    indent: 4
+  compilation:
+    wError: true
+    Xlint: "none"
+    useCache: false
+    waitForCache: true
+authToken: "testing"
+waitForSave: true
+requireSave: true

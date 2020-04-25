@@ -7,5 +7,9 @@
     "**/node_modules": true,
     "**/package-lock.json": true
   },
-  "eslint.validate": ["typescriptreact"]
+  "eslint.validate": ["typescriptreact"],
+  "editor.parameterHints": false,
+  "emmet.showExpandedAbbreviation": "never",
+  "files.trimTrailingWhitespace": true,
+  "editor.autoClosingBrackets": "never"
 }

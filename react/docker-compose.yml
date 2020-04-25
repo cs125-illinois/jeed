@@ -1,0 +1,30 @@
+version: "2"
+networks:
+  jeed:
+    driver: bridge
+services:
+  jeed:
+    image: "cs125/jeed:latest"
+    depends_on:
+      - mongodb
+    ports:
+      - "8888:8888"
+    networks:
+      - jeed
+    environment:
+      - "HOSTS=http://localhost:1234"
+      - "SEMESTER=Demo"
+      - "HTTP=http://0.0.0.0:8888"
+      - "MONGODB=mongodb://mongodb/demo"
+      - AUTH_GOOGLE_CLIENTIDS
+  mongodb:
+    image: "bitnami/mongodb:4.0"
+    ports:
+      - "27017:27017"
+    volumes:
+      - "mongodb_data:/bitnami"
+    networks:
+      - jeed
+volumes:
+  mongodb_data:
+    driver: local

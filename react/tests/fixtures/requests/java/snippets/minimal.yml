@@ -1,0 +1,3 @@
+tasks: ["snippet", "compile", "execute"]
+label: testing
+snippet: System.out.println("Hello, world!");

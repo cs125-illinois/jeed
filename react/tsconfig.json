@@ -1,17 +1,22 @@
 {
-  "include": ["./src/**/*"],
   "compilerOptions": {
+    "noEmit": true,
     "target": "es2019",
-    "module": "esnext",
-    "moduleResolution": "Node",
+    "moduleResolution": "node",
+    "esModuleInterop": true,
     "jsx": "react",
+    "allowSyntheticDefaultImports": true,
     "sourceMap": true,
-    "declaration": true,
+    "skipLibCheck": true,
     "strict": true,
     "noImplicitAny": true,
     "noUnusedLocals": true,
     "noUnusedParameters": true,
     "noFallthroughCasesInSwitch": true,
-    "allowSyntheticDefaultImports": true
+    "typeRoots": ["node_modules/@types", "./example/typings.d.ts"],
+    "baseUrl": ".",
+    "paths": {
+      "@cs125/react-jeed": ["."]
+    }
   }
 }

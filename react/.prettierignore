@@ -1,4 +1,2 @@
-.cache
 dist
-public
-package-lock.json
+.cache

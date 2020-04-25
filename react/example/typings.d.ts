@@ -3,10 +3,7 @@ declare module "*.mdx" {
   export default MDXComponent
 }
 declare module "react-syntax-highlighter/dist/esm/default-highlight" {
-  class SyntaxHighlighter extends React.Component<{
-    children: React.ReactNode
-    language: string
-  }> {}
+  class SyntaxHighlighter extends React.Component<{ children: React.ReactNode }> {}
   export default SyntaxHighlighter
 }
 declare module "@mdx-js/react" {
@@ -45,3 +42,4 @@ declare module "@mdx-js/react" {
   }
   export class MDXProvider extends React.Component<MDXProviderProps> {}
 }
+declare module "ace-builds/src-noconflict/ace"
