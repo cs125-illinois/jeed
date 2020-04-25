@@ -38,6 +38,7 @@ val systemCompilerVersion = systemCompilerName.let {
 data class CompilationArguments(
     val wError: Boolean = DEFAULT_WERROR,
     @Suppress("ConstructorParameterNaming") val Xlint: String = DEFAULT_XLINT,
+    val enablePreview: Boolean = DEFAULT_ENABLE_PREVIEW,
     @Transient val parentFileManager: JavaFileManager? = null,
     @Transient val parentClassLoader: ClassLoader? = null,
     val useCache: Boolean = useCompilationCache,
@@ -46,6 +47,7 @@ data class CompilationArguments(
     companion object {
         const val DEFAULT_WERROR = false
         const val DEFAULT_XLINT = "all"
+        const val DEFAULT_ENABLE_PREVIEW = true
         const val PREVIEW_STARTED = 11
     }
     override fun equals(other: Any?): Boolean {
@@ -55,13 +57,19 @@ data class CompilationArguments(
         other as CompilationArguments
 
         if (wError != other.wError) return false
+        if (enablePreview != other.enablePreview) return false
         if (Xlint != other.Xlint) return false
+        if (useCache != other.useCache) return false
+        if (waitForCache != other.waitForCache) return false
 
         return true
     }
     override fun hashCode(): Int {
         var result = wError.hashCode()
+        result = 31 * result + enablePreview.hashCode()
         result = 31 * result + Xlint.hashCode()
+        result = 31 * result + useCache.hashCode()
+        result = 31 * result + waitForCache.hashCode()
         return result
     }
 }
@@ -114,7 +122,7 @@ private fun compile(
     val options = mutableSetOf<String>()
     options.add("-Xlint:${compilationArguments.Xlint}")
 
-    if (systemCompilerVersion >= CompilationArguments.PREVIEW_STARTED) {
+    if (compilationArguments.enablePreview && systemCompilerVersion >= CompilationArguments.PREVIEW_STARTED) {
         options.addAll(listOf("--enable-preview", "--release", systemCompilerVersion.toString()))
     }
 

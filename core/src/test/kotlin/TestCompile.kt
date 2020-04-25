@@ -383,7 +383,6 @@ public class Test {
             compiledSource should haveProvidedThisManyClasses(0)
         }
     }
-
     "should compile sources that use Java 14 features" {
         if (systemCompilerVersion < 14) {
             throw SkipTestException("Cannot run this test until Java 14")
@@ -401,12 +400,50 @@ public class Test {
     public static void main() {
         testInstanceOfPatternMatching();
     }
-}""".trim()
-                )
+}""".trim())
             ).compile()
 
             compiledSource should haveDefinedExactlyTheseClasses(setOf("Test"))
             compiledSource should haveProvidedThisManyClasses(0)
+        }
+    }
+    "should compile sources that use Java 14 preview features" {
+        if (systemCompilerVersion < 14) {
+            throw SkipTestException("Cannot run this test until Java 14")
+        } else {
+            val tripleQuote = "\"\"\""
+            val compiledSource = Source(
+                mapOf(
+                    "Test.java" to """
+public class Test {
+    public static void main() {
+        String textBlock = $tripleQuote
+                           Hello world!
+                           $tripleQuote;
+    }
+}""".trim())
+            ).compile()
+
+            compiledSource should haveDefinedExactlyTheseClasses(setOf("Test"))
+            compiledSource should haveProvidedThisManyClasses(0)
+        }
+    }
+    "should not support Java 14 preview features when preview is disabled" {
+        if (systemCompilerVersion < 14) {
+            throw SkipTestException("Cannot run this test until Java 14")
+        } else {
+            shouldThrow<CompilationFailed> {
+                val tripleQuote = "\"\"\""
+                Source(mapOf("Test.java" to """
+public class Test {
+    public static void main() {
+        String textBlock = $tripleQuote
+                           Hello world!
+                           $tripleQuote;
+    }
+}""".trim())
+                ).compile(CompilationArguments(enablePreview = false))
+            }
         }
     }
 })

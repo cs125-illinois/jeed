@@ -10,6 +10,7 @@
 .idea/modules/test-output/
 .idea/libraries/
 .idea/checkstyle-idea.xml
+.idea/uiDesigner.xml
 .kotlintest/
 out/
 build/
