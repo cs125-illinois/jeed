@@ -14,6 +14,7 @@ import edu.illinois.cs.cs125.jeed.core.TemplatingFailed
 import edu.illinois.cs.cs125.jeed.core.checkstyle
 import edu.illinois.cs.cs125.jeed.core.compile
 import edu.illinois.cs.cs125.jeed.core.complexity
+import edu.illinois.cs.cs125.jeed.core.defaultChecker
 import edu.illinois.cs.cs125.jeed.core.execute
 import edu.illinois.cs.cs125.jeed.core.fromSnippet
 import edu.illinois.cs.cs125.jeed.core.fromTemplates
@@ -87,6 +88,11 @@ class Request(
 
     fun check(): Request {
         @Suppress("MaxLineLength")
+        if (Task.snippet in tasks && Task.checkstyle in tasks && defaultChecker.indentation != null) {
+            require(arguments.snippet.indent == defaultChecker.indentation) {
+                "snippet indentation must match checkstyle indentation"
+            }
+        }
         if (Task.execute in tasks) {
             require(arguments.execution.timeout <= configuration[Limits.Execution.timeout]) {
                 "job timeout of ${arguments.execution.timeout} too long (> ${configuration[Limits.Execution.timeout]})"

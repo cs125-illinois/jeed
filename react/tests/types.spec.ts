@@ -76,6 +76,14 @@ describe("Java", function () {
         .then(() => done())
         .catch((err) => done(err))
     })
+    it("should accept a checkstyle request", function (done) {
+      const request = yaml.safeLoad(
+        fs.readFileSync(`${__dirname}/fixtures/requests/java/snippets/checkstyle.yml`, "utf8")
+      )
+      checkRequest(request, true)
+        .then(() => done())
+        .catch((err) => done(err))
+    })
   })
   describe("sources", function () {
     it("should accept a minimal request", function (done) {

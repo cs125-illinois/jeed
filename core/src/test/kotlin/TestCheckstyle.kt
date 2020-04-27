@@ -10,6 +10,9 @@ import io.kotlintest.shouldThrow
 import io.kotlintest.specs.StringSpec
 
 class TestCheckstyle : StringSpec({
+    "should retrieve the indentation level properly" {
+        defaultChecker.indentation shouldBe 4
+    }
     "should check strings without errors" {
         val checkstyleResult = Source.fromSnippet("""
 int i = 0;

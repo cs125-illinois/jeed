@@ -8,45 +8,84 @@ import com.puppycrawl.tools.checkstyle.api.FileSetCheck
 import com.puppycrawl.tools.checkstyle.api.FileText
 import com.puppycrawl.tools.checkstyle.api.SeverityLevel
 import com.squareup.moshi.JsonClass
+import org.w3c.dom.Node
 import java.io.ByteArrayInputStream
 import java.io.File
 import org.xml.sax.InputSource
+import java.io.StringReader
+import javax.xml.parsers.DocumentBuilderFactory
+import javax.xml.xpath.XPathConstants
+import javax.xml.xpath.XPathFactory
 
 @JsonClass(generateAdapter = true)
 data class CheckstyleArguments(
     val sources: Set<String>? = null,
     val failOnError: Boolean = false
 )
+
 @JsonClass(generateAdapter = true)
 class CheckstyleError(
     val severity: String,
     location: SourceLocation,
     message: String
 ) : AlwaysLocatedSourceError(location, message)
+
 class CheckstyleFailed(errors: List<CheckstyleError>) : AlwaysLocatedJeedError(errors) {
     override fun toString(): String {
         return "checkstyle errors were encountered: ${errors.joinToString(separator = ",")}"
     }
 }
+
 @JsonClass(generateAdapter = true)
 data class CheckstyleResults(val errors: List<CheckstyleError>)
 
+private const val INDENTATION_PATH =
+    "/module[@name='Checker']/module[@name='TreeWalker']/module[@name='Indentation']"
+private const val DEFAULT_CHECKSTYLE_INDENTATION = 4
+
 class ConfiguredChecker(configurationString: String) {
     private val checker: Checker
+    val indentation: Int?
+
     init {
         val configuration = ConfigurationLoader.loadConfiguration(
-                InputSource(ByteArrayInputStream(configurationString.toByteArray(Charsets.UTF_8))),
-                PropertiesExpander(System.getProperties()),
-                ConfigurationLoader.IgnoredModulesOptions.OMIT
+            InputSource(ByteArrayInputStream(configurationString.toByteArray(Charsets.UTF_8))),
+            PropertiesExpander(System.getProperties()),
+            ConfigurationLoader.IgnoredModulesOptions.OMIT
         ) ?: error("could not create checkstyle configuration")
+
+        val configurationDocument = DocumentBuilderFactory.newInstance().also {
+            it.isCoalescing = false
+            it.isValidating = false
+            it.setFeature("http://apache.org/xml/features/nonvalidating/load-external-dtd", false)
+        }.newDocumentBuilder().let { documentBuilder ->
+            documentBuilder.parse(InputSource(StringReader(configurationString)))
+        }
+        indentation = try {
+            XPathFactory.newInstance().newXPath().evaluate(
+                INDENTATION_PATH, configurationDocument, XPathConstants.NODE
+            ) as Node
+            try {
+                (XPathFactory.newInstance().newXPath().evaluate(
+                    "$INDENTATION_PATH/property[@name='basicOffset']", configurationDocument, XPathConstants.NODE
+                ) as Node).let {
+                    it.attributes.getNamedItem("value").nodeValue.toInt()
+                }
+            } catch (e: Exception) {
+                DEFAULT_CHECKSTYLE_INDENTATION
+            }
+        } catch (e: Exception) {
+            null
+        }
 
         val checkerClass = Checker::class.java
         checker = PackageObjectFactory(
-                checkerClass.packageName, checkerClass.classLoader
+            checkerClass.packageName, checkerClass.classLoader
         ).createModule(configuration.name) as Checker
         checker.setModuleClassLoader(checkerClass.classLoader)
         checker.configure(configuration)
     }
+
     fun check(sources: Map<String, String>): Map<String, List<CheckstyleError>> {
         return sources.mapValues { source ->
             this.checker.processString(source.key, source.value)
@@ -71,18 +110,22 @@ fun Checker.processString(name: String, source: String): List<CheckstyleError> {
         checks.map {
             it.process(file, contents)
         }.flatten().forEach {
-            results.add(CheckstyleError(
+            results.add(
+                CheckstyleError(
                     it.severityLevel.toString(),
                     SourceLocation(name, it.lineNo, it.columnNo),
                     it.message
-            ))
+                )
+            )
         }
     } catch (e: Exception) {
-        results.add(CheckstyleError(
+        results.add(
+            CheckstyleError(
                 SeverityLevel.ERROR.toString(),
                 SourceLocation(name, 1, 1),
                 e.getStackTraceAsString()
-        ))
+            )
+        )
     }
     return results.toList()
 }
@@ -90,6 +133,7 @@ fun Checker.processString(name: String, source: String): List<CheckstyleError> {
 val defaultChecker = run {
     ConfiguredChecker(object {}::class.java.getResource("/checkstyle/default.xml").readText())
 }
+
 @Throws(CheckstyleFailed::class)
 fun Source.checkstyle(checkstyleArguments: CheckstyleArguments = CheckstyleArguments()): CheckstyleResults {
     require(type == Source.FileType.JAVA) { "Can't run checkstyle on non-Java sources" }

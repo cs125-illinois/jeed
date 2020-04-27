@@ -10,6 +10,16 @@ arguments:
     enablePreview: false
     useCache: false
     waitForCache: true
+  execution:
+    timeout: 200
+    permissions:
+      - klass: java.util.PropertyPermission
+        name: java.specification.version
+        actions: read
+    maxExtraThreads: 4
+    maxOutputLines: 80
+    dryRun: false
+    waitForShutdown: true
 authToken: "testing"
 waitForSave: true
 requireSave: true
