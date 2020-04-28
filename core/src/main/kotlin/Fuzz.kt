@@ -24,7 +24,7 @@ data class SourceModification(
 )
 
 /**
- * Holds information about how the user would like to fuzz the code.
+ * Holds information about how the user would like to fuzz the code
  */
 class FuzzConfiguration {
     /**
@@ -125,11 +125,6 @@ enum class TransformationType {
     INLINE_CONSTANT,
 
     /**
-     * Replace controls in if statements with 'true' literal
-     */
-    //REMOVE_CONDITIONALS,
-
-    /**
      * Removes ++ and --
      */
     REMOVE_INCREMENTS
@@ -169,44 +164,41 @@ fun Set<SourceModification>.apply(source: String): String {
  * Fuzzes a "block" of template code.
  *
  * @param block - The block of source code to be fuzzed.
- * @param fuzzConfiguration - The config that will be used to modify the block.
- * @return Returns a block of Java code.
+ * @param fuzzConfiguration - the configuration that will be used to modify the block
+ * @param compileCheck - if this is enabled, a syntax error will be thrown if the modified source does not compile
+ * @return a fuzzed block of Java code.
  */
-//passed the source code to default of fuzz config so IdSupplier can get all of the non-fuzzy identifiers
-fun fuzzBlock(block: String, fuzzConfiguration: FuzzConfiguration = FuzzConfiguration()): String {
+fun fuzzBlock(block: String, fuzzConfiguration: FuzzConfiguration = FuzzConfiguration(), compileCheck : Boolean = true): String {
     val fuzzyJavaParseTree = parseJava("""{
 $block
 }""").block()
     val fuzzer = Fuzzer(fuzzConfiguration)
 
-
-
     val walker = ParseTreeWalker()
     walker.walk(fuzzer, fuzzyJavaParseTree) // Pass to fuzz source
 
-    //sourceModifications.map { it.value }.toSet()
     val sourceModifications: Set<SourceModification> = fuzzer.sourceModifications.map { it.value }.map {
         assert(it.startLine > 1 && it.endLine > 1)
         it.copy(startLine = it.startLine - 1, endLine = it.endLine - 1)
     }.toSet()
     var modifiedSource = sourceModifications.apply(block)
-    //modifiedSource = document(modifiedSource, sourceModifications)
-    parseJava("""{
+    if (compileCheck) {
+        parseJava("""{
 $modifiedSource
 }""").block()
+    }
 
-    //println(getDocumentationOfProblem() + "\n\n")
     return modifiedSource
 }
 /**
- * Fuzzes a "unit" of template code.
+ * Fuzzes an entire Java file's worth of code
  *
- * @param unit - the block of source code to be fuzzed
- * @param fuzzConfiguration - the config that will be used to modify the unit
- * @return a unit of Java code
+ * @param unit - the source code to be fuzzed
+ * @param fuzzConfiguration - the configuration that will be used to modify the unit
+ * @param compileCheck - if this is enabled, a syntax error will be thrown if the modified source does not compile
+ * @return a fuzzed unit of Java code
  */
-//passed the source code to default of fuzz config so IdSupplier can get all of the non-fuzzy identifiers
-fun fuzzCompilationUnit(unit: String, fuzzConfiguration: FuzzConfiguration = FuzzConfiguration()): String {
+fun fuzzCompilationUnit(unit: String, fuzzConfiguration: FuzzConfiguration = FuzzConfiguration(), compileCheck : Boolean = true): String {
     val javaParseTree = parseJava(unit).compilationUnit()
     val fuzzer = Fuzzer(fuzzConfiguration)
     val walker = ParseTreeWalker()
@@ -214,49 +206,14 @@ fun fuzzCompilationUnit(unit: String, fuzzConfiguration: FuzzConfiguration = Fuz
 
     val sourceModifications = fuzzer.sourceModifications.map { it.value }.toSet()
     var modifiedSource = sourceModifications.apply(unit)
-    //modifiedSource = document(modifiedSource, sourceModifications)
 
-    parseJava("""{
+    if (compileCheck) {
+        parseJava("""{
 $modifiedSource
 }""").block()
-
-    //println(getDocumentationOfProblem() + "\n\n")
-    return modifiedSource
-}
-
-/**
- * Fuzzes the compilation unit without checking for syntax errors. Useful for
- * intentionally creating code with syntax errors (i.e. "find the bug" type
- * problems).
- *
- * @param unit - the block of source code to be fuzzed
- * @param fuzzConfiguration - The config that will be used to modify the unit.
- * @return returns a string (not a unit) representing the fuzzed Java code
- */
-fun fuzzCompilationUnitWithoutParse(unit: String, fuzzConfiguration: FuzzConfiguration = FuzzConfiguration()): String {
-    val javaParseTree = parseJava(unit).compilationUnit()
-    val fuzzer = Fuzzer(fuzzConfiguration)
-    val walker = ParseTreeWalker()
-
-    walker.walk(fuzzer, javaParseTree) // Pass to fuzz source
-
-    val sourceModifications = fuzzer.sourceModifications.map { it.value }.toSet()
-    var modifiedSource = sourceModifications.apply(unit)
+    }
 
     return modifiedSource
-}
-
-/**
- * Used to check if code adheres to the template language syntax.
- *
- * @param source - the original source inputted by the user.
- * @return a parser
- */
-internal fun parseFuzzyJava(source: String): JavaParser {
-    val charStream = CharStreams.fromString(source)
-    val fuzzyJavaLexer = JavaLexer(charStream)
-    val tokenStream = CommonTokenStream(fuzzyJavaLexer)
-    return JavaParser(tokenStream)
 }
 
 /**
@@ -326,73 +283,10 @@ const val FUZZY_COMPARISON = "?="
  * A class that listens for and bookmarks fuzzy tokens as well as what they map to.
  */
 class Fuzzer(private val configuration: FuzzConfiguration) : JavaParserBaseListener() {
-    //enter and exit methods are in alphabetical order
-    /**Keeps track of the members defined in particular scopes.*/
-    private var scopes: Scopes = Scopes()
     /**Keeps track of the modifications made so they can be applied.*/
     internal val sourceModifications: MutableList<Lazy<SourceModification>> = mutableListOf()
     // Lazy because we need to allow for non-variable identifiers that are "used" before their definitions to map to the same generated id as their definitions
-    /**
-     * Enter event method that is called when the parse tree walker visits a block context.
-     * Scope is partially maintained here.
-     *
-     * @param ctx - The block context visited by the parse tree walker.
-     */
-    @Override
-    override fun enterBlock(ctx: JavaParser.BlockContext) {
-        scopes.add(HashMap())
-    }
-    /**
-     * Exit event method that is called when the parse tree walker visits an block context.
-     * Scope is partially maintained here.
-     *
-     * @param ctx - The block context visited by the parse tree walker.
-     */
-    @Override
-    override fun exitBlock(ctx: JavaParser.BlockContext) {
-        scopes.pop()
-    }
-    /**
-     * Enter event method that is called when the parse tree walker visits a compilationUnit context.
-     * Scope is partially maintained here.
-     *
-     * @param ctx - The compilationUnit context visited by the parse tree walker.
-     */
-    @Override
-    override fun enterCompilationUnit(ctx: JavaParser.CompilationUnitContext) {
-        scopes.add(java.util.HashMap())
-    }
-    /**
-     * Exit event method that is called when the parse tree walker visits an compilationUnit context.
-     * Scope is partially maintained here.
-     *
-     * @param ctx - The compilationUnit context visited by the parse tree walker.
-     */
-    @Override
-    override fun exitCompilationUnit(ctx: JavaParser.CompilationUnitContext) {
-        scopes.pop()
-    }
 
-    /**
-     * Exit event method that is called when the parse tree walker visits an interfaceDeclaration context.
-     * Scope is partially maintained here.
-     *
-     * @param ctx - The interfaceDeclaration context visited by the parse tree walker.
-     */
-    @Override
-    override fun exitInterfaceDeclaration(ctx: JavaParser.InterfaceDeclarationContext?) {
-        scopes.pop()
-    }
-    /**
-     * Exit event method that is called when the parse tree walker visits an methodDeclaration context.
-     * Scope is partially maintained here.
-     *
-     * @param ctx - The methodDeclaration context visited by the parse tree walker.
-     */
-    @Override
-    override fun exitMethodDeclaration(ctx: JavaParser.MethodDeclarationContext) {
-        scopes.pop()
-    }
 
     override fun enterExpression(ctx: JavaParser.ExpressionContext) {
         if (ctx.childCount == 2) {
