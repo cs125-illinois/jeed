@@ -1,6 +1,7 @@
 package edu.illinois.cs.cs125.jeed.core
 
 import io.kotlintest.shouldBe
+import io.kotlintest.shouldNotBe
 import io.kotlintest.specs.StringSpec
 
 class TestFuzz : StringSpec({
@@ -266,7 +267,7 @@ j;
         fuzzedSource shouldBe expectedFuzzedSource
     }
 
-    // -- Multi-Mutation Testing --
+    // -- Mutation Precedence Testing --
 
     // Increment + Remove Increments (increments has precedence)
 
@@ -293,6 +294,114 @@ double bar = 7 + ++foo;
         val fuzzedSource = fuzzBlock(source, fuzzConfiguration)
         println(fuzzedSource)
         fuzzedSource shouldBe expectedFuzzedSource
+    }
+
+    // -- Packaged Testing --
+
+    // Stable Mutations
+
+    "stable mutations (rand)" {
+        // NOTE: Source code example being fuzzed was originally written by Chaitanya Singh at https://beginnersbook.com/2017/09/java-program-to-reverse-words-in-a-string/
+        val source = """
+public class Example
+{
+   public void reverseWordInMyString(String str)
+   {
+	/* The split() method of String class splits
+	 * a string in several strings based on the
+	 * delimiter passed as an argument to it
+	 */
+	String[] words = str.split(" ");
+	String reversedString = "";
+	for (int i = 0; i < words.length; i++)
+        {
+           String word = words[i]; 
+           String reverseWord = "";
+           for (int j = word.length()-1; j >= 0; j--) 
+	   {
+		/* The charAt() function returns the character
+		 * at the given position in a string
+		 */
+		reverseWord = reverseWord + word.charAt(j);
+	   }
+	   reversedString = reversedString + reverseWord + " ";
+	}
+	System.out.println(str);
+	System.out.println(reversedString);
+   }
+   public static void main(String[] args) 
+   {
+	Example obj = new Example();
+	obj.reverseWordInMyString("Welcome to BeginnersBook");
+	obj.reverseWordInMyString("This is an easy Java Program");
+   }
+}
+""".trim()
+        val fuzzConfiguration = FuzzConfiguration()
+
+        fuzzConfiguration.addTransformation(TransformationType.CONDITIONALS_BOUNDARY, rand = true)
+        fuzzConfiguration.addTransformation(TransformationType.INCREMENT, rand = true)
+        fuzzConfiguration.addTransformation(TransformationType.MATH, rand = true)
+        fuzzConfiguration.addTransformation(TransformationType.VOID_METHOD_CALLS, rand = true)
+        fuzzConfiguration.addTransformation(TransformationType.CONSTRUCTOR_CALLS, rand = true)
+
+        val fuzzedSource = fuzzCompilationUnit(source, fuzzConfiguration, compileCheck = true)
+        println(fuzzedSource)
+        fuzzedSource shouldNotBe source
+    }
+
+    // All Mutations (including unstable)
+
+    "all mutations (rand)" {
+        // NOTE: Source code example being fuzzed was originally written by Chaitanya Singh at https://beginnersbook.com/2017/09/java-program-to-reverse-words-in-a-string/
+        val source = """
+public class Example
+{
+   public void reverseWordInMyString(String str)
+   {
+	/* The split() method of String class splits
+	 * a string in several strings based on the
+	 * delimiter passed as an argument to it
+	 */
+	String[] words = str.split(" ");
+	String reversedString = "";
+	for (int i = 0; i < words.length; i++)
+        {
+           String word = words[i]; 
+           String reverseWord = "";
+           for (int j = word.length()-1; j >= 0; j--) 
+	   {
+		/* The charAt() function returns the character
+		 * at the given position in a string
+		 */
+		reverseWord = reverseWord + word.charAt(j);
+	   }
+	   reversedString = reversedString + reverseWord + " ";
+	}
+	System.out.println(str);
+	System.out.println(reversedString);
+   }
+   public static void main(String[] args) 
+   {
+	Example obj = new Example();
+	obj.reverseWordInMyString("Welcome to BeginnersBook");
+	obj.reverseWordInMyString("This is an easy Java Program");
+   }
+}
+""".trim()
+        val fuzzConfiguration = FuzzConfiguration()
+        fuzzConfiguration.addTransformation(TransformationType.CONDITIONALS_BOUNDARY, rand = true)
+        fuzzConfiguration.addTransformation(TransformationType.INCREMENT, rand = true)
+        fuzzConfiguration.addTransformation(TransformationType.REMOVE_INCREMENTS, rand = true)
+        fuzzConfiguration.addTransformation(TransformationType.INVERT_NEGS, rand = true)
+        fuzzConfiguration.addTransformation(TransformationType.MATH, rand = true)
+        fuzzConfiguration.addTransformation(TransformationType.CONDITIONALS_NEG, rand = true)
+        fuzzConfiguration.addTransformation(TransformationType.VOID_METHOD_CALLS, rand = true)
+        fuzzConfiguration.addTransformation(TransformationType.INLINE_CONSTANT, rand = true)
+        fuzzConfiguration.addTransformation(TransformationType.CONSTRUCTOR_CALLS, rand = true)
+        val fuzzedSource = fuzzCompilationUnit(source, fuzzConfiguration, compileCheck = false) // Some of these mutations, notably REMOVE_INCREMENTS, are unstable and will cause compile-time errors, so we do not compile check
+        println(fuzzedSource)
+        fuzzedSource shouldNotBe source
     }
 })
 
