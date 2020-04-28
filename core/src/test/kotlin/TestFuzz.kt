@@ -263,40 +263,6 @@ j;
         println(fuzzedSource)
         fuzzedSource shouldBe expectedFuzzedSource
     }
-
-/* TODO: This mutator can currently not be done because of whitespace sensitivity issues
-
-    // Remove Conditionals
-
-    "remove conditionals (all)" {
-        val source = """
-if (1 > 0) {
-    System.out.println("Hello world!");
-}
-else if (false) {
-    System.out.println("Bye world!");
-}
-else {
-    System.out.println("FizzBuzz");
-}
-""".trim()
-        val expectedFuzzedSource = """
-if (true) {
-    System.out.println("Hello world!");
-}
-else if (true) {
-    System.out.println("Bye world!");
-}
-else {
-    System.out.println("FizzBuzz");
-}
-""".trim()
-        val fuzzConfiguration = FuzzConfiguration()
-        fuzzConfiguration.addTransformation(TransformationType.REMOVE_CONDITIONALS, rand = false)
-        val fuzzedSource = fuzzBlock(source, fuzzConfiguration)
-        println(fuzzedSource)
-        fuzzedSource shouldBe expectedFuzzedSource
-    } */
 })
 
 

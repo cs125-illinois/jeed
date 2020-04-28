@@ -71,17 +71,17 @@ class FuzzConfiguration {
  */
 enum class TransformationType {
     /**
-     * Flips < with <=, > with >=, and vice versa. Cannot be used with CONDITIONALS_NEG or REMOVE_CONDITIONALS
+     * Flips < with <=, > with >=, and vice versa
      */
     CONDITIONALS_BOUNDARY,
 
     /**
-     * Flips ++ with -- and vice versa. Cannot be used with REMOVE_INCREMENTS
+     * Flips ++ with -- and vice versa
      */
     INCREMENT,
 
     /**
-     * Flips the non-operational + with - and vice versa (so "-1" to to "1" but NOT "1 + 1" to "1 - 1")
+     * Flips the sign + with - and vice versa (so "-1" to to "1" but NOT "1 + 1" to "1 - 1")
      */
     INVERT_NEGS,
 
@@ -799,25 +799,6 @@ class Fuzzer(private val configuration: FuzzConfiguration) : JavaParserBaseListe
     }
 
     override fun enterStatement(ctx: JavaParser.StatementContext?) {
-        /**
-        if (ctx!!.getChild(0).text == "if") {
-            if (configuration.shouldTransform(TransformationType.REMOVE_CONDITIONALS)) {
-                var content = ctx.getChild(1).text // The parExpression that controls the if/elif statement
-                var replace = "(true)" // Thus the conditional executes each time
-                var startLine = ctx.start.line
-                var startCol = ctx.start.charPositionInLine
-                println(startCol)
-                var endLine = ctx.start.line
-                var endCol = ctx.start.charPositionInLine + ctx.getChild(0).text.length + 3 + ctx.getChild(1).text.length
-                println(endCol)
-                sourceModifications.add(lazy {
-                    SourceModification(
-                        ctx.text, startLine, startCol,
-                        endLine, endCol, content, replace
-                    )
-                })
-            }
-        } */
         if (ctx!!.childCount == 2 && ctx.getChild(1).text == ";") { // Single statement
             var expression = ctx.getChild(0)
             if (expression.childCount == 1) {
