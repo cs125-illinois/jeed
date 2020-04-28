@@ -4,6 +4,8 @@ import io.kotlintest.shouldBe
 import io.kotlintest.specs.StringSpec
 
 class TestFuzz : StringSpec({
+    // -- Single Mutation Testing --
+
     // Conditional Boundary
 
     "conditional_boundary (all)" {
@@ -258,6 +260,35 @@ k;
 j;
 """.trim()
         val fuzzConfiguration = FuzzConfiguration()
+        fuzzConfiguration.addTransformation(TransformationType.REMOVE_INCREMENTS, rand = false)
+        val fuzzedSource = fuzzBlock(source, fuzzConfiguration)
+        println(fuzzedSource)
+        fuzzedSource shouldBe expectedFuzzedSource
+    }
+
+    // -- Multi-Mutation Testing --
+
+    // Increment + Remove Increments (increments has precedence)
+
+    "increment (all) + remove_increments (all)" {
+        val source = """
+int foo = 5;
+for (int i = 0; i < 5; i++) {
+    foo--;
+}
+++foo;
+double bar = 7 + --foo;
+""".trim()
+        val expectedFuzzedSource = """
+int foo = 5;
+for (int i = 0; i < 5; i--) {
+    foo++;
+}
+--foo;
+double bar = 7 + ++foo;
+""".trim()
+        val fuzzConfiguration = FuzzConfiguration()
+        fuzzConfiguration.addTransformation(TransformationType.INCREMENT, rand = false)
         fuzzConfiguration.addTransformation(TransformationType.REMOVE_INCREMENTS, rand = false)
         val fuzzedSource = fuzzBlock(source, fuzzConfiguration)
         println(fuzzedSource)
