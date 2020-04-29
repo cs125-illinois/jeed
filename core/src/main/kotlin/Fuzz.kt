@@ -137,10 +137,15 @@ enum class TransformationType {
  * @return the modified source code.
  */
 fun Set<SourceModification>.apply(source: String): String {
+    val modifiedLines : Set<Int> = mutableSetOf() // Until we figure out how to handle lines with multiple mutations, we will be limiting each line to one mutation each
     val modifiedSource = source.lines().toMutableList()
 
     for(currentModification in this) {
         assert(currentModification.startLine == currentModification.endLine)
+        if (modifiedLines.contains(currentModification.startLine)) {
+            continue;
+        }
+        modifiedLines.plus(currentModification.startLine)
 
         val lineToModify = modifiedSource[currentModification.startLine - 1].toCharArray()
         val toReplace = lineToModify.slice(IntRange(currentModification.startColumn, currentModification.endColumn - 1)).joinToString(separator = "")

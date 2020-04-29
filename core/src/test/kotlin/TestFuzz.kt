@@ -300,7 +300,7 @@ double bar = 7 + ++foo;
 
     // Stable Mutations
 
-    "stable mutations (rand)" {
+    "stable mutations (all)" {
         // NOTE: Source code example being fuzzed was originally written by Chaitanya Singh at https://beginnersbook.com/2017/09/java-program-to-reverse-words-in-a-string/
         val source = """
 public class Example
@@ -339,11 +339,14 @@ public class Example
 """.trim()
         val fuzzConfiguration = FuzzConfiguration()
 
-        fuzzConfiguration.addTransformation(TransformationType.CONDITIONALS_BOUNDARY, rand = true)
-        fuzzConfiguration.addTransformation(TransformationType.INCREMENT, rand = true)
-        fuzzConfiguration.addTransformation(TransformationType.MATH, rand = true)
-        fuzzConfiguration.addTransformation(TransformationType.VOID_METHOD_CALLS, rand = true)
-        fuzzConfiguration.addTransformation(TransformationType.CONSTRUCTOR_CALLS, rand = true)
+        fuzzConfiguration.addTransformation(TransformationType.INCREMENT, rand = false) // We configure rand to false because we need to check that these mutations are, in fact, stable in all possible mutations in the example
+        fuzzConfiguration.addTransformation(TransformationType.REMOVE_INCREMENTS, rand = false)
+        fuzzConfiguration.addTransformation(TransformationType.MATH, rand = false)
+        fuzzConfiguration.addTransformation(TransformationType.VOID_METHOD_CALLS, rand = false)
+        fuzzConfiguration.addTransformation(TransformationType.INLINE_CONSTANT, rand = false)
+        fuzzConfiguration.addTransformation(TransformationType.CONSTRUCTOR_CALLS, rand = false)
+        fuzzConfiguration.addTransformation(TransformationType.INVERT_NEGS, rand = false)
+
 
         val fuzzedSource = fuzzCompilationUnit(source, fuzzConfiguration, compileCheck = true)
         println(fuzzedSource)
@@ -399,7 +402,7 @@ public class Example
         fuzzConfiguration.addTransformation(TransformationType.VOID_METHOD_CALLS, rand = true)
         fuzzConfiguration.addTransformation(TransformationType.INLINE_CONSTANT, rand = true)
         fuzzConfiguration.addTransformation(TransformationType.CONSTRUCTOR_CALLS, rand = true)
-        val fuzzedSource = fuzzCompilationUnit(source, fuzzConfiguration, compileCheck = false) // Some of these mutations, notably REMOVE_INCREMENTS, are unstable and will cause compile-time errors, so we do not compile check
+        val fuzzedSource = fuzzCompilationUnit(source, fuzzConfiguration, compileCheck = false) // Some of these mutations are unstable and will cause compile-time errors, so we do not compile check
         println(fuzzedSource)
         fuzzedSource shouldNotBe source
     }
