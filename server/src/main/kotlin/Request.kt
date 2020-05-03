@@ -98,10 +98,12 @@ class Request(
                 "job timeout of ${arguments.execution.timeout} too long (> ${configuration[Limits.Execution.timeout]})"
             }
             require(arguments.execution.maxExtraThreads <= configuration[Limits.Execution.maxExtraThreads]) {
-                "job maxExtraThreads of ${arguments.execution.maxExtraThreads} is too large (> ${configuration[Limits.Execution.maxExtraThreads]}"
+                "job maxExtraThreads of ${arguments.execution.maxExtraThreads} is too large " +
+                    "(> ${configuration[Limits.Execution.maxExtraThreads]}"
             }
             require(arguments.execution.maxOutputLines <= configuration[Limits.Execution.maxOutputLines]) {
-                "job maxOutputLines of ${arguments.execution.maxOutputLines} is too large (> ${configuration[Limits.Execution.maxOutputLines]}"
+                "job maxOutputLines of ${arguments.execution.maxOutputLines} is too large " +
+                    "(> ${configuration[Limits.Execution.maxOutputLines]}"
             }
             val allowedPermissions =
                 configuration[Limits.Execution.permissions].map { PermissionAdapter().permissionFromJson(it) }
