@@ -24,19 +24,19 @@ dependencies {
     implementation(kotlin("reflect"))
 
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-core:1.3.5")
-    implementation("com.puppycrawl.tools:checkstyle:8.31")
+    implementation("com.puppycrawl.tools:checkstyle:8.32")
     implementation("com.pinterest.ktlint:ktlint-core:0.36.0")
     implementation("com.pinterest.ktlint:ktlint-ruleset-standard:0.36.0")
-    implementation("com.github.jknack:handlebars:4.1.2")
+    implementation("com.github.jknack:handlebars:4.2.0")
     implementation("com.squareup.moshi:moshi:1.9.2")
     implementation("org.ow2.asm:asm:8.0.1")
     implementation("org.ow2.asm:asm-util:8.0.1")
     implementation("org.slf4j:slf4j-api:1.7.30")
     implementation("ch.qos.logback:logback-classic:1.2.3")
     implementation("io.github.microutils:kotlin-logging:1.7.9")
-    implementation("io.github.classgraph:classgraph:4.8.75")
+    implementation("io.github.classgraph:classgraph:4.8.78")
     implementation("net.java.dev.jna:jna:5.5.0")
-    api("com.github.ben-manes.caffeine:caffeine:2.8.1")
+    api("com.github.ben-manes.caffeine:caffeine:2.8.2")
 
     testImplementation("io.kotlintest:kotlintest-runner-junit5:3.4.2")
 }
@@ -48,6 +48,7 @@ tasks.test {
         jvmArgs("-ea", "-Xmx1G", "-Xss256k")
     }
     systemProperties["logback.configurationFile"] = File(projectDir, "src/test/resources/logback-test.xml").absolutePath
+    @Suppress("MagicNumber")
     environment["JEED_MAX_THREAD_POOL_SIZE"] = 4
 }
 tasks.generateGrammarSource {
