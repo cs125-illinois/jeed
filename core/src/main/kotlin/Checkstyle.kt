@@ -8,14 +8,14 @@ import com.puppycrawl.tools.checkstyle.api.FileSetCheck
 import com.puppycrawl.tools.checkstyle.api.FileText
 import com.puppycrawl.tools.checkstyle.api.SeverityLevel
 import com.squareup.moshi.JsonClass
-import org.w3c.dom.Node
 import java.io.ByteArrayInputStream
 import java.io.File
-import org.xml.sax.InputSource
 import java.io.StringReader
 import javax.xml.parsers.DocumentBuilderFactory
 import javax.xml.xpath.XPathConstants
 import javax.xml.xpath.XPathFactory
+import org.w3c.dom.Node
+import org.xml.sax.InputSource
 
 @JsonClass(generateAdapter = true)
 data class CheckstyleArguments(
@@ -61,6 +61,7 @@ class ConfiguredChecker(configurationString: String) {
         }.newDocumentBuilder().let { documentBuilder ->
             documentBuilder.parse(InputSource(StringReader(configurationString)))
         }
+        @Suppress("TooGenericExceptionCaught")
         indentation = try {
             XPathFactory.newInstance().newXPath().evaluate(
                 INDENTATION_PATH, configurationDocument, XPathConstants.NODE

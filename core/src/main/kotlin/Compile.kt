@@ -98,7 +98,7 @@ class CompiledSource(
     val cached: Boolean = false
 )
 
-@Suppress("LongMethod")
+@Suppress("LongMethod", "ComplexMethod")
 @Throws(CompilationFailed::class)
 private fun compile(
     source: Source,

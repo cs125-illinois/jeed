@@ -198,10 +198,16 @@ object Sandbox {
             "attempt to allow unsafe permissions"
         }
 
+        if (!running) {
+            require(autoStart) { "Sandbox not running and autoStart not enabled" }
+            start()
+            require(running) { "Sandbox not running even after being started" }
+        }
+
         return coroutineScope {
             val resultsChannel = Channel<ExecutorResult<T>>()
             val executor = Executor(callable, sandboxedClassLoader, executionArguments, resultsChannel)
-            submitToThreadPool(executor)
+            threadPool.submit(executor)
             val result = executor.resultChannel.receive()
             result.taskResults ?: throw result.executionException
         }
@@ -220,35 +226,6 @@ object Sandbox {
     private const val MAX_THREAD_SHUTDOWN_RETRIES = 256
     private const val THREAD_SHUTDOWN_DELAY = 20L
     private const val MAX_COROUTINE_SHUTDOWN_RETRIES = 3
-
-    @Suppress("TooGenericExceptionCaught")
-    private val MAX_THREAD_POOL_SIZE = try {
-        System.getenv("JEED_MAX_THREAD_POOL_SIZE").toInt()
-    } catch (e: Exception) {
-        Runtime.getRuntime().availableProcessors()
-    }
-
-    private var threadPool: ExecutorService? = null
-    private val threadPoolSynclock = Object()
-    private fun submitToThreadPool(task: Executor<*>) {
-        synchronized(threadPoolSynclock) {
-            val size = min(Runtime.getRuntime().availableProcessors(), MAX_THREAD_POOL_SIZE)
-            if (threadPool == null) {
-                threadPool = Executors.newFixedThreadPool(size)
-                    ?: error("thread pool should be available")
-            }
-            threadPool!!.submit(task)
-        }
-    }
-
-    @Suppress("unused")
-    @JvmStatic
-    fun shutdownThreadPool() {
-        synchronized(threadPoolSynclock) {
-            threadPool?.shutdownNow()
-            threadPool = null
-        }
-    }
 
     private data class ExecutorResult<T>(val taskResults: TaskResults<T>?, val executionException: Throwable)
     private class Executor<T>(
@@ -274,6 +251,7 @@ object Sandbox {
                 } catch (e: Throwable) {
                     TaskResult(null, e.cause ?: e)
                 }
+
                 fun threadGroupActive(): Boolean {
                     val threads = Array<Thread?>(confinedTask.threadGroup.activeCount() * 2) { null }
                     confinedTask.threadGroup.enumerate(threads)
@@ -281,6 +259,7 @@ object Sandbox {
                         it.state !in setOf(Thread.State.WAITING, Thread.State.TIMED_WAITING)
                     }
                 }
+
                 val coroutinesUsed = sandboxedClassLoader.loadedClasses.any { it.startsWith("kotlinx.coroutines.") }
                 fun anyActiveCoroutines(): Boolean {
                     try {
@@ -296,6 +275,7 @@ object Sandbox {
                         return false
                     }
                 }
+
                 fun workPending(): Boolean {
                     if (threadGroupActive() || anyActiveCoroutines()) return true
                     if (coroutinesUsed) {
@@ -314,7 +294,8 @@ object Sandbox {
                 }
                 if (executionArguments.waitForShutdown) {
                     while (Instant.now().isBefore(executionStarted.plusMillis(executionArguments.timeout)) &&
-                        workPending()) {
+                        workPending()
+                    ) {
                         // Give non-main tasks like coroutines a chance to finish
                         Thread.yield()
                     }
@@ -609,7 +590,8 @@ object Sandbox {
                     confinedTask.addPermissionRequest(
                         RuntimePermission("loadIsolatedClass $name"),
                         granted = false,
-                        throwException = false)
+                        throwException = false
+                    )
                     throw ClassNotFoundException(name)
                 }
                 return reloadedClasses.getOrPut(name) {
@@ -906,11 +888,6 @@ object Sandbox {
         }
     }
 
-    init {
-        System.setSecurityManager(SandboxSecurityManager)
-        System.setProperties(SandboxedProperties(System.getProperties()))
-    }
-
     @JvmStatic
     fun redirectOutput(block: () -> Unit): Pair<String, String> {
         val confinedTask = confinedTaskByThreadGroup() ?: check { "should only be used from a confined task" }
@@ -929,14 +906,6 @@ object Sandbox {
 
         return toReturn
     }
-
-    private var originalStdout = System.out
-    private var originalStderr = System.err
-
-    private var originalPrintStreams: Map<TaskResults.OutputLine.Console, PrintStream> = mapOf(
-        TaskResults.OutputLine.Console.STDOUT to originalStdout,
-        TaskResults.OutputLine.Console.STDERR to originalStderr
-    )
 
     /*
      * Obviously this requires some explanation. One of the saddest pieces of code I've ever written...
@@ -1111,11 +1080,74 @@ object Sandbox {
         override fun fillInStackTrace() = this
     }
 
-    init {
+    private lateinit var originalStdout: PrintStream
+    private lateinit var originalStderr: PrintStream
+
+    private var originalSecurityManager: SecurityManager? = null
+    private lateinit var originalProperties: Properties
+
+    @Suppress("TooGenericExceptionCaught")
+    private val MAX_THREAD_POOL_SIZE = try {
+        System.getenv("JEED_MAX_THREAD_POOL_SIZE").toInt()
+    } catch (e: Exception) {
+        Runtime.getRuntime().availableProcessors()
+    }
+
+    private lateinit var threadPool: ExecutorService
+
+    var autoStart = true
+    var running = false
+
+    private lateinit var originalPrintStreams: Map<TaskResults.OutputLine.Console, PrintStream>
+
+    @JvmStatic
+    @Synchronized
+    fun start(size: Int = min(Runtime.getRuntime().availableProcessors(), MAX_THREAD_POOL_SIZE)) {
+        if (running) {
+            return
+        }
+        originalStdout = System.out
+        originalStderr = System.err
+
         System.setOut(RedirectingPrintStream(TaskResults.OutputLine.Console.STDOUT))
         System.setErr(RedirectingPrintStream(TaskResults.OutputLine.Console.STDERR))
         // Try to silence ThreadDeath error messages. Not sure this works but it can't hurt.
-        Thread.setDefaultUncaughtExceptionHandler { _, _ -> }
+        // Thread.setDefaultUncaughtExceptionHandler { _, _ -> }
+
+        threadPool = Executors.newFixedThreadPool(size)
+
+        originalSecurityManager = System.getSecurityManager()
+        System.setSecurityManager(SandboxSecurityManager)
+        originalProperties = System.getProperties()
+        System.setProperties(SandboxedProperties(System.getProperties()))
+
+        originalPrintStreams = mapOf(
+            TaskResults.OutputLine.Console.STDOUT to originalStdout,
+            TaskResults.OutputLine.Console.STDERR to originalStderr
+        )
+
+        running = true
+    }
+
+    @JvmStatic
+    @Synchronized
+    fun stop(timeout: Long = 10) {
+        if (!running) {
+            return
+        }
+        threadPool.shutdown()
+        if (!threadPool.awaitTermination(timeout / 2, TimeUnit.SECONDS)) {
+            threadPool.shutdownNow()
+            require(threadPool.awaitTermination(timeout / 2, TimeUnit.SECONDS))
+        }
+
+        System.setOut(originalStdout)
+        System.setErr(originalStderr)
+
+        System.setSecurityManager(originalSecurityManager)
+        System.setProperties(originalProperties)
+
+        running = false
     }
 }
 
