@@ -77,7 +77,6 @@ fun main() {
 """.trimIndent()
         )).kompile().execute()
 
-        println(executionResult.permissionRequests.filter { !it.granted })
         executionResult should haveCompleted()
         executionResult shouldNot haveTimedOut()
     }

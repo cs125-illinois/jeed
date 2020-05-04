@@ -1151,6 +1151,16 @@ object Sandbox {
     }
 }
 
+@Suppress("UNUSED")
+fun <T> withSandbox(run: () -> T): T {
+    try {
+        Sandbox.start()
+        return run()
+    } finally {
+        Sandbox.stop()
+    }
+}
+
 fun Sandbox.SandboxableClassLoader.sandbox(
     classLoaderConfiguration: Sandbox.ClassLoaderConfiguration
 ): Sandbox.SandboxedClassLoader {
