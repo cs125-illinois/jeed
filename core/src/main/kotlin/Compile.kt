@@ -50,6 +50,7 @@ data class CompilationArguments(
         const val DEFAULT_ENABLE_PREVIEW = true
         const val PREVIEW_STARTED = 11
     }
+
     override fun equals(other: Any?): Boolean {
         if (this === other) return true
         if (javaClass != other?.javaClass) return false
@@ -64,6 +65,7 @@ data class CompilationArguments(
 
         return true
     }
+
     override fun hashCode(): Int {
         var result = wError.hashCode()
         result = 31 * result + enablePreview.hashCode()
@@ -228,12 +230,8 @@ class JeedFileManager(parentFileManager: JavaFileManager) :
         }
 
         val buffer: ByteArrayOutputStream = ByteArrayOutputStream()
-        override fun openInputStream(): InputStream {
-            return ByteArrayInputStream(buffer.toByteArray())
-        }
-        override fun openOutputStream(): OutputStream {
-            return buffer
-        }
+        override fun openInputStream(): InputStream = ByteArrayInputStream(buffer.toByteArray())
+        override fun openOutputStream(): OutputStream = buffer
     }
 
     constructor(

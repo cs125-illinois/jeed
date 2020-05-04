@@ -446,6 +446,28 @@ public class Test {
             }
         }
     }
+    "should load classes from a separate classloader" {
+        val first = Source(mapOf(
+            "Test.java" to """
+public class Test {
+  public void print() {
+    System.out.println("test");
+  }
+}
+""".trim()
+        )).compile()
+
+        Source(mapOf(
+            "Example.java" to """
+public class Example {
+  public static void main() {
+    Test test = new Test();
+    test.print();
+  }
+}
+""".trim()
+        )).compile(compilationArguments = CompilationArguments(parentFileManager = first.fileManager))
+    }
 })
 
 fun haveCompilationErrorAt(source: String = SNIPPET_SOURCE, line: Int, column: Int? = null) =

@@ -78,4 +78,24 @@ fun main() {
             kompilationResult.interval.length shouldBeLessThan 800L
         }
     }
+    "f:should load classes from a separate classloader" {
+        val first = Source(mapOf(
+            "Test.java" to """
+public class Test {
+  public void print() {
+    System.out.println("test");
+  }
+}
+""".trim()
+        )).compile()
+
+        Source(mapOf(
+            "Example.kt" to """
+fun main() {
+  val test = Test()
+  test.print()
+}
+""".trim()
+        )).kompile(kompilationArguments = KompilationArguments(parentFileManager = first.fileManager))
+    }
 })

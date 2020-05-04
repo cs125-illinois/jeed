@@ -54,10 +54,12 @@ data class KompilationArguments(
 
         arguments.noStdlib = true
     }
+
     companion object {
         const val DEFAULT_VERBOSE = false
         const val DEFAULT_ALLWARNINGSASERRORS = false
     }
+
     override fun equals(other: Any?): Boolean {
         if (this === other) return true
         if (javaClass != other?.javaClass) return false
@@ -70,6 +72,7 @@ data class KompilationArguments(
 
         return true
     }
+
     override fun hashCode(): Int {
         var result = verbose.hashCode()
         result = 31 * result + allWarningsAsErrors.hashCode()
