@@ -90,7 +90,7 @@ fun main() {
             kompilationResult.interval.length shouldBeLessThan 800L
         }
     }
-    "f: should load classes from a separate classloader" {
+    "should load classes from a separate classloader" {
         val first = Source(
             mapOf(
                 "Test.java" to """
