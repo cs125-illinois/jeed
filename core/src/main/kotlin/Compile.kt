@@ -220,9 +220,18 @@ fun pathToClassName(path: String): String {
     return path.removeSuffix(".class").replace("/", ".")
 }
 
-class JeedFileManager(parentFileManager: JavaFileManager) :
+class JeedFileManager(private val parentFileManager: JavaFileManager) :
     ForwardingJavaFileManager<JavaFileManager>(parentFileManager) {
     val classFiles: MutableMap<String, JavaFileObject> = mutableMapOf()
+
+    val allClassFiles: Map<String, JavaFileObject>
+        get() = classFiles.toMutableMap().also { allClassFiles ->
+            if (parentFileManager is JeedFileManager) {
+                parentFileManager.allClassFiles.forEach {
+                    allClassFiles[it.key] = it.value
+                }
+            }
+        }
 
     val size: Int
         get() = classFiles.values.filterIsInstance<ByteSource>().map { it.buffer.size() }.sum()

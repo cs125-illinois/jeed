@@ -1,5 +1,6 @@
 package edu.illinois.cs.cs125.jeed.core
 
+import io.kotlintest.matchers.collections.shouldContainExactlyInAnyOrder
 import io.kotlintest.matchers.numerics.shouldBeLessThan
 import io.kotlintest.should
 import io.kotlintest.shouldBe
@@ -122,5 +123,85 @@ fun main() {
 
         second should haveCompleted()
         second should haveOutput("test")
+    }
+    "should load classes from package in a separate classloader" {
+        val first = Source(
+            mapOf(
+                "test/Test.java" to """
+package test;
+
+public class Test {
+  public void print() {
+    System.out.println("test");
+  }
+}
+""".trim()
+            )
+        ).compile()
+
+        val second = Source(
+            mapOf(
+                "Main.kt" to """
+import test.Test
+
+fun main() {
+  val test = Test()
+  test.print()
+}
+""".trim()
+            )
+        ).kompile(
+            kompilationArguments = KompilationArguments(
+                parentFileManager = first.fileManager,
+                parentClassLoader = first.classLoader
+            )
+        )
+            .execute()
+
+        second should haveCompleted()
+        second should haveOutput("test")
+    }
+    "should enumerate classes from multiple file managers" {
+        val first = Source(
+            mapOf(
+                "test/Test.java" to """
+package test;
+
+public class Test {
+  public void print() {
+    System.out.println("test");
+  }
+}
+""".trim()
+            )
+        ).compile()
+
+        val second = Source(
+            mapOf(
+                "Main.kt" to """
+package blah
+
+import test.Test
+
+data class AnotherTest(val name: String)
+
+fun main() {
+  val test = Test()
+  test.print()
+}
+""".trim()
+            )
+        ).kompile(
+            kompilationArguments = KompilationArguments(
+                parentFileManager = first.fileManager,
+                parentClassLoader = first.classLoader
+            )
+        )
+
+        second.fileManager.allClassFiles.keys shouldContainExactlyInAnyOrder listOf(
+            "blah/AnotherTest.class",
+            "blah/MainKt.class",
+            "test/Test.class"
+        )
     }
 })
