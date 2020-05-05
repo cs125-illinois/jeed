@@ -5,6 +5,7 @@ package edu.illinois.cs.cs125.jeed.core
 import com.squareup.moshi.JsonClass
 import edu.illinois.cs.cs125.jeed.core.antlr.KotlinParser
 import io.github.classgraph.ClassGraph
+import java.time.Instant
 import org.jetbrains.kotlin.cli.common.CLIConfigurationKeys
 import org.jetbrains.kotlin.cli.common.arguments.K2JVMCompilerArguments
 import org.jetbrains.kotlin.cli.common.messages.CompilerMessageLocation
@@ -32,7 +33,6 @@ import org.jetbrains.kotlin.idea.KotlinLanguage
 import org.jetbrains.kotlin.konan.file.File
 import org.jetbrains.kotlin.metadata.jvm.deserialization.JvmProtoBufUtil
 import org.jetbrains.kotlin.psi.KtFile
-import java.time.Instant
 
 private val classpath = ClassGraph().classpathFiles.joinToString(separator = File.pathSeparator)
 
@@ -285,4 +285,3 @@ class SimpleVirtualFile(
     override fun isWritable() = TODO("isWritable")
     override fun getOutputStream(p0: Any?, p1: Long, p2: Long) = TODO("getOutputStream")
 }
-
