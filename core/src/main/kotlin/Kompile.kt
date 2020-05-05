@@ -11,41 +11,27 @@ import org.jetbrains.kotlin.cli.common.messages.CompilerMessageLocation
 import org.jetbrains.kotlin.cli.common.messages.CompilerMessageSeverity
 import org.jetbrains.kotlin.cli.common.messages.MessageCollector
 import org.jetbrains.kotlin.cli.jvm.compiler.EnvironmentConfigFiles
-import org.jetbrains.kotlin.cli.jvm.compiler.KotlinCliJavaFileManagerImpl
 import org.jetbrains.kotlin.cli.jvm.compiler.KotlinCoreEnvironment
-import org.jetbrains.kotlin.cli.jvm.compiler.KotlinCoreProjectEnvironment
 import org.jetbrains.kotlin.cli.jvm.compiler.KotlinToJVMBytecodeCompiler
-import org.jetbrains.kotlin.cli.jvm.compiler.MockExternalAnnotationsManager
-import org.jetbrains.kotlin.cli.jvm.compiler.MockInferredAnnotationsManager
 import org.jetbrains.kotlin.cli.jvm.configureExplicitContentRoots
 import org.jetbrains.kotlin.cli.jvm.index.JavaRoot
 import org.jetbrains.kotlin.cli.jvm.index.JvmDependenciesDynamicCompoundIndex
-import org.jetbrains.kotlin.cli.jvm.index.JvmDependenciesIndex
-import org.jetbrains.kotlin.cli.jvm.index.SingleJavaFileRootsIndex
+import org.jetbrains.kotlin.cli.jvm.index.JvmDependenciesIndexImpl
 import org.jetbrains.kotlin.codegen.GeneratedClassLoader
-import org.jetbrains.kotlin.com.intellij.codeInsight.ExternalAnnotationsManager
-import org.jetbrains.kotlin.com.intellij.codeInsight.InferredAnnotationsManager
-import org.jetbrains.kotlin.com.intellij.core.CoreJavaFileManager
-import org.jetbrains.kotlin.com.intellij.openapi.components.ServiceManager
-import org.jetbrains.kotlin.com.intellij.openapi.extensions.Extensions
 import org.jetbrains.kotlin.com.intellij.openapi.util.Disposer
 import org.jetbrains.kotlin.com.intellij.openapi.vfs.VirtualFile
+import org.jetbrains.kotlin.com.intellij.openapi.vfs.VirtualFileListener
 import org.jetbrains.kotlin.com.intellij.openapi.vfs.VirtualFileSystem
 import org.jetbrains.kotlin.com.intellij.psi.PsiFileFactory
-import org.jetbrains.kotlin.com.intellij.psi.PsiManager
 import org.jetbrains.kotlin.com.intellij.psi.impl.PsiFileFactoryImpl
-import org.jetbrains.kotlin.com.intellij.psi.impl.file.impl.JavaFileManager
 import org.jetbrains.kotlin.com.intellij.testFramework.LightVirtualFile
+import org.jetbrains.kotlin.com.intellij.util.LocalTimeCounter
 import org.jetbrains.kotlin.config.CommonConfigurationKeys
 import org.jetbrains.kotlin.config.CompilerConfiguration
 import org.jetbrains.kotlin.idea.KotlinLanguage
 import org.jetbrains.kotlin.konan.file.File
 import org.jetbrains.kotlin.metadata.jvm.deserialization.JvmProtoBufUtil
-import org.jetbrains.kotlin.name.ClassId
-import org.jetbrains.kotlin.name.FqName
 import org.jetbrains.kotlin.psi.KtFile
-import java.io.InputStream
-import java.io.OutputStream
 import java.time.Instant
 
 private val classpath = ClassGraph().classpathFiles.joinToString(separator = File.pathSeparator)
@@ -60,7 +46,7 @@ data class KompilationArguments(
     val allWarningsAsErrors: Boolean = DEFAULT_ALLWARNINGSASERRORS,
     val useCache: Boolean = useCompilationCache,
     val waitForCache: Boolean = false,
-    @Transient val parentFileManager: javax.tools.JavaFileManager? = null
+    @Transient val parentFileManager: JeedFileManager? = null
 ) {
     val arguments: K2JVMCompilerArguments = K2JVMCompilerArguments()
 
@@ -137,71 +123,12 @@ private class JeedMessageCollector(val source: Source, val allWarningsAsErrors: 
     }
 }
 
-class SimpleVirtualFile(private val name: String, private val children: Array<VirtualFile> = arrayOf()) :
-    VirtualFile() {
-    override fun refresh(p0: Boolean, p1: Boolean, p2: Runnable?) {
-        println("refresh")
-        TODO("Not yet implemented")
-    }
-
-    override fun getLength(): Long {
-        println("getLength")
-        TODO("Not yet implemented")
-    }
-
-    override fun getFileSystem(): VirtualFileSystem {
-        println("getFileSystem")
-        TODO("Not yet implemented")
-    }
-
-    override fun getPath(): String {
-        println("getPath")
-        TODO("Not yet implemented")
-    }
-
-    override fun isDirectory() = children.isEmpty()
-
-    override fun getTimeStamp(): Long {
-        TODO("Not yet implemented")
-    }
-
-    override fun getName() = name
-
-    override fun contentsToByteArray(): ByteArray {
-        println("Wow")
-        TODO("Not yet implemented")
-    }
-
-    override fun isValid() = true
-
-    override fun getInputStream(): InputStream {
-        println("getInputStream")
-        TODO("Not yet implemented")
-    }
-
-    override fun getParent(): VirtualFile {
-        TODO("Not yet implemented")
-    }
-
-    override fun getChildren(): Array<VirtualFile> = children
-
-    override fun isWritable(): Boolean {
-        println("isWritable")
-        TODO("Not yet implemented")
-    }
-
-    override fun getOutputStream(p0: Any?, p1: Long, p2: Long): OutputStream {
-        println("getOutputStream")
-        TODO("Not yet implemented")
-    }
-}
-
 @Suppress("LongMethod", "ReturnCount")
 @Throws(CompilationFailed::class)
 private fun kompile(
     kompilationArguments: KompilationArguments,
     source: Source,
-    parentFileManager: javax.tools.JavaFileManager? = kompilationArguments.parentFileManager,
+    parentFileManager: JeedFileManager? = kompilationArguments.parentFileManager,
     parentClassLoader: ClassLoader? = kompilationArguments.parentClassLoader
 ): CompiledSource {
     require(source.type == Source.FileType.KOTLIN) { "Kotlin compiler needs Kotlin sources" }
@@ -217,6 +144,7 @@ private fun kompile(
         configureExplicitContentRoots(kompilationArguments.arguments)
     }
 
+    /*
     val appEnvironment =
         KotlinCoreEnvironment.getOrCreateApplicationEnvironmentForProduction(rootDisposable, configuration)
 
@@ -237,7 +165,7 @@ private fun kompile(
             if (classId.toString() == "/Test") {
                 println("Here")
                 return findClassGivenDirectory(
-                    SimpleVirtualFile("", arrayOf(SimpleVirtualFile("Test.class"))),
+                    SimpleVirtualFile("", listOf(SimpleVirtualFile("Test.class"))),
                     JavaRoot.RootType.BINARY
                 )
             }
@@ -251,7 +179,7 @@ private fun kompile(
         ) {
             println(
                 continueSearch(
-                    SimpleVirtualFile("", arrayOf(SimpleVirtualFile("Test.class"))),
+                    SimpleVirtualFile("", listOf(SimpleVirtualFile("Test.class"))),
                     JavaRoot.RootType.BINARY
                 )
             )
@@ -268,6 +196,11 @@ private fun kompile(
         override fun registerJavaPsiFacade() {
             with(project) {
                 if (kompilationArguments.parentFileManager != null) {
+                    val root = kompilationArguments.parentFileManager.toVirtualFile()
+
+                    val ourIndex = JvmDependenciesDynamicCompoundIndex()
+                    ourIndex.addIndex(JvmDependenciesIndexImpl(listOf(JavaRoot(root, JavaRoot.RootType.BINARY))))
+
                     val coreJavaFileManager = KotlinCliJavaFileManagerImpl(PsiManager.getInstance(project))
                     coreJavaFileManager.initialize(
                         ourIndex,
@@ -285,6 +218,7 @@ private fun kompile(
                         SingleJavaFileRootsIndex(listOf()),
                         false
                     )
+
                     registerService(
                         CoreJavaFileManager::class.java,
                         coreJavaFileManager as CoreJavaFileManager
@@ -310,6 +244,16 @@ private fun kompile(
         projectEnvironment, configuration, EnvironmentConfigFiles.JVM_CONFIG_FILES
     )
 
+    if (kompilationArguments.parentFileManager != null) {
+        val root = kompilationArguments.parentFileManager.toVirtualFile()
+        environment.projectEnvironment.addSourcesToClasspath(root)
+    }
+    */
+
+    val environment = KotlinCoreEnvironment.createForProduction(
+        rootDisposable, configuration, EnvironmentConfigFiles.JVM_CONFIG_FILES
+    )
+
     val psiFileFactory = PsiFileFactory.getInstance(environment.project) as PsiFileFactoryImpl
     val psiFiles = source.sources.map { (name, contents) ->
         val virtualFile = LightVirtualFile(name, KotlinLanguage.INSTANCE, contents)
@@ -321,9 +265,19 @@ private fun kompile(
         field.isAccessible = true
         field.set(environment, psiFiles)
     }
+    if (kompilationArguments.parentFileManager != null) {
+        environment::class.java.getDeclaredField("rootsIndex").also { field ->
+            field.isAccessible = true
+            val rootsIndex = field.get(environment) as JvmDependenciesDynamicCompoundIndex
+            val root = kompilationArguments.parentFileManager.toVirtualFile()
+            rootsIndex.addIndex(JvmDependenciesIndexImpl(listOf(JavaRoot(root, JavaRoot.RootType.BINARY))))
+        }
+    }
 
     val state = KotlinToJVMBytecodeCompiler.analyzeAndGenerate(environment)
+
     if (messageCollector.errors.isNotEmpty()) {
+        println("Here")
         throw CompilationFailed(messageCollector.errors)
     }
     check(state != null) { "compilation should have succeeded" }
@@ -358,3 +312,83 @@ fun CompiledSource.usesCoroutines(): Boolean {
         }
     }
 }
+
+fun JeedFileManager.toVirtualFile(): VirtualFile {
+    val root = SimpleVirtualFile("", listOf(), true)
+    classFiles.forEach { (path, file) ->
+        var workingDirectory = root
+        path.split("/").also { parts ->
+            parts.dropLast(1).forEach { directory ->
+                workingDirectory = workingDirectory.children.find { it.name == directory } as SimpleVirtualFile?
+                    ?: workingDirectory.addChild(SimpleVirtualFile(directory))
+            }
+            workingDirectory.addChild(SimpleVirtualFile(parts.last(), contents = file.openInputStream().readAllBytes()))
+        }
+    }
+    return root
+}
+
+@Suppress("TooManyFunctions")
+object SimpleVirtualFileSystem : VirtualFileSystem() {
+    override fun getProtocol(): String = ""
+
+    override fun deleteFile(p0: Any?, p1: VirtualFile) = TODO("deleteFile")
+    override fun createChildDirectory(p0: Any?, p1: VirtualFile, p2: String) = TODO("createChildDirectory")
+    override fun addVirtualFileListener(p0: VirtualFileListener) = TODO("addVirtualFileListener")
+    override fun isReadOnly() = TODO("isReadOnly")
+    override fun findFileByPath(p0: String) = TODO("findFileByPath")
+    override fun renameFile(p0: Any?, p1: VirtualFile, p2: String) = TODO("renameFile")
+    override fun createChildFile(p0: Any?, p1: VirtualFile, p2: String) = TODO("createChildFile")
+    override fun refreshAndFindFileByPath(p0: String) = TODO("refreshAndFindFileByPath")
+    override fun removeVirtualFileListener(p0: VirtualFileListener) = TODO("removeVirtualFileListener")
+    override fun copyFile(p0: Any?, p1: VirtualFile, p2: VirtualFile, p3: String) = TODO("copyFile")
+    override fun moveFile(p0: Any?, p1: VirtualFile, p2: VirtualFile) = TODO("moveFile")
+    override fun refresh(p0: Boolean) = TODO("refresh")
+}
+
+@Suppress("TooManyFunctions")
+class SimpleVirtualFile(
+    private val name: String,
+    children: List<SimpleVirtualFile> = listOf(),
+    private val directory: Boolean? = null,
+    val contents: ByteArray? = null
+) : VirtualFile() {
+    private val created = LocalTimeCounter.currentTime()
+
+    private val children = children.toMutableList()
+    fun addChild(directory: SimpleVirtualFile): SimpleVirtualFile {
+        children.add(directory)
+        return directory
+    }
+
+    override fun getName() = name
+    override fun getChildren(): Array<VirtualFile> = children.toTypedArray()
+    override fun isValid() = true
+    override fun isDirectory() = directory ?: children.isNotEmpty()
+    override fun contentsToByteArray() = contents!!
+    override fun getModificationStamp() = created
+    override fun getFileSystem() = SimpleVirtualFileSystem
+
+    override fun toString() = prefixedString("").joinToString(separator = "\n")
+    private fun prefixedString(path: String): List<String> {
+        return if (!isDirectory) {
+            listOf("$path$name")
+        } else {
+            mutableListOf<String>().also { paths ->
+                children.forEach { child ->
+                    paths.addAll(child.prefixedString("$path/$name"))
+                }
+            }
+        }
+    }
+
+    override fun getTimeStamp() = TODO("getTimeStamp")
+    override fun refresh(p0: Boolean, p1: Boolean, p2: Runnable?) = TODO("refresh")
+    override fun getLength() = TODO("getLength")
+    override fun getPath() = TODO("getPath")
+    override fun getInputStream() = TODO("getInputStream")
+    override fun getParent() = TODO("getParent")
+    override fun isWritable() = TODO("isWritable")
+    override fun getOutputStream(p0: Any?, p1: Long, p2: Long) = TODO("getOutputStream")
+}
+

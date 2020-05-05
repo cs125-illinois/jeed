@@ -222,7 +222,7 @@ fun pathToClassName(path: String): String {
 
 class JeedFileManager(parentFileManager: JavaFileManager) :
     ForwardingJavaFileManager<JavaFileManager>(parentFileManager) {
-    private val classFiles: MutableMap<String, JavaFileObject> = mutableMapOf()
+    val classFiles: MutableMap<String, JavaFileObject> = mutableMapOf()
 
     val size: Int
         get() = classFiles.values.filterIsInstance<ByteSource>().map { it.buffer.size() }.sum()
