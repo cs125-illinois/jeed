@@ -33,6 +33,14 @@ val systemCompilerVersion = systemCompilerName.let {
         DEFAULT_JAVA_VERSION
     }
 }
+val standardFileManager: JavaFileManager = run {
+    val results = Results()
+    ToolProvider.getSystemJavaCompiler().getStandardFileManager(results, Locale.US, Charset.forName("UTF-8")).also {
+        check(results.diagnostics.isEmpty()) {
+            "fileManager generated errors ${results.diagnostics}"
+        }
+    }
+}
 
 @JsonClass(generateAdapter = true)
 data class CompilationArguments(
@@ -115,11 +123,7 @@ private fun compile(
 
     val units = source.sources.entries.map { Unit(it) }
     val results = Results()
-    val fileManager = JeedFileManager(
-        parentFileManager ?: systemCompiler.getStandardFileManager(
-            results, Locale.US, Charset.forName("UTF-8")
-        )
-    )
+    val fileManager = JeedFileManager(parentFileManager ?: standardFileManager)
 
     val options = mutableSetOf<String>()
     options.add("-Xlint:${compilationArguments.Xlint}")

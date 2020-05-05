@@ -4,6 +4,8 @@ import io.kotlintest.matchers.numerics.shouldBeLessThan
 import io.kotlintest.should
 import io.kotlintest.shouldBe
 import io.kotlintest.specs.StringSpec
+import org.jetbrains.kotlin.com.intellij.psi.impl.file.impl.FileManager
+import org.jetbrains.kotlin.com.intellij.psi.impl.file.impl.JavaFileManager
 
 class TestKompile : StringSpec({
     "should compile simple sources" {
@@ -78,7 +80,7 @@ fun main() {
             kompilationResult.interval.length shouldBeLessThan 800L
         }
     }
-    "f:should load classes from a separate classloader" {
+    "!should load classes from a separate classloader" {
         val first = Source(mapOf(
             "Test.java" to """
 public class Test {
