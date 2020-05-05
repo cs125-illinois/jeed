@@ -8,6 +8,7 @@ import io.github.classgraph.ClassGraph
 import java.time.Instant
 import org.jetbrains.kotlin.cli.common.CLIConfigurationKeys
 import org.jetbrains.kotlin.cli.common.arguments.K2JVMCompilerArguments
+import org.jetbrains.kotlin.cli.common.environment.setIdeaIoUseFallback
 import org.jetbrains.kotlin.cli.common.messages.CompilerMessageLocation
 import org.jetbrains.kotlin.cli.common.messages.CompilerMessageSeverity
 import org.jetbrains.kotlin.cli.common.messages.MessageCollector
@@ -147,6 +148,9 @@ private fun kompile(
     val environment = KotlinCoreEnvironment.createForProduction(
         rootDisposable, configuration, EnvironmentConfigFiles.JVM_CONFIG_FILES
     )
+
+    // Silence scaring warning on Windows
+    setIdeaIoUseFallback()
 
     val psiFileFactory = PsiFileFactory.getInstance(environment.project) as PsiFileFactoryImpl
     val psiFiles = source.sources.map { (name, contents) ->

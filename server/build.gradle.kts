@@ -3,7 +3,7 @@ import java.io.StringWriter
 import java.util.Properties
 
 group = "edu.illinois.cs.cs125"
-version = "2020.5.1"
+version = "2020.5.2"
 
 plugins {
     kotlin("jvm")
@@ -41,7 +41,8 @@ dependencies {
 }
 val mainClass = "edu.illinois.cs.cs125.jeed.server.MainKt"
 application {
-    mainClassName = mainClass
+    @Suppress("RemoveRedundantCallsOfConversionMethods")
+    mainClassName = mainClass.toString()
 }
 docker {
     name = "cs125/jeed"
