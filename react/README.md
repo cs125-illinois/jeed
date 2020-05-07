@@ -18,3 +18,4 @@ For examples of how to use `@cs125/react-jeed` please see the [examples in the r
 ## Demo
 
 Visit the demo [here](https://cs125-illinois.github.io/jeed/).
+
