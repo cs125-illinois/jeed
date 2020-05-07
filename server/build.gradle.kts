@@ -3,7 +3,7 @@ import java.io.StringWriter
 import java.util.Properties
 
 group = "edu.illinois.cs.cs125"
-version = "2020.5.2"
+version = "2020.5.3"
 
 plugins {
     kotlin("jvm")
@@ -24,7 +24,7 @@ dependencies {
     implementation(project(":core"))
     implementation(kotlin("stdlib"))
     implementation("io.ktor:ktor-server-netty:$ktorVersion")
-    implementation("org.mongodb:mongodb-driver:3.12.3")
+    implementation("org.mongodb:mongodb-driver:3.12.4")
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-core:1.3.5")
     implementation("com.squareup.moshi:moshi-kotlin-codegen:1.9.2")
     implementation("com.github.cs125-illinois:ktor-moshi:1.0.3")

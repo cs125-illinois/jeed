@@ -145,12 +145,12 @@ private fun kompile(
         configureExplicitContentRoots(kompilationArguments.arguments)
     }
 
+    // Silence scaring warning on Windows
+    setIdeaIoUseFallback()
+
     val environment = KotlinCoreEnvironment.createForProduction(
         rootDisposable, configuration, EnvironmentConfigFiles.JVM_CONFIG_FILES
     )
-
-    // Silence scaring warning on Windows
-    setIdeaIoUseFallback()
 
     val psiFileFactory = PsiFileFactory.getInstance(environment.project) as PsiFileFactoryImpl
     val psiFiles = source.sources.map { (name, contents) ->
