@@ -1,22 +1,10 @@
 import React, { useState, useEffect, useContext } from "react"
 import PropTypes from "prop-types"
+
 import { ServerStatus, Request, Response } from "./types"
 
 require("es6-promise").polyfill()
 require("isomorphic-fetch")
-
-export async function postRequest(server: string, request: Request, validate = true): Promise<Response> {
-  request = validate ? Request.check(request) : request
-  const response = await (
-    await fetch(server, {
-      method: "post",
-      body: JSON.stringify(request),
-      headers: { "Content-Type": "application/json" },
-      credentials: "include",
-    })
-  ).json()
-  return validate ? Response.check(response) : (response as Response)
-}
 
 export interface JeedContext {
   connected: boolean
@@ -34,6 +22,19 @@ export const JeedContext = React.createContext<JeedContext>({
 async function getStatus(server: string, validate = true): Promise<ServerStatus> {
   const status = await (await fetch(server)).json()
   return validate ? ServerStatus.check(status) : (status as ServerStatus)
+}
+
+export async function postRequest(server: string, request: Request, validate = true): Promise<Response> {
+  request = validate ? Request.check(request) : request
+  const response = await (
+    await fetch(server, {
+      method: "post",
+      body: JSON.stringify(request),
+      headers: { "Content-Type": "application/json" },
+      credentials: "include",
+    })
+  ).json()
+  return validate ? Response.check(response) : (response as Response)
 }
 
 interface JeedProviderProps {

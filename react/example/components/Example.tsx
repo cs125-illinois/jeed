@@ -1,5 +1,7 @@
 import React, { Component, ReactElement, createRef } from "react"
+import PropTypes from "prop-types"
 
+import Children from "react-children-utilities"
 import { MaceEditor, withMaceConnected } from "@cs125/mace"
 import { withGoogleTokens } from "@cs125/react-google-login"
 
@@ -23,13 +25,10 @@ export const enum ExampleLanguage {
 }
 export interface ExampleProps extends IAceOptions {
   id: string
-  mode: ExampleLanguage | string
-  children?: string
-  autoMin?: boolean
-  autoPadding?: number
-  snippet?: boolean
-  nocheckstyle?: boolean
-  maxLines?: number
+  path: string | undefined
+  tasks: Array<Task>
+  maxLines: number
+  children: React.ReactNode
 }
 interface ExampleState {
   value: string
@@ -46,15 +45,19 @@ class Example extends Component<ExampleProps & { connected: boolean; authToken: 
   static contextType = JeedContext
   declare context: React.ContextType<typeof JeedContext>
 
+  static propTypes = {
+    id: PropTypes.string.isRequired,
+    path: PropTypes.string,
+    tasks: PropTypes.array.isRequired,
+    maxLines: PropTypes.number,
+    children: PropTypes.node.isRequired,
+  }
+
   static defaultProps = {
     children: "",
     name: "ace-editor",
     mode: "java",
     theme: "chrome",
-    autoMin: false,
-    autoPadding: 1,
-    snippet: false,
-    nocheckstyle: false,
     maxLines: 16,
   }
 
@@ -66,10 +69,8 @@ class Example extends Component<ExampleProps & { connected: boolean; authToken: 
 
   constructor(props: ExampleProps & { connected: boolean; authToken: string | undefined }) {
     super(props)
-    this.originalValue = props.children as string
-    this.minLines = props.autoMin
-      ? this.originalValue.split("\n").length + (props.autoPadding || Example.defaultProps.autoPadding)
-      : props.minLines
+    this.originalValue = Children.onlyText(props.children)
+    this.minLines = this.originalValue.split("\n").length + 2
     this.savedValue = this.originalValue
     this.state = {
       value: this.originalValue,
@@ -81,7 +82,7 @@ class Example extends Component<ExampleProps & { connected: boolean; authToken: 
     }
   }
   runCode = (): void => {
-    const { name: label, mode, snippet, nocheckstyle, maxLines } = this.props
+    const { id, path, tasks, maxLines } = this.props
     const { value, busy, outputLines } = this.state
     const { run, connected } = this.context
 
@@ -96,17 +97,14 @@ class Example extends Component<ExampleProps & { connected: boolean; authToken: 
       output: Array(outputLines).join("\n"),
     })
 
-    const tasks = [mode == "java" ? "compile" : "kompile", "execute"] as Array<Task>
-    if (mode == "java" && !nocheckstyle) {
-      tasks.push("checkstyle")
-    }
-    const request: Request = snippet
-      ? { label, tasks, snippet: value }
-      : {
-          label,
-          tasks,
-          sources: [{ path: mode == "java" ? "Main.java" : "Main.kt", contents: value }],
-        }
+    const request: Request =
+      path === undefined
+        ? { label: id, tasks, snippet: value }
+        : {
+            label: id,
+            tasks,
+            sources: [{ path, contents: value }],
+          }
 
     run(request)
       .then((response) => {
@@ -115,7 +113,7 @@ class Example extends Component<ExampleProps & { connected: boolean; authToken: 
           busy: false,
           response,
           output: output !== "" ? output : <span style={{ color: "green" }}>{"(No Output)"}</span>,
-          outputLines: Math.min(output.split("\n").length, maxLines as number),
+          outputLines: Math.min(output.split("\n").length, maxLines),
         })
       })
       .catch(() => {
@@ -222,6 +220,11 @@ class Example extends Component<ExampleProps & { connected: boolean; authToken: 
           </div>
           <MaceEditor
             ref={this.maceRef}
+            width={"100%"}
+            highlightActiveLine={false}
+            showPrintMargin={false}
+            maxLines={Infinity}
+            height={"100px"}
             {...aceProps}
             value={value}
             onExternalUpdate={({ value }): void => {
@@ -288,6 +291,6 @@ const SnugPre = styled.pre`
 const ExampleWrapper: React.FC<ExampleProps> = (props) => {
   const connected = withMaceConnected()
   const { idToken } = withGoogleTokens()
-  return <Example connected={connected} authToken={idToken} {...props} />
+  return <Example connected={connected} authToken={idToken} {...props} style={{ marginTop: "1em" }} />
 }
 export default ExampleWrapper
