@@ -39,10 +39,9 @@ dependencies {
     testImplementation("io.kotlintest:kotlintest-assertions-ktor:$kotlintestVersion")
     testImplementation("io.ktor:ktor-server-test-host:$ktorVersion")
 }
-val mainClass = "edu.illinois.cs.cs125.jeed.server.MainKt"
 application {
     @Suppress("RemoveRedundantCallsOfConversionMethods")
-    mainClassName = mainClass.toString()
+    mainClassName = "edu.illinois.cs.cs125.jeed.server.MainKt"
 }
 docker {
     name = "cs125/jeed"
@@ -60,11 +59,6 @@ tasks.test {
     systemProperties["logback.configurationFile"] = File(projectDir, "src/test/resources/logback-test.xml").absolutePath
     environment["MONGODB"] = "mongodb://localhost:27017/cs125"
     environment["SEMESTER"] = "Spring2020"
-}
-tasks.jar {
-    manifest {
-        attributes["Main-Class"] = mainClass
-    }
 }
 task("createProperties") {
     doLast {
