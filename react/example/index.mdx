@@ -1,18 +1,161 @@
+import Lead from "./components/Lead"
 import Example, { ExampleLanguage } from "./components/Example"
 
 # Jeed
 
 [![Release](https://jitpack.io/v/cs125-illinois/jeed.svg)](https://jitpack.io/#cs125-illinois/jeed)
+[![Docker Image Version (latest by date)](https://img.shields.io/docker/v/cs125/jeed?color=green&label=Docker&sort=date)](https://hub.docker.com/r/cs125/jeed/tags)
 [![npm version](https://badge.fury.io/js/%40cs125%2Freact-jeed.svg)](https://badge.fury.io/js/%40cs125%2Freact-jeed)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
-<Example id="java_hello_world" tasks={["snippet", "compile", "execute" ]}>
+<Lead>
+
+Jeed is a speedy Java and Kotlin in-memory compilation and execution toolkit.
+Jeed can rapidly compile Java and Kotlin code and safely execute the resulting bytecode in a secure sandbox.
+
+</Lead>
+
+## What is Jeed?
+
+Jeed was created to implement Java and Kotlin in-browser playgrounds—like the ones shown on this page.
+We provide a
+[reference server implementation](https://github.com/cs125-illinois/jeed/tree/master/server) in the Jeed repository.
+Our Jeed playground server backs playgrounds and interactive examples on both the
+[CS 125](https://cs125.cs.illinois.edu/) and
+[Joyful Kotlin](https://kotlin.cs.illinois.edu/) University of Illinois course websites.
+To date we have executed almost a million Java and Kotlin examples.
+
+Jeed is fast enough that a small number of servers can easily handle the load produced by a large class,
+even when examples are used in class and so run by almost a thousand students near-simultaneously.
+However, Jeed can also be used as a library for any application that needs to quickly and safely compile and
+execute arbitrary Java or Kotlin code.
+
+**You are welcome to use Jeed!**
+We are happy to help, and would love to know what you are doing with our library.
+We are also happy to accept [pull requests](https://github.com/cs125-illinois/jeed/pulls) with fixes or requests for new features.
+
+Please feel free to experiment with the examples below to get a sense of what Jeed can do.
+The contents of each editor will be saved using [`mace`](https://cs125-illinois.github.io/mace), another CS 125 project, but
+the original examples can be recovered using the reset button.
+
+## Java
+
+Jeed can quickly compile and execute Java code:
+
+<Example id="java_class_hello_world" tasks={["compile", "execute"]} path="Main.java">
+
+```java
+public class Main {
+  public static void main() {
+    System.out.println("Hello, Java!");
+  }
+}
+```
+
+</Example>
+
+While this is a simple example, you can also compile a set of Java files, choose the entrypoint for execution, and set many execution options.
+Please see the [source documentation](https://github.com/cs125-illinois/jeed) for more details.
+
+Jeed runs code in a sandbox, secured using both existing Java protection mechanisms and a bit of bytecode manipulation.
+Default permissions and resource limits are minimal, but can be relaxed as needed.
+And while we make no claims to perfection, Jeed includes a
+[robust set of tests](https://github.com/cs125-illinois/jeed/tree/master/core/src/test/kotlin/sandbox)
+against every possible escape and resource exhaustion attack that we could think of.
+But perhaps you know of one that we missed?
+Feel free to launch it using any of the examples on this page!
+
+As an optimization, Jeed caches compilation results.
+Currently this caching is fairly simple, meaning that even trivial whitespace changes will cause it to break.
+However, for examples that are not editable or where you don't expect heavy editing, even this simple caching approach can be at least somewhat effective.
+
+### Snippets
+
+Full Java class examples can be intimidating for beginners.
+To help bootstrap our CS1 class, Jeed includes a Java snippet mode, enabling compiling and executing snippets of loose code like this one:
+
+<Example id="java_snippet_hello_world" tasks={["snippet", "compile", "execute"]}>
 
 ```java
 System.out.println("Hello, Java!");
 ```
 
 </Example>
+
+Snippets can also include function and class definitions:
+
+<Example id="java_snippet_example" tasks={["snippet", "compile", "execute"]}>
+
+```java
+public class Example {
+  public String name = "";
+  public Example(String setName) {
+    name = setName;
+  }
+  public String toString() {
+    return name;
+  }
+}
+void greeting(Example example) {
+  System.out.println(example);
+}
+greeting(new Example("Ben"));
+```
+
+</Example>
+
+Our snippeting approach is based on a straightforward transformation into a valid Java class.
+As you would expect, it has limitations, but serves us well bootstrapping students to the point where they are ready to work with complete class files.
+
+### `checkstyle`
+
+Jeed can run [`checkstyle`](https://checkstyle.sourceforge.io/) on sources, usually as a stage in the compilation and execution pipeline.
+(Yes, we do this for our CS1 students.
+They learn to love it, and produce code that is easy for our staff to read and correct.)
+Here we configure Jeed to fail the build if `checkstyle` reports any violations:
+
+<Example
+  id="java_checkstyle_class"
+  tasks={["checkstyle", "compile", "execute"]}
+  jeedArguments={{ checkstyle: { failOnError: true }}}
+  path="Main.java"
+>
+
+```java
+public class Main {
+  // checkstyle would like you to add some whitespace here...
+  public static void main() { System.out.println("Hello, Java!"); }
+}
+```
+
+</Example>
+
+Currently `checkstyle` is configured on a per-server basis, but with a bit more work could be configured on a per-build basis.
+
+### Complete Server Response
+
+Most of the examples on this page are configured to display output similar to what would be produced by the equivalent command-line tool.
+However, Jeed returns a large amount of information about what happened during each build.
+Here's an example showing the complete response returned to the client, which includes information about each step of the build process.
+We use a snippet configured to run `checkstyle` and complexity analysis to show all of the steps that Jeed is currently
+capable of performing on Java code.
+
+<Example
+  id="java_complete_output"
+  tasks={["snippet", "checkstyle", "complexity", "compile", "execute"]}
+  complete
+  maxOutputLines={32}
+>
+
+```java
+System.out.println("Let's produce a complete response!");
+```
+
+</Example>
+
+## Kotlin
+
+By default
 
 <Example id="kotlin_hello_world" tasks={["snippet", "kompile", "execute" ]}>
 

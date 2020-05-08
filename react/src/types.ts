@@ -66,6 +66,7 @@ export const ServerStatus = Record({
     jeed: String,
     server: String,
     compiler: String,
+    kompiler: String,
   }),
   counts: Record({
     submitted: Number,

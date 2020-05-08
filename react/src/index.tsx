@@ -52,7 +52,10 @@ export const JeedProvider: React.FC<JeedProviderProps> = ({ server, children }) 
   }, [])
 
   const run = async (request: Request, validate = true): Promise<Response> => {
-    return postRequest(server, request, validate)
+    return postRequest(server, request, validate).then((response) => {
+      setStatus(response.status)
+      return response
+    })
   }
 
   return (
@@ -63,28 +66,6 @@ JeedProvider.propTypes = {
   server: PropTypes.string.isRequired,
   children: PropTypes.node.isRequired,
 }
-
-/*
-JeedProvider.propTypes = {
-  server: PropTypes.string.isRequired,
-  defaultArguments: (props, propName): Error | null => {
-    try {
-      pipe(
-        TaskArguments.decode(props[propName] || {}),
-        getOrElse<io.Errors, TaskArguments>((errors) => {
-          throw new Error("Invalid Jeed task arguments:\n" + failure(errors).join("\n"))
-        })
-      )
-    } catch (e) {
-      return e
-    }
-    return null
-  },
-  validate: PropTypes.bool,
-  children: PropTypes.node.isRequired,
-  authToken: PropTypes.string,
-}
-*/
 
 export const useJeed = (): JeedContext => {
   return useContext(JeedContext)

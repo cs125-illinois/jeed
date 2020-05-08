@@ -14,7 +14,7 @@ import ace from "ace-builds/src-noconflict/ace"
 const CDN = "https://cdn.jsdelivr.net/npm/ace-builds@1.4.11/src-min-noconflict"
 ace.config.set("basePath", CDN)
 
-import { JeedContext, Task, Request, Response, terminalOutput } from "@cs125/react-jeed"
+import { JeedContext, Task, Request, Response, terminalOutput, TaskArguments } from "@cs125/react-jeed"
 
 import { Button, Icon, Dimmer, Container, Loader, Segment, Label, Popup } from "semantic-ui-react"
 import styled from "styled-components"
@@ -27,7 +27,9 @@ export interface ExampleProps extends IAceOptions {
   id: string
   path: string | undefined
   tasks: Array<Task>
-  maxLines: number
+  jeedArguments: TaskArguments | undefined
+  complete: boolean
+  maxOutputLines: number
   children: React.ReactNode
 }
 interface ExampleState {
@@ -49,7 +51,18 @@ class Example extends Component<ExampleProps & { connected: boolean; authToken: 
     id: PropTypes.string.isRequired,
     path: PropTypes.string,
     tasks: PropTypes.array.isRequired,
-    maxLines: PropTypes.number,
+    jeedArguments: (props: ExampleProps): Error | void => {
+      if (props.arguments === undefined) {
+        return
+      }
+      try {
+        TaskArguments.check(props.arguments)
+      } catch (e) {
+        return e
+      }
+    },
+    complete: PropTypes.bool,
+    maxOutputLines: PropTypes.number,
     children: PropTypes.node.isRequired,
   }
 
@@ -58,7 +71,8 @@ class Example extends Component<ExampleProps & { connected: boolean; authToken: 
     name: "ace-editor",
     mode: "java",
     theme: "chrome",
-    maxLines: 16,
+    complete: false,
+    maxOutputLines: 16,
   }
 
   private maceRef = createRef<MaceEditor>()
@@ -70,7 +84,7 @@ class Example extends Component<ExampleProps & { connected: boolean; authToken: 
   constructor(props: ExampleProps & { connected: boolean; authToken: string | undefined }) {
     super(props)
     this.originalValue = Children.onlyText(props.children)
-    this.minLines = this.originalValue.split("\n").length + 2
+    this.minLines = this.originalValue.split("\n").length + 1
     this.savedValue = this.originalValue
     this.state = {
       value: this.originalValue,
@@ -82,7 +96,7 @@ class Example extends Component<ExampleProps & { connected: boolean; authToken: 
     }
   }
   runCode = (): void => {
-    const { id, path, tasks, maxLines } = this.props
+    const { id, path, tasks, jeedArguments, maxOutputLines, complete } = this.props
     const { value, busy, outputLines } = this.state
     const { run, connected } = this.context
 
@@ -97,23 +111,26 @@ class Example extends Component<ExampleProps & { connected: boolean; authToken: 
       output: Array(outputLines).join("\n"),
     })
 
+    const taskArguments =
+      path === undefined ? Object.assign({}, jeedArguments, { snippet: { indent: 2 } }) : jeedArguments
     const request: Request =
       path === undefined
-        ? { label: id, tasks, snippet: value }
+        ? { label: id, tasks, snippet: value, arguments: taskArguments }
         : {
             label: id,
             tasks,
+            arguments: taskArguments,
             sources: [{ path, contents: value }],
           }
 
     run(request)
       .then((response) => {
-        const output = terminalOutput(response)
+        const output = complete ? JSON.stringify(response, null, 2) : terminalOutput(response)
         this.setState({
           busy: false,
           response,
           output: output !== "" ? output : <span style={{ color: "green" }}>{"(No Output)"}</span>,
-          outputLines: Math.min(output.split("\n").length, maxLines),
+          outputLines: Math.min(output.split("\n").length, maxOutputLines),
         })
       })
       .catch(() => {
@@ -144,8 +161,10 @@ class Example extends Component<ExampleProps & { connected: boolean; authToken: 
     }, 1000)
   }
   render(): React.ReactNode {
-    const { onChange, minLines, ...aceProps } = this.props // eslint-disable-line @typescript-eslint/no-unused-vars
-    const { value } = this.state
+    const { onChange, minLines, tasks, complete, ...aceProps } = this.props // eslint-disable-line @typescript-eslint/no-unused-vars
+    const { value, outputLines } = this.state
+    const { status } = this.context
+
     const commands = [
       {
         name: "run",
@@ -173,12 +192,21 @@ class Example extends Component<ExampleProps & { connected: boolean; authToken: 
       saveLabel = "Click to Save"
     }
 
+    const jeedVersion = `Jeed ${status?.versions.jeed}`
+    let compilerVersion
+    if (status && tasks.includes("compile")) {
+      compilerVersion = `Java ${status.versions.compiler.split("_")[1]}`
+    } else if (status && tasks.includes("kompile")) {
+      compilerVersion = `Kotlin ${status.versions.kompiler}`
+    }
     const { busy, showOutput, output, saving, saved } = this.state
+
     return (
       <div>
         <RelativeContainer>
           <div style={{ display: "flex", flexDirection: "row", position: "absolute", bottom: 8, right: 0, zIndex: 10 }}>
             <Popup
+              disabled={value === this.originalValue}
               position="top center"
               content={"Reload"}
               trigger={
@@ -225,6 +253,8 @@ class Example extends Component<ExampleProps & { connected: boolean; authToken: 
             showPrintMargin={false}
             maxLines={Infinity}
             height={"100px"}
+            tabSize={2}
+            useSoftTabs
             {...aceProps}
             value={value}
             onExternalUpdate={({ value }): void => {
@@ -244,8 +274,18 @@ class Example extends Component<ExampleProps & { connected: boolean; authToken: 
             minLines={this.minLines}
           />
         </RelativeContainer>
+        {status && (
+          <div style={{ display: "flex", flexDirection: "row", justifyContent: "flex-end" }}>
+            <Label basic size="mini">
+              {jeedVersion}
+            </Label>
+            <Label basic size="mini">
+              {compilerVersion}
+            </Label>
+          </div>
+        )}
         {showOutput && (
-          <Dimmer.Dimmable as={Segment} inverted style={{ padding: 0 }}>
+          <Dimmer.Dimmable as={Segment} inverted style={{ padding: 0, marginBottom: "1em" }}>
             <Dimmer active={busy} inverted>
               <Loader size="small" />
             </Dimmer>
@@ -261,8 +301,8 @@ class Example extends Component<ExampleProps & { connected: boolean; authToken: 
             <Segment
               inverted
               style={{
+                maxHeight: `${1.5 * outputLines + 2}em`,
                 minHeight: "4em",
-                maxHeight: "16em",
                 overflow: "auto",
                 margin: 0,
               }}
@@ -278,7 +318,7 @@ class Example extends Component<ExampleProps & { connected: boolean; authToken: 
 
 const RelativeContainer = styled(Container)({
   position: "relative",
-  marginBottom: "1em",
+  marginBottom: "1px",
 })
 const SnugLabel = styled(Label)({
   top: "0!important",
