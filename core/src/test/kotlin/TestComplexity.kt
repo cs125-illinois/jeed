@@ -15,6 +15,7 @@ int i = 0;
 """.trim()
         ).complexity()
         complexityResults.lookup("").complexity shouldBe 2
+        println((complexityResults.results[""]?.get("") as ClassComplexity).methods[""]?.range)
     }
     "should calculate complexity for sources" {
         val complexityResults = Source(

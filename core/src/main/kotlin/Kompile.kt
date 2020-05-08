@@ -35,6 +35,8 @@ import org.jetbrains.kotlin.konan.file.File
 import org.jetbrains.kotlin.metadata.jvm.deserialization.JvmProtoBufUtil
 import org.jetbrains.kotlin.psi.KtFile
 
+val systemKompilerVersion = KotlinVersion.CURRENT.toString()
+
 private val classpath = ClassGraph().classpathFiles.joinToString(separator = File.pathSeparator)
 
 private const val KOTLIN_EMPTY_LOCATION = "/"

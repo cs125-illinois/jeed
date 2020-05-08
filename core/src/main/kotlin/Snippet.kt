@@ -150,8 +150,8 @@ private fun sourceFromKotlinSnippet(originalSource: String, snippetArguments: Sn
 
     val snippetRange = SourceRange(
         SNIPPET_SOURCE,
-        Location(parseTree.start.line, parseTree.start.charPositionInLine),
-        Location(parseTree.stop.line, parseTree.stop.charPositionInLine)
+        Location(parseTree.start.line, 0),
+        Location(parseTree.stop.line - 1, 0)
     )
 
     val rewrittenSourceLines: MutableList<String> = mutableListOf()
@@ -337,8 +337,8 @@ private fun sourceFromJavaSnippet(originalSource: String, snippetArguments: Snip
         override fun visitBlock(ctx: SnippetParser.BlockContext) {
             snippetRange = SourceRange(
                 SNIPPET_SOURCE,
-                Location(ctx.start.line, ctx.start.charPositionInLine),
-                Location(ctx.stop.line, ctx.stop.charPositionInLine)
+                Location(1, 0),
+                Location(ctx.stop.line - 2, 0)
             )
             ctx.children.forEach {
                 super.visit(it)

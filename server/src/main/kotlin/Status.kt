@@ -8,6 +8,7 @@ import edu.illinois.cs.cs125.jeed.core.compilationCache
 import edu.illinois.cs.cs125.jeed.core.compilationCacheSizeMB
 import edu.illinois.cs.cs125.jeed.core.server.Task
 import edu.illinois.cs.cs125.jeed.core.systemCompilerName as COMPILER_NAME
+import edu.illinois.cs.cs125.jeed.core.systemKompilerVersion as KOMPILER_VERSION
 import edu.illinois.cs.cs125.jeed.core.useCompilationCache
 import edu.illinois.cs.cs125.jeed.core.version as JEED_VERSION
 import java.net.InetAddress
@@ -22,13 +23,13 @@ class Status(
     val started: Instant = Instant.now(),
     val hostname: String = InetAddress.getLocalHost().hostName,
     var lastRequest: Instant? = null,
-    val versions: Versions = Versions(JEED_VERSION, VERSION, COMPILER_NAME),
+    val versions: Versions = Versions(JEED_VERSION, VERSION, COMPILER_NAME, KOMPILER_VERSION),
     val counts: Counts = Counts(),
     val auth: Auth = Auth(configuration),
     val cache: Cache = Cache()
 ) {
     @JsonClass(generateAdapter = true)
-    data class Versions(val jeed: String, val server: String, val compiler: String)
+    data class Versions(val jeed: String, val server: String, val compiler: String, val kompiler: String)
     @JsonClass(generateAdapter = true)
     data class Counts(var submitted: Int = 0, var completed: Int = 0, var saved: Int = 0)
     @JsonClass(generateAdapter = true)
