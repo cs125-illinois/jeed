@@ -13,7 +13,7 @@
   "scripts": {
     "backend": "docker-compose -p react-jeed up",
     "build": "rm -rf dist && GIT_COMMIT=$(git show --no-patch --format=%h) rollup -c",
-    "build:docs": "rm -rf docs && parcel build example/index.html --out-dir ../docs --public-url=\"/jeed\"",
+    "build:docs": "rm -rf ../docs && parcel build example/index.html --out-dir ../docs --public-url=\"/jeed\"",
     "check": "npm run eslint && npm run tsc && npm run prettier && npm run depcheck",
     "depcheck": "depcheck --ignore-dirs dist,docs --ignores=@types/*,@hot-loader/react-dom,parcel,concurrently,@mdx-js/parcel-plugin-mdx,@typescript-eslint/*,@cs125/react-jeed",
     "eslint": "eslint --fix src/ example/ --max-warnings=0 --ext .js,.ts,.tsx",
