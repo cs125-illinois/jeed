@@ -468,6 +468,15 @@ public class Example {
 """.trim()
         )).compile(compilationArguments = CompilationArguments(parentFileManager = first.fileManager))
     }
+    "should not crash when compiling in parallel" {
+        (0 until 32).toList().parallelStream().map {
+            Source.fromSnippet("""
+                synchronized (Object.class) {
+                    System.out.println($it);
+                }
+            """.trimIndent()).compile()
+        }.allMatch { true }
+    }
 })
 
 fun haveCompilationErrorAt(source: String = SNIPPET_SOURCE, line: Int, column: Int? = null) =

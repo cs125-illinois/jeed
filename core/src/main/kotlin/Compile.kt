@@ -41,6 +41,7 @@ val standardFileManager: JavaFileManager = run {
         }
     }
 }
+private val javacSyncRoot = Object()
 
 @JsonClass(generateAdapter = true)
 data class CompilationArguments(
@@ -132,8 +133,9 @@ private fun compile(
         options.addAll(listOf("--enable-preview", "--release", systemCompilerVersion.toString()))
     }
 
-    systemCompiler.getTask(null, fileManager, results, options.toList(), null, units).call()
-    fileManager.close()
+    synchronized(javacSyncRoot) {
+        systemCompiler.getTask(null, fileManager, results, options.toList(), null, units).call()
+    }
 
     fun getMappedLocation(diagnostic: Diagnostic<out JavaFileObject>): SourceLocation? {
         return diagnostic
