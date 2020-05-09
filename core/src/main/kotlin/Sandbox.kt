@@ -684,8 +684,9 @@ object Sandbox {
 
         fun rewrite(originalByteArray: ByteArray, unsafeExceptionClasses: Set<Class<*>>): ByteArray {
             val classReader = ClassReader(originalByteArray)
+            val allBadTryCatchBlockPositions = findBadTryCatchBlocks(classReader)
             val classWriter = ClassWriter(classReader, ClassWriter.COMPUTE_MAXS)
-            val ourVisitor = object : ClassVisitor(Opcodes.ASM7, classWriter) {
+            val ourVisitor = object : ClassVisitor(Opcodes.ASM8, classWriter) {
                 override fun visitMethod(
                     access: Int,
                     name: String,
@@ -696,8 +697,11 @@ object Sandbox {
                     return if (name == "finalize" && descriptor == "()V") {
                         null // Drop the finalizer
                     } else {
-                        OurMethodVisitor(
+                        val badTcbPositions = allBadTryCatchBlockPositions[VisitedMethod(name, descriptor)]
+                            ?: error("missing try-catch survey for $name:$descriptor")
+                        SanitizingMethodVisitor(
                             unsafeExceptionClasses,
+                            badTcbPositions,
                             super.visitMethod(access, name, descriptor, signature, exceptions)
                         )
                     }
@@ -708,18 +712,21 @@ object Sandbox {
             return classWriter.toByteArray()
         }
 
-        private class OurMethodVisitor(
+        private class SanitizingMethodVisitor(
             val unsafeExceptionClasses: Set<Class<*>>,
+            val badTryCatchBlockPositions: Set<Int>,
             methodVisitor: MethodVisitor
-        ) : MethodVisitor(Opcodes.ASM7, methodVisitor) {
+        ) : MethodVisitor(Opcodes.ASM8, methodVisitor) {
             private val labelsToRewrite: MutableSet<Label> = mutableSetOf()
             private var rewroteLabel = false
+            private var currentTryCatchBlockPosition = -1
 
             override fun visitTryCatchBlock(start: Label, end: Label, handler: Label, type: String?) {
-                if (start == handler) {
+                currentTryCatchBlockPosition++
+                if (currentTryCatchBlockPosition in badTryCatchBlockPositions) {
                     /*
                      * For unclear reasons, the Java compiler sometimes emits exception table entries that catch any
-                     * exception and transfer control to the start of the same block. This produces an infinite loop
+                     * exception and transfer control to the inside of the same block. This produces an infinite loop
                      * if an exception is thrown, e.g. by our checkException function. Since any exception during
                      * non-sandboxed execution would also cause this infinite loop, the table entry must not serve any
                      * purpose. Drop it to avoid the infinite loop.
@@ -776,6 +783,59 @@ object Sandbox {
             override fun visitEnd() {
                 assert(labelsToRewrite.isEmpty()) { "failed to write all flagged labels" }
                 super.visitEnd()
+            }
+        }
+
+        private data class VisitedMethod(val name: String, val descriptor: String)
+
+        private fun findBadTryCatchBlocks(reader: ClassReader): Map<VisitedMethod, Set<Int>> {
+            /*
+             * ASM doesn't provide a way to get the bytecode positions of a try-catch block's labels while the code
+             * is being visited, so we have to go through all the methods to figure out the positions of the labels
+             * with respect to each other to determine which try-catch blocks are bad (i.e. will loop forever) before
+             * doing the real visit in SanitizingMethodVisitor.
+             */
+            val methodVisitors = mutableMapOf<VisitedMethod, BadTryCatchDetectingMethodVisitor>()
+            reader.accept(object : ClassVisitor(Opcodes.ASM8) {
+                override fun visitMethod(
+                    access: Int,
+                    name: String,
+                    descriptor: String,
+                    signature: String?,
+                    exceptions: Array<out String>?
+                ): MethodVisitor {
+                    return BadTryCatchDetectingMethodVisitor()
+                        .also { methodVisitors[VisitedMethod(name, descriptor)] = it }
+                }
+            }, 0)
+            return methodVisitors.mapValues { it.value.getBadTryCatchBlockPositions() }
+        }
+
+        private class BadTryCatchDetectingMethodVisitor : MethodVisitor(Opcodes.ASM8) {
+
+            private val labelPositions = mutableMapOf<Label, Int>()
+            private val tryCatchBlocks = mutableListOf<Triple<Label, Label, Label>>()
+
+            override fun visitLabel(label: Label) {
+                super.visitLabel(label)
+                labelPositions[label] = labelPositions.size
+            }
+
+            override fun visitTryCatchBlock(start: Label, end: Label, handler: Label, type: String?) {
+                super.visitTryCatchBlock(start, end, handler, type)
+                tryCatchBlocks.add(Triple(start, end, handler))
+            }
+
+            fun getBadTryCatchBlockPositions(): Set<Int> {
+                // Called after this visitor has accepted the entire method, so all positioning information is ready
+                val badPositions = mutableSetOf<Int>()
+                tryCatchBlocks.forEachIndexed { i, (startLabel, endLabel, handlerLabel) ->
+                    val startPos = labelPositions[startLabel] ?: error("start $startLabel not visited")
+                    val endPos = labelPositions[endLabel] ?: error("end $endLabel not visited")
+                    val handlerPos = labelPositions[handlerLabel] ?: error("handler $handlerLabel not visited")
+                    if (handlerPos in startPos until endPos) badPositions.add(i)
+                }
+                return badPositions
             }
         }
     }
