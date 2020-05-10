@@ -5,6 +5,7 @@ import java.io.FilePermission
 import java.io.OutputStream
 import java.io.PrintStream
 import java.lang.reflect.InvocationTargetException
+import java.lang.reflect.Modifier
 import java.security.AccessControlContext
 import java.security.Permission
 import java.security.Permissions
@@ -39,6 +40,7 @@ import org.objectweb.asm.Label
 import org.objectweb.asm.MethodVisitor
 import org.objectweb.asm.Opcodes
 import org.objectweb.asm.Type
+import org.objectweb.asm.commons.AdviceAdapter
 
 private typealias SandboxCallableArguments<T> = (Pair<ClassLoader, (() -> Unit) -> Pair<String, String>>) -> T
 
@@ -769,7 +771,19 @@ object Sandbox {
             val classReader = ClassReader(originalByteArray)
             val allBadTryCatchBlockPositions = findBadTryCatchBlocks(classReader)
             val classWriter = ClassWriter(classReader, ClassWriter.COMPUTE_MAXS)
-            val ourVisitor = object : ClassVisitor(Opcodes.ASM8, classWriter) {
+            var classType: Type? = null
+            val sandboxingVisitor = object : ClassVisitor(Opcodes.ASM8, classWriter) {
+                override fun visit(
+                    version: Int,
+                    access: Int,
+                    name: String,
+                    signature: String?,
+                    superName: String?,
+                    interfaces: Array<out String>?
+                ) {
+                    super.visit(version, access, name, signature, superName, interfaces)
+                    classType = Type.getType("L$name;")
+                }
                 override fun visitMethod(
                     access: Int,
                     name: String,
@@ -782,17 +796,55 @@ object Sandbox {
                     } else {
                         val badTcbPositions = allBadTryCatchBlockPositions[VisitedMethod(name, descriptor)]
                             ?: error("missing try-catch survey for $name:$descriptor")
-                        SandboxingMethodVisitor(
+                        val sandboxingMethodVisitor = SandboxingMethodVisitor(
                             unsafeExceptionClasses,
                             badTcbPositions,
                             super.visitMethod(access, name, descriptor, signature, exceptions)
                         )
+                        ManuallySynchronizingMethodVisitor(
+                            sandboxingMethodVisitor,
+                            access,
+                            name,
+                            descriptor,
+                            classType ?: error("should have visited the class")
+                        )
                     }
                 }
             }
-
-            classReader.accept(ourVisitor, 0)
+            classReader.accept(sandboxingVisitor, ClassReader.EXPAND_FRAMES)
             return classWriter.toByteArray()
+        }
+
+        private class ManuallySynchronizingMethodVisitor(
+            methodVisitor: MethodVisitor,
+            private val modifiers: Int,
+            name: String,
+            descriptor: String,
+            private val className: Type
+        ) : AdviceAdapter(
+            Opcodes.ASM8, methodVisitor, modifiers and Modifier.SYNCHRONIZED.inv(), name, descriptor
+        ) {
+            fun loadSelf() {
+                if (Modifier.isStatic(modifiers)) {
+                    visitLdcInsn(className) // the class object
+                } else {
+                    visitVarInsn(Opcodes.ALOAD, 0) // this
+                }
+            }
+            override fun onMethodEnter() {
+                super.onMethodEnter()
+                if (Modifier.isSynchronized(modifiers)) {
+                    loadSelf()
+                    visitInsn(Opcodes.MONITORENTER) // will be transformed by the other visitor
+                }
+            }
+            override fun onMethodExit(opcode: Int) {
+                super.onMethodExit(opcode)
+                if (Modifier.isSynchronized(modifiers)) {
+                    loadSelf()
+                    visitInsn(Opcodes.MONITOREXIT)
+                }
+            }
         }
 
         private class SandboxingMethodVisitor(
@@ -894,8 +946,8 @@ object Sandbox {
                 descriptor: String,
                 isInterface: Boolean
             ) {
-                val rewriteTarget = if (!isInterface && opcode == Opcodes.INVOKEVIRTUAL
-                    && owner == classNameToPath(Object::class.java.name)) {
+                val rewriteTarget = if (!isInterface && opcode == Opcodes.INVOKEVIRTUAL &&
+                    owner == classNameToPath(Object::class.java.name)) {
                     syncNotifyMethods["$name:$descriptor"]
                 } else {
                     null

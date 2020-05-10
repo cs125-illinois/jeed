@@ -245,6 +245,7 @@ suspend fun main() = coroutineScope {
 """.trimIndent()
         )).kompile().execute()
 
+        executionResult shouldNot haveTimedOut()
         executionResult should haveCompleted()
         executionResult.outputLines.size shouldBe 2
     }
