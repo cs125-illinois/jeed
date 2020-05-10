@@ -713,6 +713,7 @@ object Sandbox {
             "notify:()V" to RewriteBytecode::conditionNotify,
             "notifyAll:()V" to RewriteBytecode::conditionNotifyAll
         )
+        private const val NS_PER_MS = 1000000L
 
         @JvmStatic
         fun checkException(throwable: Throwable) {
@@ -750,11 +751,10 @@ object Sandbox {
         }
         @JvmStatic
         fun conditionWaitMsNs(monitor: Any, timeout: Long, plusNanos: Int) {
-            val nsPerMs = 1000000
             require(plusNanos >= 0) { "nanos cannot be negative" }
-            require(plusNanos < nsPerMs) { "nanos cannot specify another full ms" }
+            require(plusNanos < NS_PER_MS) { "nanos cannot specify another full ms" }
             val confinedTask = confinedTaskByThreadGroup() ?: error("only confined tasks should call this method")
-            confinedTask.getIsolatedCondition(monitor).await(timeout * nsPerMs + plusNanos, TimeUnit.NANOSECONDS)
+            confinedTask.getIsolatedCondition(monitor).await(timeout * NS_PER_MS + plusNanos, TimeUnit.NANOSECONDS)
         }
         @JvmStatic
         fun conditionNotify(monitor: Any) {
