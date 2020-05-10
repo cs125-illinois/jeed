@@ -22,6 +22,8 @@ import java.util.concurrent.Executors
 import java.util.concurrent.FutureTask
 import java.util.concurrent.TimeUnit
 import java.util.concurrent.TimeoutException
+import java.util.concurrent.locks.Condition
+import java.util.concurrent.locks.ReentrantLock
 import kotlin.math.min
 import kotlin.reflect.KProperty
 import kotlin.reflect.full.memberProperties
@@ -356,13 +358,26 @@ object Sandbox {
 
         val permissionRequests: MutableList<TaskResults.PermissionRequest> = mutableListOf()
 
+        val started: Instant = Instant.now()
+
+        private val isolatedLocksSyncRoot = Object()
+        private val isolatedLocks = mutableMapOf<Any, ReentrantLock>()
+        private val isolatedConditions = mutableMapOf<Any, Condition>()
+
         data class CurrentLine(
             var started: Instant = Instant.now(),
             val line: StringBuilder = StringBuilder(),
             val startedThread: Long = Thread.currentThread().id
         )
 
-        val started: Instant = Instant.now()
+        private class IdentityHolder(val item: Any) {
+            override fun equals(other: Any?): Boolean {
+                return other is IdentityHolder && other.item === item
+            }
+            override fun hashCode(): Int {
+                return System.identityHashCode(item)
+            }
+        }
 
         fun addPermissionRequest(permission: Permission, granted: Boolean, throwException: Boolean = true) {
             permissionRequests.add(TaskResults.PermissionRequest(permission, granted))
@@ -419,6 +434,22 @@ object Sandbox {
                     if (truncatedLines == 0) {
                         currentLine.line.append(char)
                     }
+                }
+            }
+        }
+
+        fun getIsolatedLock(monitor: Any): ReentrantLock {
+            synchronized(isolatedLocksSyncRoot) {
+                return isolatedLocks.getOrPut(IdentityHolder(monitor)) {
+                    ReentrantLock()
+                }
+            }
+        }
+
+        fun getIsolatedCondition(monitor: Any): Condition {
+            synchronized(isolatedLocksSyncRoot) {
+                return isolatedConditions.getOrPut(IdentityHolder(monitor)) {
+                    getIsolatedLock(monitor).newCondition()
                 }
             }
         }
@@ -483,6 +514,9 @@ object Sandbox {
             }
             threadGroup.maxPriority = Thread.NORM_PRIORITY
             stoppedThreads.filter { it.isAlive }.forEach {
+                if (it.state == Thread.State.BLOCKED) {
+                    it.interrupt()
+                }
                 it.priority = Thread.NORM_PRIORITY
                 it.join(THREAD_SHUTDOWN_DELAY)
                 it.priority = Thread.MIN_PRIORITY
@@ -490,7 +524,9 @@ object Sandbox {
             false
         }
 
-        assert(threadGroupShutdownRetries != null) { "failed to shut down thread group" }
+        assert(threadGroupShutdownRetries != null) {
+            "failed to shut down thread group"
+        }
         threadGroup.destroy()
         assert(threadGroup.isDestroyed)
 
@@ -559,7 +595,7 @@ object Sandbox {
 
         init {
             knownClasses = sandboxableClassLoader.bytecodeForClasses.mapValues { (_, unsafeByteArray) ->
-                RewriteTryCatchFinally.rewrite(unsafeByteArray, unsafeExceptionClasses)
+                RewriteBytecode.rewrite(unsafeByteArray, unsafeExceptionClasses)
             }
         }
 
@@ -635,7 +671,7 @@ object Sandbox {
 
         companion object {
             private val ALWAYS_ALLOWED_CLASS_NAMES =
-                setOf(RewriteTryCatchFinally::class.java.name, InvocationTargetException::class.java.name)
+                setOf(RewriteBytecode::class.java.name, InvocationTargetException::class.java.name)
             private val reloadedBytecodeCache = mutableMapOf<String, ByteArray>()
         }
 
@@ -645,7 +681,7 @@ object Sandbox {
                     val originalBytes = sandboxableClassLoader.classLoader.parent
                         .getResourceAsStream("${name.replace('.', '/')}.class")?.readAllBytes()
                         ?: throw ClassNotFoundException("failed to reload $name")
-                    RewriteTryCatchFinally.rewrite(originalBytes, unsafeExceptionClasses)
+                    RewriteBytecode.rewrite(originalBytes, unsafeExceptionClasses)
                 }
                 loadedClasses.add(name)
                 return defineClass(name, classBytes, 0, classBytes.size)
@@ -661,25 +697,72 @@ object Sandbox {
         }
     }
 
-    object RewriteTryCatchFinally {
-        val checkClassName =
-            classNameToPath(RewriteTryCatchFinally::class.java.name ?: error("should have a class name"))
-        private val checkMethodName = RewriteTryCatchFinally::checkException.javaMethod?.name
+    object RewriteBytecode {
+        val rewriterClassName =
+            classNameToPath(RewriteBytecode::class.java.name ?: error("should have a class name"))
+        private val checkMethodName = RewriteBytecode::checkException.javaMethod?.name
             ?: error("should have a method name")
-        private val checkMethodDescription = Type.getMethodDescriptor(RewriteTryCatchFinally::checkException.javaMethod)
+        private val checkMethodDescription = Type.getMethodDescriptor(RewriteBytecode::checkException.javaMethod)
             ?: error("should be able to retrieve method signature")
+        private val syncNotifyMethods = mapOf(
+            "wait:()V" to RewriteBytecode::conditionWait,
+            "wait:(J)V" to RewriteBytecode::conditionWaitMs,
+            "wait:(JI)V" to RewriteBytecode::conditionWaitMsNs,
+            "notify:()V" to RewriteBytecode::conditionNotify,
+            "notifyAll:()V" to RewriteBytecode::conditionNotifyAll
+        )
 
         @JvmStatic
         fun checkException(throwable: Throwable) {
-            val confinedTask = confinedTaskByThreadGroup()
-                ?: error("only confined tasks should call this method")
+            val confinedTask = confinedTaskByThreadGroup() ?: error("only confined tasks should call this method")
             if (confinedTask.shuttingDown) {
                 throw SandboxDeath()
             }
             // This check is required because of how we handle finally blocks
             if (confinedTask.classLoader.unsafeExceptionClasses.any { it.isAssignableFrom(throwable.javaClass) }) {
-                throw(throwable)
+                throw throwable
             }
+        }
+
+        @JvmStatic
+        fun enterMonitor(monitor: Any) {
+            val confinedTask = confinedTaskByThreadGroup() ?: error("only confined tasks should call this method")
+            confinedTask.getIsolatedLock(monitor).lockInterruptibly()
+        }
+        @JvmStatic
+        fun exitMonitor(monitor: Any) {
+            val confinedTask = confinedTaskByThreadGroup() ?: error("only confined tasks should call this method")
+            confinedTask.getIsolatedLock(monitor).unlock()
+        }
+
+        @JvmStatic
+        fun conditionWait(monitor: Any) {
+            val confinedTask = confinedTaskByThreadGroup() ?: error("only confined tasks should call this method")
+            confinedTask.getIsolatedCondition(monitor).await()
+        }
+        @JvmStatic
+        fun conditionWaitMs(monitor: Any, timeout: Long) {
+            require(timeout >= 0) { "timeout cannot be negative" }
+            val confinedTask = confinedTaskByThreadGroup() ?: error("only confined tasks should call this method")
+            confinedTask.getIsolatedCondition(monitor).await(timeout, TimeUnit.MILLISECONDS)
+        }
+        @JvmStatic
+        fun conditionWaitMsNs(monitor: Any, timeout: Long, plusNanos: Int) {
+            val nsPerMs = 1000000
+            require(plusNanos >= 0) { "nanos cannot be negative" }
+            require(plusNanos < nsPerMs) { "nanos cannot specify another full ms" }
+            val confinedTask = confinedTaskByThreadGroup() ?: error("only confined tasks should call this method")
+            confinedTask.getIsolatedCondition(monitor).await(timeout * nsPerMs + plusNanos, TimeUnit.NANOSECONDS)
+        }
+        @JvmStatic
+        fun conditionNotify(monitor: Any) {
+            val confinedTask = confinedTaskByThreadGroup() ?: error("only confined tasks should call this method")
+            confinedTask.getIsolatedCondition(monitor).signal()
+        }
+        @JvmStatic
+        fun conditionNotifyAll(monitor: Any) {
+            val confinedTask = confinedTaskByThreadGroup() ?: error("only confined tasks should call this method")
+            confinedTask.getIsolatedCondition(monitor).signalAll()
         }
 
         fun rewrite(originalByteArray: ByteArray, unsafeExceptionClasses: Set<Class<*>>): ByteArray {
@@ -699,7 +782,7 @@ object Sandbox {
                     } else {
                         val badTcbPositions = allBadTryCatchBlockPositions[VisitedMethod(name, descriptor)]
                             ?: error("missing try-catch survey for $name:$descriptor")
-                        SanitizingMethodVisitor(
+                        SandboxingMethodVisitor(
                             unsafeExceptionClasses,
                             badTcbPositions,
                             super.visitMethod(access, name, descriptor, signature, exceptions)
@@ -712,7 +795,7 @@ object Sandbox {
             return classWriter.toByteArray()
         }
 
-        private class SanitizingMethodVisitor(
+        private class SandboxingMethodVisitor(
             val unsafeExceptionClasses: Set<Class<*>>,
             val badTryCatchBlockPositions: Set<Int>,
             methodVisitor: MethodVisitor
@@ -769,7 +852,7 @@ object Sandbox {
                     super.visitInsn(Opcodes.DUP)
                     super.visitMethodInsn(
                         Opcodes.INVOKESTATIC,
-                        checkClassName,
+                        rewriterClassName,
                         checkMethodName,
                         checkMethodDescription,
                         false
@@ -777,6 +860,56 @@ object Sandbox {
                     rewroteLabel = true
                     labelsToRewrite.remove(nextLabel ?: error("nextLabel changed"))
                     nextLabel = null
+                }
+            }
+
+            override fun visitInsn(opcode: Int) {
+                when (opcode) {
+                    Opcodes.MONITORENTER -> {
+                        super.visitMethodInsn(
+                            Opcodes.INVOKESTATIC,
+                            rewriterClassName,
+                            RewriteBytecode::enterMonitor.javaMethod?.name ?: error("missing enter-monitor name"),
+                            Type.getMethodDescriptor(RewriteBytecode::enterMonitor.javaMethod),
+                            false
+                        )
+                    }
+                    Opcodes.MONITOREXIT -> {
+                        super.visitMethodInsn(
+                            Opcodes.INVOKESTATIC,
+                            rewriterClassName,
+                            RewriteBytecode::exitMonitor.javaMethod?.name ?: error("missing exit-monitor name"),
+                            Type.getMethodDescriptor(RewriteBytecode::exitMonitor.javaMethod),
+                            false
+                        )
+                    }
+                    else -> super.visitInsn(opcode)
+                }
+            }
+
+            override fun visitMethodInsn(
+                opcode: Int,
+                owner: String,
+                name: String,
+                descriptor: String,
+                isInterface: Boolean
+            ) {
+                val rewriteTarget = if (!isInterface && opcode == Opcodes.INVOKEVIRTUAL
+                    && owner == classNameToPath(Object::class.java.name)) {
+                    syncNotifyMethods["$name:$descriptor"]
+                } else {
+                    null
+                }
+                if (rewriteTarget == null) {
+                    super.visitMethodInsn(opcode, owner, name, descriptor, isInterface)
+                } else {
+                    super.visitMethodInsn(
+                        Opcodes.INVOKESTATIC,
+                        rewriterClassName,
+                        rewriteTarget.javaMethod?.name ?: error("missing notification method name"),
+                        Type.getMethodDescriptor(rewriteTarget.javaMethod),
+                        false
+                    )
                 }
             }
 
@@ -793,7 +926,7 @@ object Sandbox {
              * ASM doesn't provide a way to get the bytecode positions of a try-catch block's labels while the code
              * is being visited, so we have to go through all the methods to figure out the positions of the labels
              * with respect to each other to determine which try-catch blocks are bad (i.e. will loop forever) before
-             * doing the real visit in SanitizingMethodVisitor.
+             * doing the real visit in SandboxingMethodVisitor.
              */
             val methodVisitors = mutableMapOf<VisitedMethod, BadTryCatchDetectingMethodVisitor>()
             reader.accept(object : ClassVisitor(Opcodes.ASM8) {

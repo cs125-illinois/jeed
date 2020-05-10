@@ -8,10 +8,12 @@ import edu.illinois.cs.cs125.jeed.core.execute
 import edu.illinois.cs.cs125.jeed.core.fromSnippet
 import edu.illinois.cs.cs125.jeed.core.haveCompleted
 import edu.illinois.cs.cs125.jeed.core.haveOutput
+import edu.illinois.cs.cs125.jeed.core.haveTimedOut
 import io.kotlintest.matchers.types.shouldBeTypeOf
 import io.kotlintest.should
 import io.kotlintest.shouldNot
 import io.kotlintest.specs.StringSpec
+import kotlinx.coroutines.async
 
 class TestByteCodeRewriters : StringSpec({
     "should not intercept safe exceptions" {
@@ -240,5 +242,98 @@ Example ex = new Example();
         ).compile().execute()
         executionResult should haveCompleted()
         executionResult should haveOutput("Finalizer 1\nFinalizer 2")
+    }
+    "should allow synchronization to work correctly" {
+        val executionResult = Source(mapOf("Main.java" to """
+public class Other implements Runnable {
+    public void run() {
+        for (int i = 0; i < 100; i++) {
+            synchronized (Main.monitor) {
+                int temp = Main.counter + 1;
+                try {
+                    Thread.sleep(1);
+                } catch (InterruptedException e) {
+                    System.out.println("Interrupted!");
+                }
+                Main.counter = temp;
+            }
+        }
+    }
+}
+public class Main {
+    public static Object monitor = new Object();
+    public static int counter = 0;
+    public static void main() throws InterruptedException {
+        Thread other = new Thread(new Other());
+        other.start();
+        for (int i = 0; i < 100; i++) {
+            synchronized (monitor) {
+                int temp = counter + 1;
+                Thread.sleep(1);
+                counter = temp;
+            }
+        }
+        other.join();
+        System.out.println(counter);
+    }
+}""".trim())).compile().execute(SourceExecutionArguments(maxExtraThreads = 1, timeout = 500L))
+        executionResult shouldNot haveTimedOut()
+        executionResult should haveCompleted()
+        executionResult should haveOutput("200")
+    }
+    "should allow synchronization with notification" {
+        setOf("", "1000L", "999L, 999999").forEach { waitParamList ->
+            val executionResult = Source(mapOf("Main.java" to """
+public class Other implements Runnable {
+    public void run() {
+        synchronized (Main.monitor) {
+            Main.monitor.notifyAll();
+            System.out.println("Notified");
+        }
+    }
+}
+public class Main {
+    public static Object monitor = new Object();
+    public static void main() {
+        new Thread(new Other()).start();
+        synchronized (monitor) {
+            try {
+                monitor.wait([PARAM_LIST]);
+                System.out.println("Finished wait");
+            } catch (InterruptedException e) {
+                System.out.println("Failed to wait");
+            }
+        }
+    }
+}""".trim().replace("[PARAM_LIST]", waitParamList)))
+                .compile().execute(SourceExecutionArguments(maxExtraThreads = 1))
+            executionResult should haveCompleted()
+            executionResult should haveOutput("Notified\nFinished wait")
+        }
+    }
+    "should prevent cross-task monitor interference" {
+        val badCompileResult = Source(mapOf("Main.java" to """
+public class LockHog {
+    public static void main() {
+        System.out.println("About to spin");
+        synchronized (Object.class) {
+            while (true) {}
+        }
+    }
+}""".trim())).compile()
+        val goodCompileResult = Source.fromSnippet("""
+Thread.sleep(100);
+synchronized (Object.class) {
+    System.out.println("Synchronized");
+}""".trim()).compile()
+        val badTask = async {
+            badCompileResult.execute(SourceExecutionArguments(timeout = 800L, klass = "LockHog"))
+        }
+        val goodTaskResult = goodCompileResult.execute(SourceExecutionArguments(timeout = 150L))
+        goodTaskResult should haveCompleted()
+        goodTaskResult should haveOutput("Synchronized")
+        val badTaskResult = badTask.await()
+        badTaskResult should haveTimedOut()
+        badTaskResult should haveOutput("About to spin")
     }
 })
