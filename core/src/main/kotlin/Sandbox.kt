@@ -516,9 +516,6 @@ object Sandbox {
             }
             threadGroup.maxPriority = Thread.NORM_PRIORITY
             stoppedThreads.filter { it.isAlive }.forEach {
-                if (it.state == Thread.State.BLOCKED) {
-                    it.interrupt()
-                }
                 it.priority = Thread.NORM_PRIORITY
                 it.join(THREAD_SHUTDOWN_DELAY)
                 it.priority = Thread.MIN_PRIORITY

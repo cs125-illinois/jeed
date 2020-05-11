@@ -567,7 +567,7 @@ public class Main {
             executionResult should haveTimedOut()
         }
     }
-    "should terminate a synchronization deadlock" {
+    "should terminate an infinite synchronization wait" {
         val compileResult = Source(mapOf("Main.java" to """
 public class Sync {
     public static synchronized void deadlock() {
@@ -584,6 +584,35 @@ public class Main {
     public static void main() throws InterruptedException {
         new Thread(new Other()).start();
         Sync.deadlock();
+    }
+}""".trim())).compile()
+        val executionResult = compileResult.execute(SourceExecutionArguments(maxExtraThreads = 1, timeout = 200L))
+        executionResult shouldNot haveCompleted()
+        executionResult should haveTimedOut()
+        executionResult should haveOutput("Other")
+    }
+    "should terminate a synchronization deadlock" {
+        val compileResult = Source(mapOf("Main.java" to """
+public class Other implements Runnable {
+    public void run() {
+        System.out.println("Other");
+        synchronized (Main.root2) {
+            synchronized (Main.root1) {
+                while (true) {}
+            }
+        }
+    }
+}
+public class Main {
+    public static Object root1 = new Object();
+    public static Object root2 = new Object();
+    public static void main() throws InterruptedException {
+        new Thread(new Other()).start();
+        synchronized (root1) {
+            synchronized (root2) {
+                while (true) {}
+            }
+        }
     }
 }""".trim())).compile()
         val executionResult = compileResult.execute(SourceExecutionArguments(maxExtraThreads = 1, timeout = 200L))
