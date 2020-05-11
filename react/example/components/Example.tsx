@@ -14,6 +14,13 @@ import ace from "ace-builds/src-noconflict/ace"
 const CDN = "https://cdn.jsdelivr.net/npm/ace-builds@1.4.11/src-min-noconflict"
 ace.config.set("basePath", CDN)
 
+import PrismLight from "react-syntax-highlighter/dist/esm/prism-light"
+import style from "react-syntax-highlighter/dist/esm/styles/prism/tomorrow"
+import bash from "react-syntax-highlighter/dist/esm/languages/prism/bash"
+PrismLight.registerLanguage("bash", bash)
+import json from "react-syntax-highlighter/dist/esm/languages/prism/json"
+PrismLight.registerLanguage("json", json)
+
 import { JeedContext, Task, Request, Response, terminalOutput, TaskArguments } from "@cs125/react-jeed"
 
 import { Button, Icon, Dimmer, Container, Loader, Segment, Label, Popup } from "semantic-ui-react"
@@ -94,7 +101,7 @@ class Example extends Component<ExampleProps & { connected: boolean; authToken: 
   constructor(props: ExampleProps & { connected: boolean; authToken: string | undefined }) {
     super(props)
     this.originalValue = Children.onlyText(props.children)
-    this.minLines = this.originalValue.split("\n").length + 1
+    this.minLines = this.originalValue.split("\n").length + 2
     this.savedValue = this.originalValue
     this.state = {
       value: this.originalValue,
@@ -330,9 +337,16 @@ class Example extends Component<ExampleProps & { connected: boolean; authToken: 
                 minHeight: "4em",
                 overflow: "auto",
                 margin: 0,
+                padding: complete ? 0 : "1rem",
               }}
             >
-              <SnugPre>{output}</SnugPre>
+              {complete ? (
+                <PrismLight style={style} customStyle={{ margin: 0 }} language={"json"}>
+                  {output}
+                </PrismLight>
+              ) : (
+                <SnugPre>{output}</SnugPre>
+              )}
             </Segment>
           </Dimmer.Dimmable>
         )}

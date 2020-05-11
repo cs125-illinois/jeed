@@ -1,3 +1,4 @@
+import LoginButton from "./components/LoginButton"
 import Lead from "./components/Lead"
 import Example, { ExampleLanguage } from "./components/Example"
 
@@ -7,6 +8,8 @@ import Example, { ExampleLanguage } from "./components/Example"
 [![Docker Image Version (latest by date)](https://img.shields.io/docker/v/cs125/jeed?color=green&label=Docker&sort=date)](https://hub.docker.com/r/cs125/jeed/tags)
 [![npm version](https://badge.fury.io/js/%40cs125%2Freact-jeed.svg)](https://badge.fury.io/js/%40cs125%2Freact-jeed)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+
+<LoginButton />
 
 <Lead>
 
@@ -60,19 +63,21 @@ While this is a simple example, you can also compile multiple Java files, contro
 choose the entrypoint for execution, and set many execution options.
 Please see the [source documentation](https://github.com/cs125-illinois/jeed) for more details.
 
-Jeed runs code in a sandbox, secured using both existing Java protection mechanisms and a bit of bytecode manipulation.
+Jeed runs code in a sandbox, secured using both existing Java protection mechanisms and bytecode manipulation where needed.
 Default permissions and resource limits are minimal, but can be relaxed as needed.
 And while we make no claims to perfection, Jeed includes a
 [robust set of tests](https://github.com/cs125-illinois/jeed/tree/master/core/src/test/kotlin/sandbox)
 against every possible escape and resource exhaustion attack that we could think of.
 But perhaps you know of one that we missed?
 Feel free to launch it using any of the examples on this page!
+If you find problems, we'd love to know.
+However, a Docker-based sandbox alternative is also in the works.
 
 As an optimization, Jeed caches compilation results.
 Currently this caching is fairly simple, meaning that even trivial whitespace changes will cause it to break.
 However, for examples that are not editable or where you don't expect heavy editing, even this simple caching approach can be at least somewhat effective.
 
-### Snippets
+### Java Snippets
 
 Full Java class examples can be intimidating for beginners.
 To help bootstrap our CS1 class, Jeed includes a Java snippet mode, enabling compiling and executing snippets of loose code like this one:
@@ -141,6 +146,8 @@ Jeed can compute [static cyclomatic complexity](https://en.wikipedia.org/wiki/Cy
 Complexity values are computed for each method and aggregated into classes.
 For our CS1 course we provide use complexity to encourage students to write concise and clean code by providing a small number of
 submitting a solution with complexity within delta of a reference solution.
+The following example will annotate the left margin with the complexity of each method.
+(You have to look hard to see the annotations... they're a bit small.)
 
 <Example
   id="java_complexity_snippet"

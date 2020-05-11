@@ -30,6 +30,17 @@ services:
     environment:
       - "MONGODB=mongodb://mongodb/demo"
       - "GOOGLE_CLIENT_IDS=${AUTH_GOOGLE_CLIENTID}"
+  element-tracker:
+    image: "cs125/element-tracker:latest"
+    depends_on:
+      - mongodb
+    ports:
+      - "8890:8888"
+    networks:
+      - jeed
+    environment:
+      - "MONGODB=mongodb://mongodb/demo"
+      - "GOOGLE_CLIENT_IDS=${AUTH_GOOGLE_CLIENTID}"
   mongodb:
     image: "bitnami/mongodb:4.0"
     ports:
