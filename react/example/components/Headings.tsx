@@ -12,9 +12,13 @@ export const UpdateHash: React.FC<{ tags: string[] }> = ({ tags }) => {
   const { components } = useElementTracker()
 
   useMemo(() => {
-    const firstVisible = components?.find((c) => tags.includes(c.tag) && c.visible)
+    if ((document.documentElement.scrollTop || document.body.scrollTop) === 0) {
+      history.replaceState({}, "", "#")
+      return
+    }
+    const firstVisible = components?.find((c) => c.visible && c.id && tags.includes(c.tag))
     if (firstVisible) {
-      history.replaceState(null, "", `#${firstVisible.id}`)
+      history.replaceState({}, "", `#${firstVisible.id}`)
     }
   }, [components])
 
