@@ -1,5 +1,6 @@
 import React, { useState, useMemo, useLayoutEffect } from "react"
 import PropTypes from "prop-types"
+import styled from "styled-components"
 
 import { List } from "semantic-ui-react"
 
@@ -24,6 +25,12 @@ export const UpdateHash: React.FC<{ tags: string[] }> = ({ tags }) => {
 
   return null
 }
+
+const HoverItem = styled(List.Item)`
+  :hover {
+    cursor: pointer;
+  }
+`
 
 export const SidebarMenu: React.FC = () => {
   const { components } = useElementTracker()
@@ -58,16 +65,16 @@ export const SidebarMenu: React.FC = () => {
   return (
     <List size="large">
       {headers.map((header, i) => {
-        const headerLocation = `${location.href.replace(location.hash, "")}#${header.id}`
+        const headerLocation = `${location.href.split("#")[0]}#${header.id}`
         return (
-          <List.Item
+          <HoverItem
             onClick={(): void => {
               window.location.href = headerLocation
             }}
             key={i}
           >
             {header.active ? <strong>{header.text}</strong> : <span>{header.text}</span>}
-          </List.Item>
+          </HoverItem>
         )
       })}
     </List>
