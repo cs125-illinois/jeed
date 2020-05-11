@@ -3,7 +3,7 @@ import java.io.StringWriter
 import java.util.Properties
 
 group = "com.github.cs125-illinois"
-version = "2020.5.4"
+version = "2020.5.5"
 
 plugins {
     kotlin("jvm")
@@ -23,7 +23,7 @@ dependencies {
     implementation(kotlin("compiler-embeddable"))
     implementation(kotlin("reflect"))
 
-    implementation("org.jetbrains.kotlinx:kotlinx-coroutines-core:1.3.5")
+    implementation("org.jetbrains.kotlinx:kotlinx-coroutines-core:1.3.6")
     implementation("com.puppycrawl.tools:checkstyle:8.32")
     implementation("com.pinterest.ktlint:ktlint-core:0.36.0")
     implementation("com.pinterest.ktlint:ktlint-ruleset-standard:0.36.0")
