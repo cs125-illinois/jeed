@@ -11,7 +11,7 @@ import Example, { ExampleLanguage } from "./components/Example"
 <Lead>
 
 Jeed is a speedy Java and Kotlin in-memory compilation and execution toolkit.
-Jeed can rapidly compile Java and Kotlin code and safely execute the resulting bytecode in a secure sandbox.
+Jeed can rapidly compile and analyze Java and Kotlin code and safely execute the resulting bytecode in a secure sandbox.
 
 </Lead>
 
@@ -19,7 +19,9 @@ Jeed can rapidly compile Java and Kotlin code and safely execute the resulting b
 
 Jeed was created to implement Java and Kotlin in-browser playgrounds—like the ones shown on this page.
 We provide a
-[reference server implementation](https://github.com/cs125-illinois/jeed/tree/master/server) in the Jeed repository.
+[reference server implementation](https://github.com/cs125-illinois/jeed/tree/master/server)
+and
+[frontend examples](https://github.com/cs125-illinois/jeed/tree/master/react) in the Jeed repository.
 Our Jeed playground server backs playgrounds and interactive examples on both the
 [CS 125](https://cs125.cs.illinois.edu/) and
 [Joyful Kotlin](https://kotlin.cs.illinois.edu/) University of Illinois course websites.
@@ -54,7 +56,8 @@ public class Main {
 
 </Example>
 
-While this is a simple example, you can also compile a set of Java files, choose the entrypoint for execution, and set many execution options.
+While this is a simple example, you can also compile multiple Java files, control package availability at compile time,
+choose the entrypoint for execution, and set many execution options.
 Please see the [source documentation](https://github.com/cs125-illinois/jeed) for more details.
 
 Jeed runs code in a sandbox, secured using both existing Java protection mechanisms and a bit of bytecode manipulation.
@@ -131,6 +134,40 @@ public class Main {
 </Example>
 
 Currently `checkstyle` is configured on a per-server basis, but with a bit more work could be configured on a per-build basis.
+
+### Cyclomatic complexity
+
+Jeed can compute [static cyclomatic complexity](https://en.wikipedia.org/wiki/Cyclomatic_complexity) of Java snippets and source code.
+Complexity values are computed for each method and aggregated into classes.
+For our CS1 course we provide use complexity to encourage students to write concise and clean code by providing a small number of
+submitting a solution with complexity within delta of a reference solution.
+
+<Example
+  id="java_complexity_snippet"
+  tasks={["snippet", "complexity", "compile", "execute"]}
+  complexity
+  maxOutputLines={32}
+>
+
+```java
+int complicated(int which) {
+  if (which < 0) {
+    return 0;
+  } else if (which < 1) {
+    return 1;
+  } else if (which < 2) {
+    return 2;
+  } else if (which < 3) {
+    return 3;
+  } else {
+    return 4;
+  }
+}
+System.out.println(complicated(0));
+System.out.println(complicated(1));
+```
+
+</Example>
 
 ### Complete Server Response
 

@@ -29,6 +29,7 @@ export interface ExampleProps extends IAceOptions {
   tasks: Array<Task>
   jeedArguments: TaskArguments | undefined
   complete: boolean
+  complexity: boolean
   maxOutputLines: number
   children: React.ReactNode
 }
@@ -38,9 +39,16 @@ interface ExampleState {
   response?: Response
   output?: ReactElement | string
   outputLines: number
+  annotations: AceAnnotation[]
   showOutput: boolean
   saved: boolean
   saving: boolean
+}
+interface AceAnnotation {
+  row: number
+  column: number
+  type: string
+  text: string
 }
 
 class Example extends Component<ExampleProps & { connected: boolean; authToken: string | undefined }, ExampleState> {
@@ -62,6 +70,7 @@ class Example extends Component<ExampleProps & { connected: boolean; authToken: 
       }
     },
     complete: PropTypes.bool,
+    complexity: PropTypes.bool,
     maxOutputLines: PropTypes.number,
     children: PropTypes.node.isRequired,
   }
@@ -72,6 +81,7 @@ class Example extends Component<ExampleProps & { connected: boolean; authToken: 
     mode: "java",
     theme: "chrome",
     complete: false,
+    complexity: false,
     maxOutputLines: 16,
   }
 
@@ -91,6 +101,7 @@ class Example extends Component<ExampleProps & { connected: boolean; authToken: 
       busy: false,
       showOutput: false,
       outputLines: 0,
+      annotations: [],
       saved: true,
       saving: false,
     }
@@ -126,11 +137,25 @@ class Example extends Component<ExampleProps & { connected: boolean; authToken: 
     run(request)
       .then((response) => {
         const output = complete ? JSON.stringify(response, null, 2) : terminalOutput(response)
+        let annotations: AceAnnotation[] = []
+        if (response.completed.complexity) {
+          annotations = response.completed.complexity.results[0].methods
+            .filter((m) => m.name !== "")
+            .map((m) => {
+              return {
+                row: m.range.start.column,
+                column: 0,
+                type: "info",
+                text: `${m.name}: complexity ${m.complexity}`,
+              }
+            })
+        }
         this.setState({
           busy: false,
           response,
           output: output !== "" ? output : <span style={{ color: "green" }}>{"(No Output)"}</span>,
           outputLines: Math.min(output.split("\n").length, maxOutputLines),
+          annotations,
         })
       })
       .catch(() => {
@@ -161,8 +186,8 @@ class Example extends Component<ExampleProps & { connected: boolean; authToken: 
     }, 1000)
   }
   render(): React.ReactNode {
-    const { onChange, minLines, tasks, complete, ...aceProps } = this.props // eslint-disable-line @typescript-eslint/no-unused-vars
-    const { value, outputLines } = this.state
+    const { onChange, minLines, tasks, complete, complexity, ...aceProps } = this.props // eslint-disable-line @typescript-eslint/no-unused-vars
+    const { value, annotations, outputLines } = this.state
     const { status } = this.context
 
     const commands = [
@@ -200,7 +225,6 @@ class Example extends Component<ExampleProps & { connected: boolean; authToken: 
       compilerVersion = `Kotlin ${status.versions.kompiler}`
     }
     const { busy, showOutput, output, saving, saved } = this.state
-
     return (
       <div>
         <RelativeContainer>
@@ -248,6 +272,7 @@ class Example extends Component<ExampleProps & { connected: boolean; authToken: 
           </div>
           <MaceEditor
             ref={this.maceRef}
+            annotations={complexity ? annotations : []}
             width={"100%"}
             highlightActiveLine={false}
             showPrintMargin={false}

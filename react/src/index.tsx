@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useContext } from "react"
+import React, { useState, useEffect, useContext, useCallback } from "react"
 import PropTypes from "prop-types"
 
 import { ServerStatus, Request, Response } from "./types"
@@ -51,12 +51,15 @@ export const JeedProvider: React.FC<JeedProviderProps> = ({ server, children }) 
       .catch(() => setStatus(undefined))
   }, [])
 
-  const run = async (request: Request, validate = true): Promise<Response> => {
-    return postRequest(server, request, validate).then((response) => {
-      setStatus(response.status)
-      return response
-    })
-  }
+  const run = useCallback(
+    async (request: Request, validate = true): Promise<Response> => {
+      return postRequest(server, request, validate).then((response) => {
+        setStatus(response.status)
+        return response
+      })
+    },
+    [server]
+  )
 
   return (
     <JeedContext.Provider value={{ status, connected: status !== undefined, run }}>{children}</JeedContext.Provider>
