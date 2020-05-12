@@ -71,7 +71,19 @@ against every possible escape and resource exhaustion attack that we could think
 But perhaps you know of one that we missed?
 Feel free to launch it using any of the examples on this page!
 If you find problems, we'd love to know.
-However, a Docker-based sandbox alternative is also in the works.
+And, if it makes you nervous, it's a bit slower, but Jeed can also run your bytecode in a container:
+
+<Example id="java_class_hello_world_cexecute" tasks={["compile", "cexecute"]} path="Main.java">
+
+```java
+public class Main {
+  public static void main() {
+    System.out.println("Hello, Java!");
+  }
+}
+```
+
+</Example>
 
 As an optimization, Jeed caches compilation results.
 Currently this caching is fairly simple, meaning that even trivial whitespace changes will cause it to break.
@@ -199,7 +211,7 @@ System.out.println("Let's produce a complete response!");
 
 ## Kotlin
 
-By default
+Jeed can also run Kotlin code!
 
 <Example id="kotlin_hello_world" tasks={["snippet", "kompile", "execute" ]}>
 
@@ -208,3 +220,5 @@ println("Hello, Kotlin!")
 ```
 
 </Example>
+
+The compilation process is different for Kotlin, and the compiler is a touch slower, but once it is bytecode everything works the same as Java.

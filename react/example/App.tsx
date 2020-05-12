@@ -39,7 +39,7 @@ const App: React.SFC = () => {
               <JeedProvider server={JEED_SERVER}>
                 <ElementTracker server={ET_SERVER} tags={["h1", "h2", "h3", "h4"]} googleToken={idToken}>
                   <UpdateHash tags={["h2"]} />
-                  <Container text style={{ paddingTop: 16 }}>
+                  <Container text style={{ paddingTop: 16, paddingBottom: 16 }}>
                     <Ref innerRef={contextRef}>
                       <Segment basic>
                         <Responsive minWidth={1200}>

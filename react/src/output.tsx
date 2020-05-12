@@ -72,25 +72,27 @@ export function terminalOutput(response: Response | undefined): string {
     const errorCount = Object.keys(response.failed.ktlint?.errors || {}).length
     return `${output}
   ${errorCount} error${errorCount > 1 ? "s" : ""}`
-  } else if (response.failed.execution) {
-    if (response.failed.execution.classNotFound) {
-      return `Error: could not find class ${response.failed.execution.classNotFound}`
-    } else if (response.failed.execution.methodNotFound) {
-      return `Error: could not find method ${response.failed.execution.methodNotFound}`
-    } else if (response.failed.execution.threw) {
-      return `Error: ${response.failed.execution.threw}`
+  } else if (response.failed.execution || response.failed.cexecution) {
+    const failed = response.failed.execution || response.failed.cexecution
+    if (failed?.classNotFound) {
+      return `Error: could not find class ${failed?.classNotFound}`
+    } else if (failed?.methodNotFound) {
+      return `Error: could not find method ${failed?.methodNotFound}`
     } else {
       return `Something unexpected went wrong...`
     }
   }
 
-  if (Object.keys(response.failed).length === 0 && response.completed.execution) {
-    const output = response.completed.execution.outputLines.map(({ line }) => line)
-    if (response.completed.execution.timeout) {
+  if (Object.keys(response.failed).length === 0 && (response.completed.execution || response.completed.cexecution)) {
+    const completed = response.completed.execution || response.completed.cexecution
+    const output = completed?.outputLines.map(({ line }) => line) || []
+    if (response.completed.execution?.threw) {
+      output.push(response.completed.execution?.threw.stacktrace)
+    } else if (completed?.timeout) {
       output.push("(Program timed out)")
     }
-    if (response.completed.execution.truncatedLines > 0) {
-      output.push(`(${response.completed.execution.truncatedLines} lines were truncated)`)
+    if (completed?.truncatedLines || 0 > 0) {
+      output.push(`(${completed?.truncatedLines} lines were truncated)`)
     }
     return output.join("\n")
   }

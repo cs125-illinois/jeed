@@ -115,7 +115,7 @@ class Example extends Component<ExampleProps & { connected: boolean; authToken: 
   }
   runCode = (): void => {
     const { id, path, tasks, jeedArguments, maxOutputLines, complete } = this.props
-    const { value, busy, outputLines } = this.state
+    const { value, busy } = this.state
     const { run, connected } = this.context
 
     if (busy || !connected) {
@@ -126,7 +126,7 @@ class Example extends Component<ExampleProps & { connected: boolean; authToken: 
     this.setState({
       busy: true,
       showOutput: true,
-      output: Array(outputLines).join("\n"),
+      output: "",
     })
 
     const taskArguments =
@@ -366,6 +366,7 @@ const SnugLabel = styled(Label)({
 const SnugPre = styled.pre`
   margin-top: 0;
   margin-bottom: 0;
+  font-size: 0.9rem;
 `
 const ExampleWrapper: React.FC<ExampleProps> = (props) => {
   const connected = withMaceConnected()

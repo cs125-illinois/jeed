@@ -19,6 +19,10 @@ services:
       - "AUTH_GOOGLE_CLIENTIDS=${AUTH_GOOGLE_CLIENTID}"
       - "LIMITS_EXECUTION_TIMEOUT=1000"
       - "LIMITS_EXECUTION_MAXEXTRATHREADS=8"
+      - "DOCKER_HOST=dind:2375"
+      - "JEED_CONTAINER_TMP_DIR=/tmp/"
+    volumes:
+      - "jeed_docker:/tmp/"
   mace:
     image: "cs125/mace:latest"
     depends_on:
@@ -49,6 +53,18 @@ services:
       - "mongodb_data:/bitnami"
     networks:
       - jeed
+  dind:
+    image: "docker:19.03-dind"
+    entrypoint: /bin/sh -c "rm -f /var/run/docker.pid && dockerd --host=tcp://0.0.0.0:2375"
+    privileged: true
+    volumes:
+      - "dind_data:/var/lib/docker"
+      - "jeed_docker:/tmp/"
+    networks:
+      - jeed
 volumes:
+  jeed_docker:
   mongodb_data:
+    driver: local
+  dind_data:
     driver: local

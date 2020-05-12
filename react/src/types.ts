@@ -8,7 +8,8 @@ export const Task = Union(
   Literal("checkstyle"),
   Literal("ktlint"),
   Literal("complexity"),
-  Literal("execute")
+  Literal("execute"),
+  Literal("cexecute")
 )
 export type Task = Static<typeof Task>
 
@@ -156,6 +157,16 @@ export const SourceExecutionArguments = Partial({
 })
 export type SourceExecutionArguments = Static<typeof SourceExecutionArguments>
 
+export const ContainerExecutionArguments = Partial({
+  klass: String,
+  method: String,
+  image: String,
+  timeout: Number,
+  maxOutputLines: Number,
+  containerArguments: String,
+})
+export type ContainerExecutionArguments = Static<typeof ContainerExecutionArguments>
+
 export const TaskArguments = Partial({
   snippet: SnippetArguments,
   compilation: CompilationArguments,
@@ -163,6 +174,7 @@ export const TaskArguments = Partial({
   checkstyle: CheckstyleArguments,
   ktlint: KtLintArguments,
   execution: SourceExecutionArguments,
+  cexecution: ContainerExecutionArguments,
 })
 export type TaskArguments = Static<typeof TaskArguments>
 
@@ -266,6 +278,7 @@ export type FlatComplexityResults = Static<typeof FlatComplexityResults>
 
 export const ThrownException = Record({
   klass: String,
+  stacktrace: String,
 }).And(
   Partial({
     message: String,
@@ -280,8 +293,11 @@ export const OutputLine = Record({
   console: Console,
   line: String,
   timestamp: String.withConstraint((s) => Date.parse(s) !== NaN),
-  thread: Number,
-})
+}).And(
+  Partial({
+    thread: Number,
+  })
+)
 export type OutputLine = Static<typeof OutputLine>
 
 export const PermissionRequest = Record({
@@ -307,6 +323,21 @@ export const SourceTaskResults = Record({
 )
 export type SourceTaskResults = Static<typeof SourceTaskResults>
 
+export const ContainerExecutionResults = Record({
+  klass: String,
+  method: String,
+  timeout: Boolean,
+  outputLines: Array(OutputLine),
+  interval: Interval,
+  executionInterval: Interval,
+  truncatedLines: Number,
+}).And(
+  Partial({
+    exitcode: Number,
+  })
+)
+export type ContainerExecutionResults = Static<typeof ContainerExecutionResults>
+
 export const CompletedTasks = Partial({
   snippet: Snippet,
   template: TemplatedSourceResult,
@@ -316,6 +347,7 @@ export const CompletedTasks = Partial({
   ktlint: KtlintResults,
   complexity: FlatComplexityResults,
   execution: SourceTaskResults,
+  cexecution: ContainerExecutionResults,
 })
 export type CompletedTasks = Static<typeof CompletedTasks>
 
@@ -385,7 +417,6 @@ export type ComplexityFailed = Static<typeof ComplexityFailed>
 export const ExecutionFailedResult = Partial({
   classNotFound: String,
   methodNotFound: String,
-  threw: String,
 })
 export type ExecutionFailedResult = Static<typeof ExecutionFailedResult>
 
@@ -398,6 +429,7 @@ export const FailedTasks = Partial({
   ktlint: KtlintFailed,
   complexity: ComplexityFailed,
   execution: ExecutionFailedResult,
+  cexecution: ExecutionFailedResult,
 })
 export type FailedTasks = Static<typeof FailedTasks>
 
