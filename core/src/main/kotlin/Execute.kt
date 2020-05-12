@@ -126,6 +126,7 @@ fun ClassLoader.findClassMethod(
             "Cannot locate public static no-argument method $name in $klass"
         )
     } catch (methodNotFoundException: ExecutionFailed.MethodNotFoundException) {
+        println(methodNotFoundException)
         throw ExecutionFailed(methodNotFoundException)
     } catch (classNotFoundException: ClassNotFoundException) {
         throw ExecutionFailed(ExecutionFailed.ClassMissingException(klass, classNotFoundException.message))

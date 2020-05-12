@@ -40,7 +40,6 @@ dependencies {
     testImplementation("io.ktor:ktor-server-test-host:$ktorVersion")
 }
 application {
-    @Suppress("RemoveRedundantCallsOfConversionMethods")
     mainClassName = "edu.illinois.cs.cs125.jeed.server.MainKt"
 }
 docker {

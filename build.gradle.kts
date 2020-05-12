@@ -33,8 +33,8 @@ tasks.dependencyUpdates {
         componentSelection {
             all {
                 if (listOf("alpha", "beta", "rc", "cr", "m", "preview", "b", "ea", "eap", "release").any { qualifier ->
-                    candidate.version.matches(Regex("(?i).*[.-]$qualifier[.\\d-+]*"))
-                }) {
+                        candidate.version.matches(Regex("(?i).*[.-]$qualifier[.\\d-+]*"))
+                    }) {
                     reject("Release candidate")
                 }
             }
@@ -43,7 +43,7 @@ tasks.dependencyUpdates {
     gradleReleaseChannel = "current"
 }
 detekt {
-    input = files("core/src/main/kotlin", "server/src/main/kotlin")
+    input = files("core/src/main/kotlin", "server/src/main/kotlin", "containerrunner/src/main/kotlin")
     config = files("config/detekt/detekt.yml")
 }
 tasks.register("check") {

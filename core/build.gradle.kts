@@ -51,6 +51,8 @@ tasks.test {
     systemProperties["logback.configurationFile"] = File(projectDir, "src/test/resources/logback-test.xml").absolutePath
     @Suppress("MagicNumber")
     environment["JEED_MAX_THREAD_POOL_SIZE"] = 4
+    environment["PATH"] = "${environment["PATH"]}:/usr/local/bin/"
+    environment["JEED_CONTAINER_TMP_DIR"] = "/tmp/"
 }
 tasks.generateGrammarSource {
     outputDirectory = File(projectDir, "src/main/java/edu/illinois/cs/cs125/jeed/core/antlr")

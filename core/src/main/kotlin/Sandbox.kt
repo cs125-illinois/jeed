@@ -127,7 +127,12 @@ object Sandbox {
         val executionArguments: ExecutionArguments
     ) {
         @JsonClass(generateAdapter = true)
-        data class OutputLine(val console: Console, val line: String, val timestamp: Instant, val thread: Long) {
+        data class OutputLine(
+            val console: Console,
+            val line: String,
+            val timestamp: Instant,
+            val thread: Long? = null
+        ) {
             enum class Console { STDOUT, STDERR }
         }
 
@@ -376,6 +381,7 @@ object Sandbox {
             override fun equals(other: Any?): Boolean {
                 return other is IdentityHolder && other.item === item
             }
+
             override fun hashCode(): Int {
                 return System.identityHashCode(item)
             }
@@ -729,6 +735,7 @@ object Sandbox {
             val confinedTask = confinedTaskByThreadGroup() ?: error("only confined tasks should call this method")
             confinedTask.getIsolatedLock(monitor).lockInterruptibly()
         }
+
         @JvmStatic
         fun exitMonitor(monitor: Any) {
             val confinedTask = confinedTaskByThreadGroup() ?: error("only confined tasks should call this method")
@@ -740,12 +747,14 @@ object Sandbox {
             val confinedTask = confinedTaskByThreadGroup() ?: error("only confined tasks should call this method")
             confinedTask.getIsolatedCondition(monitor).await()
         }
+
         @JvmStatic
         fun conditionWaitMs(monitor: Any, timeout: Long) {
             require(timeout >= 0) { "timeout cannot be negative" }
             val confinedTask = confinedTaskByThreadGroup() ?: error("only confined tasks should call this method")
             confinedTask.getIsolatedCondition(monitor).await(timeout, TimeUnit.MILLISECONDS)
         }
+
         @JvmStatic
         fun conditionWaitMsNs(monitor: Any, timeout: Long, plusNanos: Int) {
             require(plusNanos >= 0) { "nanos cannot be negative" }
@@ -753,11 +762,13 @@ object Sandbox {
             val confinedTask = confinedTaskByThreadGroup() ?: error("only confined tasks should call this method")
             confinedTask.getIsolatedCondition(monitor).await(timeout * NS_PER_MS + plusNanos, TimeUnit.NANOSECONDS)
         }
+
         @JvmStatic
         fun conditionNotify(monitor: Any) {
             val confinedTask = confinedTaskByThreadGroup() ?: error("only confined tasks should call this method")
             confinedTask.getIsolatedCondition(monitor).signal()
         }
+
         @JvmStatic
         fun conditionNotifyAll(monitor: Any) {
             val confinedTask = confinedTaskByThreadGroup() ?: error("only confined tasks should call this method")
@@ -781,6 +792,7 @@ object Sandbox {
                     super.visit(version, access, name, signature, superName, interfaces)
                     classType = Type.getType("L$name;")
                 }
+
                 override fun visitMethod(
                     access: Int,
                     name: String,
@@ -828,6 +840,7 @@ object Sandbox {
                     visitVarInsn(Opcodes.ALOAD, 0) // this
                 }
             }
+
             override fun onMethodEnter() {
                 super.onMethodEnter()
                 if (Modifier.isSynchronized(modifiers)) {
@@ -835,6 +848,7 @@ object Sandbox {
                     visitInsn(Opcodes.MONITORENTER) // will be transformed by the other visitor
                 }
             }
+
             override fun onMethodExit(opcode: Int) {
                 super.onMethodExit(opcode)
                 if (Modifier.isSynchronized(modifiers)) {
@@ -944,7 +958,8 @@ object Sandbox {
                 isInterface: Boolean
             ) {
                 val rewriteTarget = if (!isInterface && opcode == Opcodes.INVOKEVIRTUAL &&
-                    owner == classNameToPath(Object::class.java.name)) {
+                    owner == classNameToPath(Object::class.java.name)
+                ) {
                     syncNotifyMethods["$name:$descriptor"]
                 } else {
                     null
