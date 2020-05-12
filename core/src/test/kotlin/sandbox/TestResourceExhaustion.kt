@@ -620,4 +620,26 @@ public class Main {
         executionResult should haveTimedOut()
         executionResult should haveOutput("Other")
     }
+    "should stop long counted loops" {
+        val executionResult = Source.fromSnippet("""
+void countedLoop(int times) {
+    int counter = 0;
+    for (int i = 0; i < times; i++) {
+        for (int j = 0; j < times; j++) {
+            for (int k = 0; k < times; k++) {
+                counter++;
+            }
+        }
+    }
+}
+for (int n = 0; n < 10000; n++) {
+    countedLoop(1); // trigger JIT
+}
+System.out.println("Warmed up");
+countedLoop(1000000);
+""".trim()).compile().execute()
+        executionResult should haveTimedOut()
+        executionResult shouldNot haveCompleted()
+        executionResult should haveOutput("Warmed up")
+    }
 })

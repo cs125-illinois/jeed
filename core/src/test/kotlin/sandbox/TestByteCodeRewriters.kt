@@ -336,4 +336,180 @@ synchronized (Object.class) {
         badTaskResult should haveTimedOut()
         badTaskResult should haveOutput("About to spin")
     }
+    "should allow synchronized methods to run" {
+        val executionResult = Source.fromSnippet("""
+            synchronized int getFive() {
+                return 5;
+            }
+            System.out.println(getFive());
+        """.trimIndent()).compile().execute()
+        executionResult should haveCompleted()
+        executionResult should haveOutput("5")
+    }
+    "should correctly handle try-catch blocks inside synchronized methods" {
+        val executionResult = Source.fromSnippet("""
+            synchronized int getFive() {
+                try {
+                    Object obj = null;
+                    return obj.hashCode();
+                } catch (NullPointerException e) {
+                    return 5;
+                } finally {
+                    System.out.println("Finally");
+                }
+            }
+            System.out.println(getFive());
+        """.trimIndent()).compile().execute()
+        executionResult should haveCompleted()
+        executionResult should haveOutput("Finally\n5")
+    }
+    "should correctly handle throw statements inside synchronized methods" {
+        val executionResult = Source.fromSnippet("""
+            synchronized int getFive() {
+                System.out.println("Synchronized");
+                try {
+                    throw new Exception("Boom!");
+                } catch (Exception e) {
+                    System.out.println(e.getMessage());
+                    return 5;
+                } finally {
+                    System.out.println("Finally");
+                }
+            }
+            System.out.println(getFive());
+        """.trimIndent()).compile().execute()
+        executionResult should haveCompleted()
+        executionResult should haveOutput("Synchronized\nBoom!\nFinally\n5")
+    }
+    "should correctly handle synchronized methods that always throw" {
+        val executionResult = Source.fromSnippet("""
+            synchronized int throwFive() throws Exception {
+                System.out.println("Synchronized");
+                throw new Exception("5");
+            }
+            try {
+                throwFive();
+            } catch (Exception e) {
+                System.out.println(e.getMessage());
+            }
+        """.trimIndent()).compile().execute()
+        executionResult should haveCompleted()
+        executionResult should haveOutput("Synchronized\n5")
+    }
+    "should correctly handle synchronized methods that return references" {
+        val executionResult = Source.fromSnippet("""
+            synchronized String getFive() {
+                return "5";
+            }
+            System.out.println(getFive());
+        """.trimIndent()).compile().execute()
+        executionResult should haveCompleted()
+        executionResult should haveOutput("5")
+    }
+    "should correctly handle synchronized methods that return large primitives" {
+        val executionResult = Source.fromSnippet("""
+            synchronized long getFive() {
+                return 5L;
+            }
+            synchronized double getPi() {
+                return 3.14159;
+            }
+            System.out.println((int) (getFive() * getFive() * getPi()));
+        """.trimIndent()).compile().execute()
+        executionResult should haveCompleted()
+        executionResult should haveOutput("78")
+    }
+    "should correctly handle synchronized methods that take parameters" {
+        val executionResult = Source.fromSnippet("""
+            synchronized void printSum(String prefix, byte a, long c, double factor) {
+                double sum = (double) a + c * factor;
+                System.out.println(prefix + sum);
+            }
+            printSum("Sum: ", (byte) 10, 100, 3.13);
+        """.trimIndent()).compile().execute()
+        executionResult should haveCompleted()
+        executionResult should haveOutput("Sum: 323.0")
+    }
+    "should correctly handle recursive synchronized methods" {
+        val executionResult = Source.fromSnippet("""
+            synchronized long factorial(int n) {
+                if (n <= 1) {
+                    return 1;
+                } else {
+                    return n * factorial(n - 1);
+                }
+            }
+            System.out.println(factorial(14));
+        """.trimIndent()).compile().execute()
+        executionResult should haveCompleted()
+        executionResult should haveOutput("87178291200")
+    }
+    "should correctly handle synchronized instance methods" {
+        val executionResult = Source.fromSnippet("""
+            class Example {
+                synchronized int getFivePlus(short value) {
+                    return 5 + value;
+                }
+            }
+            System.out.println(new Example().getFivePlus((short) 10));
+        """.trimIndent()).compile().execute()
+        executionResult should haveCompleted()
+        executionResult should haveOutput("15")
+    }
+    "should unlock the monitor on successful exit from synchronized methods" {
+        val executionResult = Source.fromSnippet("""
+            class Example implements Runnable {
+                public void run() {
+                    Util.printExcitedly("Bye");
+                }
+            }
+            class Util {
+                synchronized static void printExcitedly(String text) {
+                    try {
+                        Object obj = null;
+                        obj.hashCode();
+                    } catch (NullPointerException e) {
+                        // Wow this is pointless!
+                    }
+                    System.out.println(text + "!");
+                }
+            }
+            Util.printExcitedly("Hi");
+            Thread t = new Thread(new Example());
+            t.start();
+            t.join();
+        """.trimIndent()).compile().execute(SourceExecutionArguments(maxExtraThreads = 1))
+        executionResult should haveCompleted()
+        executionResult should haveOutput("Hi!\nBye!")
+    }
+    "should unlock the monitor on exceptional exit from synchronized methods" {
+        val executionResult = Source.fromSnippet("""
+            class Example implements Runnable {
+                public void run() {
+                    try {
+                        Util.throwExcitedly("Bye");
+                    } catch (Exception e) {
+                        System.out.println(e.getMessage());
+                    }
+                }
+            }
+            class Util {
+                synchronized static void throwExcitedly(String text) throws Exception {
+                    if (System.currentTimeMillis() != 0) {
+                        throw new Exception(text + "!");
+                    }
+                }
+            }
+            try {
+                Util.throwExcitedly("Hi");
+            } catch (Exception e) {
+                System.out.println(e.getMessage());
+            }
+            Thread t = new Thread(new Example());
+            t.start();
+            t.join();
+        """.trimIndent()).compile().execute(SourceExecutionArguments(maxExtraThreads = 1))
+        executionResult should haveCompleted()
+        executionResult should haveOutput("Hi!\nBye!")
+    }
 })
