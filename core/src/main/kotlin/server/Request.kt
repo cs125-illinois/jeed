@@ -3,6 +3,7 @@ package edu.illinois.cs.cs125.jeed.core.server
 import com.squareup.moshi.JsonClass
 import edu.illinois.cs.cs125.jeed.core.CheckstyleArguments
 import edu.illinois.cs.cs125.jeed.core.CompilationArguments
+import edu.illinois.cs.cs125.jeed.core.ContainerExecutionArguments
 import edu.illinois.cs.cs125.jeed.core.KompilationArguments
 import edu.illinois.cs.cs125.jeed.core.KtLintArguments
 import edu.illinois.cs.cs125.jeed.core.SnippetArguments
@@ -18,6 +19,7 @@ enum class Task {
     ktlint,
     complexity,
     execute,
+    cexecute,
 }
 
 @JsonClass(generateAdapter = true)
@@ -28,5 +30,6 @@ class TaskArguments(
     val checkstyle: CheckstyleArguments = CheckstyleArguments(),
     val ktlint: KtLintArguments = KtLintArguments(),
     // val complexity: currently accepts no arguments
-    val execution: SourceExecutionArguments = SourceExecutionArguments()
+    val execution: SourceExecutionArguments = SourceExecutionArguments(),
+    val cexecution: ContainerExecutionArguments = ContainerExecutionArguments()
 )

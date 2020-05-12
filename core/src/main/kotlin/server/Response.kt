@@ -7,6 +7,7 @@ import edu.illinois.cs.cs125.jeed.core.ClassComplexity
 import edu.illinois.cs.cs125.jeed.core.CompilationFailed
 import edu.illinois.cs.cs125.jeed.core.ComplexityFailed
 import edu.illinois.cs.cs125.jeed.core.ComplexityResults
+import edu.illinois.cs.cs125.jeed.core.ContainerExecutionResults
 import edu.illinois.cs.cs125.jeed.core.KtLintFailed
 import edu.illinois.cs.cs125.jeed.core.KtLintResults
 import edu.illinois.cs.cs125.jeed.core.MethodComplexity
@@ -28,7 +29,8 @@ class CompletedTasks(
     var checkstyle: CheckstyleResults? = null,
     var ktlint: KtLintResults? = null,
     var complexity: FlatComplexityResults? = null,
-    var execution: SourceTaskResults? = null
+    var execution: SourceTaskResults? = null,
+    var cexecution: ContainerExecutionResults? = null
 )
 
 @JsonClass(generateAdapter = true)
@@ -40,7 +42,8 @@ class FailedTasks(
     var checkstyle: CheckstyleFailed? = null,
     var ktlint: KtLintFailed? = null,
     var complexity: ComplexityFailed? = null,
-    var execution: ExecutionFailedResult? = null
+    var execution: ExecutionFailedResult? = null,
+    var cexecution: ExecutionFailedResult? = null
 )
 
 @JsonClass(generateAdapter = true)

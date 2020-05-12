@@ -67,6 +67,29 @@ class TestHTTP : StringSpec() {
                 }
             }
         }
+        "should accept good snippet cexecution request" {
+            withTestApplication(Application::jeed) {
+                handleRequest(HttpMethod.Post, "/") {
+                    addHeader("content-type", "application/json")
+                    setBody(
+                        """
+{
+"label": "test",
+"snippet": "System.out.println(\"Here\");",
+"tasks": [ "compile", "cexecute" ]
+}""".trim()
+                    )
+                }.apply {
+                    response.shouldHaveStatus(HttpStatusCode.OK.value)
+                    Request.mongoCollection?.countDocuments() shouldBe 1
+
+                    val jeedResponse = Response.from(response.content)
+                    jeedResponse.completed.cexecution?.klass shouldBe "Main"
+                    jeedResponse.completedTasks.size shouldBe 3
+                    jeedResponse.failedTasks.size shouldBe 0
+                }
+            }
+        }
         "should accept good kotlin snippet request" {
             withTestApplication(Application::jeed) {
                 handleRequest(HttpMethod.Post, "/") {
@@ -577,9 +600,41 @@ public class Main {
                     Request.mongoCollection?.countDocuments() shouldBe 1
 
                     val jeedResponse = Response.from(response.content)
+                    jeedResponse.completedTasks.size shouldBe 2
+                    jeedResponse.failedTasks.size shouldBe 0
+                    jeedResponse.completed.execution?.threw shouldNotBe ""
+                }
+            }
+        }
+        "should handle cexecution error" {
+            withTestApplication(Application::jeed) {
+                handleRequest(HttpMethod.Post, "/") {
+                    addHeader("content-type", "application/json")
+                    setBody(
+                        """
+{
+"label": "test",
+"sources": [
+  {
+    "path": "Main.java",
+    "contents": " 
+public class Main {
+  public static void min() {
+    System.out.println(\"Here\");
+  }
+}"
+  }
+],
+"tasks": [ "compile", "cexecute" ]
+}""".trim()
+                    )
+                }.apply {
+                    response.shouldHaveStatus(HttpStatusCode.OK.value)
+                    Request.mongoCollection?.countDocuments() shouldBe 1
+
+                    val jeedResponse = Response.from(response.content)
                     jeedResponse.completedTasks.size shouldBe 1
                     jeedResponse.failedTasks.size shouldBe 1
-                    jeedResponse.failed.execution?.threw shouldNotBe ""
                 }
             }
         }

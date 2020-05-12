@@ -26,6 +26,7 @@ import edu.illinois.cs.cs125.jeed.core.TemplatedSource
 import edu.illinois.cs.cs125.jeed.core.TemplatingError
 import edu.illinois.cs.cs125.jeed.core.TemplatingFailed
 import edu.illinois.cs.cs125.jeed.core.check
+import edu.illinois.cs.cs125.jeed.core.getStackTraceForSource
 import edu.illinois.cs.cs125.jeed.core.server.FlatSource
 import edu.illinois.cs.cs125.jeed.core.server.toFlatSources
 import edu.illinois.cs.cs125.jeed.core.server.toSource
@@ -266,8 +267,7 @@ class SnippetAdapter {
 @JsonClass(generateAdapter = true)
 data class ExecutionFailedResult(
     val classNotFound: String?,
-    val methodNotFound: String?,
-    val threw: String?
+    val methodNotFound: String?
 ) {
     constructor(executionFailed: ExecutionFailed) : this(
         if (executionFailed.classNotFound != null) {
@@ -278,7 +278,7 @@ data class ExecutionFailedResult(
             executionFailed.methodNotFound.method
         } else {
             null
-        }, executionFailed.threw
+        }
     )
 }
 
@@ -313,36 +313,13 @@ class TemplatedSourceResult(
 @JsonClass(generateAdapter = true)
 class ThrownException(
     val klass: String,
+    val stacktrace: String,
     val message: String?
 ) {
-    constructor(throwable: Throwable) : this(throwable::class.java.typeName, throwable.message)
-}
-
-@Suppress("unused")
-@JsonClass(generateAdapter = true)
-class TaskResults(
-    val returned: String?,
-    val threw: ThrownException?,
-    val timeout: Boolean,
-    val outputLines: List<Sandbox.TaskResults.OutputLine> = listOf(),
-    val permissionRequests: List<Sandbox.TaskResults.PermissionRequest> = listOf(),
-    val interval: Interval,
-    val executionInterval: Interval,
-    val truncatedLines: Int
-) {
-    constructor(taskResults: Sandbox.TaskResults<*>) : this(
-        taskResults.returned.toString(),
-        if (taskResults.threw != null) {
-            ThrownException(taskResults.threw)
-        } else {
-            null
-        },
-        taskResults.timeout,
-        taskResults.outputLines.toList(),
-        taskResults.permissionRequests.toList(),
-        taskResults.interval,
-        taskResults.executionInterval,
-        taskResults.truncatedLines
+    constructor(throwable: Throwable, source: Source) : this(
+        throwable::class.java.typeName,
+        throwable.getStackTraceForSource(source),
+        throwable.message
     )
 }
 
@@ -360,12 +337,16 @@ class SourceTaskResults(
     val executionInterval: Interval,
     val truncatedLines: Int
 ) {
-    constructor(taskResults: Sandbox.TaskResults<*>, sourceExecutionArguments: SourceExecutionArguments) : this(
+    constructor(
+        source: Source,
+        taskResults: Sandbox.TaskResults<*>,
+        sourceExecutionArguments: SourceExecutionArguments
+    ) : this(
         sourceExecutionArguments.klass ?: check { "should have a klass name" },
         sourceExecutionArguments.method,
         taskResults.returned.toString(),
         if (taskResults.threw != null) {
-            ThrownException(taskResults.threw)
+            ThrownException(taskResults.threw, source)
         } else {
             null
         },

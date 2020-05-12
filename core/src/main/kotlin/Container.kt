@@ -43,6 +43,8 @@ private const val CONTAINER_SHUTDOWN_DELAY = 100L
 
 @JsonClass(generateAdapter = true)
 data class ContainerExecutionResults(
+    val klass: String,
+    val method: String,
     val exitCode: Int?,
     val timeout: Boolean,
     val outputLines: List<Sandbox.TaskResults.OutputLine>,
@@ -61,7 +63,7 @@ data class ContainerExecutionResults(
 }
 
 @Suppress("LongMethod")
-suspend fun CompiledSource.run(
+suspend fun CompiledSource.cexecute(
     executionArguments: ContainerExecutionArguments = ContainerExecutionArguments()
 ): ContainerExecutionResults {
     val started = Instant.now()
@@ -141,6 +143,8 @@ suspend fun CompiledSource.run(
                 .take(executionArguments.maxOutputLines)
 
             ContainerExecutionResults(
+                executionArguments.klass!!,
+                executionArguments.method,
                 process.exitValue(),
                 timeout,
                 outputLines,

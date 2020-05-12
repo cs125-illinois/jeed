@@ -11,6 +11,7 @@ import edu.illinois.cs.cs125.jeed.core.KtLintFailed
 import edu.illinois.cs.cs125.jeed.core.SnippetTransformationFailed
 import edu.illinois.cs.cs125.jeed.core.Source
 import edu.illinois.cs.cs125.jeed.core.TemplatingFailed
+import edu.illinois.cs.cs125.jeed.core.cexecute
 import edu.illinois.cs.cs125.jeed.core.checkstyle
 import edu.illinois.cs.cs125.jeed.core.compile
 import edu.illinois.cs.cs125.jeed.core.complexity
@@ -77,6 +78,9 @@ class Request(
         require(!(tasksToRun.containsAll(setOf(Task.compile, Task.kompile)))) {
             "can't compile code as both Java and Kotlin"
         }
+        require(!(tasksToRun.containsAll(setOf(Task.execute, Task.cexecute)))) {
+            "can't both run code in the sandbox and in the container"
+        }
         if (snippet != null) {
             tasksToRun.add(Task.snippet)
         }
@@ -124,6 +128,12 @@ class Request(
             val unsafeExceptions = configuration[Limits.Execution.ClassLoaderConfiguration.unsafeExceptions]
             require(arguments.execution.classLoaderConfiguration.unsafeExceptions.containsAll(unsafeExceptions)) {
                 "job is trying to remove unsafe exceptions"
+            }
+        }
+        if (Task.cexecute in tasks) {
+            require(arguments.cexecution.timeout <= configuration[Limits.Cexecution.timeout]) {
+                "job timeout of ${arguments.cexecution.timeout} too long " +
+                    "(> ${configuration[Limits.Cexecution.timeout]})"
             }
         }
         return this
@@ -230,15 +240,12 @@ class Request(
             if (tasks.contains(Task.execute)) {
                 check(compiledSource != null) { "should have compiled source before executing" }
                 val executionResult = compiledSource.execute(arguments.execution)
-                if (executionResult.threw != null) {
-                    response.failed.execution = ExecutionFailedResult(
-                        ExecutionFailed(executionResult.threw!!, actualSource)
-                    )
-                    response.failedTasks.add(Task.execute)
-                } else {
-                    response.completed.execution = SourceTaskResults(executionResult, arguments.execution)
-                    response.completedTasks.add(Task.execute)
-                }
+                response.completed.execution = SourceTaskResults(actualSource, executionResult, arguments.execution)
+                response.completedTasks.add(Task.execute)
+            } else if (tasks.contains(Task.cexecute)) {
+                check(compiledSource != null) { "should have compiled source before executing" }
+                response.completed.cexecution = compiledSource.cexecute(arguments.cexecution)
+                response.completedTasks.add(Task.cexecute)
             }
         } catch (templatingFailed: TemplatingFailed) {
             response.failed.template = templatingFailed
@@ -264,8 +271,13 @@ class Request(
             response.failed.complexity = complexityFailed
             response.failedTasks.add(Task.complexity)
         } catch (executionFailed: ExecutionFailed) {
-            response.failed.execution = ExecutionFailedResult(executionFailed)
-            response.failedTasks.add(Task.execute)
+            if (tasks.contains(Task.execute)) {
+                response.failed.execution = ExecutionFailedResult(executionFailed)
+                response.failedTasks.add(Task.execute)
+            } else if (tasks.contains(Task.cexecute)) {
+                response.failed.cexecution = ExecutionFailedResult(executionFailed)
+                response.failedTasks.add(Task.cexecute)
+            }
         } finally {
             currentStatus.counts.completed++
             response.interval = Interval(started, Instant.now())

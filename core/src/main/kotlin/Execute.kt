@@ -42,19 +42,13 @@ class SourceExecutionArguments(
 
 class ExecutionFailed(
     val classNotFound: ClassMissingException? = null,
-    val methodNotFound: MethodNotFoundException? = null,
-    @Suppress("unused") val threw: String? = null
+    val methodNotFound: MethodNotFoundException? = null
 ) : Exception() {
     class ClassMissingException(@Suppress("unused") val klass: String, message: String?) : Exception(message)
     class MethodNotFoundException(@Suppress("unused") val method: String, message: String?) : Exception(message)
 
-    constructor(classMissing: ClassMissingException) : this(classMissing, null, null)
-    constructor(methodNotFound: MethodNotFoundException) : this(null, methodNotFound, null)
-    constructor(throwable: Throwable, source: Source) : this(
-        null,
-        null,
-        throwable.getStackTraceForSource(source)
-    )
+    constructor(classMissing: ClassMissingException) : this(classMissing, null)
+    constructor(methodNotFound: MethodNotFoundException) : this(null, methodNotFound)
 }
 
 @Throws(ExecutionFailed::class)
@@ -126,7 +120,6 @@ fun ClassLoader.findClassMethod(
             "Cannot locate public static no-argument method $name in $klass"
         )
     } catch (methodNotFoundException: ExecutionFailed.MethodNotFoundException) {
-        println(methodNotFoundException)
         throw ExecutionFailed(methodNotFoundException)
     } catch (classNotFoundException: ClassNotFoundException) {
         throw ExecutionFailed(ExecutionFailed.ClassMissingException(klass, classNotFoundException.message))

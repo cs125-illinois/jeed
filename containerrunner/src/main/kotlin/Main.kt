@@ -5,6 +5,8 @@ import com.github.ajalt.clikt.core.subcommands
 import com.github.ajalt.clikt.parameters.arguments.argument
 import com.github.ajalt.clikt.parameters.arguments.default
 import io.github.classgraph.ClassGraph
+import java.io.PrintWriter
+import java.io.StringWriter
 import java.lang.reflect.Method
 import java.lang.reflect.Modifier
 import java.util.Properties
@@ -34,11 +36,29 @@ fun Method.run() {
     }
 }
 
+fun Throwable.cleanStackTrace(): String {
+    val originalStackTrace = StringWriter().also {
+        this.printStackTrace(PrintWriter(it))
+    }.toString().lines().toMutableList()
+    val firstLine = originalStackTrace.removeAt(0)
+    val betterStackTrace = mutableListOf(firstLine)
+    for (line in originalStackTrace) {
+        if (line.trim()
+                .startsWith("""at java.base/jdk.internal.reflect.NativeMethodAccessorImpl.invoke0(Native Method)""")
+        ) {
+            break
+        }
+        betterStackTrace.add(line)
+    }
+    return betterStackTrace.joinToString(separator = "\n")
+}
+
 class Run : CliktCommand(help = "Load and run METHOD from KLASS") {
     private val klass: String by argument().default("")
     private val method: String by argument().default("")
 
     override fun run() {
+        @Suppress("TooGenericExceptionCaught")
         try {
             findMethod(klass, method).run()
         } catch (e: ClassNotFoundException) {
@@ -46,6 +66,9 @@ class Run : CliktCommand(help = "Load and run METHOD from KLASS") {
             exitProcess(1)
         } catch (e: MethodNotFoundException) {
             echo("Method ${e.message} not found")
+            exitProcess(1)
+        } catch (e: Throwable) {
+            System.err.println((e.cause ?: e).cleanStackTrace())
             exitProcess(1)
         }
     }
@@ -69,6 +92,12 @@ class TestClass {
         @JvmStatic
         fun testing() {
             println("Success")
+        }
+
+        @JvmStatic
+        @Suppress("TooGenericExceptionThrown")
+        fun throws() {
+            throw Exception("Failed")
         }
     }
 }

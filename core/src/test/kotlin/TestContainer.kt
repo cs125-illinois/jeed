@@ -26,7 +26,7 @@ class TestContainer : StringSpec() {
         "it should run a simple program in a container" {
             val runResults = Source.fromSnippet("""System.out.println("Hello, world!");""")
                 .compile()
-                .run()
+                .cexecute()
 
             runResults should containerHaveCompleted()
             runResults should containerHaveOutput("Hello, world!")
@@ -38,7 +38,7 @@ while (true) {}
             """.trim()
             )
                 .compile()
-                .run()
+                .cexecute()
             runResults should containerHaveTimedOut()
         }
         "it should run a simple Kotlin program in a container" {
@@ -47,7 +47,7 @@ while (true) {}
                 SnippetArguments(fileType = Source.FileType.KOTLIN)
             )
                 .kompile()
-                .run()
+                .cexecute()
 
             runResults should containerHaveCompleted()
             runResults should containerHaveOutput("Hello, world!")
@@ -75,7 +75,7 @@ public class Test {
                 )
             )
                 .compile()
-                .run(executionArguments = ContainerExecutionArguments(method = "entry()"))
+                .cexecute(executionArguments = ContainerExecutionArguments(method = "entry()"))
 
             runResults should containerHaveCompleted()
             runResults should containerHaveOutput("Hello, world!")

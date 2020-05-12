@@ -1,5 +1,8 @@
 package edu.illinois.cs.cs125.jeed.core
 
+import java.util.concurrent.TimeUnit
+
+@Suppress("BlockingMethodInNonBlockingContext", "MagicNumber")
 suspend fun warm(indent: Int = 4) {
     logger.info(
         Source.fromSnippet(
@@ -17,5 +20,11 @@ suspend fun warm(indent: Int = 4) {
         ).also {
             it.ktLint(KtLintArguments(failOnError = true))
         }.kompile().execute().output
+    )
+    logger.info(
+        ProcessBuilder(listOf("/bin/sh", "-c", "docker pull ${ContainerExecutionArguments.DEFAULT_IMAGE}"))
+            .start().also {
+                it.waitFor(60, TimeUnit.SECONDS)
+            }.inputStream.bufferedReader().readText()
     )
 }

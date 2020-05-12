@@ -3,6 +3,7 @@ package edu.illinois.cs.cs125.jeed.server
 import com.uchuhimo.konf.Config
 import com.uchuhimo.konf.ConfigSpec
 import com.uchuhimo.konf.source.yaml
+import edu.illinois.cs.cs125.jeed.core.ContainerExecutionArguments
 import edu.illinois.cs.cs125.jeed.core.Sandbox
 import edu.illinois.cs.cs125.jeed.core.SourceExecutionArguments
 import edu.illinois.cs.cs125.jeed.core.moshi.PermissionAdapter
@@ -46,6 +47,9 @@ object Limits : ConfigSpec() {
             val blacklistedClasses by optional(Sandbox.ClassLoaderConfiguration.DEFAULT_BLACKLISTED_CLASSES)
             val unsafeExceptions by optional(Sandbox.ClassLoaderConfiguration.DEFAULT_UNSAFE_EXCEPTIONS)
         }
+    }
+    object Cexecution : ConfigSpec() {
+        val timeout by optional(ContainerExecutionArguments.DEFAULT_TIMEOUT)
     }
 }
 
