@@ -832,7 +832,7 @@ object Sandbox {
                     }
                 }
             }
-            classReader.accept(sandboxingVisitor, ClassReader.EXPAND_FRAMES)
+            classReader.accept(sandboxingVisitor, 0)
             return classWriter.toByteArray()
         }
 
