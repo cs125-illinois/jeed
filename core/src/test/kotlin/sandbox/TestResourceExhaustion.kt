@@ -16,6 +16,7 @@ import io.kotlintest.should
 import io.kotlintest.shouldBe
 import io.kotlintest.shouldNot
 import io.kotlintest.specs.StringSpec
+import java.lang.IllegalArgumentException
 import kotlinx.coroutines.async
 
 class TestResourceExhaustion : StringSpec({
@@ -448,7 +449,7 @@ for (int i = 0; i < (($value + 10) * 10000); i++) {
         // It's only a problem if it dies at a time that causes a ConfinedTask to be leaked
 
         // From https://stackoverflow.com/a/42301131/
-        Source.fromSnippet(
+        val compileResult = Source.fromSnippet(
             """
 class A {
     {
@@ -519,7 +520,12 @@ class A {
 }
 new A();
         """.trimIndent()
-        ).compile().execute()
+        ).compile()
+        try {
+            compileResult.execute()
+        } catch (e: IllegalArgumentException) {
+            e.message shouldBe "bytecode is over 1 MB"
+        }
     }
     "should terminate a parked thread" {
         val executionResult = Source.fromSnippet(

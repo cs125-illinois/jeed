@@ -221,8 +221,11 @@ object Sandbox {
         executionArguments: ExecutionArguments = ExecutionArguments(),
         callable: SandboxCallableArguments<T>
     ): TaskResults<out T?> {
-        val sandboxedClassLoader =
+        val sandboxedClassLoader = try {
             SandboxedClassLoader(sandboxableClassLoader, executionArguments.classLoaderConfiguration)
+        } catch (e: OutOfMemoryError) {
+            throw SandboxStartFailed("Out of memory while transforming bytecode", e)
+        }
         return execute(sandboxedClassLoader, executionArguments, callable)
     }
 
@@ -522,9 +525,11 @@ object Sandbox {
             false
         }
 
-        assert(threadGroupShutdownRetries != null) {
-            "failed to shut down thread group"
+        @Suppress("FoldInitializerAndIfToElvisOperator")
+        if (threadGroupShutdownRetries == null) {
+            throw SandboxContainmentFailure("failed to shut down thread group ($threadGroup)")
         }
+
         threadGroup.destroy()
         assert(threadGroup.isDestroyed)
 
@@ -695,6 +700,7 @@ object Sandbox {
         }
     }
 
+    @Suppress("TooManyFunctions")
     object RewriteBytecode {
         val rewriterClassName =
             classNameToPath(RewriteBytecode::class.java.name ?: error("should have a class name"))
@@ -710,6 +716,7 @@ object Sandbox {
             "notifyAll:()V" to RewriteBytecode::conditionNotifyAll
         )
         private const val NS_PER_MS = 1000000L
+        private const val MAX_CLASS_FILE_SIZE = 1000000
 
         @JvmStatic
         fun checkException(throwable: Throwable) {
@@ -764,6 +771,7 @@ object Sandbox {
         }
 
         fun rewrite(originalByteArray: ByteArray, unsafeExceptionClasses: Set<Class<*>>): ByteArray {
+            require(originalByteArray.size <= MAX_CLASS_FILE_SIZE) { "bytecode is over 1 MB" }
             val classReader = ClassReader(originalByteArray)
             val allPreinspections = preInspectMethods(classReader)
             val classWriter = ClassWriter(classReader, ClassWriter.COMPUTE_FRAMES)
@@ -828,6 +836,7 @@ object Sandbox {
             return classWriter.toByteArray()
         }
 
+        @Suppress("LongParameterList", "ComplexMethod")
         private fun emitSynchronizedBridge(
             template: MethodVisitor,
             className: String,
@@ -851,7 +860,7 @@ object Sandbox {
             val finallyLabel = Label()
             methodVisitor.visitTryCatchBlock(callStartLabel, callEndLabel, finallyLabel, null)
             loadSelf()
-            methodVisitor.visitInsn(Opcodes.MONITORENTER)
+            methodVisitor.visitInsn(Opcodes.MONITORENTER) // will be transformed by MonitorIsolatingMethodVisitor
             var index = 0
             if (!Modifier.isStatic(modifiers)) {
                 loadSelf()
@@ -1392,6 +1401,8 @@ object Sandbox {
     private class SandboxDeath : ThreadDeath() {
         override fun fillInStackTrace() = this
     }
+    class SandboxStartFailed(message: String, cause: Throwable? = null) : RuntimeException(message, cause)
+    class SandboxContainmentFailure(message: String) : Throwable(message)
 
     private lateinit var originalStdout: PrintStream
     private lateinit var originalStderr: PrintStream
