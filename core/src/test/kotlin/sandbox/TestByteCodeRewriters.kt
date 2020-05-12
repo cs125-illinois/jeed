@@ -512,4 +512,40 @@ synchronized (Object.class) {
         executionResult should haveCompleted()
         executionResult should haveOutput("Hi!\nBye!")
     }
+    "should allow exclusion to work correctly with synchronized methods" {
+        val executionResult = Source(mapOf("Main.java" to """
+public class Counter {
+    public static int counter;
+    public static synchronized void increment() throws InterruptedException {
+        int tmp = counter + 1;
+        Thread.sleep(1);
+        counter = tmp;
+    }
+}
+public class Other implements Runnable {
+    public void run() {
+        try {
+            for (int i = 0; i < 100; i++) {
+                Counter.increment();
+            }
+        } catch (InterruptedException e) {
+            throw new RuntimeException(e);
+        }
+    }
+}
+public class Main {
+    public static void main() throws InterruptedException {
+        Thread other = new Thread(new Other());
+        other.start();
+        for (int i = 0; i < 100; i++) {
+            Counter.increment();
+        }
+        other.join();
+        System.out.println(Counter.counter);
+    }
+}""".trim())).compile().execute(SourceExecutionArguments(maxExtraThreads = 1, timeout = 500L))
+        executionResult shouldNot haveTimedOut()
+        executionResult should haveCompleted()
+        executionResult should haveOutput("200")
+    }
 })
