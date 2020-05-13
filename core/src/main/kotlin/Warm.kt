@@ -1,5 +1,7 @@
 package edu.illinois.cs.cs125.jeed.core
 
+private const val COROUTINE_INIT_TIMEOUT = 10000L
+
 suspend fun warm(indent: Int = 4) {
     logger.info(
         Source.fromSnippet(
@@ -17,5 +19,16 @@ suspend fun warm(indent: Int = 4) {
         ).also {
             it.ktLint(KtLintArguments(failOnError = true))
         }.kompile().execute().output
+    )
+    logger.info(
+        Source.fromSnippet(
+            """
+                import kotlinx.coroutines.*
+                GlobalScope.launch {
+                    println("coroutine isolation initialized")
+                }
+            """.trimIndent(),
+            SnippetArguments(indent = indent, fileType = Source.FileType.KOTLIN)
+        ).kompile().execute(SourceExecutionArguments(waitForShutdown = true, timeout = COROUTINE_INIT_TIMEOUT)).output
     )
 }
