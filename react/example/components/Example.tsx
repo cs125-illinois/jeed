@@ -1,4 +1,4 @@
-import React, { Component, ReactElement, createRef } from "react"
+import React, { Component, ReactElement, createRef, CSSProperties } from "react"
 import PropTypes from "prop-types"
 
 import Children from "react-children-utilities"
@@ -166,7 +166,7 @@ class Example extends Component<ExampleProps & { connected: boolean; authToken: 
         })
       })
       .catch(() => {
-        this.setState({ busy: false })
+        this.setState({ busy: false, showOutput: false })
       })
   }
   save = (): void => {
@@ -194,7 +194,7 @@ class Example extends Component<ExampleProps & { connected: boolean; authToken: 
   }
   render(): React.ReactNode {
     const { onChange, minLines, tasks, complete, complexity, ...aceProps } = this.props // eslint-disable-line @typescript-eslint/no-unused-vars
-    const { value, annotations, outputLines } = this.state
+    const { value, annotations, outputLines, response } = this.state
     const { status } = this.context
 
     const commands = [
@@ -231,6 +231,19 @@ class Example extends Component<ExampleProps & { connected: boolean; authToken: 
     } else if (status && tasks.includes("kompile")) {
       compilerVersion = `Kotlin ${status.versions.kompiler}`
     }
+
+    const compilationInterval = (response?.completed.compilation || response?.completed.kompilation)?.interval
+    const compileTime =
+      compilationInterval && new Date(compilationInterval.end).getTime() - new Date(compilationInterval.start).getTime()
+    const compilationCached = (response?.completed.compilation || response?.completed.kompilation)?.cached || false
+
+    const executionInterval = (response?.completed.execution || response?.completed.cexecution)?.interval
+    const executionTime =
+      executionInterval && new Date(executionInterval.end).getTime() - new Date(executionInterval.start).getTime()
+    const inContainer = response?.completed.cexecution !== undefined
+
+    const timeStyles: CSSProperties = { fontSize: "0.8rem", margin: "0 0.2rem", color: "gray" }
+
     const { busy, showOutput, output, saving, saved } = this.state
     return (
       <div>
@@ -240,6 +253,7 @@ class Example extends Component<ExampleProps & { connected: boolean; authToken: 
               disabled={value === this.originalValue}
               position="top center"
               content={"Reload"}
+              hideOnScroll
               trigger={
                 <div>
                   <Button icon circular disabled={value === this.originalValue} size="tiny" onClick={this.reload}>
@@ -251,6 +265,7 @@ class Example extends Component<ExampleProps & { connected: boolean; authToken: 
             <Popup
               position="top center"
               content={saveLabel}
+              hideOnScroll
               trigger={
                 <div>
                   <Button icon circular disabled={saved} size="tiny" loading={saving} onClick={this.save}>
@@ -262,6 +277,7 @@ class Example extends Component<ExampleProps & { connected: boolean; authToken: 
             <Popup
               position="top center"
               content={"Run Your Code"}
+              hideOnScroll
               trigger={
                 <Button
                   icon
@@ -314,6 +330,20 @@ class Example extends Component<ExampleProps & { connected: boolean; authToken: 
             <Label basic size="mini">
               {compilerVersion}
             </Label>
+          </div>
+        )}
+        {showOutput && (
+          <div style={{ textAlign: "right" }}>
+            {compileTime !== undefined && (
+              <span style={timeStyles}>
+                Compiled in {compileTime}ms{compilationCached && " (Cached)"}
+              </span>
+            )}
+            {executionTime !== undefined && (
+              <span style={timeStyles}>
+                Executed in {executionTime}ms{inContainer && " (Docker)"}
+              </span>
+            )}
           </div>
         )}
         {showOutput && (

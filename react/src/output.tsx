@@ -28,6 +28,8 @@ export function terminalOutput(response: Response | undefined): string {
     return `${output}
   ${errorCount} error${errorCount > 1 ? "s" : ""}`
   } else if (response.failed.compilation || response.failed.kompilation) {
+    console.log("Here")
+    console.log(response.failed.kompilation)
     const output =
       (response.failed.compilation || response.failed.kompilation)?.errors
         .filter(({ location }) => location !== undefined)

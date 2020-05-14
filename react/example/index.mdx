@@ -40,8 +40,8 @@ We are happy to help, and would love to know what you are doing with our library
 We are also happy to accept [pull requests](https://github.com/cs125-illinois/jeed/pulls) with fixes or requests for new features.
 
 Please feel free to experiment with the examples below to get a sense of what Jeed can do.
-The contents of each editor will be saved using [`mace`](https://cs125-illinois.github.io/mace), another CS 125 project, but
-the original examples can be recovered using the reset button.
+The contents of each of your editors will be saved using [`mace`](https://cs125-illinois.github.io/mace), another CS 125 project.
+But you can recover the original example contents using the reset button.
 
 ## Java
 
@@ -212,6 +212,8 @@ System.out.println("Let's produce a complete response!");
 ## Kotlin
 
 Jeed can also run Kotlin code!
+Which is great, because
+[Kotlin is fantastic](https://kotlin.cs.illinois.edu).
 
 <Example id="kotlin_hello_world" tasks={["snippet", "kompile", "execute" ]}>
 
@@ -222,3 +224,49 @@ println("Hello, Kotlin!")
 </Example>
 
 The compilation process is different for Kotlin, and the compiler is a touch slower, but once it is bytecode everything works the same as Java.
+So you can also run your bytecode in a container if you'd prefer:
+
+<Example id="kotlin_hello_world_container" tasks={["snippet", "kompile", "cexecute" ]}>
+
+```kotlin
+println("Hello, Kotlin!")
+```
+
+</Example>
+
+Jeed supports Kotlin's exciting features, including coroutines:
+
+<Example id="kotlin_hello_coroutines" tasks={["kompile", "execute" ]} path="Main.kt">
+
+```kotlin
+import kotlinx.coroutines.*
+
+suspend fun work(n: Int): Int {
+  return (0 until n).sum()
+}
+fun main() = runBlocking {
+  repeat(5) {
+    launch {
+      println(work(it))
+    }
+  }
+}
+```
+
+</Example>
+
+### Kotlin Snippets
+
+Just like Java, Jeed can run snippets of Kotlin containing loose code at the top level:
+
+<Example id="kotlin_snippet_hello_world" tasks={["snippet", "kompile", "execute" ]}>
+
+```kotlin
+data class Example(val name: String = "")
+fun greeting(example: Example) {
+  println(example)
+}
+greeting(Example("Ben"))
+```
+
+</Example>

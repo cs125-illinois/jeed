@@ -13,12 +13,20 @@ spec:
       labels:
         app: jeed
     spec:
+      volumes:
+      - name: dind
+        emptyDir: {}
+      - name: jeed
+        emptyDir: {}
       containers:
       - name: jeed
         image: cs125/jeed:latest
         imagePullPolicy: Always
         ports:
         - containerPort: 8888
+        volumeMounts:
+        - name: jeed
+          mountPath: /tmp
         env:
         - name: TZ
           value: "America/Chicago"
@@ -28,6 +36,10 @@ spec:
           value: Demo
         - name: HTTP
           value: http://0.0.0.0:8888
+        - name: JEED_CONTAINER_TMP_DIR
+          value: /tmp/
+        - name: DOCKER_HOST
+          value: "localhost:2375"
         - name: MONGODB
           valueFrom:
             secretKeyRef:
@@ -38,6 +50,19 @@ spec:
             secretKeyRef:
               name: google
               key: GOOGLE_CLIENT_ID
+      - name: dind
+        image: docker:19.03-dind
+        command: [ "/bin/sh" ]
+        args: [ "-c", "rm -f /var/run/docker.pid && dockerd --host=tcp://0.0.0.0:2375" ]
+        securityContext:
+          privileged: true
+        ports:
+        - containerPort: 2375
+        volumeMounts:
+        - name: dind
+          mountPath: /var/lib/docker
+        - name: jeed
+          mountPath: /tmp/
 ---
 apiVersion: v1
 kind: Service

@@ -53,10 +53,15 @@ export const JeedProvider: React.FC<JeedProviderProps> = ({ server, children }) 
 
   const run = useCallback(
     async (request: Request, validate = true): Promise<Response> => {
-      return postRequest(server, request, validate).then((response) => {
-        setStatus(response.status)
-        return response
-      })
+      return postRequest(server, request, validate)
+        .then((response) => {
+          setStatus(response.status)
+          return response
+        })
+        .catch((err) => {
+          setStatus(undefined)
+          throw err
+        })
     },
     [server]
   )
