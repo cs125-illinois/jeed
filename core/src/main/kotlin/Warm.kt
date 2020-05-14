@@ -25,6 +25,7 @@ suspend fun warm(indent: Int = 4) {
             """
                 import kotlinx.coroutines.*
                 GlobalScope.launch {
+                    delay(1)
                     println("coroutine isolation initialized")
                 }
             """.trimIndent(),

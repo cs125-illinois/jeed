@@ -276,7 +276,7 @@ public class Main {
         other.join();
         System.out.println(counter);
     }
-}""".trim())).compile().execute(SourceExecutionArguments(maxExtraThreads = 1, timeout = 500L))
+}""".trim())).compile().execute(SourceExecutionArguments(maxExtraThreads = 1, timeout = 1000L))
         executionResult shouldNot haveTimedOut()
         executionResult should haveCompleted()
         executionResult should haveOutput("200")
