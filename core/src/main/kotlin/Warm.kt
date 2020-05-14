@@ -2,6 +2,8 @@ package edu.illinois.cs.cs125.jeed.core
 
 import java.util.concurrent.TimeUnit
 
+private const val COROUTINE_INIT_TIMEOUT = 10000L
+
 @Suppress("BlockingMethodInNonBlockingContext", "MagicNumber")
 suspend fun warm(indent: Int = 4) {
     logger.info(
@@ -20,6 +22,18 @@ suspend fun warm(indent: Int = 4) {
         ).also {
             it.ktLint(KtLintArguments(failOnError = true))
         }.kompile().execute().output
+    )
+    logger.info(
+        Source.fromSnippet(
+            """
+                import kotlinx.coroutines.*
+                GlobalScope.launch {
+                    delay(1)
+                    println("coroutine isolation initialized")
+                }
+            """.trimIndent(),
+            SnippetArguments(indent = indent, fileType = Source.FileType.KOTLIN)
+        ).kompile().execute(SourceExecutionArguments(waitForShutdown = true, timeout = COROUTINE_INIT_TIMEOUT)).output
     )
     logger.info(
         ProcessBuilder(listOf("/bin/sh", "-c", "docker pull ${ContainerExecutionArguments.DEFAULT_IMAGE}"))

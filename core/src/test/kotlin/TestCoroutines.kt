@@ -28,7 +28,7 @@ fun main() {
     println(i)
 }
 """.trimIndent()
-        )).kompile().execute()
+        )).kompile().execute(SourceExecutionArguments(timeout = 10000)) // cache rewritten isolated classes
         executionResult shouldNot haveTimedOut()
         executionResult should haveCompleted()
         executionResult should haveOutput("1")

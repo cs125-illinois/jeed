@@ -120,8 +120,15 @@ private class JeedMessageCollector(val source: Source, val allWarningsAsErrors: 
             return
         }
         val sourceLocation = location
-            ?.let { if (it.path == KOTLIN_EMPTY_LOCATION) null else it.path }
-            ?.let { source.mapLocation(SourceLocation(it, location.line, location.column)) }
+            ?.let {
+                if (source is Snippet) {
+                    SNIPPET_SOURCE
+                } else if (it.path != KOTLIN_EMPTY_LOCATION) {
+                    it.path
+                } else {
+                    null
+                }
+            }?.let { source.mapLocation(SourceLocation(it, location.line, location.column)) }
         messages.add(CompilationMessage(severity.presentableName, sourceLocation, message))
     }
 }
@@ -177,7 +184,6 @@ private fun kompile(
     val state = KotlinToJVMBytecodeCompiler.analyzeAndGenerate(environment)
 
     if (messageCollector.errors.isNotEmpty()) {
-        println("Here")
         throw CompilationFailed(messageCollector.errors)
     }
     check(state != null) { "compilation should have succeeded" }
@@ -200,7 +206,7 @@ fun Source.kompile(kompilationArguments: KompilationArguments = KompilationArgum
 }
 
 private val KOTLIN_COROUTINE_IMPORTS = setOf("kotlinx.coroutines", "kotlin.coroutines")
-const val KOTLIN_COROUTINE_MIN_TIMEOUT = 400L
+const val KOTLIN_COROUTINE_MIN_TIMEOUT = 600L
 const val KOTLIN_COROUTINE_MIN_EXTRA_THREADS = 4
 
 fun CompiledSource.usesCoroutines(): Boolean {

@@ -22,6 +22,7 @@ private val MAX_CONCURRENT_CONTAINERS = try {
     Runtime.getRuntime().availableProcessors()
 }
 private val containerSemaphore = Semaphore(MAX_CONCURRENT_CONTAINERS)
+private val runtime = Runtime.getRuntime()
 
 @JsonClass(generateAdapter = true)
 data class ContainerExecutionArguments(
@@ -35,11 +36,9 @@ data class ContainerExecutionArguments(
 ) {
     companion object {
         const val DEFAULT_IMAGE = "cs125/jeed-containerrunner:latest"
-        const val DEFAULT_TIMEOUT = 1000L
+        const val DEFAULT_TIMEOUT = 2000L
     }
 }
-
-private const val CONTAINER_SHUTDOWN_DELAY = 100L
 
 @JsonClass(generateAdapter = true)
 data class ContainerExecutionResults(
@@ -96,13 +95,13 @@ suspend fun CompiledSource.cexecute(
             "--name $dockerName " +
             "-v $tempDir:/jeed/ " +
             executionArguments.containerArguments +
-            " --rm ${executionArguments.image} " +
+            " ${executionArguments.image} " +
             "-- run ${executionArguments.klass!!} $containerMethodName"
+
         @Suppress("SpreadOperator")
         val processBuilder = ProcessBuilder(*listOf("/bin/sh", "-c", actualCommand).toTypedArray()).directory(tempDir)
 
         containerSemaphore.withPermit {
-            val executionStarted = Instant.now()
             val process = processBuilder.start()
             val stdoutLines = StreamGobbler(
                 Sandbox.TaskResults.OutputLine.Console.STDOUT,
@@ -119,14 +118,21 @@ suspend fun CompiledSource.cexecute(
             stderrThread.start()
             stdoutThread.start()
 
+            var executionStartedAt = ""
+            while (executionStartedAt.isBlank()) {
+                executionStartedAt = """docker inspect $dockerName -f {{.State.StartedAt}}""".runCommand().trim()
+            }
+            val executionStarted = Instant.parse(executionStartedAt)
+
             val timeout = !process.waitFor(executionArguments.timeout, TimeUnit.MILLISECONDS)
             if (timeout) {
-                val dockerStopCommand = """docker kill ${"$"}(docker ps -q --filter="name=$dockerName")"""
-                Runtime.getRuntime().exec(listOf("/bin/sh", "-c", dockerStopCommand).toTypedArray()).waitFor()
-                process.waitFor(CONTAINER_SHUTDOWN_DELAY, TimeUnit.MILLISECONDS)
+                println(dockerName)
+                """docker kill $dockerName""".runCommand()
+                """docker wait $dockerName""".runCommand()
             }
-            check(!process.isAlive) { "Docker container is still running" }
-            val executionEnded = Instant.now()
+            val executionEnded =
+                Instant.parse("""docker inspect $dockerName -f {{.State.FinishedAt}}""".runCommand().trim())
+            """docker rm $dockerName""".runCommand()
 
             stderrThread.join()
             stdoutThread.join()
@@ -203,3 +209,12 @@ fun CompiledSource.eject(directory: File) {
         check(destination.length() > 0) { "Empty file written during ejection" }
     }
 }
+
+@Suppress("SpreadOperator")
+fun String.runCommand() = ProcessBuilder(*split("\\s".toRegex()).toTypedArray())
+    .redirectOutput(ProcessBuilder.Redirect.PIPE)
+    .redirectError(ProcessBuilder.Redirect.PIPE)
+    .start().let {
+        it.waitFor()
+        it.inputStream.bufferedReader().readText()
+    }

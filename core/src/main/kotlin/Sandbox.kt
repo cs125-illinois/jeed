@@ -40,7 +40,6 @@ import org.objectweb.asm.Label
 import org.objectweb.asm.MethodVisitor
 import org.objectweb.asm.Opcodes
 import org.objectweb.asm.Type
-import org.objectweb.asm.commons.AdviceAdapter
 
 private typealias SandboxCallableArguments<T> = (Pair<ClassLoader, (() -> Unit) -> Pair<String, String>>) -> T
 
@@ -227,8 +226,11 @@ object Sandbox {
         executionArguments: ExecutionArguments = ExecutionArguments(),
         callable: SandboxCallableArguments<T>
     ): TaskResults<out T?> {
-        val sandboxedClassLoader =
+        val sandboxedClassLoader = try {
             SandboxedClassLoader(sandboxableClassLoader, executionArguments.classLoaderConfiguration)
+        } catch (e: OutOfMemoryError) {
+            throw SandboxStartFailed("Out of memory while transforming bytecode", e)
+        }
         return execute(sandboxedClassLoader, executionArguments, callable)
     }
 
@@ -529,9 +531,11 @@ object Sandbox {
             false
         }
 
-        assert(threadGroupShutdownRetries != null) {
-            "failed to shut down thread group"
+        @Suppress("FoldInitializerAndIfToElvisOperator")
+        if (threadGroupShutdownRetries == null) {
+            throw SandboxContainmentFailure("failed to shut down thread group ($threadGroup)")
         }
+
         threadGroup.destroy()
         assert(threadGroup.isDestroyed)
 
@@ -702,6 +706,7 @@ object Sandbox {
         }
     }
 
+    @Suppress("TooManyFunctions")
     object RewriteBytecode {
         val rewriterClassName =
             classNameToPath(RewriteBytecode::class.java.name ?: error("should have a class name"))
@@ -717,6 +722,7 @@ object Sandbox {
             "notifyAll:()V" to RewriteBytecode::conditionNotifyAll
         )
         private const val NS_PER_MS = 1000000L
+        private const val MAX_CLASS_FILE_SIZE = 1000000
 
         @JvmStatic
         fun checkException(throwable: Throwable) {
@@ -776,10 +782,11 @@ object Sandbox {
         }
 
         fun rewrite(originalByteArray: ByteArray, unsafeExceptionClasses: Set<Class<*>>): ByteArray {
+            require(originalByteArray.size <= MAX_CLASS_FILE_SIZE) { "bytecode is over 1 MB" }
             val classReader = ClassReader(originalByteArray)
-            val allBadTryCatchBlockPositions = findBadTryCatchBlocks(classReader)
-            val classWriter = ClassWriter(classReader, ClassWriter.COMPUTE_MAXS)
-            var classType: Type? = null
+            val allPreinspections = preInspectMethods(classReader)
+            val classWriter = ClassWriter(classReader, ClassWriter.COMPUTE_FRAMES)
+            var className: String? = null
             val sandboxingVisitor = object : ClassVisitor(Opcodes.ASM8, classWriter) {
                 override fun visit(
                     version: Int,
@@ -790,7 +797,7 @@ object Sandbox {
                     interfaces: Array<out String>?
                 ) {
                     super.visit(version, access, name, signature, superName, interfaces)
-                    classType = Type.getType("L$name;")
+                    className = name
                 }
 
                 override fun visitMethod(
@@ -803,57 +810,135 @@ object Sandbox {
                     return if (name == "finalize" && descriptor == "()V") {
                         null // Drop the finalizer
                     } else {
-                        val badTcbPositions = allBadTryCatchBlockPositions[VisitedMethod(name, descriptor)]
-                            ?: error("missing try-catch survey for $name:$descriptor")
-                        val sandboxingMethodVisitor = SandboxingMethodVisitor(
+                        val preinspection = allPreinspections[VisitedMethod(name, descriptor)]
+                            ?: error("missing pre-inspection for $name:$descriptor")
+                        val transformedMethodName = if (Modifier.isSynchronized(access)) {
+                            val transformedNameOfOriginal = "$name\$syncbody"
+                            val nonSynchronizedModifiers = access and Modifier.SYNCHRONIZED.inv()
+                            emitSynchronizedBridge(
+                                super.visitMethod(nonSynchronizedModifiers, name, descriptor, signature, exceptions),
+                                className ?: error("should have visited the class"),
+                                transformedNameOfOriginal,
+                                preinspection.parameters,
+                                access,
+                                descriptor
+                            )
+                            transformedNameOfOriginal
+                        } else {
+                            name
+                        }
+                        val transformedModifiers = if (Modifier.isSynchronized(access)) {
+                            (access
+                                and Modifier.PUBLIC.inv()
+                                and Modifier.PROTECTED.inv()
+                                and Modifier.SYNCHRONIZED.inv()) or Modifier.PRIVATE
+                        } else {
+                            access
+                        }
+                        SandboxingMethodVisitor(
                             unsafeExceptionClasses,
-                            badTcbPositions,
-                            super.visitMethod(access, name, descriptor, signature, exceptions)
-                        )
-                        ManuallySynchronizingMethodVisitor(
-                            sandboxingMethodVisitor,
-                            access,
-                            name,
-                            descriptor,
-                            classType ?: error("should have visited the class")
+                            preinspection.badTryCatchBlockPositions,
+                            super.visitMethod(transformedModifiers, transformedMethodName,
+                                descriptor, signature, exceptions)
                         )
                     }
                 }
             }
-            classReader.accept(sandboxingVisitor, ClassReader.EXPAND_FRAMES)
+            classReader.accept(sandboxingVisitor, 0)
             return classWriter.toByteArray()
         }
 
-        private class ManuallySynchronizingMethodVisitor(
-            methodVisitor: MethodVisitor,
-            private val modifiers: Int,
-            name: String,
-            descriptor: String,
-            private val className: Type
-        ) : AdviceAdapter(
-            Opcodes.ASM8, methodVisitor, modifiers and Modifier.SYNCHRONIZED.inv(), name, descriptor
+        @Suppress("LongParameterList", "ComplexMethod")
+        private fun emitSynchronizedBridge(
+            template: MethodVisitor,
+            className: String,
+            bridgeTo: String,
+            parameters: List<VisitedParameter>,
+            modifiers: Int,
+            descriptor: String
         ) {
+            val methodVisitor = MonitorIsolatingMethodVisitor(template)
             fun loadSelf() {
                 if (Modifier.isStatic(modifiers)) {
-                    visitLdcInsn(className) // the class object
+                    methodVisitor.visitLdcInsn(Type.getType("L$className;")) // the class object
                 } else {
-                    visitVarInsn(Opcodes.ALOAD, 0) // this
+                    methodVisitor.visitVarInsn(Opcodes.ALOAD, 0) // this
                 }
             }
-
-            override fun onMethodEnter() {
-                super.onMethodEnter()
-                if (Modifier.isSynchronized(modifiers)) {
-                    loadSelf()
-                    visitInsn(Opcodes.MONITORENTER) // will be transformed by the other visitor
-                }
+            parameters.forEach { methodVisitor.visitParameter(it.name, it.modifiers) }
+            methodVisitor.visitCode()
+            val callStartLabel = Label()
+            val callEndLabel = Label()
+            val finallyLabel = Label()
+            methodVisitor.visitTryCatchBlock(callStartLabel, callEndLabel, finallyLabel, null)
+            loadSelf()
+            methodVisitor.visitInsn(Opcodes.MONITORENTER) // will be transformed by MonitorIsolatingMethodVisitor
+            var index = 0
+            if (!Modifier.isStatic(modifiers)) {
+                loadSelf()
+                index++
             }
+            Type.getArgumentTypes(descriptor).forEach {
+                methodVisitor.visitVarInsn(when (it) {
+                    Type.BOOLEAN_TYPE, Type.BYTE_TYPE, Type.CHAR_TYPE, Type.INT_TYPE, Type.SHORT_TYPE -> Opcodes.ILOAD
+                    Type.DOUBLE_TYPE -> Opcodes.DLOAD
+                    Type.FLOAT_TYPE -> Opcodes.FLOAD
+                    Type.LONG_TYPE -> Opcodes.LLOAD
+                    else -> Opcodes.ALOAD
+                }, index)
+                index += it.size
+            }
+            methodVisitor.visitLabel(callStartLabel)
+            methodVisitor.visitMethodInsn(
+                if (Modifier.isStatic(modifiers)) Opcodes.INVOKESTATIC else Opcodes.INVOKESPECIAL,
+                className,
+                bridgeTo,
+                descriptor,
+                false
+            )
+            methodVisitor.visitLabel(callEndLabel)
+            loadSelf()
+            methodVisitor.visitInsn(Opcodes.MONITOREXIT)
+            methodVisitor.visitInsn(when (Type.getReturnType(descriptor)) {
+                Type.BOOLEAN_TYPE, Type.BYTE_TYPE, Type.CHAR_TYPE, Type.INT_TYPE, Type.SHORT_TYPE -> Opcodes.IRETURN
+                Type.DOUBLE_TYPE -> Opcodes.DRETURN
+                Type.FLOAT_TYPE -> Opcodes.FRETURN
+                Type.LONG_TYPE -> Opcodes.LRETURN
+                Type.VOID_TYPE -> Opcodes.RETURN
+                else -> Opcodes.ARETURN
+            })
+            methodVisitor.visitLabel(finallyLabel)
+            loadSelf()
+            methodVisitor.visitInsn(Opcodes.MONITOREXIT)
+            methodVisitor.visitInsn(Opcodes.ATHROW)
+            methodVisitor.visitMaxs(0, 0)
+            methodVisitor.visitEnd()
+        }
 
-            override fun onMethodExit(opcode: Int) {
-                super.onMethodExit(opcode)
-                if (Modifier.isSynchronized(modifiers)) {
-                    loadSelf()
-                    visitInsn(Opcodes.MONITOREXIT)
+        private open class MonitorIsolatingMethodVisitor(
+            downstream: MethodVisitor
+        ) : MethodVisitor(Opcodes.ASM8, downstream) {
+            override fun visitInsn(opcode: Int) {
+                when (opcode) {
+                    Opcodes.MONITORENTER -> {
+                        super.visitMethodInsn(
+                            Opcodes.INVOKESTATIC,
+                            rewriterClassName,
+                            RewriteBytecode::enterMonitor.javaMethod?.name ?: error("missing enter-monitor name"),
+                            Type.getMethodDescriptor(RewriteBytecode::enterMonitor.javaMethod),
+                            false
+                        )
+                    }
+                    Opcodes.MONITOREXIT -> {
+                        super.visitMethodInsn(
+                            Opcodes.INVOKESTATIC,
+                            rewriterClassName,
+                            RewriteBytecode::exitMonitor.javaMethod?.name ?: error("missing exit-monitor name"),
+                            Type.getMethodDescriptor(RewriteBytecode::exitMonitor.javaMethod),
+                            false
+                        )
+                    }
+                    else -> super.visitInsn(opcode)
                 }
             }
         }
@@ -862,7 +947,7 @@ object Sandbox {
             val unsafeExceptionClasses: Set<Class<*>>,
             val badTryCatchBlockPositions: Set<Int>,
             methodVisitor: MethodVisitor
-        ) : MethodVisitor(Opcodes.ASM8, methodVisitor) {
+        ) : MonitorIsolatingMethodVisitor(methodVisitor) {
             private val labelsToRewrite: MutableSet<Label> = mutableSetOf()
             private var rewroteLabel = false
             private var currentTryCatchBlockPosition = -1
@@ -926,30 +1011,6 @@ object Sandbox {
                 }
             }
 
-            override fun visitInsn(opcode: Int) {
-                when (opcode) {
-                    Opcodes.MONITORENTER -> {
-                        super.visitMethodInsn(
-                            Opcodes.INVOKESTATIC,
-                            rewriterClassName,
-                            RewriteBytecode::enterMonitor.javaMethod?.name ?: error("missing enter-monitor name"),
-                            Type.getMethodDescriptor(RewriteBytecode::enterMonitor.javaMethod),
-                            false
-                        )
-                    }
-                    Opcodes.MONITOREXIT -> {
-                        super.visitMethodInsn(
-                            Opcodes.INVOKESTATIC,
-                            rewriterClassName,
-                            RewriteBytecode::exitMonitor.javaMethod?.name ?: error("missing exit-monitor name"),
-                            Type.getMethodDescriptor(RewriteBytecode::exitMonitor.javaMethod),
-                            false
-                        )
-                    }
-                    else -> super.visitInsn(opcode)
-                }
-            }
-
             override fun visitMethodInsn(
                 opcode: Int,
                 owner: String,
@@ -984,15 +1045,20 @@ object Sandbox {
         }
 
         private data class VisitedMethod(val name: String, val descriptor: String)
+        private data class VisitedParameter(val name: String?, val modifiers: Int)
+        private data class MethodPreinspection(
+            val badTryCatchBlockPositions: Set<Int>,
+            val parameters: List<VisitedParameter>
+        )
 
-        private fun findBadTryCatchBlocks(reader: ClassReader): Map<VisitedMethod, Set<Int>> {
+        private fun preInspectMethods(reader: ClassReader): Map<VisitedMethod, MethodPreinspection> {
             /*
              * ASM doesn't provide a way to get the bytecode positions of a try-catch block's labels while the code
              * is being visited, so we have to go through all the methods to figure out the positions of the labels
              * with respect to each other to determine which try-catch blocks are bad (i.e. will loop forever) before
              * doing the real visit in SandboxingMethodVisitor.
              */
-            val methodVisitors = mutableMapOf<VisitedMethod, BadTryCatchDetectingMethodVisitor>()
+            val methodVisitors = mutableMapOf<VisitedMethod, PreviewingMethodVisitor>()
             reader.accept(object : ClassVisitor(Opcodes.ASM8) {
                 override fun visitMethod(
                     access: Int,
@@ -1001,17 +1067,20 @@ object Sandbox {
                     signature: String?,
                     exceptions: Array<out String>?
                 ): MethodVisitor {
-                    return BadTryCatchDetectingMethodVisitor()
+                    return PreviewingMethodVisitor()
                         .also { methodVisitors[VisitedMethod(name, descriptor)] = it }
                 }
             }, 0)
-            return methodVisitors.mapValues { it.value.getBadTryCatchBlockPositions() }
+            return methodVisitors.mapValues {
+                MethodPreinspection(it.value.getBadTryCatchBlockPositions(), it.value.getParameters())
+            }
         }
 
-        private class BadTryCatchDetectingMethodVisitor : MethodVisitor(Opcodes.ASM8) {
+        private class PreviewingMethodVisitor : MethodVisitor(Opcodes.ASM8) {
 
             private val labelPositions = mutableMapOf<Label, Int>()
             private val tryCatchBlocks = mutableListOf<Triple<Label, Label, Label>>()
+            private val parameters = mutableListOf<VisitedParameter>()
 
             override fun visitLabel(label: Label) {
                 super.visitLabel(label)
@@ -1021,6 +1090,11 @@ object Sandbox {
             override fun visitTryCatchBlock(start: Label, end: Label, handler: Label, type: String?) {
                 super.visitTryCatchBlock(start, end, handler, type)
                 tryCatchBlocks.add(Triple(start, end, handler))
+            }
+
+            override fun visitParameter(name: String?, access: Int) {
+                super.visitParameter(name, access)
+                parameters.add(VisitedParameter(name, access))
             }
 
             fun getBadTryCatchBlockPositions(): Set<Int> {
@@ -1033,6 +1107,10 @@ object Sandbox {
                     if (handlerPos in startPos until endPos) badPositions.add(i)
                 }
                 return badPositions
+            }
+
+            fun getParameters(): List<VisitedParameter> {
+                return parameters
             }
         }
     }
@@ -1336,6 +1414,8 @@ object Sandbox {
     private class SandboxDeath : ThreadDeath() {
         override fun fillInStackTrace() = this
     }
+    class SandboxStartFailed(message: String, cause: Throwable? = null) : RuntimeException(message, cause)
+    class SandboxContainmentFailure(message: String) : Throwable(message)
 
     private lateinit var originalStdout: PrintStream
     private lateinit var originalStderr: PrintStream
@@ -1352,6 +1432,7 @@ object Sandbox {
 
     private lateinit var threadPool: ExecutorService
 
+    @Suppress("MemberVisibilityCanBePrivate")
     var autoStart = true
     var running = false
 

@@ -267,6 +267,17 @@ println("Hello, world!")
         exception.errors shouldHaveSize 1
         exception should haveParseErrorOnLine(1)
     }
+    "f:should remap errors properly in kotlin snippets" {
+        val exception = shouldThrow<CompilationFailed> {
+            Source.fromSnippet(
+                """
+data class Person(name: String)
+println("Hello, world!")
+        """.trim(), SnippetArguments(fileType = Source.FileType.KOTLIN)).kompile()
+        }
+        exception.errors shouldHaveSize 1
+        exception.errors[0].location?.line shouldBe 1
+    }
 })
 
 fun haveParseErrorOnLine(line: Int) = object : Matcher<SnippetTransformationFailed> {
