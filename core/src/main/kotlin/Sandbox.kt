@@ -964,12 +964,16 @@ object Sandbox {
                      */
                     return
                 }
-                if (type == null) {
+                val exceptionClass = type?.let {
+                    try {
+                        Class.forName(pathToClassName(type))
+                    } catch (_: ClassNotFoundException) {
+                        null
+                    }
+                }
+                if (exceptionClass == null) {
                     labelsToRewrite.add(handler)
                 } else {
-                    val exceptionClass = Class.forName(pathToClassName(type))
-                        ?: error("no class for type $type")
-
                     if (unsafeExceptionClasses.any {
                             exceptionClass.isAssignableFrom(it) || it.isAssignableFrom(exceptionClass)
                         }) {
