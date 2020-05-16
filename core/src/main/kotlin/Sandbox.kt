@@ -723,7 +723,7 @@ object Sandbox {
         )
         private const val NS_PER_MS = 1000000L
         private const val MAX_CLASS_FILE_SIZE = 1000000
-        private const val CONSTITUTIVE_STACK_ITEMS = 2
+        private const val SYNC_WRAPPER_STACK_ITEMS = 2
 
         @JvmStatic
         fun checkException(throwable: Throwable) {
@@ -849,7 +849,7 @@ object Sandbox {
             return classWriter.toByteArray()
         }
 
-        @Suppress("LongParameterList", "LongMethod", "ComplexMethod")
+        @Suppress("LongParameterList", "ComplexMethod")
         private fun emitSynchronizedBridge(
             template: MethodVisitor,
             className: String,
@@ -871,7 +871,7 @@ object Sandbox {
             val callStartLabel = Label()
             val callEndLabel = Label()
             val finallyLabel = Label()
-            methodVisitor.visitTryCatchBlock(callStartLabel, callEndLabel, finallyLabel, null)
+            methodVisitor.visitTryCatchBlock(callStartLabel, callEndLabel, finallyLabel, null) // try-finally
             loadSelf()
             methodVisitor.visitInsn(Opcodes.MONITORENTER) // will be transformed by MonitorIsolatingMethodVisitor
             var localIndex = 0
@@ -880,13 +880,7 @@ object Sandbox {
                 localIndex++
             }
             Type.getArgumentTypes(descriptor).forEach {
-                methodVisitor.visitVarInsn(when (it) {
-                    Type.BOOLEAN_TYPE, Type.BYTE_TYPE, Type.CHAR_TYPE, Type.INT_TYPE, Type.SHORT_TYPE -> Opcodes.ILOAD
-                    Type.DOUBLE_TYPE -> Opcodes.DLOAD
-                    Type.FLOAT_TYPE -> Opcodes.FLOAD
-                    Type.LONG_TYPE -> Opcodes.LLOAD
-                    else -> Opcodes.ALOAD
-                }, localIndex)
+                methodVisitor.visitVarInsn(it.getOpcode(Opcodes.ILOAD), localIndex)
                 localIndex += it.size
             }
             methodVisitor.visitLabel(callStartLabel)
@@ -900,22 +894,15 @@ object Sandbox {
             methodVisitor.visitLabel(callEndLabel)
             loadSelf()
             methodVisitor.visitInsn(Opcodes.MONITOREXIT)
-            methodVisitor.visitInsn(when (Type.getReturnType(descriptor)) {
-                Type.BOOLEAN_TYPE, Type.BYTE_TYPE, Type.CHAR_TYPE, Type.INT_TYPE, Type.SHORT_TYPE -> Opcodes.IRETURN
-                Type.DOUBLE_TYPE -> Opcodes.DRETURN
-                Type.FLOAT_TYPE -> Opcodes.FRETURN
-                Type.LONG_TYPE -> Opcodes.LRETURN
-                Type.VOID_TYPE -> Opcodes.RETURN
-                else -> Opcodes.ARETURN
-            })
+            methodVisitor.visitInsn(Type.getReturnType(descriptor).getOpcode(Opcodes.IRETURN))
             methodVisitor.visitLabel(finallyLabel)
-            val throwableName = classNameToPath(Throwable::class.java.name)
-            methodVisitor.visitFrame(Opcodes.F_SAME1, 0, emptyArray(), 1, arrayOf(throwableName))
+            val onlyThrowableOnStack = arrayOf<Any>(classNameToPath(Throwable::class.java.name))
+            methodVisitor.visitFrame(Opcodes.F_SAME1, 0, emptyArray(), 1, onlyThrowableOnStack)
             loadSelf()
             methodVisitor.visitInsn(Opcodes.MONITOREXIT)
             methodVisitor.visitInsn(Opcodes.ATHROW)
             val returnSize = Type.getReturnType(descriptor).size
-            methodVisitor.visitMaxs(localIndex + returnSize + CONSTITUTIVE_STACK_ITEMS, localIndex)
+            methodVisitor.visitMaxs(localIndex + returnSize + SYNC_WRAPPER_STACK_ITEMS, localIndex)
             methodVisitor.visitEnd()
         }
 
