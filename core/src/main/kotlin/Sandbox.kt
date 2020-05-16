@@ -723,6 +723,7 @@ object Sandbox {
         )
         private const val NS_PER_MS = 1000000L
         private const val MAX_CLASS_FILE_SIZE = 1000000
+        private const val CONSTITUTIVE_STACK_ITEMS = 2
 
         @JvmStatic
         fun checkException(throwable: Throwable) {
@@ -785,7 +786,7 @@ object Sandbox {
             require(originalByteArray.size <= MAX_CLASS_FILE_SIZE) { "bytecode is over 1 MB" }
             val classReader = ClassReader(originalByteArray)
             val allPreinspections = preInspectMethods(classReader)
-            val classWriter = ClassWriter(classReader, ClassWriter.COMPUTE_FRAMES)
+            val classWriter = ClassWriter(classReader, 0)
             var className: String? = null
             val sandboxingVisitor = object : ClassVisitor(Opcodes.ASM8, classWriter) {
                 override fun visit(
@@ -848,7 +849,7 @@ object Sandbox {
             return classWriter.toByteArray()
         }
 
-        @Suppress("LongParameterList", "ComplexMethod")
+        @Suppress("LongParameterList", "LongMethod", "ComplexMethod")
         private fun emitSynchronizedBridge(
             template: MethodVisitor,
             className: String,
@@ -873,10 +874,10 @@ object Sandbox {
             methodVisitor.visitTryCatchBlock(callStartLabel, callEndLabel, finallyLabel, null)
             loadSelf()
             methodVisitor.visitInsn(Opcodes.MONITORENTER) // will be transformed by MonitorIsolatingMethodVisitor
-            var index = 0
+            var localIndex = 0
             if (!Modifier.isStatic(modifiers)) {
                 loadSelf()
-                index++
+                localIndex++
             }
             Type.getArgumentTypes(descriptor).forEach {
                 methodVisitor.visitVarInsn(when (it) {
@@ -885,8 +886,8 @@ object Sandbox {
                     Type.FLOAT_TYPE -> Opcodes.FLOAD
                     Type.LONG_TYPE -> Opcodes.LLOAD
                     else -> Opcodes.ALOAD
-                }, index)
-                index += it.size
+                }, localIndex)
+                localIndex += it.size
             }
             methodVisitor.visitLabel(callStartLabel)
             methodVisitor.visitMethodInsn(
@@ -908,10 +909,13 @@ object Sandbox {
                 else -> Opcodes.ARETURN
             })
             methodVisitor.visitLabel(finallyLabel)
+            val throwableName = classNameToPath(Throwable::class.java.name)
+            methodVisitor.visitFrame(Opcodes.F_SAME1, 0, emptyArray(), 1, arrayOf(throwableName))
             loadSelf()
             methodVisitor.visitInsn(Opcodes.MONITOREXIT)
             methodVisitor.visitInsn(Opcodes.ATHROW)
-            methodVisitor.visitMaxs(0, 0)
+            val returnSize = Type.getReturnType(descriptor).size
+            methodVisitor.visitMaxs(localIndex + returnSize + CONSTITUTIVE_STACK_ITEMS, localIndex)
             methodVisitor.visitEnd()
         }
 
@@ -1040,6 +1044,11 @@ object Sandbox {
                         false
                     )
                 }
+            }
+
+            override fun visitMaxs(maxStack: Int, maxLocals: Int) {
+                // The DUP instruction for checkException calls makes the stack one item taller
+                super.visitMaxs(maxStack + 1, maxLocals)
             }
 
             override fun visitEnd() {
