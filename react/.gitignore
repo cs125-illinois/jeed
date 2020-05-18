@@ -5,3 +5,5 @@ node_modules
 *.swo
 .cache
 /.env*
+/docs/serve.json
+/report.html

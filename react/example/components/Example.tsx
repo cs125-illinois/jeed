@@ -23,7 +23,12 @@ PrismLight.registerLanguage("json", json)
 
 import { JeedContext, Task, Request, Response, terminalOutput, TaskArguments } from "@cs125/react-jeed"
 
-import { Button, Icon, Dimmer, Container, Loader, Segment, Label, Popup } from "semantic-ui-react"
+import { Button, Dimmer, Container, Loader, Segment, Label, Popup } from "semantic-ui-react"
+import { AiOutlineReload } from "react-icons/ai"
+import { FaCheckCircle } from "react-icons/fa"
+import { FaPlay } from "react-icons/fa"
+import { GrClose } from "react-icons/gr"
+
 import styled from "styled-components"
 
 export const enum ExampleLanguage {
@@ -255,11 +260,9 @@ class Example extends Component<ExampleProps & { connected: boolean; authToken: 
               content={"Reload"}
               hideOnScroll
               trigger={
-                <div>
-                  <Button icon circular disabled={value === this.originalValue} size="tiny" onClick={this.reload}>
-                    <Icon name="repeat" />
-                  </Button>
-                </div>
+                <Button icon circular disabled={value === this.originalValue} size="tiny" onClick={this.reload}>
+                  <AiOutlineReload size={"1.4rem"} style={{ margin: "-0.4rem -0.25rem" }} />
+                </Button>
               }
             />
             <Popup
@@ -269,7 +272,7 @@ class Example extends Component<ExampleProps & { connected: boolean; authToken: 
               trigger={
                 <div>
                   <Button icon circular disabled={saved} size="tiny" loading={saving} onClick={this.save}>
-                    <Icon name="check circle" />
+                    <FaCheckCircle size={"1.2rem"} style={{ margin: "-0.2rem -0.1rem" }} />
                   </Button>
                 </div>
               }
@@ -288,7 +291,7 @@ class Example extends Component<ExampleProps & { connected: boolean; authToken: 
                   loading={busy}
                   onClick={this.runCode}
                 >
-                  <Icon name="play" />
+                  <FaPlay style={{ margin: "-0.15rem 0rem" }} />
                 </Button>
               }
             />
@@ -358,7 +361,7 @@ class Example extends Component<ExampleProps & { connected: boolean; authToken: 
                 this.setState({ showOutput: false })
               }}
             >
-              <Icon size="tiny" name="close" />
+              <GrClose size={"0.8rem"} style={{ margin: "0.4rem 1.4rem" }} />
             </SnugLabel>
             <Segment
               inverted

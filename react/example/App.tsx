@@ -1,7 +1,4 @@
 import React, { useRef } from "react"
-import { hot } from "react-hot-loader"
-
-import { Container, Ref, Segment, Responsive, Rail, Sticky } from "semantic-ui-react"
 
 import { MDXProvider } from "@mdx-js/react"
 import Content from "./index.mdx"
@@ -10,6 +7,8 @@ import { GoogleLoginProvider, WithGoogleTokens } from "@cs125/react-google-login
 import { MaceProvider } from "@cs125/mace"
 import { JeedProvider } from "@cs125/react-jeed"
 import { ElementTracker } from "@cs125/element-tracker"
+import { UpdateHash, SidebarMenu } from "@cs125/semantic-ui"
+import { Container, Segment, Responsive, Rail, Sticky, Ref } from "semantic-ui-react"
 
 import { String } from "runtypes"
 const GOOGLE_CLIENT_ID = String.check(process.env.AUTH_GOOGLE_CLIENTID)
@@ -17,13 +16,13 @@ const MACE_SERVER = String.check(process.env.MACE_SERVER)
 const JEED_SERVER = String.check(process.env.JEED_SERVER)
 const ET_SERVER = String.check(process.env.ET_SERVER)
 
-import CodeBlock from "./components/CodeBlock"
-import { headings, UpdateHash, SidebarMenu } from "./components/Headings"
+import { Highlighted, headings } from "@cs125/semantic-ui"
 
 const components = {
-  code: CodeBlock,
+  code: Highlighted,
   ...headings,
 }
+
 const App: React.SFC = () => {
   const contextRef = useRef()
 
@@ -66,4 +65,4 @@ const App: React.SFC = () => {
     </GoogleLoginProvider>
   )
 }
-export default hot(module)(App)
+export default App
