@@ -9,6 +9,7 @@ import edu.illinois.cs.cs125.jeed.core.fromSnippet
 import edu.illinois.cs.cs125.jeed.core.haveCompleted
 import edu.illinois.cs.cs125.jeed.core.haveOutput
 import edu.illinois.cs.cs125.jeed.core.haveTimedOut
+import io.kotlintest.matchers.beInstanceOf
 import io.kotlintest.matchers.types.shouldBeTypeOf
 import io.kotlintest.should
 import io.kotlintest.shouldNot
@@ -203,6 +204,34 @@ while (true) {
         executionResult shouldNot haveCompleted()
         executionResult should haveOutput("Try\nCatch")
         executionResult.threw.shouldBeTypeOf<NullPointerException>()
+    }
+    "should allow safe custom exceptions" {
+        val executionResult = Source.fromSnippet(
+            """
+public class ExampleException extends RuntimeException {}
+try {
+    throw new ExampleException();
+} catch (ExampleException e) {
+    System.out.println("Catch");
+}
+            """.trim()
+        ).compile().execute()
+        executionResult should haveCompleted()
+        executionResult should haveOutput("Catch")
+    }
+    "should handle dangerous custom exceptions" {
+        val executionResult = Source.fromSnippet(
+            """
+public class ExampleError extends Error {}
+try {
+    throw new ExampleError();
+} catch (ExampleError e) {
+    System.out.println("Catch");
+}
+            """.trim()
+        ).compile().execute()
+        executionResult shouldNot haveCompleted()
+        executionResult.threw should beInstanceOf(Error::class)
     }
     "should remove finalizers" {
         val executionResult = Source.fromSnippet(
@@ -430,6 +459,26 @@ synchronized (Object.class) {
         executionResult should haveCompleted()
         executionResult should haveOutput("Sum: 323.0")
     }
+    "should correctly handle synchronized methods involving multiple large primitives" {
+        val executionResult = Source.fromSnippet("""
+            synchronized double sum(long a, long b, long c, long d, double factor) {
+                return (a + b + c + d) * factor;
+            }
+            System.out.println(sum(10, 20, 30, 40, 1.5));
+        """.trimIndent()).compile().execute()
+        executionResult should haveCompleted()
+        executionResult should haveOutput("150.0")
+    }
+    "should correctly handle synchronized methods involving small primitives" {
+        val executionResult = Source.fromSnippet("""
+            synchronized byte addToByte(float a, short b) {
+                return (byte) (a + b);
+            }
+            System.out.println(addToByte(2.0f, (short) 3));
+        """.trimIndent()).compile().execute()
+        executionResult should haveCompleted()
+        executionResult should haveOutput("5")
+    }
     "should correctly handle recursive synchronized methods" {
         val executionResult = Source.fromSnippet("""
             synchronized long factorial(int n) {
@@ -455,6 +504,21 @@ synchronized (Object.class) {
         """.trimIndent()).compile().execute()
         executionResult should haveCompleted()
         executionResult should haveOutput("15")
+    }
+    "should correctly handle synchronized methods that involve arrays" {
+        val executionResult = Source.fromSnippet("""
+            synchronized int[] parse(String[] numbers) {
+                int[] values = new int[numbers.length];
+                for (int i = 0; i < numbers.length; i++) {
+                    values[i] = Integer.parseInt(numbers[i]);
+                }
+                return values;
+            }
+            int[] parsed = parse(new String[] {"5"});
+            System.out.println(parsed[0]);
+        """.trimIndent()).compile().execute()
+        executionResult should haveCompleted()
+        executionResult should haveOutput("5")
     }
     "should unlock the monitor on successful exit from synchronized methods" {
         val executionResult = Source.fromSnippet("""
