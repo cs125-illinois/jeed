@@ -41,7 +41,7 @@ import org.objectweb.asm.MethodVisitor
 import org.objectweb.asm.Opcodes
 import org.objectweb.asm.Type
 
-private typealias SandboxCallableArguments<T> = (Pair<ClassLoader, (() -> Unit) -> Pair<String, String>>) -> T
+private typealias SandboxCallableArguments<T> = (Pair<ClassLoader, (() -> Any?) -> Sandbox.RedirectedOutput>) -> T
 
 object Sandbox {
     @JsonClass(generateAdapter = true)
@@ -49,7 +49,8 @@ object Sandbox {
         val whitelistedClasses: Set<String> = DEFAULT_WHITELISTED_CLASSES,
         blacklistedClasses: Set<String> = DEFAULT_BLACKLISTED_CLASSES,
         unsafeExceptions: Set<String> = DEFAULT_UNSAFE_EXCEPTIONS,
-        isolatedClasses: Set<String> = DEFAULT_ISOLATED_CLASSES
+        isolatedClasses: Set<String> = DEFAULT_ISOLATED_CLASSES,
+        val isWhiteList: Boolean? = null
     ) {
         val blacklistedClasses = blacklistedClasses.union(PERMANENTLY_BLACKLISTED_CLASSES)
         val unsafeExceptions = unsafeExceptions.union(ALWAYS_UNSAFE_EXCEPTIONS)
@@ -619,7 +620,8 @@ object Sandbox {
             }
         }
 
-        private val isWhiteList = whitelistedClasses.isNotEmpty()
+        private val isWhiteList = classLoaderConfiguration.isWhiteList ?: whitelistedClasses.isNotEmpty()
+
         private fun delegateClass(name: String): Class<*> {
             val klass = super.loadClass(name)
             loadedClasses.add(name)
@@ -1223,18 +1225,21 @@ object Sandbox {
         }
     }
 
+    data class RedirectedOutput(val stdout: String, val stderr: String, val returned: Any?)
+
     @JvmStatic
-    fun redirectOutput(block: () -> Unit): Pair<String, String> {
+    fun redirectOutput(block: () -> Any?): RedirectedOutput {
         val confinedTask = confinedTaskByThreadGroup() ?: check { "should only be used from a confined task" }
         check(!confinedTask.redirectingOutput) { "can't nest calls to redirectOutput" }
 
         confinedTask.redirectingOutput = true
-        block()
+        val returned = block()
         confinedTask.redirectingOutput = false
 
-        val toReturn = Pair(
+        val toReturn = RedirectedOutput(
             confinedTask.redirectedOutputLines[TaskResults.OutputLine.Console.STDOUT].toString(),
-            confinedTask.redirectedOutputLines[TaskResults.OutputLine.Console.STDERR].toString()
+            confinedTask.redirectedOutputLines[TaskResults.OutputLine.Console.STDERR].toString(),
+            returned
         )
         confinedTask.redirectedOutputLines[TaskResults.OutputLine.Console.STDOUT] = StringBuilder()
         confinedTask.redirectedOutputLines[TaskResults.OutputLine.Console.STDERR] = StringBuilder()

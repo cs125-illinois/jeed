@@ -22,8 +22,8 @@ import edu.illinois.cs.cs125.jeed.core.moshi.TemplatedSourceResult
 
 @JsonClass(generateAdapter = true)
 class CompletedTasks(
-    var snippet: Snippet? = null,
     var template: TemplatedSourceResult? = null,
+    var snippet: Snippet? = null,
     var compilation: CompiledSourceResult? = null,
     var kompilation: CompiledSourceResult? = null,
     var checkstyle: CheckstyleResults? = null,
