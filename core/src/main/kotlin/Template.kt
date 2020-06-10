@@ -41,8 +41,7 @@ class TemplatingFailed(errors: List<TemplatingError>) : AlwaysLocatedJeedError(e
 @Suppress("LongMethod")
 fun Source.Companion.fromTemplates(sources: Map<String, String>, templates: Map<String, String>): TemplatedSource {
     require(templates.keys.all { it.endsWith(".hbs") }) { "template names in map should end with .hbs" }
-    require(sources.keys.map { it.removeSuffix(".java") }
-        .containsAll(templates.keys.map { it.removeSuffix(".hbs") })) {
+    require(sources.keys.containsAll(templates.keys.map { it.removeSuffix(".hbs") })) {
         "templates map contains keys not present in source map"
     }
 
@@ -50,7 +49,7 @@ fun Source.Companion.fromTemplates(sources: Map<String, String>, templates: Map<
 
     val remappedLineMapping = mutableMapOf<String, TemplatedSource.RemappedLines>()
     val templatedSources = sources.mapValues { (name, source) ->
-        val templateName = "${name.removeSuffix(".java")}.hbs"
+        val templateName = "$name.hbs"
         val templateSource = templates[templateName] ?: return@mapValues source
 
         val contentsLines = templateSource.lines().mapIndexed { lineNumber, line ->

@@ -15,8 +15,8 @@ plugins {
 dependencies {
     implementation("ch.qos.logback:logback-classic:1.2.3")
     implementation("io.github.microutils:kotlin-logging:1.7.9")
-    implementation("com.github.ajalt:clikt:2.6.0")
-    implementation("io.github.classgraph:classgraph:4.8.75")
+    implementation("com.github.ajalt:clikt:2.7.1")
+    implementation("io.github.classgraph:classgraph:4.8.84")
 }
 application {
     mainClassName = "edu.illinois.cs.cs125.jeed.containerrunner.MainKt"

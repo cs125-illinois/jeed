@@ -267,7 +267,7 @@ println("Hello, world!")
         exception.errors shouldHaveSize 1
         exception should haveParseErrorOnLine(1)
     }
-    "f:should remap errors properly in kotlin snippets" {
+    "should remap errors properly in kotlin snippets" {
         val exception = shouldThrow<CompilationFailed> {
             Source.fromSnippet(
                 """

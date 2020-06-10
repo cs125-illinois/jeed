@@ -18,7 +18,7 @@ class TestKtLint : StringSpec({
 
         results.errors should beEmpty()
     }
-    "!it should check simple kotlin sources with indentation errors" {
+    "it should check simple kotlin sources with indentation errors" {
         val ktLintFailed = shouldThrow<KtLintFailed> {
             Source.fromSnippet(
                 """println("Hello, world!")""".trim(),
@@ -26,8 +26,8 @@ class TestKtLint : StringSpec({
             ).ktLint(KtLintArguments(failOnError = true))
         }
 
-        ktLintFailed.errors shouldHaveSize 3
-        ktLintFailed.errors.filterIsInstance<KtLintError>().filter { it.ruleId == "indent" } shouldHaveSize 3
+        ktLintFailed.errors shouldHaveSize 1
+        ktLintFailed.errors.filterIsInstance<KtLintError>().filter { it.ruleId == "indent" } shouldHaveSize 1
     }
     "it should check kotlin snippets and get the line numbers right" {
         val ktLintFailed = shouldThrow<KtLintFailed> {

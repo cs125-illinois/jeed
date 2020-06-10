@@ -314,7 +314,7 @@ fun main() {
 "label": "test",
 "templates": [
   {
-    "path": "Main.hbs",
+    "path": "Main.java.hbs",
     "contents": "
 public class Main {
 public static void main() {
@@ -408,7 +408,7 @@ public class Main {
 "label": "test",
 "templates": [
   {
-    "path": "Main.hbs",
+    "path": "Main.java.hbs",
     "contents": "
 public class Main {
 public static void main() {

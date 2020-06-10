@@ -10,7 +10,7 @@ class TestTemplate : StringSpec({
         val templatedSource = Source.fromTemplates(mapOf(
                 "Test.java" to "int i = 0;"
         ), mapOf(
-                "Test.hbs" to "public class Question { {{{ contents }}} }"
+                "Test.java.hbs" to "public class Question { {{{ contents }}} }"
         ))
 
         templatedSource.sources.keys shouldHaveSize 1
@@ -22,7 +22,7 @@ class TestTemplate : StringSpec({
         val templatedSource1 = Source.fromTemplates(mapOf(
                 "Test.java" to "int i = 0;"
         ), mapOf(
-                "Test.hbs" to "public class Question { {{{ contents }}} }"
+                "Test.java.hbs" to "public class Question { {{{ contents }}} }"
         ))
 
         templatedSource1.sources.keys shouldHaveSize 1
@@ -33,7 +33,7 @@ class TestTemplate : StringSpec({
         val templatedSource2 = Source.fromTemplates(mapOf(
                 "Test.java" to "int i = 1;"
         ), mapOf(
-                "Test.hbs" to "public class Question { {{{ contents }}} }"
+                "Test.java.hbs" to "public class Question { {{{ contents }}} }"
         ))
 
         templatedSource2.sources.keys shouldHaveSize 1
@@ -44,7 +44,7 @@ class TestTemplate : StringSpec({
     "should work with indented templates" {
         val templatedSource = Source.fromTemplates(mapOf(
                 "Test.java" to "int i = 0;"
-        ), mapOf("Test.hbs" to """
+        ), mapOf("Test.java.hbs" to """
 public class Question {
     public static void main() {
         {{{ contents }}}
@@ -68,7 +68,7 @@ public class Question {
 int i = 0;
 i += 4;
 """.trim()
-        ), mapOf("Test.hbs" to """
+        ), mapOf("Test.java.hbs" to """
 public class Question {
     public static void main() {
         {{{ contents }}}
@@ -93,7 +93,7 @@ i += 4;
     "should fail with broken templates" {
         val templatingFailed = shouldThrow<TemplatingFailed> {
             Source.fromTemplates(mapOf("Test.java" to "int i = 0;"
-            ), mapOf("Test.hbs" to """
+            ), mapOf("Test.java.hbs" to """
 public class Question {
     public static void main() {
         {{{ contents }}
@@ -102,14 +102,14 @@ public class Question {
             ))
         }
         templatingFailed.errors shouldHaveSize 1
-        templatingFailed.errors[0].location.source shouldBe "Test.hbs"
+        templatingFailed.errors[0].location.source shouldBe "Test.java.hbs"
         templatingFailed.errors[0].location.line shouldBe 3
     }
     "should remap line numbers properly" {
         val templatedSource = Source.fromTemplates(mapOf(
                 "Test.java" to "int i = ;"
         ), mapOf(
-                "Test.hbs" to """
+                "Test.java.hbs" to """
 public class Question {
     public static void main() {
         {{{ contents }}}

@@ -102,11 +102,27 @@ fun Source.ktLint(ktLintArguments: KtLintArguments = KtLintArguments()): KtLintR
         }.forEach { (filename, contents) ->
             KtLint.lint(
                 KtLint.Params(
-                    if (source is Snippet) { "MainKt.kt" } else { filename },
+                    if (source is Snippet) {
+                        "MainKt.kt"
+                    } else {
+                        filename
+                    },
                     contents,
                     listOf(jeedRuleSet),
-                    cb = { e, _
-                        -> add(KtLintError(e.ruleId, e.detail, mapLocation(SourceLocation(filename, e.line, e.col))))
+                    cb = { e, _ ->
+                        run {
+                            @Suppress("TooGenericExceptionCaught", "EmptyCatchBlock")
+                            try {
+                                add(
+                                    KtLintError(
+                                        e.ruleId,
+                                        e.detail,
+                                        mapLocation(SourceLocation(filename, e.line, e.col))
+                                    )
+                                )
+                            } catch (e: Exception) {
+                            }
+                        }
                     },
                     editorConfigPath = editorConfigPath
                 )

@@ -24,7 +24,7 @@ dependencies {
     implementation(project(":core"))
     implementation(kotlin("stdlib"))
     implementation("io.ktor:ktor-server-netty:$ktorVersion")
-    implementation("org.mongodb:mongodb-driver:3.12.4")
+    implementation("org.mongodb:mongodb-driver:3.12.5")
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-core:1.3.6")
     implementation("com.squareup.moshi:moshi-kotlin-codegen:1.9.2")
     implementation("com.github.cs125-illinois:ktor-moshi:1.0.3")
