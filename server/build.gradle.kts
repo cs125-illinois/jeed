@@ -2,13 +2,11 @@ import java.io.File
 import java.io.StringWriter
 import java.util.Properties
 
-group = "edu.illinois.cs.cs125"
-version = "2020.5.6"
-
 plugins {
     kotlin("jvm")
     kotlin("kapt")
     application
+    `maven-publish`
     id("com.github.johnrengelman.shadow") version "5.2.0"
     id("com.palantir.docker") version "0.25.0"
     id("org.jmailen.kotlinter")
@@ -80,3 +78,11 @@ kapt {
     useBuildCache = true
     includeCompileClasspath = false
 }
+publishing {
+    publications {
+        create<MavenPublication>("server") {
+            from(components["java"])
+        }
+    }
+}
+

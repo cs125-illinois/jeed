@@ -2,15 +2,11 @@ import java.io.File
 import java.io.StringWriter
 import java.util.Properties
 
-group = "com.github.cs125-illinois"
-version = "2020.6.1"
-
 plugins {
     kotlin("jvm")
     kotlin("kapt")
     antlr
     java
-    maven
     `maven-publish`
     id("org.jmailen.kotlinter")
 }
@@ -83,4 +79,11 @@ task("createProperties") {
 kapt {
     useBuildCache = true
     includeCompileClasspath = false
+}
+publishing {
+    publications {
+        create<MavenPublication>("core") {
+            from(components["java"])
+        }
+    }
 }

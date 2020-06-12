@@ -8,7 +8,10 @@ plugins {
     id("com.github.ben-manes.versions") version "0.28.0"
     id("io.gitlab.arturbosch.detekt") version "1.9.1"
 }
-allprojects {
+
+subprojects {
+    group = "com.github.cs125-illinois.jeed"
+    version = "2020.6.2"
     repositories {
         mavenCentral()
         jcenter()
@@ -22,8 +25,6 @@ allprojects {
             jvmTarget = javaVersion
         }
     }
-}
-subprojects {
     tasks.withType<Test> {
         enableAssertions = true
     }
