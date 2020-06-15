@@ -3,6 +3,8 @@
 package edu.illinois.cs.cs125.jeed.core
 
 import com.squareup.moshi.JsonClass
+import kotlinx.coroutines.sync.Semaphore
+import kotlinx.coroutines.sync.withPermit
 import java.io.BufferedReader
 import java.io.File
 import java.io.InputStream
@@ -10,8 +12,6 @@ import java.io.InputStreamReader
 import java.time.Instant
 import java.util.UUID
 import java.util.concurrent.TimeUnit
-import kotlinx.coroutines.sync.Semaphore
-import kotlinx.coroutines.sync.withPermit
 
 private val CONTAINER_TMP_DIR = System.getenv("JEED_CONTAINER_TMP_DIR")
 
@@ -32,7 +32,8 @@ data class ContainerExecutionArguments(
     val tmpDir: String? = CONTAINER_TMP_DIR,
     val timeout: Long = DEFAULT_TIMEOUT,
     val maxOutputLines: Int = Sandbox.ExecutionArguments.DEFAULT_MAX_OUTPUT_LINES,
-    val containerArguments: String = """--network="none""""
+    val containerArguments: String =
+        """--network="none""""
 ) {
     companion object {
         const val DEFAULT_IMAGE = "cs125/jeed-containerrunner:latest"
@@ -120,7 +121,8 @@ suspend fun CompiledSource.cexecute(
 
             var executionStartedAt = ""
             while (executionStartedAt.isBlank()) {
-                executionStartedAt = """docker inspect $dockerName -f {{.State.StartedAt}}""".runCommand().trim()
+                executionStartedAt =
+                    """docker inspect $dockerName -f {{.State.StartedAt}}""".runCommand().trim()
             }
             val executionStarted = Instant.parse(executionStartedAt)
 

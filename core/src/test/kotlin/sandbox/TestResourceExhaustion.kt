@@ -16,8 +16,8 @@ import io.kotlintest.should
 import io.kotlintest.shouldBe
 import io.kotlintest.shouldNot
 import io.kotlintest.specs.StringSpec
-import java.lang.IllegalArgumentException
 import kotlinx.coroutines.async
+import java.lang.IllegalArgumentException
 
 class TestResourceExhaustion : StringSpec({
     "should timeout correctly on snippet" {
@@ -434,7 +434,8 @@ for (int i = 0; i < (($value + 10) * 10000); i++) {
     System.out.println($value);
 }
                     """.trim()
-                    ).compile().execute(SourceExecutionArguments(timeout = 100L)), value
+                    ).compile().execute(SourceExecutionArguments(timeout = 100L)),
+                    value
                 )
             }
         }.map { it ->
@@ -519,7 +520,7 @@ class A {
     A(Character a, Character b) { }
 }
 new A();
-        """.trimIndent()
+            """.trimIndent()
         ).compile()
         try {
             compileResult.execute()
@@ -553,7 +554,9 @@ try {
         executionResult should haveOutput("Started")
     }
     "should terminate a waiting thread" {
-        val compileResult = Source(mapOf("Main.java" to """
+        val compileResult = Source(
+            mapOf(
+                "Main.java" to """
 public class Main {
     public static void main() {
         Object monitor = new Object();
@@ -565,7 +568,9 @@ public class Main {
             }
         }
     }
-}""".trim())).compile()
+}""".trim()
+            )
+        ).compile()
 
         (1..8).forEach { _ -> // Flaky
             val executionResult = compileResult.execute()
@@ -574,7 +579,9 @@ public class Main {
         }
     }
     "should terminate an infinite synchronization wait" {
-        val compileResult = Source(mapOf("Main.java" to """
+        val compileResult = Source(
+            mapOf(
+                "Main.java" to """
 public class Sync {
     public static synchronized void deadlock() {
         while (true);
@@ -591,14 +598,18 @@ public class Main {
         new Thread(new Other()).start();
         Sync.deadlock();
     }
-}""".trim())).compile()
+}""".trim()
+            )
+        ).compile()
         val executionResult = compileResult.execute(SourceExecutionArguments(maxExtraThreads = 1, timeout = 200L))
         executionResult shouldNot haveCompleted()
         executionResult should haveTimedOut()
         executionResult should haveOutput("Other")
     }
     "should terminate a synchronization deadlock" {
-        val compileResult = Source(mapOf("Main.java" to """
+        val compileResult = Source(
+            mapOf(
+                "Main.java" to """
 public class Other implements Runnable {
     public void run() {
         System.out.println("Other");
@@ -620,14 +631,17 @@ public class Main {
             }
         }
     }
-}""".trim())).compile()
+}""".trim()
+            )
+        ).compile()
         val executionResult = compileResult.execute(SourceExecutionArguments(maxExtraThreads = 1, timeout = 200L))
         executionResult shouldNot haveCompleted()
         executionResult should haveTimedOut()
         executionResult should haveOutput("Other")
     }
     "should stop long counted loops" {
-        val executionResult = Source.fromSnippet("""
+        val executionResult = Source.fromSnippet(
+            """
 void countedLoop(int times) {
     int counter = 0;
     for (int i = 0; i < times; i++) {
@@ -643,7 +657,8 @@ for (int n = 0; n < 10000; n++) {
 }
 System.out.println("Warmed up");
 countedLoop(1000000);
-""".trim()).compile().execute()
+""".trim()
+        ).compile().execute()
         executionResult should haveTimedOut()
         executionResult shouldNot haveCompleted()
         executionResult should haveOutput("Warmed up")

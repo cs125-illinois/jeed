@@ -12,7 +12,6 @@ import com.ryanharter.ktor.moshi.moshi
 import com.squareup.moshi.JsonClass
 import com.squareup.moshi.Moshi
 import com.uchuhimo.konf.source.json.toJson
-import edu.illinois.cs.cs125.jeed.core.moshi.Adapters as JeedAdapters
 import edu.illinois.cs.cs125.jeed.core.warm
 import edu.illinois.cs.cs125.jeed.server.moshi.Adapters
 import io.ktor.application.Application
@@ -29,9 +28,6 @@ import io.ktor.routing.post
 import io.ktor.routing.routing
 import io.ktor.server.engine.embeddedServer
 import io.ktor.server.netty.Netty
-import java.net.URI
-import java.time.Instant
-import java.util.Properties
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.GlobalScope
 import kotlinx.coroutines.launch
@@ -39,6 +35,10 @@ import kotlinx.coroutines.withContext
 import mu.KotlinLogging
 import org.apache.http.auth.AuthenticationException
 import org.bson.BsonDocument
+import java.net.URI
+import java.time.Instant
+import java.util.Properties
+import edu.illinois.cs.cs125.jeed.core.moshi.Adapters as JeedAdapters
 
 @Suppress("UNUSED")
 val logger = KotlinLogging.logger {}

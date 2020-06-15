@@ -77,7 +77,8 @@ i++
         exception should haveParseErrorOnLine(13)
     }
     "should be able to reconstruct original sources using entry map" {
-        val snippet = """
+        val snippet =
+            """
 int i = 0;
 i++;
 public class Test {}
@@ -114,7 +115,7 @@ if (i > 2) {
     }
     "should add static to methods that lack static" {
         Source.fromSnippet(
-                """
+            """
 void test0() {
   System.out.println("Hello, world!");
 }
@@ -174,7 +175,8 @@ import java.util.List;
         exception should haveParseErrorOnLine(3)
     }
     "should parse kotlin snippets" {
-        Source.fromSnippet("""
+        Source.fromSnippet(
+            """
 data class Person(val name: String)
 fun test() {
   println("Here")
@@ -182,7 +184,9 @@ fun test() {
 val i = 0
 println(i)
 test()
-""".trim(), SnippetArguments(fileType = Source.FileType.KOTLIN))
+""".trim(),
+            SnippetArguments(fileType = Source.FileType.KOTLIN)
+        )
     }
     "should identify parse errors in broken kotlin snippets" {
         val exception = shouldThrow<SnippetTransformationFailed> {
@@ -197,13 +201,16 @@ fun test() {
 val i = 0
 println(i)
 test()
-""".trim(), SnippetArguments(fileType = Source.FileType.KOTLIN))
+""".trim(),
+                SnippetArguments(fileType = Source.FileType.KOTLIN)
+            )
         }
         exception.errors shouldHaveSize 1
         exception should haveParseErrorOnLine(6)
     }
     "should be able to reconstruct original kotlin sources using entry map" {
-        val snippet = """
+        val snippet =
+            """
 import kotlinx.coroutines.*
 
 data class Person(val name: String)
@@ -225,7 +232,9 @@ test()
             Source.fromSnippet(
                 """
 return
-        """.trim(), SnippetArguments(fileType = Source.FileType.KOTLIN))
+        """.trim(),
+                SnippetArguments(fileType = Source.FileType.KOTLIN)
+            )
         }
         exception.errors shouldHaveSize 1
         exception should haveParseErrorOnLine(1)
@@ -238,7 +247,9 @@ val i = 0
 if (i < 1) {
     return
 }
-        """.trim(), SnippetArguments(fileType = Source.FileType.KOTLIN))
+        """.trim(),
+                SnippetArguments(fileType = Source.FileType.KOTLIN)
+            )
         }
         exception.errors shouldHaveSize 1
         exception should haveParseErrorOnLine(3)
@@ -250,7 +261,9 @@ if (i < 1) {
 package test.me
 
 println("Hello, world!")
-        """.trim(), SnippetArguments(fileType = Source.FileType.KOTLIN))
+        """.trim(),
+                SnippetArguments(fileType = Source.FileType.KOTLIN)
+            )
         }
         exception.errors shouldHaveSize 1
         exception should haveParseErrorOnLine(1)
@@ -262,7 +275,9 @@ println("Hello, world!")
 class MainKt() { }
 
 println("Hello, world!")
-        """.trim(), SnippetArguments(fileType = Source.FileType.KOTLIN))
+        """.trim(),
+                SnippetArguments(fileType = Source.FileType.KOTLIN)
+            )
         }
         exception.errors shouldHaveSize 1
         exception should haveParseErrorOnLine(1)
@@ -273,7 +288,9 @@ println("Hello, world!")
                 """
 data class Person(name: String)
 println("Hello, world!")
-        """.trim(), SnippetArguments(fileType = Source.FileType.KOTLIN)).kompile()
+        """.trim(),
+                SnippetArguments(fileType = Source.FileType.KOTLIN)
+            ).kompile()
         }
         exception.errors shouldHaveSize 1
         exception.errors[0].location?.line shouldBe 1

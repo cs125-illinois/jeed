@@ -4,10 +4,10 @@ package edu.illinois.cs.cs125.jeed.core
 
 import com.github.benmanes.caffeine.cache.Cache
 import com.github.benmanes.caffeine.cache.Caffeine
-import java.time.Instant
 import kotlinx.coroutines.GlobalScope
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
+import java.time.Instant
 
 const val JEED_DEFAULT_COMPILATION_CACHE_SIZE_MB = 256L
 @Suppress("TooGenericExceptionCaught")

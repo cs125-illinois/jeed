@@ -5,13 +5,13 @@ import com.github.ajalt.clikt.core.subcommands
 import com.github.ajalt.clikt.parameters.arguments.argument
 import com.github.ajalt.clikt.parameters.arguments.default
 import io.github.classgraph.ClassGraph
+import mu.KotlinLogging
 import java.io.PrintWriter
 import java.io.StringWriter
 import java.lang.reflect.Method
 import java.lang.reflect.Modifier
 import java.util.Properties
 import kotlin.system.exitProcess
-import mu.KotlinLogging
 
 @Suppress("UNUSED")
 private val logger = KotlinLogging.logger {}
@@ -24,8 +24,10 @@ class MethodNotFoundException(method: String) : Exception(method)
 
 fun findMethod(klass: String, method: String) = Class.forName(klass).declaredMethods.find {
     it.name == method && Modifier.isStatic(it.modifiers) && Modifier.isPublic(it.modifiers) &&
-        (it.parameterTypes.isEmpty() ||
-            (it.parameterTypes.size == 1 && it.parameterTypes[0].canonicalName == "java.lang.String[]"))
+        (
+            it.parameterTypes.isEmpty() ||
+                (it.parameterTypes.size == 1 && it.parameterTypes[0].canonicalName == "java.lang.String[]")
+            )
 } ?: throw MethodNotFoundException(method)
 
 fun Method.run() {
@@ -44,7 +46,7 @@ fun Throwable.cleanStackTrace(): String {
     val betterStackTrace = mutableListOf(firstLine)
     for (line in originalStackTrace) {
         if (line.trim()
-                .startsWith("""at java.base/jdk.internal.reflect.NativeMethodAccessorImpl.invoke0(Native Method)""")
+            .startsWith("""at java.base/jdk.internal.reflect.NativeMethodAccessorImpl.invoke0(Native Method)""")
         ) {
             break
         }

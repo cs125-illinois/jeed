@@ -29,12 +29,12 @@ import edu.illinois.cs.cs125.jeed.core.moshi.TemplatedSourceResult
 import edu.illinois.cs.cs125.jeed.core.server.FlatComplexityResults
 import edu.illinois.cs.cs125.jeed.core.server.Task
 import edu.illinois.cs.cs125.jeed.core.server.TaskArguments
-import java.time.Instant
 import kotlinx.coroutines.GlobalScope
 import kotlinx.coroutines.async
 import org.apache.http.auth.AuthenticationException
 import org.bson.BsonDocument
 import org.bson.BsonString
+import java.time.Instant
 
 class Request(
     val source: Map<String, String>?,
@@ -286,9 +286,11 @@ class Request(
             val resultSave = GlobalScope.async {
                 @Suppress("TooGenericExceptionCaught")
                 try {
-                    mongoCollection?.insertOne(BsonDocument.parse(response.json).also {
-                        it.append("receivedSemester", BsonString(configuration[TopLevel.semester]))
-                    })
+                    mongoCollection?.insertOne(
+                        BsonDocument.parse(response.json).also {
+                            it.append("receivedSemester", BsonString(configuration[TopLevel.semester]))
+                        }
+                    )
                     currentStatus.counts.saved++
                 } catch (e: Exception) {
                     logger.error("Saving job failed: $e")

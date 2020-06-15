@@ -273,7 +273,9 @@ Example ex = new Example();
         executionResult should haveOutput("Finalizer 1\nFinalizer 2")
     }
     "should allow synchronization to work correctly" {
-        val executionResult = Source(mapOf("Main.java" to """
+        val executionResult = Source(
+            mapOf(
+                "Main.java" to """
 public class Other implements Runnable {
     public void run() {
         for (int i = 0; i < 100; i++) {
@@ -305,14 +307,18 @@ public class Main {
         other.join();
         System.out.println(counter);
     }
-}""".trim())).compile().execute(SourceExecutionArguments(maxExtraThreads = 1, timeout = 1000L))
+}""".trim()
+            )
+        ).compile().execute(SourceExecutionArguments(maxExtraThreads = 1, timeout = 1000L))
         executionResult shouldNot haveTimedOut()
         executionResult should haveCompleted()
         executionResult should haveOutput("200")
     }
     "should allow synchronization with notification" {
         setOf("", "1000L", "999L, 999999").forEach { waitParamList ->
-            val executionResult = Source(mapOf("Main.java" to """
+            val executionResult = Source(
+                mapOf(
+                    "Main.java" to """
 public class Other implements Runnable {
     public void run() {
         synchronized (Main.monitor) {
@@ -334,14 +340,18 @@ public class Main {
             }
         }
     }
-}""".trim().replace("[PARAM_LIST]", waitParamList)))
+}""".trim().replace("[PARAM_LIST]", waitParamList)
+                )
+            )
                 .compile().execute(SourceExecutionArguments(maxExtraThreads = 1))
             executionResult should haveCompleted()
             executionResult should haveOutput("Notified\nFinished wait")
         }
     }
     "should prevent cross-task monitor interference" {
-        val badCompileResult = Source(mapOf("Main.java" to """
+        val badCompileResult = Source(
+            mapOf(
+                "Main.java" to """
 public class LockHog {
     public static void main() {
         System.out.println("About to spin");
@@ -349,12 +359,16 @@ public class LockHog {
             while (true) {}
         }
     }
-}""".trim())).compile()
-        val goodCompileResult = Source.fromSnippet("""
+}""".trim()
+            )
+        ).compile()
+        val goodCompileResult = Source.fromSnippet(
+            """
 Thread.sleep(100);
 synchronized (Object.class) {
     System.out.println("Synchronized");
-}""".trim()).compile()
+}""".trim()
+        ).compile()
         val badTask = async {
             badCompileResult.execute(SourceExecutionArguments(timeout = 800L, klass = "LockHog"))
         }
@@ -366,17 +380,20 @@ synchronized (Object.class) {
         badTaskResult should haveOutput("About to spin")
     }
     "should allow synchronized methods to run" {
-        val executionResult = Source.fromSnippet("""
+        val executionResult = Source.fromSnippet(
+            """
             synchronized int getFive() {
                 return 5;
             }
             System.out.println(getFive());
-        """.trimIndent()).compile().execute()
+            """.trimIndent()
+        ).compile().execute()
         executionResult should haveCompleted()
         executionResult should haveOutput("5")
     }
     "should correctly handle try-catch blocks inside synchronized methods" {
-        val executionResult = Source.fromSnippet("""
+        val executionResult = Source.fromSnippet(
+            """
             synchronized int getFive() {
                 try {
                     Object obj = null;
@@ -388,12 +405,14 @@ synchronized (Object.class) {
                 }
             }
             System.out.println(getFive());
-        """.trimIndent()).compile().execute()
+            """.trimIndent()
+        ).compile().execute()
         executionResult should haveCompleted()
         executionResult should haveOutput("Finally\n5")
     }
     "should correctly handle throw statements inside synchronized methods" {
-        val executionResult = Source.fromSnippet("""
+        val executionResult = Source.fromSnippet(
+            """
             synchronized int getFive() {
                 System.out.println("Synchronized");
                 try {
@@ -406,12 +425,14 @@ synchronized (Object.class) {
                 }
             }
             System.out.println(getFive());
-        """.trimIndent()).compile().execute()
+            """.trimIndent()
+        ).compile().execute()
         executionResult should haveCompleted()
         executionResult should haveOutput("Synchronized\nBoom!\nFinally\n5")
     }
     "should correctly handle synchronized methods that always throw" {
-        val executionResult = Source.fromSnippet("""
+        val executionResult = Source.fromSnippet(
+            """
             synchronized int throwFive() throws Exception {
                 System.out.println("Synchronized");
                 throw new Exception("5");
@@ -421,22 +442,26 @@ synchronized (Object.class) {
             } catch (Exception e) {
                 System.out.println(e.getMessage());
             }
-        """.trimIndent()).compile().execute()
+            """.trimIndent()
+        ).compile().execute()
         executionResult should haveCompleted()
         executionResult should haveOutput("Synchronized\n5")
     }
     "should correctly handle synchronized methods that return references" {
-        val executionResult = Source.fromSnippet("""
+        val executionResult = Source.fromSnippet(
+            """
             synchronized String getFive() {
                 return "5";
             }
             System.out.println(getFive());
-        """.trimIndent()).compile().execute()
+            """.trimIndent()
+        ).compile().execute()
         executionResult should haveCompleted()
         executionResult should haveOutput("5")
     }
     "should correctly handle synchronized methods that return large primitives" {
-        val executionResult = Source.fromSnippet("""
+        val executionResult = Source.fromSnippet(
+            """
             synchronized long getFive() {
                 return 5L;
             }
@@ -444,43 +469,51 @@ synchronized (Object.class) {
                 return 3.14159;
             }
             System.out.println((int) (getFive() * getFive() * getPi()));
-        """.trimIndent()).compile().execute()
+            """.trimIndent()
+        ).compile().execute()
         executionResult should haveCompleted()
         executionResult should haveOutput("78")
     }
     "should correctly handle synchronized methods that take parameters" {
-        val executionResult = Source.fromSnippet("""
+        val executionResult = Source.fromSnippet(
+            """
             synchronized void printSum(String prefix, byte a, long c, double factor) {
                 double sum = (double) a + c * factor;
                 System.out.println(prefix + sum);
             }
             printSum("Sum: ", (byte) 10, 100, 3.13);
-        """.trimIndent()).compile().execute()
+            """.trimIndent()
+        ).compile().execute()
         executionResult should haveCompleted()
         executionResult should haveOutput("Sum: 323.0")
     }
     "should correctly handle synchronized methods involving multiple large primitives" {
-        val executionResult = Source.fromSnippet("""
+        val executionResult = Source.fromSnippet(
+            """
             synchronized double sum(long a, long b, long c, long d, double factor) {
                 return (a + b + c + d) * factor;
             }
             System.out.println(sum(10, 20, 30, 40, 1.5));
-        """.trimIndent()).compile().execute()
+            """.trimIndent()
+        ).compile().execute()
         executionResult should haveCompleted()
         executionResult should haveOutput("150.0")
     }
     "should correctly handle synchronized methods involving small primitives" {
-        val executionResult = Source.fromSnippet("""
+        val executionResult = Source.fromSnippet(
+            """
             synchronized byte addToByte(float a, short b) {
                 return (byte) (a + b);
             }
             System.out.println(addToByte(2.0f, (short) 3));
-        """.trimIndent()).compile().execute()
+            """.trimIndent()
+        ).compile().execute()
         executionResult should haveCompleted()
         executionResult should haveOutput("5")
     }
     "should correctly handle recursive synchronized methods" {
-        val executionResult = Source.fromSnippet("""
+        val executionResult = Source.fromSnippet(
+            """
             synchronized long factorial(int n) {
                 if (n <= 1) {
                     return 1;
@@ -489,24 +522,28 @@ synchronized (Object.class) {
                 }
             }
             System.out.println(factorial(14));
-        """.trimIndent()).compile().execute()
+            """.trimIndent()
+        ).compile().execute()
         executionResult should haveCompleted()
         executionResult should haveOutput("87178291200")
     }
     "should correctly handle synchronized instance methods" {
-        val executionResult = Source.fromSnippet("""
+        val executionResult = Source.fromSnippet(
+            """
             class Example {
                 synchronized int getFivePlus(short value) {
                     return 5 + value;
                 }
             }
             System.out.println(new Example().getFivePlus((short) 10));
-        """.trimIndent()).compile().execute()
+            """.trimIndent()
+        ).compile().execute()
         executionResult should haveCompleted()
         executionResult should haveOutput("15")
     }
     "should correctly handle synchronized methods that involve arrays" {
-        val executionResult = Source.fromSnippet("""
+        val executionResult = Source.fromSnippet(
+            """
             synchronized int[] parse(String[] numbers) {
                 int[] values = new int[numbers.length];
                 for (int i = 0; i < numbers.length; i++) {
@@ -516,12 +553,14 @@ synchronized (Object.class) {
             }
             int[] parsed = parse(new String[] {"5"});
             System.out.println(parsed[0]);
-        """.trimIndent()).compile().execute()
+            """.trimIndent()
+        ).compile().execute()
         executionResult should haveCompleted()
         executionResult should haveOutput("5")
     }
     "should unlock the monitor on successful exit from synchronized methods" {
-        val executionResult = Source.fromSnippet("""
+        val executionResult = Source.fromSnippet(
+            """
             class Example implements Runnable {
                 public void run() {
                     Util.printExcitedly("Bye");
@@ -542,12 +581,14 @@ synchronized (Object.class) {
             Thread t = new Thread(new Example());
             t.start();
             t.join();
-        """.trimIndent()).compile().execute(SourceExecutionArguments(maxExtraThreads = 1))
+            """.trimIndent()
+        ).compile().execute(SourceExecutionArguments(maxExtraThreads = 1))
         executionResult should haveCompleted()
         executionResult should haveOutput("Hi!\nBye!")
     }
     "should unlock the monitor on exceptional exit from synchronized methods" {
-        val executionResult = Source.fromSnippet("""
+        val executionResult = Source.fromSnippet(
+            """
             class Example implements Runnable {
                 public void run() {
                     try {
@@ -572,12 +613,15 @@ synchronized (Object.class) {
             Thread t = new Thread(new Example());
             t.start();
             t.join();
-        """.trimIndent()).compile().execute(SourceExecutionArguments(maxExtraThreads = 1))
+            """.trimIndent()
+        ).compile().execute(SourceExecutionArguments(maxExtraThreads = 1))
         executionResult should haveCompleted()
         executionResult should haveOutput("Hi!\nBye!")
     }
     "should allow exclusion to work correctly with synchronized methods" {
-        val executionResult = Source(mapOf("Main.java" to """
+        val executionResult = Source(
+            mapOf(
+                "Main.java" to """
 public class Counter {
     public static int counter;
     public static synchronized void increment() throws InterruptedException {
@@ -607,7 +651,9 @@ public class Main {
         other.join();
         System.out.println(Counter.counter);
     }
-}""".trim())).compile().execute(SourceExecutionArguments(maxExtraThreads = 1, timeout = 500L))
+}""".trim()
+            )
+        ).compile().execute(SourceExecutionArguments(maxExtraThreads = 1, timeout = 500L))
         executionResult shouldNot haveTimedOut()
         executionResult should haveCompleted()
         executionResult should haveOutput("200")

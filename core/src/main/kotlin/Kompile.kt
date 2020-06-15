@@ -5,7 +5,6 @@ package edu.illinois.cs.cs125.jeed.core
 import com.squareup.moshi.JsonClass
 import edu.illinois.cs.cs125.jeed.core.antlr.KotlinParser
 import io.github.classgraph.ClassGraph
-import java.time.Instant
 import org.jetbrains.kotlin.cli.common.CLIConfigurationKeys
 import org.jetbrains.kotlin.cli.common.arguments.K2JVMCompilerArguments
 import org.jetbrains.kotlin.cli.common.environment.setIdeaIoUseFallback
@@ -34,6 +33,7 @@ import org.jetbrains.kotlin.idea.KotlinLanguage
 import org.jetbrains.kotlin.konan.file.File
 import org.jetbrains.kotlin.metadata.jvm.deserialization.JvmProtoBufUtil
 import org.jetbrains.kotlin.psi.KtFile
+import java.time.Instant
 
 val systemKompilerVersion = KotlinVersion.CURRENT.toString()
 
@@ -98,8 +98,10 @@ private class JeedMessageCollector(val source: Source, val allWarningsAsErrors: 
     val errors: List<CompilationError>
         get() = messages.filter {
             it.kind == CompilerMessageSeverity.ERROR.presentableName ||
-                allWarningsAsErrors && (it.kind == CompilerMessageSeverity.WARNING.presentableName ||
-                it.kind == CompilerMessageSeverity.STRONG_WARNING.presentableName)
+                allWarningsAsErrors && (
+                it.kind == CompilerMessageSeverity.WARNING.presentableName ||
+                    it.kind == CompilerMessageSeverity.STRONG_WARNING.presentableName
+                )
         }.map {
             CompilationError(it.location, it.message)
         }

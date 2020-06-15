@@ -1,6 +1,7 @@
 package edu.illinois.cs.cs125.jeed.core
 
 import com.squareup.moshi.JsonClass
+import org.jetbrains.kotlin.codegen.GeneratedClassLoader
 import java.io.ByteArrayInputStream
 import java.io.ByteArrayOutputStream
 import java.io.File
@@ -19,7 +20,6 @@ import javax.tools.JavaFileObject
 import javax.tools.SimpleJavaFileObject
 import javax.tools.StandardLocation
 import javax.tools.ToolProvider
-import org.jetbrains.kotlin.codegen.GeneratedClassLoader
 
 private val systemCompiler = ToolProvider.getSystemJavaCompiler() ?: error {
     "systemCompiler not found: you are probably running a JRE, not a JDK"

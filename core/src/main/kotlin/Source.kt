@@ -4,14 +4,14 @@ import com.squareup.moshi.JsonClass
 import com.squareup.moshi.Moshi
 import edu.illinois.cs.cs125.jeed.core.server.FlatSource
 import edu.illinois.cs.cs125.jeed.core.server.toFlatSources
+import mu.KotlinLogging
+import org.antlr.v4.runtime.CharStream
+import org.antlr.v4.runtime.tree.ParseTree
 import java.io.PrintWriter
 import java.io.StringWriter
 import java.lang.reflect.Method
 import java.security.MessageDigest
 import java.time.Instant
-import mu.KotlinLogging
-import org.antlr.v4.runtime.CharStream
-import org.antlr.v4.runtime.tree.ParseTree
 
 @Suppress("UNUSED")
 val logger = KotlinLogging.logger {}
@@ -49,12 +49,12 @@ open class Source(
         parsed = true
         val parseStart = Instant.now()
         sources.mapValues { entry ->
-                    val (filename, _) = entry
-                    when (sourceFilenameToFileType(filename)) {
-                        FileType.JAVA -> parseJavaFile(entry)
-                        FileType.KOTLIN -> parseKotlinFile(entry)
-                    }
-                }.also {
+            val (filename, _) = entry
+            when (sourceFilenameToFileType(filename)) {
+                FileType.JAVA -> parseJavaFile(entry)
+                FileType.KOTLIN -> parseKotlinFile(entry)
+            }
+        }.also {
             parseInterval = Interval(parseStart, Instant.now())
         }
     }
@@ -219,7 +219,8 @@ fun Throwable.getStackTraceForSource(source: Source): String {
     @Suppress("LoopWithTooManyJumpStatements")
     for (line in originalStackTrace) {
         if (line.trim()
-                .startsWith("""at java.base/jdk.internal.reflect.NativeMethodAccessorImpl.invoke0(Native Method)""")) {
+            .startsWith("""at java.base/jdk.internal.reflect.NativeMethodAccessorImpl.invoke0(Native Method)""")
+        ) {
             break
         }
         if (source !is Snippet) {

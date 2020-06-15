@@ -25,8 +25,10 @@ class TemplatedSource(
 
 private val handlebars = Handlebars()
 
-private val TEMPLATE_START = """\{\{\{\s*contents\s*}}}""".toRegex()
-private val LEADING_WHITESPACE = """^\s*""".toRegex()
+private val TEMPLATE_START =
+    """\{\{\{\s*contents\s*}}}""".toRegex()
+private val LEADING_WHITESPACE =
+    """^\s*""".toRegex()
 
 class TemplatingError(
     name: String,

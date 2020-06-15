@@ -17,19 +17,19 @@ repositories {
 dependencies {
     val ktorVersion = "1.3.2"
 
-    kapt("com.squareup.moshi:moshi-kotlin-codegen:1.9.2")
+    kapt("com.squareup.moshi:moshi-kotlin-codegen:1.9.3")
 
     implementation(project(":core"))
     implementation(kotlin("stdlib"))
     implementation("io.ktor:ktor-server-netty:$ktorVersion")
     implementation("org.mongodb:mongodb-driver:3.12.5")
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-core:1.3.6")
-    implementation("com.squareup.moshi:moshi-kotlin-codegen:1.9.2")
+    implementation("com.squareup.moshi:moshi-kotlin-codegen:1.9.3")
     implementation("com.github.cs125-illinois:ktor-moshi:1.0.3")
     implementation("ch.qos.logback:logback-classic:1.2.3")
     implementation("com.uchuhimo:konf-core:0.22.1")
     implementation("com.uchuhimo:konf-yaml:0.22.1")
-    implementation("io.github.microutils:kotlin-logging:1.7.9")
+    implementation("io.github.microutils:kotlin-logging:1.7.10")
     implementation("com.google.api-client:google-api-client:1.30.9")
 
     val kotlintestVersion = "3.4.2"

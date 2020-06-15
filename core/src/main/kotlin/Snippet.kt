@@ -196,10 +196,12 @@ ${" ".repeat(snippetArguments.indent * 2)}@JvmStatic fun main() {""".lines().let
         currentOutputLineNumber++
     }
 
-    rewrittenSourceLines.addAll("""${" ".repeat(snippetArguments.indent * 2)}}
+    rewrittenSourceLines.addAll(
+        """${" ".repeat(snippetArguments.indent * 2)}}
 ${" ".repeat(snippetArguments.indent)}}
 }
-""".lines())
+""".lines()
+    )
 
     val looseLines: MutableList<String> = mutableListOf()
     val looseCodeMapping: MutableMap<Int, Int> = mutableMapOf()
@@ -238,14 +240,16 @@ ${" ".repeat(snippetArguments.indent)}}
         it?.simpleIdentifier()?.text == "MainKt"
     }?.let {
         throw SnippetTransformationFailed(
-            listOf(SnippetTransformationError(
-                SourceLocation(
-                    SNIPPET_SOURCE,
-                    it.start.line,
-                    it.start.charPositionInLine
-                ),
-                "A class named MainKt cannot be declared at the top level in a snippet"
-            ))
+            listOf(
+                SnippetTransformationError(
+                    SourceLocation(
+                        SNIPPET_SOURCE,
+                        it.start.line,
+                        it.start.charPositionInLine
+                    ),
+                    "A class named MainKt cannot be declared at the top level in a snippet"
+                )
+            )
         )
     }
 
@@ -262,7 +266,8 @@ ${" ".repeat(snippetArguments.indent)}}
     )
 }
 
-private val JAVA_VISIBILITY_PATTERN = """^\s*(public|private|protected)""".toRegex()
+private val JAVA_VISIBILITY_PATTERN =
+    """^\s*(public|private|protected)""".toRegex()
 @Suppress("LongMethod", "ComplexMethod")
 private fun sourceFromJavaSnippet(originalSource: String, snippetArguments: SnippetArguments): Snippet {
     val sourceLines = originalSource.lines().map { it.trim().length }
@@ -299,8 +304,9 @@ private fun sourceFromJavaSnippet(originalSource: String, snippetArguments: Snip
             } else if (type == "import" && sawNonImport) {
                 errors.add(
                     SnippetTransformationError(
-                    start - 1, 0, "import statements must be at the top of the snippet"
-                ))
+                        start - 1, 0, "import statements must be at the top of the snippet"
+                    )
+                )
             }
 
             for (lineNumber in start - 1 until stop) {
@@ -310,10 +316,12 @@ private fun sourceFromJavaSnippet(originalSource: String, snippetArguments: Snip
         }
 
         override fun visitPackageDeclaration(context: SnippetParser.PackageDeclarationContext) {
-            errors.add(SnippetTransformationError(
-                context.start.line, context.start.charPositionInLine,
-                "Snippets may not contain package declarations"
-            ))
+            errors.add(
+                SnippetTransformationError(
+                    context.start.line, context.start.charPositionInLine,
+                    "Snippets may not contain package declarations"
+                )
+            )
         }
 
         override fun visitClassDeclaration(context: SnippetParser.ClassDeclarationContext) {
@@ -387,8 +395,8 @@ private fun sourceFromJavaSnippet(originalSource: String, snippetArguments: Snip
         if (contentMapping[lineNumber]?.startsWith(("method")) == true) {
             val (actualLine, extraIndentation) =
                 if ((contentMapping[lineNumber] == "method:start") && !line.contains(
-                        """\bstatic\b""".toRegex()
-                    )
+                    """\bstatic\b""".toRegex()
+                )
                 ) {
                     val matchVisibilityModifier = JAVA_VISIBILITY_PATTERN.find(line)
                     if (matchVisibilityModifier != null) {

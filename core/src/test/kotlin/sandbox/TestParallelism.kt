@@ -14,10 +14,10 @@ import io.kotlintest.should
 import io.kotlintest.shouldBe
 import io.kotlintest.shouldNot
 import io.kotlintest.specs.StringSpec
-import java.util.stream.Collectors
-import kotlin.system.measureTimeMillis
 import kotlinx.coroutines.async
 import kotlinx.coroutines.runBlocking
+import java.util.stream.Collectors
+import kotlin.system.measureTimeMillis
 
 class TestParallelism : StringSpec({
     "should execute correctly in parallel using streams" {
@@ -48,7 +48,8 @@ for (int i = 0; i < 32; i++) {
     System.out.println($value);
 }
                     """.trim()
-                    ).compile().execute(SourceExecutionArguments(timeout = 1000L)), value
+                    ).compile().execute(SourceExecutionArguments(timeout = 1000L)),
+                    value
                 )
             }
         }.map { it ->

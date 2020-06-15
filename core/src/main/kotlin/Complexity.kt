@@ -27,7 +27,8 @@ class ClassComplexity(
     range,
     classes as MutableMap<String, LocatedClass>,
     methods as MutableMap<String, LocatedMethod>
-), ComplexityValue {
+),
+    ComplexityValue {
     override fun lookup(name: String): ComplexityValue {
         check(name.isNotEmpty())
         @Suppress("TooGenericExceptionCaught")
@@ -327,9 +328,12 @@ class ComplexityResult(val source: Source, entry: Map.Entry<String, String>) : J
     }
 
     init {
-        ParseTreeWalker.DEFAULT.walk(this, source.parseTree[name]?.first ?: require {
-            "Can't parse file $name"
-        })
+        ParseTreeWalker.DEFAULT.walk(
+            this,
+            source.parseTree[name]?.first ?: require {
+                "Can't parse file $name"
+            }
+        )
     }
 }
 
@@ -376,11 +380,14 @@ class ComplexityFailed(errors: List<SourceError>) : JeedError(errors) {
 @Throws(ComplexityFailed::class)
 fun Source.complexity(names: Set<String> = sources.keys.toSet()): ComplexityResults {
     try {
-        return ComplexityResults(this, sources.filter {
-            names.contains(it.key)
-        }.mapValues {
-            ComplexityResult(this, it).results
-        })
+        return ComplexityResults(
+            this,
+            sources.filter {
+                names.contains(it.key)
+            }.mapValues {
+                ComplexityResult(this, it).results
+            }
+        )
     } catch (e: JeedParsingException) {
         throw ComplexityFailed(e.errors)
     }

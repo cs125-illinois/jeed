@@ -8,14 +8,14 @@ import com.puppycrawl.tools.checkstyle.api.FileSetCheck
 import com.puppycrawl.tools.checkstyle.api.FileText
 import com.puppycrawl.tools.checkstyle.api.SeverityLevel
 import com.squareup.moshi.JsonClass
+import org.w3c.dom.Node
+import org.xml.sax.InputSource
 import java.io.ByteArrayInputStream
 import java.io.File
 import java.io.StringReader
 import javax.xml.parsers.DocumentBuilderFactory
 import javax.xml.xpath.XPathConstants
 import javax.xml.xpath.XPathFactory
-import org.w3c.dom.Node
-import org.xml.sax.InputSource
 
 @JsonClass(generateAdapter = true)
 data class CheckstyleArguments(
@@ -67,9 +67,11 @@ class ConfiguredChecker(configurationString: String) {
                 INDENTATION_PATH, configurationDocument, XPathConstants.NODE
             ) as Node
             try {
-                (XPathFactory.newInstance().newXPath().evaluate(
-                    "$INDENTATION_PATH/property[@name='basicOffset']", configurationDocument, XPathConstants.NODE
-                ) as Node).let {
+                (
+                    XPathFactory.newInstance().newXPath().evaluate(
+                        "$INDENTATION_PATH/property[@name='basicOffset']", configurationDocument, XPathConstants.NODE
+                    ) as Node
+                    ).let {
                     it.attributes.getNamedItem("value").nodeValue.toInt()
                 }
             } catch (e: Exception) {
@@ -140,9 +142,11 @@ fun Source.checkstyle(checkstyleArguments: CheckstyleArguments = CheckstyleArgum
     require(type == Source.FileType.JAVA) { "Can't run checkstyle on non-Java sources" }
 
     val names = checkstyleArguments.sources ?: sources.keys
-    val checkstyleResults = defaultChecker.check(sources.filter {
-        names.contains(it.key)
-    }).values.flatten().map {
+    val checkstyleResults = defaultChecker.check(
+        sources.filter {
+            names.contains(it.key)
+        }
+    ).values.flatten().map {
         CheckstyleError(it.severity, mapLocation(it.location), it.message)
     }.sortedWith(compareBy({ it.location.source }, { it.location.line }))
 

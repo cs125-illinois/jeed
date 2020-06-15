@@ -135,7 +135,9 @@ data class FlatComplexityResult(
 
 @JsonClass(generateAdapter = true)
 data class FlatComplexityResults(val results: List<FlatComplexityResult>) {
-    constructor(complexityResults: ComplexityResults) : this(complexityResults.results.map { (source, results) ->
-        FlatComplexityResult.from(source, results)
-    })
+    constructor(complexityResults: ComplexityResults) : this(
+        complexityResults.results.map { (source, results) ->
+            FlatComplexityResult.from(source, results)
+        }
+    )
 }

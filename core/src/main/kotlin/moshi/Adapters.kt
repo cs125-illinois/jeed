@@ -274,7 +274,8 @@ data class ExecutionFailedResult(
             executionFailed.classNotFound.klass
         } else {
             null
-        }, if (executionFailed.methodNotFound != null) {
+        },
+        if (executionFailed.methodNotFound != null) {
             executionFailed.methodNotFound.method
         } else {
             null

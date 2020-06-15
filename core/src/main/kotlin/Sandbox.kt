@@ -1,6 +1,16 @@
 package edu.illinois.cs.cs125.jeed.core
 
 import com.squareup.moshi.JsonClass
+import kotlinx.coroutines.channels.Channel
+import kotlinx.coroutines.coroutineScope
+import kotlinx.coroutines.runBlocking
+import org.objectweb.asm.ClassReader
+import org.objectweb.asm.ClassVisitor
+import org.objectweb.asm.ClassWriter
+import org.objectweb.asm.Label
+import org.objectweb.asm.MethodVisitor
+import org.objectweb.asm.Opcodes
+import org.objectweb.asm.Type
 import java.io.FilePermission
 import java.io.OutputStream
 import java.io.PrintStream
@@ -30,16 +40,6 @@ import kotlin.reflect.KProperty
 import kotlin.reflect.full.memberProperties
 import kotlin.reflect.jvm.isAccessible
 import kotlin.reflect.jvm.javaMethod
-import kotlinx.coroutines.channels.Channel
-import kotlinx.coroutines.coroutineScope
-import kotlinx.coroutines.runBlocking
-import org.objectweb.asm.ClassReader
-import org.objectweb.asm.ClassVisitor
-import org.objectweb.asm.ClassWriter
-import org.objectweb.asm.Label
-import org.objectweb.asm.MethodVisitor
-import org.objectweb.asm.Opcodes
-import org.objectweb.asm.Type
 
 private typealias SandboxCallableArguments<T> = (Pair<ClassLoader, (() -> Any?) -> Sandbox.RedirectedOutput>) -> T
 
@@ -57,18 +57,22 @@ object Sandbox {
         val isolatedClasses = isolatedClasses.union(ALWAYS_ISOLATED_CLASSES)
 
         init {
-            require(!whitelistedClasses.any { whitelistedClass ->
-                PERMANENTLY_BLACKLISTED_CLASSES.any { blacklistedClass ->
-                    whitelistedClass.startsWith(blacklistedClass)
+            require(
+                !whitelistedClasses.any { whitelistedClass ->
+                    PERMANENTLY_BLACKLISTED_CLASSES.any { blacklistedClass ->
+                        whitelistedClass.startsWith(blacklistedClass)
+                    }
                 }
-            }) {
+            ) {
                 "attempt to allow access to unsafe classes"
             }
             require(
-                !(whitelistedClasses.isNotEmpty() &&
-                    blacklistedClasses.minus(
-                        PERMANENTLY_BLACKLISTED_CLASSES.union(DEFAULT_BLACKLISTED_CLASSES)
-                    ).isNotEmpty())
+                !(
+                    whitelistedClasses.isNotEmpty() &&
+                        blacklistedClasses.minus(
+                            PERMANENTLY_BLACKLISTED_CLASSES.union(DEFAULT_BLACKLISTED_CLASSES)
+                        ).isNotEmpty()
+                    )
             ) {
                 "can't set both a class whitelist and blacklist"
             }
@@ -831,18 +835,22 @@ object Sandbox {
                             name
                         }
                         val transformedModifiers = if (Modifier.isSynchronized(access)) {
-                            (access
-                                and Modifier.PUBLIC.inv()
-                                and Modifier.PROTECTED.inv()
-                                and Modifier.SYNCHRONIZED.inv()) or Modifier.PRIVATE
+                            (
+                                access
+                                    and Modifier.PUBLIC.inv()
+                                    and Modifier.PROTECTED.inv()
+                                    and Modifier.SYNCHRONIZED.inv()
+                                ) or Modifier.PRIVATE
                         } else {
                             access
                         }
                         SandboxingMethodVisitor(
                             unsafeExceptionClasses,
                             preinspection.badTryCatchBlockPositions,
-                            super.visitMethod(transformedModifiers, transformedMethodName,
-                                descriptor, signature, exceptions)
+                            super.visitMethod(
+                                transformedModifiers, transformedMethodName,
+                                descriptor, signature, exceptions
+                            )
                         )
                     }
                 }
@@ -968,8 +976,9 @@ object Sandbox {
                     labelsToRewrite.add(handler)
                 } else {
                     if (unsafeExceptionClasses.any {
-                            exceptionClass.isAssignableFrom(it) || it.isAssignableFrom(exceptionClass)
-                        }) {
+                        exceptionClass.isAssignableFrom(it) || it.isAssignableFrom(exceptionClass)
+                    }
+                    ) {
                         labelsToRewrite.add(handler)
                     }
                 }
@@ -1061,18 +1070,21 @@ object Sandbox {
              * doing the real visit in SandboxingMethodVisitor.
              */
             val methodVisitors = mutableMapOf<VisitedMethod, PreviewingMethodVisitor>()
-            reader.accept(object : ClassVisitor(Opcodes.ASM8) {
-                override fun visitMethod(
-                    access: Int,
-                    name: String,
-                    descriptor: String,
-                    signature: String?,
-                    exceptions: Array<out String>?
-                ): MethodVisitor {
-                    return PreviewingMethodVisitor()
-                        .also { methodVisitors[VisitedMethod(name, descriptor)] = it }
-                }
-            }, 0)
+            reader.accept(
+                object : ClassVisitor(Opcodes.ASM8) {
+                    override fun visitMethod(
+                        access: Int,
+                        name: String,
+                        descriptor: String,
+                        signature: String?,
+                        exceptions: Array<out String>?
+                    ): MethodVisitor {
+                        return PreviewingMethodVisitor()
+                            .also { methodVisitors[VisitedMethod(name, descriptor)] = it }
+                    }
+                },
+                0
+            )
             return methodVisitors.mapValues {
                 MethodPreinspection(it.value.getBadTryCatchBlockPositions(), it.value.getParameters())
             }
@@ -1285,8 +1297,10 @@ object Sandbox {
     private class RedirectingPrintStream(val console: TaskResults.OutputLine.Console) : PrintStream(nullOutputStream) {
         private val taskPrintStream: PrintStream
             get() {
-                val confinedTask = confinedTaskByThreadGroup() ?: return (originalPrintStreams[console]
-                    ?: error("original console should exist"))
+                val confinedTask = confinedTaskByThreadGroup() ?: return (
+                    originalPrintStreams[console]
+                        ?: error("original console should exist")
+                    )
                 return confinedTask.printStreams[console] ?: error("confined console should exist")
             }
 

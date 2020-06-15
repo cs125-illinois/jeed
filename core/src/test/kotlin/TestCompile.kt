@@ -152,21 +152,25 @@ public class Test {
     }
     "should identify compilation errors in simple snippets when static is added" {
         val failedCompilation = shouldThrow<CompilationFailed> {
-            Source.fromSnippet("""
+            Source.fromSnippet(
+                """
 void test(blah it) {
   System.out.println(it);
 }
-            """.trim()).compile()
+            """.trim()
+            ).compile()
         }
         failedCompilation should haveCompilationErrorAt(line = 1, column = 11)
     }
     "should identify compilation errors in simple snippets when static is added to public" {
         val failedCompilation = shouldThrow<CompilationFailed> {
-            Source.fromSnippet("""
+            Source.fromSnippet(
+                """
 public void test(blah it) {
   System.out.println(it);
 }
-            """.trim()).compile()
+            """.trim()
+            ).compile()
         }
         failedCompilation should haveCompilationErrorAt(line = 1, column = 18)
     }
@@ -400,7 +404,8 @@ public class Test {
     public static void main() {
         testInstanceOfPatternMatching();
     }
-}""".trim())
+}""".trim()
+                )
             ).compile()
 
             compiledSource should haveDefinedExactlyTheseClasses(setOf("Test"))
@@ -421,7 +426,8 @@ public class Test {
                            Hello world!
                            $tripleQuote;
     }
-}""".trim())
+}""".trim()
+                )
             ).compile()
 
             compiledSource should haveDefinedExactlyTheseClasses(setOf("Test"))
@@ -434,31 +440,37 @@ public class Test {
         } else {
             shouldThrow<CompilationFailed> {
                 val tripleQuote = "\"\"\""
-                Source(mapOf("Test.java" to """
+                Source(
+                    mapOf(
+                        "Test.java" to """
 public class Test {
     public static void main() {
         String textBlock = $tripleQuote
                            Hello world!
                            $tripleQuote;
     }
-}""".trim())
+}""".trim()
+                    )
                 ).compile(CompilationArguments(enablePreview = false))
             }
         }
     }
     "should load classes from a separate classloader" {
-        val first = Source(mapOf(
-            "Test.java" to """
+        val first = Source(
+            mapOf(
+                "Test.java" to """
 public class Test {
   public void print() {
     System.out.println("test");
   }
 }
 """.trim()
-        )).compile()
+            )
+        ).compile()
 
-        Source(mapOf(
-            "Example.java" to """
+        Source(
+            mapOf(
+                "Example.java" to """
 public class Example {
   public static void main() {
     Test test = new Test();
@@ -466,15 +478,18 @@ public class Example {
   }
 }
 """.trim()
-        )).compile(compilationArguments = CompilationArguments(parentFileManager = first.fileManager))
+            )
+        ).compile(compilationArguments = CompilationArguments(parentFileManager = first.fileManager))
     }
     "should not crash when compiling in parallel" {
         (0 until 32).toList().parallelStream().map {
-            Source.fromSnippet("""
+            Source.fromSnippet(
+                """
                 synchronized (Object.class) {
                     System.out.println($it);
                 }
-            """.trimIndent()).compile()
+                """.trimIndent()
+            ).compile()
         }.allMatch { true }
     }
 })
@@ -515,8 +530,8 @@ fun <T> haveDefinedExactlyTheseClasses(classes: Set<String>) = object : Matcher<
             definedClasses == classes,
             "should have defined ${classes.joinToString(separator = ", ")} " +
                 "(found ${definedClasses.joinToString(
-                separator = ", "
-            )})",
+                    separator = ", "
+                )})",
             "should not have defined ${classes.joinToString(separator = ", ")}"
         )
     }
@@ -564,8 +579,8 @@ fun <T> haveLoadedAtLeastTheseClasses(classes: Set<String>) = object : Matcher<T
             loadedClasses.containsAll(classes),
             "should have loaded at least ${classes.joinToString(separator = ", ")} " +
                 "(found ${loadedClasses.joinToString(
-                separator = ", "
-            )})",
+                    separator = ", "
+                )})",
             "should not have loaded at least ${classes.joinToString(separator = ", ")}"
         )
     }

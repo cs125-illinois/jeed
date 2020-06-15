@@ -5,7 +5,8 @@ import io.kotlintest.specs.StringSpec
 class TestParser : StringSpec({
     "it should parse kotlin code" {
         Source(
-            mapOf("Main.kt" to """
+            mapOf(
+                "Main.kt" to """
 class Person {
   val name: String = ""
   val age: Double
@@ -14,6 +15,7 @@ class Person {
   }
 }
 """.trim()
-        )).parseTree
+            )
+        ).parseTree
     }
 })
