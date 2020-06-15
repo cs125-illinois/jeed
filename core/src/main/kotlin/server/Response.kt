@@ -21,6 +21,7 @@ import edu.illinois.cs.cs125.jeed.core.moshi.SourceTaskResults
 import edu.illinois.cs.cs125.jeed.core.moshi.TemplatedSourceResult
 
 @JsonClass(generateAdapter = true)
+@Suppress("LongParameterList")
 class CompletedTasks(
     var template: TemplatedSourceResult? = null,
     var snippet: Snippet? = null,
@@ -34,6 +35,7 @@ class CompletedTasks(
 )
 
 @JsonClass(generateAdapter = true)
+@Suppress("LongParameterList")
 class FailedTasks(
     var template: TemplatingFailed? = null,
     var snippet: SnippetTransformationFailed? = null,

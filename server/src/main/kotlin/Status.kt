@@ -15,7 +15,7 @@ import edu.illinois.cs.cs125.jeed.core.systemKompilerVersion as KOMPILER_VERSION
 import edu.illinois.cs.cs125.jeed.core.version as JEED_VERSION
 
 @JsonClass(generateAdapter = true)
-@Suppress("Unused", "MemberVisibilityCanBePrivate")
+@Suppress("MemberVisibilityCanBePrivate", "LongParameterList")
 class Status(
     val semester: String? = configuration[TopLevel.semester],
     val hosts: List<String> = configuration[TopLevel.hosts],

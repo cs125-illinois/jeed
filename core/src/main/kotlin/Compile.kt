@@ -98,6 +98,7 @@ class CompilationFailed(errors: List<CompilationError>) : JeedError(errors) {
 class CompilationMessage(@Suppress("unused") val kind: String, location: SourceLocation?, message: String) :
     SourceError(location, message)
 
+@Suppress("LongParameterList")
 class CompiledSource(
     val source: Source,
     val messages: List<CompilationMessage>,

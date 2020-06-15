@@ -23,6 +23,7 @@ enum class Task {
 }
 
 @JsonClass(generateAdapter = true)
+@Suppress("LongParameterList")
 class TaskArguments(
     val snippet: SnippetArguments = SnippetArguments(),
     val compilation: CompilationArguments = CompilationArguments(),

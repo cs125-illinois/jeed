@@ -324,7 +324,7 @@ class ThrownException(
     )
 }
 
-@Suppress("unused")
+@Suppress("LongParameterList")
 @JsonClass(generateAdapter = true)
 class SourceTaskResults(
     val klass: String,

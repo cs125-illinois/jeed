@@ -46,7 +46,7 @@ tasks.dependencyUpdates {
 }
 detekt {
     input = files("core/src/main/kotlin", "server/src/main/kotlin", "containerrunner/src/main/kotlin")
-    config = files("config/detekt/detekt.yml")
+    buildUponDefaultConfig = true
 }
 tasks.register("check") {
     dependsOn("detekt")

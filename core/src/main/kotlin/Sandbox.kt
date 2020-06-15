@@ -117,6 +117,7 @@ object Sandbox {
         }
     }
 
+    @Suppress("LongParameterList")
     class TaskResults<T>(
         val returned: T?,
         val threw: Throwable?,

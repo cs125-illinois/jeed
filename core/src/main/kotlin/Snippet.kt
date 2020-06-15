@@ -16,6 +16,7 @@ import org.antlr.v4.runtime.Recognizer
 
 const val SNIPPET_SOURCE = ""
 
+@Suppress("LongParameterList")
 class Snippet(
     sources: Map<String, String>,
     val originalSource: String,

@@ -36,6 +36,7 @@ import org.bson.BsonDocument
 import org.bson.BsonString
 import java.time.Instant
 
+@Suppress("LongParameterList")
 class Request(
     val source: Map<String, String>?,
     val templates: Map<String, String>?,

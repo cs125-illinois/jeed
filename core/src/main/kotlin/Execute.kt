@@ -9,6 +9,7 @@ import java.security.Permission
 import java.util.PropertyPermission
 
 @JsonClass(generateAdapter = true)
+@Suppress("LongParameterList")
 class SourceExecutionArguments(
     var klass: String? = null,
     val method: String = DEFAULT_METHOD,

@@ -22,6 +22,7 @@ val Adapters = setOf(
 )
 
 @JsonClass(generateAdapter = true)
+@Suppress("LongParameterList")
 class RequestJson(
     val sources: List<FlatSource>?,
     val templates: List<FlatSource>?,
