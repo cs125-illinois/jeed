@@ -51,7 +51,8 @@ data class CompilationArguments(
     @Transient val parentFileManager: JavaFileManager? = null,
     @Transient val parentClassLoader: ClassLoader? = null,
     val useCache: Boolean = useCompilationCache,
-    val waitForCache: Boolean = false
+    val waitForCache: Boolean = false,
+    val isolatedClassLoader: Boolean = false
 ) {
     companion object {
         const val DEFAULT_WERROR = false
@@ -119,6 +120,9 @@ private fun compile(
     parentClassLoader: ClassLoader? = compilationArguments.parentClassLoader ?: ClassLoader.getSystemClassLoader()
 ): CompiledSource {
     require(source.type == Source.FileType.JAVA) { "Java compiler needs Java sources" }
+    require(!compilationArguments.isolatedClassLoader || compilationArguments.parentClassLoader == null) {
+        "Can't use parentClassLoader when isolatedClassLoader is set"
+    }
 
     val started = Instant.now()
     source.tryCache(compilationArguments, started, systemCompilerName)?.let { return it }
@@ -158,12 +162,18 @@ private fun compile(
         CompilationMessage(it.kind.toString(), getMappedLocation(it), it.getMessage(Locale.US))
     }
 
+    val actualParentClassloader = if (compilationArguments.isolatedClassLoader) {
+        IsolatingClassLoader(fileManager.classFiles.keys.map { pathToClassName(it) }.toSet())
+    } else {
+        parentClassLoader
+    }
+
     return CompiledSource(
         source,
         messages,
         started,
         Interval(started, Instant.now()),
-        JeedClassLoader(fileManager, parentClassLoader),
+        JeedClassLoader(fileManager, actualParentClassloader),
         fileManager
     ).also {
         it.cache(compilationArguments)
@@ -372,5 +382,23 @@ class JeedClassLoader(private val fileManager: JeedFileManager, parentClassLoade
         val klass = super.loadClass(name)
         loadedClasses.add(name)
         return klass
+    }
+}
+
+@Suppress("Unused")
+class IsolatingClassLoader(private val klasses: Set<String>) : ClassLoader() {
+    override fun loadClass(name: String?): Class<*> {
+        if (klasses.contains(name)) {
+            throw ClassNotFoundException()
+        } else {
+            return super.loadClass(name)
+        }
+    }
+    override fun loadClass(name: String?, resolve: Boolean): Class<*> {
+        if (klasses.contains(name)) {
+            throw ClassNotFoundException()
+        } else {
+            return super.loadClass(name, resolve)
+        }
     }
 }

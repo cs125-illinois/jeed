@@ -7,7 +7,7 @@ plugins {
     kotlin("kapt")
     application
     `maven-publish`
-    id("com.github.johnrengelman.shadow") version "5.2.0"
+    id("com.github.johnrengelman.shadow") version "6.0.0"
     id("com.palantir.docker") version "0.25.0"
     id("org.jmailen.kotlinter")
 }

@@ -6,6 +6,7 @@ import io.kotlintest.SkipTestException
 import io.kotlintest.matchers.collections.shouldHaveSize
 import io.kotlintest.matchers.numerics.shouldBeGreaterThan
 import io.kotlintest.should
+import io.kotlintest.shouldBe
 import io.kotlintest.shouldThrow
 import io.kotlintest.specs.StringSpec
 
@@ -491,6 +492,31 @@ public class Example {
                 """.trimIndent()
             ).compile()
         }.allMatch { true }
+    }
+    "f:should isolate classes correctly when requested" {
+        val source = Source(
+            mapOf(
+                "Test.java" to """
+package examples;
+
+public class Test {
+    public static String welcome() {
+        return "Jeed";
+    }
+}
+            """.trim()
+            )
+        )
+        source.compile().also {
+            // Incorrectly loads the class from the classpath when not isolated
+            it.classLoader.loadClass("examples.Test")
+                .getDeclaredMethod("welcome").invoke(null) shouldBe "Classpath"
+        }
+        source.compile(CompilationArguments(isolatedClassLoader = true, useCache = false)).also {
+            it.cached shouldBe false
+            it.classLoader.loadClass("examples.Test")
+                .getDeclaredMethod("welcome").invoke(null) shouldBe "Jeed"
+        }
     }
 })
 
