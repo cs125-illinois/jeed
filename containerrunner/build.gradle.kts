@@ -2,21 +2,18 @@ import java.util.Properties
 import java.io.StringWriter
 import java.io.File
 
-group = "edu.illinois.cs.cs125"
-version = "2020.5.0"
-
 plugins {
     kotlin("jvm")
     application
-    id("com.github.johnrengelman.shadow") version "5.2.0"
+    id("com.github.johnrengelman.shadow") version "6.0.0"
     id("com.palantir.docker") version "0.25.0"
     id("org.jmailen.kotlinter")
 }
 dependencies {
     implementation("ch.qos.logback:logback-classic:1.2.3")
-    implementation("io.github.microutils:kotlin-logging:1.7.10")
-    implementation("com.github.ajalt:clikt:2.7.1")
-    implementation("io.github.classgraph:classgraph:4.8.86")
+    implementation("io.github.microutils:kotlin-logging:1.8.0.1")
+    implementation("com.github.ajalt:clikt:2.8.0")
+    implementation("io.github.classgraph:classgraph:4.8.87")
 }
 application {
     mainClassName = "edu.illinois.cs.cs125.jeed.containerrunner.MainKt"
