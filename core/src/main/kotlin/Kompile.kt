@@ -123,12 +123,16 @@ private class JeedMessageCollector(val source: Source, val allWarningsAsErrors: 
         }
         val sourceLocation = location
             ?.let {
-                if (source is Snippet) {
-                    SNIPPET_SOURCE
-                } else if (it.path != KOTLIN_EMPTY_LOCATION) {
-                    it.path
-                } else {
-                    null
+                when {
+                    source is Snippet -> {
+                        SNIPPET_SOURCE
+                    }
+                    it.path != KOTLIN_EMPTY_LOCATION -> {
+                        it.path
+                    }
+                    else -> {
+                        null
+                    }
                 }
             }?.let { source.mapLocation(SourceLocation(it, location.line, location.column)) }
         messages.add(CompilationMessage(severity.presentableName, sourceLocation, message))
@@ -211,15 +215,14 @@ private val KOTLIN_COROUTINE_IMPORTS = setOf("kotlinx.coroutines", "kotlin.corou
 const val KOTLIN_COROUTINE_MIN_TIMEOUT = 600L
 const val KOTLIN_COROUTINE_MIN_EXTRA_THREADS = 4
 
-fun CompiledSource.usesCoroutines(): Boolean {
-    return this.source.parseTree.any { (_, parseResults) ->
-        val (parseTree, _) = parseResults
-        parseTree as? KotlinParser.KotlinFileContext ?: check { "Parse tree is not from a Kotlin file" }
-        parseTree.preamble().importList().importHeader().any { importName ->
+fun CompiledSource.usesCoroutines(): Boolean = source.sources.keys
+    .map { source.getParsed(it).tree }
+    .any { tree ->
+        tree as? KotlinParser.KotlinFileContext ?: check { "Parse tree is not from a Kotlin file" }
+        tree.preamble().importList().importHeader().any { importName ->
             KOTLIN_COROUTINE_IMPORTS.any { importName.identifier().text.startsWith(it) }
         }
     }
-}
 
 fun JeedFileManager.toVirtualFile(): VirtualFile {
     val root = SimpleVirtualFile("", listOf(), true)

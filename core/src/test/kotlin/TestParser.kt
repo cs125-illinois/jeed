@@ -16,6 +16,6 @@ class Person {
 }
 """.trim()
             )
-        ).parseTree
+        ).getParsed("Main.kt").tree
     }
 })

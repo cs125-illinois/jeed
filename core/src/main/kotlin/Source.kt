@@ -42,10 +42,12 @@ open class Source(
         return Location(resultSourceLocation.line, resultSourceLocation.column)
     }
 
+    data class ParsedSource(val tree: ParseTree, val stream: CharStream)
+
     var parsed = false
     @Suppress("MemberVisibilityCanBePrivate")
     var parseInterval: Interval? = null
-    val parseTree: Map<String, Pair<ParseTree, CharStream>> by lazy {
+    private val parsedSources: Map<String, ParsedSource> by lazy {
         parsed = true
         val parseStart = Instant.now()
         sources.mapValues { entry ->
@@ -58,6 +60,8 @@ open class Source(
             parseInterval = Interval(parseStart, Instant.now())
         }
     }
+
+    fun getParsed(filename: String): ParsedSource = parsedSources[filename] ?: error("$filename not in sources")
 
     fun sourceFilenameToFileType(filename: String): FileType {
         if (this is Snippet) {

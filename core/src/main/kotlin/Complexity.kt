@@ -71,6 +71,7 @@ class MethodComplexity(
 @Suppress("TooManyFunctions")
 class ComplexityResult(val source: Source, entry: Map.Entry<String, String>) : JavaParserBaseListener() {
     private val name = entry.key
+
     @Suppress("unused")
     private val contents = entry.value
 
@@ -328,12 +329,7 @@ class ComplexityResult(val source: Source, entry: Map.Entry<String, String>) : J
     }
 
     init {
-        ParseTreeWalker.DEFAULT.walk(
-            this,
-            source.parseTree[name]?.first ?: require {
-                "Can't parse file $name"
-            }
-        )
+        ParseTreeWalker.DEFAULT.walk(this, source.getParsed(name).tree)
     }
 }
 

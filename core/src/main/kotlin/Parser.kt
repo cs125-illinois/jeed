@@ -39,7 +39,7 @@ class JeedErrorListener(val source: Source, entry: Map.Entry<String, String>) : 
     }
 }
 
-fun Source.parseJavaFile(entry: Map.Entry<String, String>): Pair<ParseTree, CharStream> {
+fun Source.parseJavaFile(entry: Map.Entry<String, String>): Source.ParsedSource {
     check(sourceFilenameToFileType(entry.key) == Source.FileType.JAVA) { "Must be called on a Java file" }
     val errorListener = JeedErrorListener(this, entry)
     val charStream = CharStreams.fromString(entry.value)
@@ -59,10 +59,10 @@ fun Source.parseJavaFile(entry: Map.Entry<String, String>): Pair<ParseTree, Char
         errorListener.check()
     }
 
-    return Pair(parseTree, charStream)
+    return Source.ParsedSource(parseTree, charStream)
 }
 
-fun Source.parseKotlinFile(entry: Map.Entry<String, String>): Pair<ParseTree, CharStream> {
+fun Source.parseKotlinFile(entry: Map.Entry<String, String>): Source.ParsedSource {
     check(sourceFilenameToFileType(entry.key) == Source.FileType.KOTLIN) { "Must be called on a Kotlin file" }
     val errorListener = JeedErrorListener(this, entry)
     val charStream = CharStreams.fromString(entry.value)
@@ -82,5 +82,5 @@ fun Source.parseKotlinFile(entry: Map.Entry<String, String>): Pair<ParseTree, Ch
         errorListener.check()
     }
 
-    return Pair(parseTree, charStream)
+    return Source.ParsedSource(parseTree, charStream)
 }
