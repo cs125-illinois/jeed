@@ -16,21 +16,15 @@ public class Example {
   }
 }""".trim()
             )
-        ).getParsed("Example.java").also {
-            StringLiteral.find(it).let {
-                it shouldHaveSize 1
-                it.first()
-            }.also {
-                it.apply()
-                it.original shouldBe "\"Hello, world!\""
-                it.applied shouldBe true
-                it.modified shouldNotBe "\"Hello, world!\""
+        ).getParsed("Example.java").also { parsedSource ->
+            Mutation.find<StringLiteral>(parsedSource).let { mutations ->
+                mutations shouldHaveSize 1
+                mutations[0].check("\"Hello, world!\"")
             }
-            StringLiteral.find(it).let {
-                it shouldHaveSize 1
-                it.first()
-            }.also {
-                it.apply(
+            Mutation.find<StringLiteral>(parsedSource).let { mutations ->
+                mutations shouldHaveSize 1
+                mutations[0].check(
+                    "\"Hello, world!\"", "null",
                     Mutation.Config(
                         stringLiteral = StringLiteral.Config(
                             random = false,
@@ -38,9 +32,6 @@ public class Example {
                         )
                     )
                 )
-                it.original shouldBe "\"Hello, world!\""
-                it.applied shouldBe true
-                it.modified shouldBe "null"
             }
         }
     }
@@ -57,21 +48,11 @@ public class Example {
   }
 }""".trim()
             )
-        ).getParsed("Example.java").also {
-            IncrementDecrement.find(it).let { mutations ->
+        ).getParsed("Example.java").also { parsedSource ->
+            Mutation.find<IncrementDecrement>(parsedSource).let { mutations ->
                 mutations shouldHaveSize 2
-                mutations.get(0).also {
-                    it.apply()
-                    it.original shouldBe "++"
-                    it.modified shouldBe "--"
-                    it.applied shouldBe true
-                }
-                mutations.get(1).also {
-                    it.apply()
-                    it.original shouldBe "--"
-                    it.modified shouldBe "++"
-                    it.applied shouldBe true
-                }
+                mutations[0].check("++", "--")
+                mutations[1].check("--", "++")
             }
         }
     }
@@ -86,21 +67,11 @@ public class Example {
   }
 }""".trim()
             )
-        ).getParsed("Example.java").also {
-            BooleanLiteral.find(it).let { mutations ->
+        ).getParsed("Example.java").also { parsedSource ->
+            Mutation.find<BooleanLiteral>(parsedSource).let { mutations ->
                 mutations shouldHaveSize 2
-                mutations.get(0).also {
-                    it.apply()
-                    it.original shouldBe "true"
-                    it.modified shouldBe "false"
-                    it.applied shouldBe true
-                }
-                mutations.get(1).also {
-                    it.apply()
-                    it.original shouldBe "false"
-                    it.modified shouldBe "true"
-                    it.applied shouldBe true
-                }
+                mutations[0].check("true", "false")
+                mutations[1].check("false", "true")
             }
         }
     }
@@ -120,21 +91,138 @@ public class Example {
 }""".trim()
             )
         ).getParsed("Example.java").also {
-            ConditionalBoundary.find(it).let { mutations ->
+            Mutation.find<ConditionalBoundary>(it).let { mutations ->
                 mutations shouldHaveSize 2
-                mutations.get(0).also {
-                    it.apply()
-                    it.original shouldBe "<"
-                    it.modified shouldBe "<="
-                    it.applied shouldBe true
-                }
-                mutations.get(1).also {
-                    it.apply()
-                    it.original shouldBe ">="
-                    it.modified shouldBe ">"
-                    it.applied shouldBe true
-                }
+                mutations[0].check("<", "<=")
+                mutations[1].check(">=", ">")
+            }
+        }
+    }
+    "it should find conditionals to negate" {
+        Source(
+            mapOf(
+                "Example.java" to """
+public class Example {
+  public static void example() {
+    int i = 0;
+    if (i < 10) {
+      System.out.println("Here");
+    } else if (i >= 20) {
+      System.out.println("There");
+    } else if (i == 10) {
+      System.out.println("Again");
+    }
+  }
+}""".trim()
+            )
+        ).getParsed("Example.java").also {
+            Mutation.find<NegateConditional>(it).let { mutations ->
+                mutations shouldHaveSize 3
+                mutations[0].check("<", ">=")
+                mutations[1].check(">=", "<")
+                mutations[2].check("==", "!=")
+            }
+        }
+    }
+    "it should find primitive returns to mutate" {
+        Source(
+            mapOf(
+                "Example.java" to """
+                    public class Example {
+  public static void first() {}
+  public static int second() {
+    return 1;
+  }
+  public static char third() {
+    return 'A';
+  }
+  public static boolean fourth() {
+    return true;
+  }
+  public static int fifth() {
+    return 0;
+  }
+  public static long sixth() {
+    return 0L;
+  }
+  public static double seventh() {
+    return 0.0;
+  }
+  public static double eighth() {
+    return 0.0f;
+  }
+}""".trim()
+            )
+        ).getParsed("Example.java").also {
+            Mutation.find<PrimitiveReturn>(it).let { mutations ->
+                mutations shouldHaveSize 2
+                mutations[0].check("1", "0")
+                mutations[1].check("'A'", "0")
+            }
+        }
+    }
+    "it should find true returns to mutate" {
+        Source(
+            mapOf(
+                "Example.java" to """
+public class Example {
+  public static void first() {}
+  public static boolean second() {
+    it = false;
+    return it;
+  }
+  public static boolean third() {
+    return false;
+  }
+  public static boolean fourth() {
+    return true;
+  }
+}""".trim()
+            )
+        ).getParsed("Example.java").also {
+            Mutation.find<TrueReturn>(it).let { mutations ->
+                mutations shouldHaveSize 2
+                mutations[0].check("it", "true")
+                mutations[1].check("false", "true")
+            }
+        }
+    }
+    "it should find false returns to mutate" {
+        Source(
+            mapOf(
+                "Example.java" to """
+public class Example {
+  public static void first() {}
+  public static boolean second() {
+    it = false;
+    return it;
+  }
+  public static boolean third() {
+    return false;
+  }
+  public static boolean fourth() {
+    return true;
+  }
+}""".trim()
+            )
+        ).getParsed("Example.java").also {
+            Mutation.find<FalseReturn>(it).let { mutations ->
+                mutations shouldHaveSize 2
+                mutations[0].check("it", "false")
+                mutations[1].check("true", "false")
             }
         }
     }
 })
+
+fun Mutation.check(original: String, modified: String? = null, config: Mutation.Config = Mutation.Config()) {
+    original shouldNotBe modified
+    applied shouldBe false
+    this.original shouldBe original
+    this.modified shouldBe null
+    apply(config)
+    applied shouldBe true
+    this.original shouldBe original
+    this.modified shouldNotBe original
+    modified?.also { this.modified shouldBe modified }
+}

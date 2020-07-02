@@ -493,7 +493,7 @@ public class Example {
             ).compile()
         }.allMatch { true }
     }
-    "f:should isolate classes correctly when requested" {
+    "should isolate classes correctly when requested" {
         val source = Source(
             mapOf(
                 "Test.java" to """

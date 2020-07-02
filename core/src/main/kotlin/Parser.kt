@@ -5,12 +5,10 @@ import edu.illinois.cs.cs125.jeed.core.antlr.JavaParser
 import edu.illinois.cs.cs125.jeed.core.antlr.KotlinLexer
 import edu.illinois.cs.cs125.jeed.core.antlr.KotlinParser
 import org.antlr.v4.runtime.BaseErrorListener
-import org.antlr.v4.runtime.CharStream
 import org.antlr.v4.runtime.CharStreams
 import org.antlr.v4.runtime.CommonTokenStream
 import org.antlr.v4.runtime.RecognitionException
 import org.antlr.v4.runtime.Recognizer
-import org.antlr.v4.runtime.tree.ParseTree
 
 class JeedParseError(location: SourceLocation, message: String) : SourceError(location, message)
 class JeedParsingException(errors: List<SourceError>) : JeedError(errors)
