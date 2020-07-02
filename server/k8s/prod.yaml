@@ -25,6 +25,8 @@ spec:
           value: Spring2020
         - name: HTTP
           value: http://0.0.0.0:8888
+        - name: JEED_USE_CACHE
+          value: "true"
         - name: MONGODB
           valueFrom:
             secretKeyRef:

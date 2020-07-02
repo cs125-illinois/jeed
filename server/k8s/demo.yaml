@@ -36,6 +36,8 @@ spec:
           value: Demo
         - name: HTTP
           value: http://0.0.0.0:8888
+        - name: JEED_USE_CACHE
+          value: "true"
         - name: JEED_CONTAINER_TMP_DIR
           value: /tmp/
         - name: DOCKER_HOST

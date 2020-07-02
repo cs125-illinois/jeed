@@ -20,7 +20,7 @@ dependencies {
     implementation(kotlin("reflect"))
 
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-core:1.3.6")
-    implementation("com.puppycrawl.tools:checkstyle:8.33")
+    implementation("com.puppycrawl.tools:checkstyle:8.34")
     implementation("com.pinterest.ktlint:ktlint-core:0.37.2")
     implementation("com.pinterest.ktlint:ktlint-ruleset-standard:0.37.2")
     implementation("com.github.jknack:handlebars:4.2.0")
@@ -32,7 +32,7 @@ dependencies {
     implementation("io.github.microutils:kotlin-logging:1.8.0.1")
     implementation("io.github.classgraph:classgraph:4.8.87")
     implementation("net.java.dev.jna:jna:5.5.0")
-    api("com.github.ben-manes.caffeine:caffeine:2.8.4")
+    api("com.github.ben-manes.caffeine:caffeine:2.8.5")
 
     testImplementation("io.kotlintest:kotlintest-runner-junit5:3.4.2")
 }
@@ -48,6 +48,11 @@ tasks.test {
     environment["JEED_MAX_THREAD_POOL_SIZE"] = 4
     environment["PATH"] = "${environment["PATH"]}:/usr/local/bin/"
     environment["JEED_CONTAINER_TMP_DIR"] = "/tmp/"
+
+    if (!project.hasProperty("slowTests")) {
+        exclude("**/TestResourceExhaustion.class")
+        exclude("**/TestParallelism.class")
+    }
 }
 tasks.generateGrammarSource {
     outputDirectory = File(projectDir, "src/main/java/edu/illinois/cs/cs125/jeed/core/antlr")

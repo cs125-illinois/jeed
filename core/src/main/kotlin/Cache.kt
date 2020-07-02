@@ -18,7 +18,7 @@ val compilationCacheSizeMB = try {
     JEED_DEFAULT_COMPILATION_CACHE_SIZE_MB
 }
 
-const val JEED_DEFAULT_USE_CACHE = true
+const val JEED_DEFAULT_USE_CACHE = false
 @Suppress("TooGenericExceptionCaught")
 val useCompilationCache = try {
     System.getenv("JEED_USE_CACHE")?.toBoolean() ?: JEED_DEFAULT_USE_CACHE
@@ -57,7 +57,8 @@ fun Source.tryCache(
     started: Instant,
     compilerName: String
 ): CompiledSource? {
-    if (!compilationArguments.useCache) {
+    val useCache = compilationArguments.useCache ?: useCompilationCache
+    if (!useCache) {
         return null
     }
     val cachedResult = compilationCache.getIfPresent(md5)
@@ -91,7 +92,8 @@ fun Source.tryCache(
 }
 
 fun CompiledSource.cache(compilationArguments: CompilationArguments) {
-    if (cached || !compilationArguments.useCache) {
+    val useCache = compilationArguments.useCache ?: useCompilationCache
+    if (cached || !useCache) {
         return
     }
     GlobalScope.launch {

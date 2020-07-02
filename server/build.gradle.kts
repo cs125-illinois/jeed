@@ -56,6 +56,7 @@ tasks.test {
     systemProperties["logback.configurationFile"] = File(projectDir, "src/test/resources/logback-test.xml").absolutePath
     environment["MONGODB"] = "mongodb://localhost:27017/cs125"
     environment["SEMESTER"] = "Spring2020"
+    environment["JEED_USE_CACHE"] = "true"
 }
 task("createProperties") {
     doLast {

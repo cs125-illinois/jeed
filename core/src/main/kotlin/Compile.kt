@@ -50,7 +50,7 @@ data class CompilationArguments(
     val enablePreview: Boolean = DEFAULT_ENABLE_PREVIEW,
     @Transient val parentFileManager: JavaFileManager? = null,
     @Transient val parentClassLoader: ClassLoader? = null,
-    val useCache: Boolean = useCompilationCache,
+    val useCache: Boolean? = null,
     val waitForCache: Boolean = false,
     val isolatedClassLoader: Boolean = false
 ) {
