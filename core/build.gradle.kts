@@ -52,6 +52,7 @@ tasks.test {
     if (!project.hasProperty("slowTests")) {
         exclude("**/TestResourceExhaustion.class")
         exclude("**/TestParallelism.class")
+        exclude("**/TestContainer.class")
     }
 }
 tasks.generateGrammarSource {

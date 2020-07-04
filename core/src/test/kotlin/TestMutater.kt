@@ -6,6 +6,44 @@ import io.kotlintest.shouldNotBe
 import io.kotlintest.specs.StringSpec
 
 class TestMutater : StringSpec({
+    "it should find boolean literals to mutate" {
+        Source(
+            mapOf(
+                "Example.java" to """
+public class Example {
+  public static void example() {
+    boolean first = true;
+    boolean second = false;
+  }
+}""".trim()
+            )
+        ).getParsed("Example.java").also { parsedSource ->
+            Mutation.find<BooleanLiteral>(parsedSource).let { mutations ->
+                mutations shouldHaveSize 2
+                mutations[0].check("true", "false")
+                mutations[1].check("false", "true")
+            }
+        }
+    }
+    "it should find char literals to mutate" {
+        Source(
+            mapOf(
+                "Example.java" to """
+public class Example {
+  public static void example() {
+    char first = 'a';
+    char second = '!';
+  }
+}""".trim()
+            )
+        ).getParsed("Example.java").also { parsedSource ->
+            Mutation.find<CharLiteral>(parsedSource).let { mutations ->
+                mutations shouldHaveSize 2
+                mutations[0].check("'a'")
+                mutations[1].check("'!'")
+            }
+        }
+    }
     "it should find string literals to mutate" {
         Source(
             mapOf(
@@ -13,25 +51,15 @@ class TestMutater : StringSpec({
 public class Example {
   public static void example() {
     System.out.println("Hello, world!");
+    String s = "";
   }
 }""".trim()
             )
         ).getParsed("Example.java").also { parsedSource ->
             Mutation.find<StringLiteral>(parsedSource).let { mutations ->
-                mutations shouldHaveSize 1
+                mutations shouldHaveSize 2
                 mutations[0].check("\"Hello, world!\"")
-            }
-            Mutation.find<StringLiteral>(parsedSource).let { mutations ->
-                mutations shouldHaveSize 1
-                mutations[0].check(
-                    "\"Hello, world!\"", "null",
-                    Mutation.Config(
-                        stringLiteral = StringLiteral.Config(
-                            random = false,
-                            replaceWith = null
-                        )
-                    )
-                )
+                mutations[1].check("\"\"")
             }
         }
     }
@@ -56,22 +84,51 @@ public class Example {
             }
         }
     }
-    "it should find boolean literals to mutate" {
+    "it should find negatives to invert" {
         Source(
             mapOf(
                 "Example.java" to """
 public class Example {
   public static void example() {
-    boolean first = true;
-    boolean second = false;
+    int i = 0;
+    int j = -1;
+    int k = -j;
   }
 }""".trim()
             )
         ).getParsed("Example.java").also { parsedSource ->
-            Mutation.find<BooleanLiteral>(parsedSource).let { mutations ->
+            Mutation.find<InvertNegation>(parsedSource).let { mutations ->
                 mutations shouldHaveSize 2
-                mutations[0].check("true", "false")
-                mutations[1].check("false", "true")
+                mutations[0].check("-", "")
+                mutations[1].check("-", "")
+            }
+        }
+    }
+    "it should find math to mutate" {
+        Source(
+            mapOf(
+                "Example.java" to """
+public class Example {
+  public static void example() {
+    int i = 0;
+    int j = 1;
+    int k = i + j;
+    k = i - j;
+    k = i * j;
+    k = i / j;
+    int l = i % 10;
+    l = i & j;
+    l = j | i;
+    l = j ^ i;
+    l = i << 2;
+    l = i >> 2;
+    k = i >>> j;
+  }
+}""".trim()
+            )
+        ).getParsed("Example.java").also { parsedSource ->
+            Mutation.find<MutateMath>(parsedSource).let { mutations ->
+                mutations shouldHaveSize 10
             }
         }
     }
@@ -215,12 +272,12 @@ public class Example {
     }
 })
 
-fun Mutation.check(original: String, modified: String? = null, config: Mutation.Config = Mutation.Config()) {
+fun Mutation.check(original: String, modified: String? = null) {
     original shouldNotBe modified
     applied shouldBe false
     this.original shouldBe original
     this.modified shouldBe null
-    apply(config)
+    apply()
     applied shouldBe true
     this.original shouldBe original
     this.modified shouldNotBe original

@@ -8,6 +8,7 @@ import org.antlr.v4.runtime.ParserRuleContext
 import org.antlr.v4.runtime.Token
 import org.antlr.v4.runtime.misc.Interval
 import org.antlr.v4.runtime.tree.ParseTreeWalker
+import org.antlr.v4.runtime.tree.TerminalNode
 import org.jetbrains.kotlin.backend.common.pop
 import kotlin.random.Random
 
@@ -19,7 +20,9 @@ sealed class Mutation(val type: Type, val location: Location, val original: Stri
     }
 
     enum class Type {
-        STRING_LITERAL, INCREMENT_DECREMENT, BOOLEAN_LITERAL, CONDITIONAL_BOUNDARY, NEGATE_CONDITIONAL,
+        BOOLEAN_LITERAL, CHAR_LITERAL, STRING_LITERAL,
+        CONDITIONAL_BOUNDARY, NEGATE_CONDITIONAL,
+        INCREMENT_DECREMENT, INVERT_NEGATION,
         PRIMITIVE_RETURN, TRUE_RETURN, FALSE_RETURN
     }
 
@@ -27,14 +30,9 @@ sealed class Mutation(val type: Type, val location: Location, val original: Stri
     val applied: Boolean
         get() = modified != null
 
-    data class Config(
-        val stringLiteral: StringLiteral.Config = StringLiteral.Config(),
-        val incrementDecrement: IncrementDecrement.Config = IncrementDecrement.Config()
-    )
-
-    fun apply(config: Config = Config()): Boolean {
+    fun apply(random: Random = Random): Boolean {
         check(modified == null) { "Mutation already applied" }
-        applyMutation(config).also {
+        applyMutation(random).also {
             if (it != original) {
                 modified = it
             }
@@ -42,10 +40,11 @@ sealed class Mutation(val type: Type, val location: Location, val original: Stri
         return applied
     }
 
-    abstract fun applyMutation(config: Config = Config()): String
+    abstract fun applyMutation(random: Random = Random): String
 
     override fun toString(): String = "$type: $location ($original)"
 
+    @Suppress("ComplexMethod", "LongMethod")
     class Listener(private val parsedSource: Source.ParsedSource) : JavaParserBaseListener() {
         val mutations: MutableList<Mutation> = mutableListOf()
 
@@ -77,16 +76,23 @@ sealed class Mutation(val type: Type, val location: Location, val original: Stri
 
         private fun ParserRuleContext.toLocation() = Location(start.startIndex, stop.stopIndex, currentPath)
         private fun Token.toLocation() = Location(startIndex, stopIndex, currentPath)
+        private fun List<TerminalNode>.toLocation() =
+            Location(first().symbol.startIndex, last().symbol.stopIndex, currentPath)
 
         override fun enterLiteral(ctx: JavaParser.LiteralContext) {
-            ctx.STRING_LITERAL().also {
+            ctx.STRING_LITERAL()?.also {
                 ctx.toLocation().also { location ->
                     mutations.add(StringLiteral(location, parsedSource.contents(location)))
                 }
             }
-            ctx.BOOL_LITERAL().also {
+            ctx.BOOL_LITERAL()?.also {
                 ctx.toLocation().also { location ->
                     mutations.add(BooleanLiteral(location, parsedSource.contents(location)))
+                }
+            }
+            ctx.CHAR_LITERAL()?.also {
+                ctx.toLocation().also { location ->
+                    mutations.add(CharLiteral(location, parsedSource.contents(location)))
                 }
             }
         }
@@ -95,15 +101,42 @@ sealed class Mutation(val type: Type, val location: Location, val original: Stri
             ctx.prefix?.toLocation()?.also { location ->
                 val contents = parsedSource.contents(location)
                 if (IncrementDecrement.matches(contents)) {
-                    mutations.add(IncrementDecrement(location, contents, true))
+                    mutations.add(IncrementDecrement(location, contents))
+                }
+                if (InvertNegation.matches(contents)) {
+                    mutations.add(InvertNegation(location, contents))
                 }
             }
             ctx.postfix?.toLocation()?.also { location ->
                 val contents = parsedSource.contents(location)
                 if (IncrementDecrement.matches(contents)) {
-                    mutations.add(IncrementDecrement(location, contents, false))
+                    mutations.add(IncrementDecrement(location, contents))
                 }
             }
+
+            ctx.LT()?.also { tokens ->
+                if (tokens.size == 2) {
+                    tokens.toLocation().also { location ->
+                        val contents = parsedSource.contents(location)
+                        if (MutateMath.matches(contents)) {
+                            mutations.add(MutateMath(location, contents))
+                        }
+                    }
+                }
+            }
+
+            ctx.GT()?.also { tokens ->
+                @Suppress("MagicNumber")
+                if (tokens.size == 2 || tokens.size == 3) {
+                    tokens.toLocation().also { location ->
+                        val contents = parsedSource.contents(location)
+                        if (MutateMath.matches(contents)) {
+                            mutations.add(MutateMath(location, contents))
+                        }
+                    }
+                }
+            }
+
             ctx.bop?.toLocation()?.also { location ->
                 val contents = parsedSource.contents(location)
                 if (ConditionalBoundary.matches(contents)) {
@@ -111,6 +144,9 @@ sealed class Mutation(val type: Type, val location: Location, val original: Stri
                 }
                 if (NegateConditional.matches(contents)) {
                     mutations.add(NegateConditional(location, contents))
+                }
+                if (MutateMath.matches(contents)) {
+                    mutations.add(MutateMath(location, contents))
                 }
             }
         }
@@ -145,87 +181,60 @@ sealed class Mutation(val type: Type, val location: Location, val original: Stri
     }
 }
 
+class BooleanLiteral(
+    location: Location,
+    original: String
+) : Mutation(Type.BOOLEAN_LITERAL, location, original) {
+
+    override fun applyMutation(random: Random): String {
+        return when (original) {
+            "true" -> "false"
+            "false" -> "true"
+            else -> error("${this.javaClass.name} didn't find expected text")
+        }
+    }
+}
+
+val ALPHANUMERIC_CHARS: List<Char> = ('a'..'z') + ('A'..'Z') + ('0'..'9')
+
+class CharLiteral(
+    location: Location,
+    original: String
+) : Mutation(Type.CHAR_LITERAL, location, original) {
+    private val character = original.removeSurrounding("'").also {
+        check(it.length == 1) { "Character didn't have the correct length: $original" }
+    }.first()
+
+    override fun applyMutation(random: Random): String =
+        ALPHANUMERIC_CHARS.filter { it != character }.shuffled(random).first().let { "'$it'" }
+}
+
 class StringLiteral(location: Location, original: String) : Mutation(Type.STRING_LITERAL, location, original) {
-    data class Config(
-        val random: Boolean = DEFAULT_RANDOM,
-        val preserveLength: Boolean = DEFAULT_PRESERVE_LENGTH,
-        val replaceWith: String? = null,
-        val minLength: Int = DEFAULT_MIN_LENGTH,
-        val maxLength: Int = DEFAULT_MAX_LENGTH
-    ) {
-        companion object {
-            const val DEFAULT_RANDOM = true
-            const val DEFAULT_PRESERVE_LENGTH = false
-            const val DEFAULT_MIN_LENGTH = 4
-            const val DEFAULT_MAX_LENGTH = 32
-            const val MAX_STRING_RETRIES = 32
-        }
-    }
+    private val string = original.removeSurrounding("\"")
 
-    private fun randomString(length: Int): String {
-        if (length == 0) {
-            return ""
-        }
-        for (i in 0..Config.MAX_STRING_RETRIES) {
-            (1..length)
-                .map { Random.nextInt(0, ALPHANUMERIC_CHARS.size) }
-                .map(ALPHANUMERIC_CHARS::get)
-                .joinToString("").also {
-                    if (it != original) {
-                        return it
-                    }
-                }
-        }
-        error("Couldn't generate string")
-    }
-
-    override fun applyMutation(config: Mutation.Config): String {
-        val ourConfig = config.stringLiteral
-        return if (ourConfig.random) {
-            if (ourConfig.preserveLength) {
-                randomString(original.length - 2)
-            } else {
-                randomString(Random.nextInt(ourConfig.minLength, ourConfig.maxLength))
-            }.let {
-                "\"$it\""
-            }
+    override fun applyMutation(random: Random): String {
+        return if (string.isBlank()) {
+            " "
         } else {
-            ourConfig.replaceWith.toString()
+            string.toCharArray().let { characters ->
+                val position = random.nextInt(characters.size)
+                characters[position] =
+                    (ALPHANUMERIC_CHARS.filter { it != characters[position] } + ' ').shuffled(random).first()
+                characters.joinToString("")
+            }
         }
-    }
-
-    companion object {
-        val ALPHANUMERIC_CHARS: List<Char> = ('a'..'z') + ('A'..'Z') + ('0'..'9')
     }
 }
 
 class IncrementDecrement(
     location: Location,
-    original: String,
-    val prefix: Boolean
+    original: String
 ) : Mutation(Type.INCREMENT_DECREMENT, location, original) {
-    data class Config(
-        val changePrefix: Boolean = CHANGE_PREFIX,
-        val changePostfix: Boolean = CHANGE_POSTFIX
-    ) {
-        companion object {
-            const val CHANGE_PREFIX = true
-            const val CHANGE_POSTFIX = true
-        }
-    }
-
-    override fun applyMutation(config: Mutation.Config): String {
-        val ourConfig = config.incrementDecrement
-        check(original == INC || original == DEC) { "${this.javaClass.name} didn't find expected text" }
-        @Suppress("ComplexCondition")
-        return if ((prefix && ourConfig.changePrefix) || (!prefix || ourConfig.changePostfix)) {
-            if (original == INC) {
-                DEC
-            } else {
-                INC
-            }
-        } else {
-            original
+    override fun applyMutation(random: Random): String {
+        return when (original) {
+            INC -> DEC
+            DEC -> INC
+            else -> error("${javaClass.name} didn't find the expected text")
         }
     }
 
@@ -237,22 +246,54 @@ class IncrementDecrement(
     }
 }
 
-class BooleanLiteral(
+class InvertNegation(
     location: Location,
     original: String
-) : Mutation(Type.BOOLEAN_LITERAL, location, original) {
+) : Mutation(Type.INVERT_NEGATION, location, original) {
+    override fun applyMutation(random: Random): String = ""
 
-    override fun applyMutation(config: Config): String {
-        return when (original) {
-            TRUE -> FALSE
-            FALSE -> TRUE
-            else -> error("${this.javaClass.name} didn't find expected text")
-        }
+    companion object {
+        fun matches(contents: String) = contents == "-"
+    }
+}
+
+class MutateMath(
+    location: Location,
+    original: String
+) : Mutation(Type.INVERT_NEGATION, location, original) {
+
+    override fun applyMutation(random: Random): String = when (original) {
+        SUBTRACT -> ADD
+        MULTIPLY -> DIVIDE
+        DIVIDE -> MULTIPLY
+        REMAINDER -> MULTIPLY
+        BITWISE_AND -> BITWISE_OR
+        BITWISE_OR -> BITWISE_AND
+        BITWISE_XOR -> BITWISE_AND
+        LEFT_SHIFT -> RIGHT_SHIFT
+        RIGHT_SHIFT -> LEFT_SHIFT
+        UNSIGNED_RIGHT_SHIFT -> LEFT_SHIFT
+        else -> error("${javaClass.name} didn't find the expected text")
     }
 
     companion object {
-        private const val TRUE = "true"
-        private const val FALSE = "false"
+        const val ADD = "+"
+        const val SUBTRACT = "-"
+        const val MULTIPLY = "*"
+        const val DIVIDE = "/"
+        const val REMAINDER = "%"
+        const val BITWISE_AND = "&"
+        const val BITWISE_OR = "|"
+        const val BITWISE_XOR = "^"
+        const val LEFT_SHIFT = "<<"
+        const val RIGHT_SHIFT = ">>"
+        const val UNSIGNED_RIGHT_SHIFT = ">>>"
+
+        fun matches(contents: String) = contents in setOf(
+            SUBTRACT, MULTIPLY, DIVIDE, REMAINDER,
+            BITWISE_AND, BITWISE_OR, BITWISE_XOR,
+            LEFT_SHIFT, RIGHT_SHIFT, UNSIGNED_RIGHT_SHIFT
+        )
     }
 }
 
@@ -269,7 +310,7 @@ class ConditionalBoundary(
     location: Location,
     original: String
 ) : Mutation(Type.CONDITIONAL_BOUNDARY, location, original) {
-    override fun applyMutation(config: Config): String {
+    override fun applyMutation(random: Random): String {
         return when (original) {
             Conditionals.LT -> Conditionals.LTE
             Conditionals.LTE -> Conditionals.LT
@@ -290,7 +331,7 @@ class NegateConditional(
     location: Location,
     original: String
 ) : Mutation(Type.NEGATE_CONDITIONAL, location, original) {
-    override fun applyMutation(config: Config): String {
+    override fun applyMutation(random: Random): String {
         return when (original) {
             Conditionals.EQ -> Conditionals.NE
             Conditionals.NE -> Conditionals.EQ
@@ -315,7 +356,7 @@ class PrimitiveReturn(
     location: Location,
     original: String
 ) : Mutation(Type.PRIMITIVE_RETURN, location, original) {
-    override fun applyMutation(config: Config): String = "0"
+    override fun applyMutation(random: Random): String = "0"
 
     companion object {
         private val zeros = setOf("0", "0L", "0.0", "0.0f")
@@ -328,7 +369,7 @@ class TrueReturn(
     location: Location,
     original: String
 ) : Mutation(Type.TRUE_RETURN, location, original) {
-    override fun applyMutation(config: Config): String = "true"
+    override fun applyMutation(random: Random): String = "true"
 
     companion object {
         fun matches(contents: String, returnType: String) =
@@ -340,7 +381,7 @@ class FalseReturn(
     location: Location,
     original: String
 ) : Mutation(Type.FALSE_RETURN, location, original) {
-    override fun applyMutation(config: Config): String = "false"
+    override fun applyMutation(random: Random): String = "false"
 
     companion object {
         fun matches(contents: String, returnType: String) =
