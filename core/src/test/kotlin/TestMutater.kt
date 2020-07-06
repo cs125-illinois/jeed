@@ -63,6 +63,25 @@ public class Example {
             }
         }
     }
+    "it should find number literals to mutate" {
+        Source(
+            mapOf(
+                "Example.java" to """
+public class Example {
+  public static void example() {
+    System.out.println(1234);
+    float f = 1.01f;
+  }
+}""".trim()
+            )
+        ).getParsed("Example.java").also { parsedSource ->
+            Mutation.find<NumberLiteral>(parsedSource).let { mutations ->
+                mutations shouldHaveSize 2
+                mutations[0].check("1234")
+                mutations[1].check("1.01f")
+            }
+        }
+    }
     "it should find increments and decrements to mutate" {
         Source(
             mapOf(
@@ -267,6 +286,31 @@ public class Example {
                 mutations shouldHaveSize 2
                 mutations[0].check("it", "false")
                 mutations[1].check("true", "false")
+            }
+        }
+    }
+    "it should find null returns to mutate" {
+        Source(
+            mapOf(
+                "Example.java" to """
+public class Example {
+  public static void first() {}
+  public static boolean second() {
+    it = false;
+    return it;
+  }
+  public static boolean third() {
+    return false;
+  }
+  public static Object fourth() {
+    return new Object();
+  }
+}""".trim()
+            )
+        ).getParsed("Example.java").also {
+            Mutation.find<NullReturn>(it).let { mutations ->
+                mutations shouldHaveSize 1
+                mutations[0].check("new Object()", "null")
             }
         }
     }

@@ -20,10 +20,10 @@ sealed class Mutation(val type: Type, val location: Location, val original: Stri
     }
 
     enum class Type {
-        BOOLEAN_LITERAL, CHAR_LITERAL, STRING_LITERAL,
+        BOOLEAN_LITERAL, CHAR_LITERAL, STRING_LITERAL, NUMBER_LITERAL,
         CONDITIONAL_BOUNDARY, NEGATE_CONDITIONAL,
         INCREMENT_DECREMENT, INVERT_NEGATION, MATH,
-        PRIMITIVE_RETURN, TRUE_RETURN, FALSE_RETURN
+        PRIMITIVE_RETURN, TRUE_RETURN, FALSE_RETURN, NULL_RETURN
     }
 
     var modified: String? = null
@@ -80,11 +80,6 @@ sealed class Mutation(val type: Type, val location: Location, val original: Stri
             Location(first().symbol.startIndex, last().symbol.stopIndex, currentPath)
 
         override fun enterLiteral(ctx: JavaParser.LiteralContext) {
-            ctx.STRING_LITERAL()?.also {
-                ctx.toLocation().also { location ->
-                    mutations.add(StringLiteral(location, parsedSource.contents(location)))
-                }
-            }
             ctx.BOOL_LITERAL()?.also {
                 ctx.toLocation().also { location ->
                     mutations.add(BooleanLiteral(location, parsedSource.contents(location)))
@@ -93,6 +88,25 @@ sealed class Mutation(val type: Type, val location: Location, val original: Stri
             ctx.CHAR_LITERAL()?.also {
                 ctx.toLocation().also { location ->
                     mutations.add(CharLiteral(location, parsedSource.contents(location)))
+                }
+            }
+            ctx.STRING_LITERAL()?.also {
+                ctx.toLocation().also { location ->
+                    mutations.add(StringLiteral(location, parsedSource.contents(location)))
+                }
+            }
+            ctx.integerLiteral()?.also { integerLiteral ->
+                integerLiteral.DECIMAL_LITERAL()?.also {
+                    ctx.toLocation().also { location ->
+                        mutations.add(NumberLiteral(location, parsedSource.contents(location)))
+                    }
+                }
+            }
+            ctx.floatLiteral()?.also { floatLiteral ->
+                floatLiteral.FLOAT_LITERAL()?.also {
+                    ctx.toLocation().also { location ->
+                        mutations.add(NumberLiteral(location, parsedSource.contents(location)))
+                    }
                 }
             }
         }
@@ -164,6 +178,9 @@ sealed class Mutation(val type: Type, val location: Location, val original: Stri
                         if (FalseReturn.matches(contents, returnType)) {
                             mutations.add(FalseReturn(location, parsedSource.contents(location)))
                         }
+                        if (NullReturn.matches(contents, returnType)) {
+                            mutations.add(NullReturn(location, parsedSource.contents(location)))
+                        }
                     } ?: error("Should have recorded a return type at this point")
                 }
             }
@@ -194,7 +211,7 @@ class BooleanLiteral(
     }
 }
 
-val ALPHANUMERIC_CHARS: List<Char> = ('a'..'z') + ('A'..'Z') + ('0'..'9')
+val ALPHANUMERIC_CHARS = (('a'..'z') + ('A'..'Z') + ('0'..'9')).toSet()
 
 class CharLiteral(
     location: Location,
@@ -207,6 +224,8 @@ class CharLiteral(
     override fun applyMutation(random: Random): String =
         ALPHANUMERIC_CHARS.filter { it != character }.shuffled(random).first().let { "'$it'" }
 }
+
+val NUMERIC_CHARS = ('0'..'9').toSet()
 
 class StringLiteral(location: Location, original: String) : Mutation(Type.STRING_LITERAL, location, original) {
     private val string = original.removeSurrounding("\"")
@@ -222,6 +241,24 @@ class StringLiteral(location: Location, original: String) : Mutation(Type.STRING
                 characters.joinToString("")
             }
         }
+    }
+}
+
+class NumberLiteral(
+    location: Location, original: String, val base: Int = 10
+) : Mutation(Type.NUMBER_LITERAL, location, original) {
+    private val numberPositions = original
+        .toCharArray()
+        .filter { it in NUMERIC_CHARS }
+        .mapIndexed { index, _ -> index }.also {
+            check(it.isNotEmpty()) { "No numeric characters in numeric literal" }
+        }
+
+    override fun applyMutation(random: Random): String {
+        val position = numberPositions.shuffled(random).first()
+        return original.toCharArray().also { characters ->
+            characters[position] = ((characters[position].toInt() + 1) % base).toChar()
+        }.toString()
     }
 }
 
@@ -385,6 +422,18 @@ class FalseReturn(
     companion object {
         fun matches(contents: String, returnType: String) =
             contents != "false" && returnType in setOf("boolean", "Boolean")
+    }
+}
+
+class NullReturn(
+    location: Location,
+    original: String
+) : Mutation(Type.NULL_RETURN, location, original) {
+    override fun applyMutation(random: Random): String = "null"
+
+    companion object {
+        fun matches(contents: String, returnType: String) =
+            contents != "null" && returnType == returnType.capitalize()
     }
 }
 
