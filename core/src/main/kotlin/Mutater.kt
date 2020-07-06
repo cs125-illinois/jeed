@@ -22,7 +22,7 @@ sealed class Mutation(val type: Type, val location: Location, val original: Stri
     enum class Type {
         BOOLEAN_LITERAL, CHAR_LITERAL, STRING_LITERAL,
         CONDITIONAL_BOUNDARY, NEGATE_CONDITIONAL,
-        INCREMENT_DECREMENT, INVERT_NEGATION,
+        INCREMENT_DECREMENT, INVERT_NEGATION, MATH,
         PRIMITIVE_RETURN, TRUE_RETURN, FALSE_RETURN
     }
 
@@ -125,15 +125,14 @@ sealed class Mutation(val type: Type, val location: Location, val original: Stri
                 }
             }
 
-            ctx.GT()?.also { tokens ->
-                @Suppress("MagicNumber")
-                if (tokens.size == 2 || tokens.size == 3) {
-                    tokens.toLocation().also { location ->
-                        val contents = parsedSource.contents(location)
-                        if (MutateMath.matches(contents)) {
-                            mutations.add(MutateMath(location, contents))
-                        }
-                    }
+            // I'm not sure why you can't write this like the other ones, but it fails with a cast to kotlin.Unit
+            // exception
+            @Suppress("MagicNumber")
+            if (ctx.GT() != null && (ctx.GT().size == 2 || ctx.GT().size == 3)) {
+                val location = ctx.GT().toLocation()
+                val contents = parsedSource.contents(location)
+                if (MutateMath.matches(contents)) {
+                    mutations.add(MutateMath(location, contents))
                 }
             }
 
@@ -260,7 +259,7 @@ class InvertNegation(
 class MutateMath(
     location: Location,
     original: String
-) : Mutation(Type.INVERT_NEGATION, location, original) {
+) : Mutation(Type.MATH, location, original) {
 
     override fun applyMutation(random: Random): String = when (original) {
         SUBTRACT -> ADD
