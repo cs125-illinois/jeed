@@ -4,8 +4,8 @@ import com.github.jknack.handlebars.Handlebars
 import com.github.jknack.handlebars.HandlebarsException
 
 class TemplatedSource(
-    sources: Map<String, String>,
-    val originalSources: Map<String, String>,
+    sources: Sources,
+    val originalSources: Sources,
     @Transient private val remappedLineMapping: Map<String, RemappedLines>
 ) : Source(sources, sourceMappingFunction = { mapLocation(it, remappedLineMapping) }) {
     data class RemappedLines(val start: Int, val end: Int, val addedIndentation: Int = 0)
@@ -41,7 +41,10 @@ class TemplatingFailed(errors: List<TemplatingError>) : AlwaysLocatedJeedError(e
 
 @Throws(TemplatingFailed::class)
 @Suppress("LongMethod")
-fun Source.Companion.fromTemplates(sources: Map<String, String>, templates: Map<String, String>): TemplatedSource {
+fun Source.Companion.fromTemplates(sourceMap: Map<String, String>, templateMap: Map<String, String>): TemplatedSource {
+    val sources = Sources(sourceMap)
+    val templates = Sources(templateMap)
+
     require(templates.keys.all { it.endsWith(".hbs") }) { "template names in map should end with .hbs" }
     require(sources.keys.containsAll(templates.keys.map { it.removeSuffix(".hbs") })) {
         "templates map contains keys not present in source map"
@@ -99,7 +102,8 @@ fun Source.Companion.fromTemplates(sources: Map<String, String>, templates: Map<
             templatingErrors.add(TemplatingError(name, e.error.line, e.error.column, e.error.message))
             ""
         }
-    }
+    }.let { Sources(it) }
+
     if (templatingErrors.isNotEmpty()) {
         throw TemplatingFailed(templatingErrors)
     }

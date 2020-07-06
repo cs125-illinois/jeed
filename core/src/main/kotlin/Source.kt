@@ -16,11 +16,29 @@ import java.time.Instant
 @Suppress("UNUSED")
 val logger = KotlinLogging.logger {}
 
+data class Sources(val sources: Map<String, String>) : Map<String, String> by sources
+
 open class Source(
-    val sources: Map<String, String>,
-    checkSourceNames: (Map<String, String>) -> FileType = ::defaultCheckSourceNames,
+    sourceMap: Map<String, String>,
+    checkSourceNames: (Sources) -> FileType = ::defaultCheckSourceNames,
     @Transient val sourceMappingFunction: (SourceLocation) -> SourceLocation = { it }
 ) {
+    val sources = Sources(sourceMap)
+
+    val contents: String
+        get() = sources.values.let {
+            check(it.size == 1) { "Can only retrieve contents for sources with single file" }
+            it.first()
+        }
+
+    val name: String
+        get() = sources.keys.let {
+            check(it.size == 1) { "Can only retrieve name for sources with single file" }
+            it.first()
+        }
+
+    operator fun get(filename: String) = sources.get(filename)
+
     enum class FileType(val type: String) {
         JAVA("Java"),
         KOTLIN("Kotlin")
@@ -45,6 +63,7 @@ open class Source(
     data class ParsedSource(val tree: ParseTree, val stream: CharStream)
 
     var parsed = false
+
     @Suppress("MemberVisibilityCanBePrivate")
     var parseInterval: Interval? = null
     private val parsedSources: Map<String, ParsedSource> by lazy {
@@ -101,6 +120,7 @@ open class Source(
         private val moshi by lazy {
             Moshi.Builder().build()
         }
+
         private fun filenameToFileType(filename: String): FileType {
             return when (val extension = filename.split("/").last().split(".").last()) {
                 "java" -> FileType.JAVA
@@ -115,7 +135,7 @@ open class Source(
             }.distinct()
         }
 
-        private fun defaultCheckSourceNames(sources: Map<String, String>): FileType {
+        private fun defaultCheckSourceNames(sources: Sources): FileType {
             sources.keys.forEach { name ->
                 require(name.isNotBlank()) { "filename cannot be blank" }
             }
@@ -214,6 +234,7 @@ fun Throwable.getStackTraceAsString(): String {
 }
 
 val stackTraceLineRegex = Regex("""^at (\w+)\.(\w+)\((\w*):(\d+)\)$""")
+
 @Suppress("unused")
 fun Throwable.getStackTraceForSource(source: Source): String {
     val originalStackTrace = this.getStackTraceAsString().lines().toMutableList()
@@ -223,7 +244,7 @@ fun Throwable.getStackTraceForSource(source: Source): String {
     @Suppress("LoopWithTooManyJumpStatements")
     for (line in originalStackTrace) {
         if (line.trim()
-            .startsWith("""at java.base/jdk.internal.reflect.NativeMethodAccessorImpl.invoke0(Native Method)""")
+                .startsWith("""at java.base/jdk.internal.reflect.NativeMethodAccessorImpl.invoke0(Native Method)""")
         ) {
             break
         }
@@ -237,8 +258,16 @@ fun Throwable.getStackTraceForSource(source: Source): String {
             continue
         }
         val (klass, method, name, correctLine) = parsedLine.destructured
-        val fixedKlass = if (klass == source.wrappedClassName) { "" } else { "$klass." }
-        val fixedMethod = if (method == source.looseCodeMethodName) { "" } else { method }
+        val fixedKlass = if (klass == source.wrappedClassName) {
+            ""
+        } else {
+            "$klass."
+        }
+        val fixedMethod = if (method == source.looseCodeMethodName) {
+            ""
+        } else {
+            method
+        }
         val correctLocation = source.mapLocation(SourceLocation(name, correctLine.toInt(), 0))
         betterStackTrace.add("  at $fixedKlass$fixedMethod(:${correctLocation.line})")
     }

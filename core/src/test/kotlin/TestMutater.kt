@@ -17,12 +17,10 @@ public class Example {
   }
 }""".trim()
             )
-        ).getParsed("Example.java").also { parsedSource ->
-            Mutation.find<BooleanLiteral>(parsedSource).let { mutations ->
-                mutations shouldHaveSize 2
-                mutations[0].check("true", "false")
-                mutations[1].check("false", "true")
-            }
+        ).checkMutations<BooleanLiteral>() { mutations, contents ->
+            mutations shouldHaveSize 2
+            mutations[0].check(contents, "true", "false")
+            mutations[1].check(contents, "false", "true")
         }
     }
     "it should find char literals to mutate" {
@@ -36,12 +34,10 @@ public class Example {
   }
 }""".trim()
             )
-        ).getParsed("Example.java").also { parsedSource ->
-            Mutation.find<CharLiteral>(parsedSource).let { mutations ->
-                mutations shouldHaveSize 2
-                mutations[0].check("'a'")
-                mutations[1].check("'!'")
-            }
+        ).checkMutations<CharLiteral> { mutations, contents ->
+            mutations shouldHaveSize 2
+            mutations[0].check(contents, "'a'")
+            mutations[1].check(contents, "'!'")
         }
     }
     "it should find string literals to mutate" {
@@ -55,12 +51,10 @@ public class Example {
   }
 }""".trim()
             )
-        ).getParsed("Example.java").also { parsedSource ->
-            Mutation.find<StringLiteral>(parsedSource).let { mutations ->
-                mutations shouldHaveSize 2
-                mutations[0].check("\"Hello, world!\"")
-                mutations[1].check("\"\"")
-            }
+        ).checkMutations<StringLiteral> { mutations, contents ->
+            mutations shouldHaveSize 2
+            mutations[0].check(contents, "\"Hello, world!\"")
+            mutations[1].check(contents, "\"\"")
         }
     }
     "it should find number literals to mutate" {
@@ -74,12 +68,10 @@ public class Example {
   }
 }""".trim()
             )
-        ).getParsed("Example.java").also { parsedSource ->
-            Mutation.find<NumberLiteral>(parsedSource).let { mutations ->
-                mutations shouldHaveSize 2
-                mutations[0].check("1234")
-                mutations[1].check("1.01f")
-            }
+        ).checkMutations<NumberLiteral> { mutations, contents ->
+            mutations shouldHaveSize 2
+            mutations[0].check(contents, "1234")
+            mutations[1].check(contents, "1.01f")
         }
     }
     "it should find increments and decrements to mutate" {
@@ -95,12 +87,10 @@ public class Example {
   }
 }""".trim()
             )
-        ).getParsed("Example.java").also { parsedSource ->
-            Mutation.find<IncrementDecrement>(parsedSource).let { mutations ->
-                mutations shouldHaveSize 2
-                mutations[0].check("++", "--")
-                mutations[1].check("--", "++")
-            }
+        ).checkMutations<IncrementDecrement> { mutations, contents ->
+            mutations shouldHaveSize 2
+            mutations[0].check(contents, "++", "--")
+            mutations[1].check(contents, "--", "++")
         }
     }
     "it should find negatives to invert" {
@@ -115,12 +105,10 @@ public class Example {
   }
 }""".trim()
             )
-        ).getParsed("Example.java").also { parsedSource ->
-            Mutation.find<InvertNegation>(parsedSource).let { mutations ->
-                mutations shouldHaveSize 2
-                mutations[0].check("-", "")
-                mutations[1].check("-", "")
-            }
+        ).checkMutations<InvertNegation> { mutations, contents ->
+            mutations shouldHaveSize 2
+            mutations[0].check(contents, "-", "")
+            mutations[1].check(contents, "-", "")
         }
     }
     "it should find math to mutate" {
@@ -145,10 +133,8 @@ public class Example {
   }
 }""".trim()
             )
-        ).getParsed("Example.java").also { parsedSource ->
-            Mutation.find<MutateMath>(parsedSource).let { mutations ->
-                mutations shouldHaveSize 10
-            }
+        ).checkMutations<MutateMath> { mutations, contents ->
+            mutations shouldHaveSize 10
         }
     }
     "it should find conditional boundaries to mutate" {
@@ -166,12 +152,10 @@ public class Example {
   }
 }""".trim()
             )
-        ).getParsed("Example.java").also {
-            Mutation.find<ConditionalBoundary>(it).let { mutations ->
-                mutations shouldHaveSize 2
-                mutations[0].check("<", "<=")
-                mutations[1].check(">=", ">")
-            }
+        ).checkMutations<ConditionalBoundary> { mutations, contents ->
+            mutations shouldHaveSize 2
+            mutations[0].check(contents, "<", "<=")
+            mutations[1].check(contents, ">=", ">")
         }
     }
     "it should find conditionals to negate" {
@@ -191,13 +175,11 @@ public class Example {
   }
 }""".trim()
             )
-        ).getParsed("Example.java").also {
-            Mutation.find<NegateConditional>(it).let { mutations ->
-                mutations shouldHaveSize 3
-                mutations[0].check("<", ">=")
-                mutations[1].check(">=", "<")
-                mutations[2].check("==", "!=")
-            }
+        ).checkMutations<NegateConditional> { mutations, contents ->
+            mutations shouldHaveSize 3
+            mutations[0].check(contents, "<", ">=")
+            mutations[1].check(contents, ">=", "<")
+            mutations[2].check(contents, "==", "!=")
         }
     }
     "it should find primitive returns to mutate" {
@@ -229,12 +211,10 @@ public class Example {
   }
 }""".trim()
             )
-        ).getParsed("Example.java").also {
-            Mutation.find<PrimitiveReturn>(it).let { mutations ->
-                mutations shouldHaveSize 2
-                mutations[0].check("1", "0")
-                mutations[1].check("'A'", "0")
-            }
+        ).checkMutations<PrimitiveReturn> { mutations, contents ->
+            mutations shouldHaveSize 2
+            mutations[0].check(contents, "1", "0")
+            mutations[1].check(contents, "'A'", "0")
         }
     }
     "it should find true returns to mutate" {
@@ -255,12 +235,10 @@ public class Example {
   }
 }""".trim()
             )
-        ).getParsed("Example.java").also {
-            Mutation.find<TrueReturn>(it).let { mutations ->
-                mutations shouldHaveSize 2
-                mutations[0].check("it", "true")
-                mutations[1].check("false", "true")
-            }
+        ).checkMutations<TrueReturn> { mutations, contents ->
+            mutations shouldHaveSize 2
+            mutations[0].check(contents, "it", "true")
+            mutations[1].check(contents, "false", "true")
         }
     }
     "it should find false returns to mutate" {
@@ -281,12 +259,10 @@ public class Example {
   }
 }""".trim()
             )
-        ).getParsed("Example.java").also {
-            Mutation.find<FalseReturn>(it).let { mutations ->
-                mutations shouldHaveSize 2
-                mutations[0].check("it", "false")
-                mutations[1].check("true", "false")
-            }
+        ).checkMutations<FalseReturn> { mutations, contents ->
+            mutations shouldHaveSize 2
+            mutations[0].check(contents, "it", "false")
+            mutations[1].check(contents, "true", "false")
         }
     }
     "it should find null returns to mutate" {
@@ -307,21 +283,50 @@ public class Example {
   }
 }""".trim()
             )
-        ).getParsed("Example.java").also {
-            Mutation.find<NullReturn>(it).let { mutations ->
-                mutations shouldHaveSize 1
-                mutations[0].check("new Object()", "null")
+        ).checkMutations<NullReturn> { mutations, contents ->
+            mutations shouldHaveSize 1
+            mutations[0].check(contents, "new Object()", "null")
+        }
+    }
+    "it should apply multiple mutations" {
+        Source(
+            mapOf(
+                "Example.java" to """
+public class Example {
+  public static void greeting() {
+    int i = 0;
+    System.out.println("Hello, world!");
+  }
+}""".trim()
+            )
+        ).also { source ->
+            source.mutater(8).also { mutater ->
+                mutater.appliedMutations shouldHaveSize 0
+                val modifiedSource = mutater.apply()
+                source.contents shouldNotBe modifiedSource.contents
+                mutater.appliedMutations shouldHaveSize 1
+                mutater.size shouldBe 1
+                val anotherModifiedSource = mutater.apply()
+                setOf(source.contents, modifiedSource.contents, anotherModifiedSource.contents) shouldHaveSize 3
+                mutater.size shouldBe 0
             }
         }
     }
 })
 
-fun Mutation.check(original: String, modified: String? = null) {
+inline fun <reified T : Mutation> Source.checkMutations(checker: (mutations: List<Mutation>, contents: String) -> Unit) =
+    getParsed(name).also { parsedSource ->
+        Mutation.find<T>(parsedSource).let { mutations ->
+            checker(mutations, contents)
+        }
+    }
+
+fun Mutation.check(contents: String, original: String, modified: String? = null) {
     original shouldNotBe modified
     applied shouldBe false
     this.original shouldBe original
     this.modified shouldBe null
-    apply()
+    apply(contents)
     applied shouldBe true
     this.original shouldBe original
     this.modified shouldNotBe original

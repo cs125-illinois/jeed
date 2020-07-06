@@ -14,10 +14,20 @@ import kotlin.random.Random
 
 sealed class Mutation(val type: Type, val location: Location, val original: String) {
     data class Location(val start: Int, val end: Int, val path: List<SourcePath>) {
+        init {
+            check(end >= start) { "Invalid location: $end $start" }
+        }
+
         data class SourcePath(val type: Type, val name: String) {
             enum class Type { CLASS, METHOD }
         }
     }
+
+    fun overlaps(other: Mutation) =
+        (other.location.start in location.start..location.end) ||
+            (other.location.end in location.start..location.end) ||
+            (other.location.start < location.start && location.end < other.location.end) ||
+            (location.start < other.location.start && other.location.end < location.end)
 
     enum class Type {
         BOOLEAN_LITERAL, CHAR_LITERAL, STRING_LITERAL, NUMBER_LITERAL,
@@ -30,17 +40,24 @@ sealed class Mutation(val type: Type, val location: Location, val original: Stri
     val applied: Boolean
         get() = modified != null
 
-    fun apply(random: Random = Random): Boolean {
+    fun apply(contents: String, random: Random = Random): String {
+        val prefix = contents.substring(0 until location.start)
+        val target = contents.substring(location.start..location.end)
+        val postfix = contents.substring((location.end + 1) until contents.length)
+
+        check(prefix + target + postfix == contents) { "Didn't split string properly" }
+        check(target == original) { "Didn't find expected contents before mutation: $target != $original" }
         check(modified == null) { "Mutation already applied" }
-        applyMutation(random).also {
-            if (it != original) {
-                modified = it
-            }
-        }
-        return applied
+
+        modified = applyMutation(random)
+
+        check(modified != original) { "Mutation did not change the input" }
+
+        return prefix + modified + postfix
     }
 
     abstract fun applyMutation(random: Random = Random): String
+    abstract val preservesLength: Boolean
 
     override fun toString(): String = "$type: $location ($original)"
 
@@ -201,6 +218,7 @@ class BooleanLiteral(
     location: Location,
     original: String
 ) : Mutation(Type.BOOLEAN_LITERAL, location, original) {
+    override val preservesLength = false
 
     override fun applyMutation(random: Random): String {
         return when (original) {
@@ -217,6 +235,8 @@ class CharLiteral(
     location: Location,
     original: String
 ) : Mutation(Type.CHAR_LITERAL, location, original) {
+    override val preservesLength = true
+
     private val character = original.removeSurrounding("'").also {
         check(it.length == 1) { "Character didn't have the correct length: $original" }
     }.first()
@@ -228,6 +248,8 @@ class CharLiteral(
 val NUMERIC_CHARS = ('0'..'9').toSet()
 
 class StringLiteral(location: Location, original: String) : Mutation(Type.STRING_LITERAL, location, original) {
+    override val preservesLength = true
+
     private val string = original.removeSurrounding("\"")
 
     override fun applyMutation(random: Random): String {
@@ -247,18 +269,23 @@ class StringLiteral(location: Location, original: String) : Mutation(Type.STRING
 class NumberLiteral(
     location: Location, original: String, val base: Int = 10
 ) : Mutation(Type.NUMBER_LITERAL, location, original) {
+    override val preservesLength = true
+
     private val numberPositions = original
         .toCharArray()
-        .filter { it in NUMERIC_CHARS }
-        .mapIndexed { index, _ -> index }.also {
+        .mapIndexed { index, c -> Pair(index, c) }
+        .filter { it.second in NUMERIC_CHARS }
+        .map { it.first }.also {
             check(it.isNotEmpty()) { "No numeric characters in numeric literal" }
         }
 
     override fun applyMutation(random: Random): String {
         val position = numberPositions.shuffled(random).first()
         return original.toCharArray().also { characters ->
-            characters[position] = ((characters[position].toInt() + 1) % base).toChar()
-        }.toString()
+            // Sadder than it needs to be, since int <-> char conversions in Kotlin use ASCII values
+            characters[position] =
+                (Math.floorMod((characters[position].toString().toInt() + 1), base)).toString().toCharArray()[0]
+        }.let { String(it) }
     }
 }
 
@@ -266,6 +293,8 @@ class IncrementDecrement(
     location: Location,
     original: String
 ) : Mutation(Type.INCREMENT_DECREMENT, location, original) {
+    override val preservesLength = true
+
     override fun applyMutation(random: Random): String {
         return when (original) {
             INC -> DEC
@@ -286,6 +315,8 @@ class InvertNegation(
     location: Location,
     original: String
 ) : Mutation(Type.INVERT_NEGATION, location, original) {
+    override val preservesLength = false
+
     override fun applyMutation(random: Random): String = ""
 
     companion object {
@@ -297,6 +328,7 @@ class MutateMath(
     location: Location,
     original: String
 ) : Mutation(Type.MATH, location, original) {
+    override val preservesLength = false
 
     override fun applyMutation(random: Random): String = when (original) {
         SUBTRACT -> ADD
@@ -346,6 +378,8 @@ class ConditionalBoundary(
     location: Location,
     original: String
 ) : Mutation(Type.CONDITIONAL_BOUNDARY, location, original) {
+    override val preservesLength = false
+
     override fun applyMutation(random: Random): String {
         return when (original) {
             Conditionals.LT -> Conditionals.LTE
@@ -367,6 +401,8 @@ class NegateConditional(
     location: Location,
     original: String
 ) : Mutation(Type.NEGATE_CONDITIONAL, location, original) {
+    override val preservesLength = false
+
     override fun applyMutation(random: Random): String {
         return when (original) {
             Conditionals.EQ -> Conditionals.NE
@@ -392,6 +428,8 @@ class PrimitiveReturn(
     location: Location,
     original: String
 ) : Mutation(Type.PRIMITIVE_RETURN, location, original) {
+    override val preservesLength = false
+
     override fun applyMutation(random: Random): String = "0"
 
     companion object {
@@ -405,6 +443,8 @@ class TrueReturn(
     location: Location,
     original: String
 ) : Mutation(Type.TRUE_RETURN, location, original) {
+    override val preservesLength = false
+
     override fun applyMutation(random: Random): String = "true"
 
     companion object {
@@ -417,6 +457,8 @@ class FalseReturn(
     location: Location,
     original: String
 ) : Mutation(Type.FALSE_RETURN, location, original) {
+    override val preservesLength = false
+
     override fun applyMutation(random: Random): String = "false"
 
     companion object {
@@ -429,6 +471,8 @@ class NullReturn(
     location: Location,
     original: String
 ) : Mutation(Type.NULL_RETURN, location, original) {
+    override val preservesLength = false
+
     override fun applyMutation(random: Random): String = "null"
 
     companion object {
@@ -445,3 +489,40 @@ fun MutableList<Mutation.Location.SourcePath>.klass(): String =
 
 fun MutableList<Mutation.Location.SourcePath>.method(): String =
     findLast { it.type == Mutation.Location.SourcePath.Type.METHOD }?.name ?: error("No current method in path")
+
+class Mutater(val originalSource: Source, seed: Int) {
+    data class SourceMutation(val name: String, val mutation: Mutation)
+
+    init {
+        check(originalSource.type == Source.FileType.JAVA) { "Can only mutate Java sources" }
+    }
+
+    val random = Random(seed)
+    val mutations = originalSource.sources.keys.map { name ->
+        Mutation.find<Mutation>(originalSource.getParsed(name)).map { mutation -> SourceMutation(name, mutation) }
+    }.flatten().shuffled(random)
+
+    val availableMutations: MutableList<SourceMutation> = mutations.toMutableList()
+    val appliedMutations: MutableList<SourceMutation> = mutableListOf()
+
+    val size: Int
+        get() = availableMutations.size
+
+    val sources = originalSource.sources.toMutableMap()
+    fun apply(): Source {
+        check(availableMutations.isNotEmpty()) { "No more mutations to apply" }
+        availableMutations.removeAt(0).also { sourceMutation ->
+            val original = sources[sourceMutation.name] ?: error("Couldn't find key that should be there")
+            val modified = sourceMutation.mutation.apply(original, random)
+
+            appliedMutations.add(sourceMutation)
+            availableMutations.removeIf { it.mutation.overlaps(sourceMutation.mutation) }
+
+            // TODO: Shift other mutations
+            sources[sourceMutation.name] = modified
+        }
+        return Source(sources.toMap())
+    }
+}
+
+fun Source.mutater(seed: Int = Random.nextInt()) = Mutater(this, seed)

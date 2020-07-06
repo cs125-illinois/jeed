@@ -22,6 +22,7 @@ import edu.illinois.cs.cs125.jeed.core.Source
 import edu.illinois.cs.cs125.jeed.core.SourceError
 import edu.illinois.cs.cs125.jeed.core.SourceExecutionArguments
 import edu.illinois.cs.cs125.jeed.core.SourceRange
+import edu.illinois.cs.cs125.jeed.core.Sources
 import edu.illinois.cs.cs125.jeed.core.TemplatedSource
 import edu.illinois.cs.cs125.jeed.core.TemplatingError
 import edu.illinois.cs.cs125.jeed.core.TemplatingFailed
@@ -240,7 +241,7 @@ class SnippetAdapter {
     @FromJson
     fun snippetFromJson(snippetJson: SnippetJson): Snippet {
         return Snippet(
-            snippetJson.sources,
+            Sources(snippetJson.sources),
             snippetJson.originalSource,
             snippetJson.rewrittenSource,
             snippetJson.snippetRange,

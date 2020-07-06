@@ -18,7 +18,7 @@ const val SNIPPET_SOURCE = ""
 
 @Suppress("LongParameterList")
 class Snippet(
-    sources: Map<String, String>,
+    sources: Sources,
     val originalSource: String,
     val rewrittenSource: String,
     val snippetRange: SourceRange,
@@ -256,7 +256,7 @@ ${" ".repeat(snippetArguments.indent)}}
 
     val rewrittenSource = rewrittenSourceLines.joinToString(separator = "\n")
     return Snippet(
-        hashMapOf(SNIPPET_SOURCE to rewrittenSource),
+        Sources(hashMapOf(SNIPPET_SOURCE to rewrittenSource)),
         originalSource,
         rewrittenSource,
         snippetRange,
@@ -466,7 +466,7 @@ private fun sourceFromJavaSnippet(originalSource: String, snippetArguments: Snip
     assert(currentOutputLineNumber == rewrittenSource.lines().size)
 
     return Snippet(
-        hashMapOf(SNIPPET_SOURCE to rewrittenSource),
+        Sources(hashMapOf(SNIPPET_SOURCE to rewrittenSource)),
         originalSource,
         rewrittenSource,
         snippetRange,
