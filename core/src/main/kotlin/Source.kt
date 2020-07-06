@@ -38,6 +38,11 @@ open class Source(
         }
 
     operator fun get(filename: String) = sources.get(filename)
+    override fun toString() = if (sources.keys.size == 1 && name == "") {
+        contents
+    } else {
+        sources.toString()
+    }
 
     enum class FileType(val type: String) {
         JAVA("Java"),
@@ -152,6 +157,9 @@ open class Source(
             }
             return fileTypes.first()
         }
+
+        fun fromJava(contents: String) = Source(mapOf("Main.java" to contents))
+        fun fromKotlin(contents: String) = Source(mapOf("Main.kt" to contents))
     }
 }
 
@@ -244,7 +252,7 @@ fun Throwable.getStackTraceForSource(source: Source): String {
     @Suppress("LoopWithTooManyJumpStatements")
     for (line in originalStackTrace) {
         if (line.trim()
-                .startsWith("""at java.base/jdk.internal.reflect.NativeMethodAccessorImpl.invoke0(Native Method)""")
+            .startsWith("""at java.base/jdk.internal.reflect.NativeMethodAccessorImpl.invoke0(Native Method)""")
         ) {
             break
         }

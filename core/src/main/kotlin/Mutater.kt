@@ -12,7 +12,7 @@ import org.antlr.v4.runtime.tree.TerminalNode
 import org.jetbrains.kotlin.backend.common.pop
 import kotlin.random.Random
 
-sealed class Mutation(val type: Type, val location: Location, val original: String) {
+sealed class Mutation(val type: Type, var location: Location, val original: String) {
     data class Location(val start: Int, val end: Int, val path: List<SourcePath>) {
         init {
             check(end >= start) { "Invalid location: $end $start" }
@@ -21,6 +21,8 @@ sealed class Mutation(val type: Type, val location: Location, val original: Stri
         data class SourcePath(val type: Type, val name: String) {
             enum class Type { CLASS, METHOD }
         }
+
+        fun shift(amount: Int) = copy(start = start + amount, end = end + amount)
     }
 
     fun overlaps(other: Mutation) =
@@ -28,6 +30,12 @@ sealed class Mutation(val type: Type, val location: Location, val original: Stri
             (other.location.end in location.start..location.end) ||
             (other.location.start < location.start && location.end < other.location.end) ||
             (location.start < other.location.start && other.location.end < location.end)
+
+    fun after(other: Mutation) = location.start > other.location.end
+
+    fun shift(amount: Int) {
+        location = location.shift(amount)
+    }
 
     enum class Type {
         BOOLEAN_LITERAL, CHAR_LITERAL, STRING_LITERAL, NUMBER_LITERAL,
@@ -267,7 +275,9 @@ class StringLiteral(location: Location, original: String) : Mutation(Type.STRING
 }
 
 class NumberLiteral(
-    location: Location, original: String, val base: Int = 10
+    location: Location,
+    original: String,
+    val base: Int = 10
 ) : Mutation(Type.NUMBER_LITERAL, location, original) {
     override val preservesLength = true
 
@@ -490,7 +500,7 @@ fun MutableList<Mutation.Location.SourcePath>.klass(): String =
 fun MutableList<Mutation.Location.SourcePath>.method(): String =
     findLast { it.type == Mutation.Location.SourcePath.Type.METHOD }?.name ?: error("No current method in path")
 
-class Mutater(val originalSource: Source, seed: Int) {
+class Mutater(val originalSource: Source, shuffle: Boolean, seed: Int) {
     data class SourceMutation(val name: String, val mutation: Mutation)
 
     init {
@@ -500,8 +510,13 @@ class Mutater(val originalSource: Source, seed: Int) {
     val random = Random(seed)
     val mutations = originalSource.sources.keys.map { name ->
         Mutation.find<Mutation>(originalSource.getParsed(name)).map { mutation -> SourceMutation(name, mutation) }
-    }.flatten().shuffled(random)
-
+    }.flatten().let {
+        if (shuffle) {
+            it.shuffled(random)
+        } else {
+            it
+        }
+    }
     val availableMutations: MutableList<SourceMutation> = mutations.toMutableList()
     val appliedMutations: MutableList<SourceMutation> = mutableListOf()
 
@@ -517,12 +532,14 @@ class Mutater(val originalSource: Source, seed: Int) {
 
             appliedMutations.add(sourceMutation)
             availableMutations.removeIf { it.mutation.overlaps(sourceMutation.mutation) }
+            availableMutations.filter { it.mutation.after(sourceMutation.mutation) }.forEach {
+                it.mutation.shift(modified.length - original.length)
+            }
 
-            // TODO: Shift other mutations
             sources[sourceMutation.name] = modified
         }
         return Source(sources.toMap())
     }
 }
 
-fun Source.mutater(seed: Int = Random.nextInt()) = Mutater(this, seed)
+fun Source.mutater(shuffle: Boolean = true, seed: Int = Random.nextInt()) = Mutater(this, shuffle, seed)
