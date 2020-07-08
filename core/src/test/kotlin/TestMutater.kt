@@ -284,13 +284,25 @@ public class Example {
         ).also { source ->
             source.mutater().also { mutater ->
                 mutater.appliedMutations shouldHaveSize 0
-                val modifiedSource = mutater.apply()
-                source.contents shouldNotBe modifiedSource.contents
+                val modifiedSource = mutater.apply().contents
+                source.contents shouldNotBe modifiedSource
                 mutater.appliedMutations shouldHaveSize 1
                 mutater.size shouldBe 1
-                val anotherModifiedSource = mutater.apply()
-                setOf(source.contents, modifiedSource.contents, anotherModifiedSource.contents) shouldHaveSize 3
+                val anotherModifiedSource = mutater.apply().contents
+                setOf(source.contents, modifiedSource, anotherModifiedSource) shouldHaveSize 3
                 mutater.size shouldBe 0
+            }
+            source.mutate().also { mutatedSource ->
+                source.contents shouldNotBe mutatedSource.contents
+                mutatedSource.mutations shouldHaveSize 1
+            }
+            source.mutate(limit = Int.MAX_VALUE).also { mutatedSource ->
+                source.contents shouldNotBe mutatedSource.contents
+                mutatedSource.unappliedMutations shouldBe 0
+            }
+            source.allMutations().also { mutatedSources ->
+                mutatedSources shouldHaveSize 2
+                mutatedSources.map { it.contents }.toSet() shouldHaveSize 2
             }
         }
     }
@@ -326,6 +338,10 @@ public class Example {
                 mutater.size shouldBe 2
                 mutater.apply()
                 mutater.size shouldBe 0
+            }
+            source.allMutations().also { mutations ->
+                mutations shouldHaveSize 3
+                mutations.map { it.contents }.toSet() shouldHaveSize 3
             }
         }
     }

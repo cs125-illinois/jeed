@@ -500,8 +500,18 @@ fun MutableList<Mutation.Location.SourcePath>.klass(): String =
 fun MutableList<Mutation.Location.SourcePath>.method(): String =
     findLast { it.type == Mutation.Location.SourcePath.Type.METHOD }?.name ?: error("No current method in path")
 
+data class SourceMutation(val name: String, val mutation: Mutation)
+
+@Suppress("unused")
+class MutatedSource(
+    sources: Sources,
+    val originalSources: Sources,
+    val mutations: List<SourceMutation>,
+    val appliedMutations: Int,
+    val unappliedMutations: Int
+) : Source(sources)
+
 class Mutater(val originalSource: Source, shuffle: Boolean, seed: Int) {
-    data class SourceMutation(val name: String, val mutation: Mutation)
 
     init {
         check(originalSource.type == Source.FileType.JAVA) { "Can only mutate Java sources" }
@@ -524,11 +534,12 @@ class Mutater(val originalSource: Source, shuffle: Boolean, seed: Int) {
         get() = availableMutations.size
 
     val sources = originalSource.sources.toMutableMap()
-    fun apply(): Source {
+    internal fun apply(): Sources {
         check(availableMutations.isNotEmpty()) { "No more mutations to apply" }
         availableMutations.removeAt(0).also { sourceMutation ->
             val original = sources[sourceMutation.name] ?: error("Couldn't find key that should be there")
             val modified = sourceMutation.mutation.apply(original, random)
+            check(original != modified) { "Mutation did not change source" }
 
             appliedMutations.add(sourceMutation)
             availableMutations.removeIf { it.mutation.overlaps(sourceMutation.mutation) }
@@ -538,8 +549,43 @@ class Mutater(val originalSource: Source, shuffle: Boolean, seed: Int) {
 
             sources[sourceMutation.name] = modified
         }
-        return Source(sources.toMap())
+        return Sources(sources)
+    }
+
+    fun mutate(limit: Int = 1): MutatedSource {
+        check(appliedMutations.isEmpty()) { "Some mutations already applied" }
+        for (i in 0 until limit) {
+            if (availableMutations.isEmpty()) {
+                break
+            }
+            apply()
+        }
+        return MutatedSource(
+            Sources(sources),
+            originalSource.sources,
+            appliedMutations,
+            appliedMutations.size,
+            availableMutations.size
+        )
     }
 }
 
 fun Source.mutater(shuffle: Boolean = true, seed: Int = Random.nextInt()) = Mutater(this, shuffle, seed)
+fun Source.mutate(shuffle: Boolean = true, seed: Int = Random.nextInt(), limit: Int = 1) =
+    Mutater(this, shuffle, seed).mutate(limit)
+
+fun Source.allMutations(): List<MutatedSource> {
+    check(type == Source.FileType.JAVA) { "Can only mutate Java sources" }
+    val mutations = sources.keys.map { name ->
+        Mutation.find<Mutation>(getParsed(name)).map { mutation -> SourceMutation(name, mutation) }
+    }.flatten()
+
+    return mutations.map { sourceMutation ->
+        val modifiedSources = sources.copy().toMutableMap()
+        val original = modifiedSources[sourceMutation.name] ?: error("Couldn't find a source that should be there")
+        val modified = sourceMutation.mutation.apply(original)
+        check(original != modified) { "Mutation did not change source" }
+        modifiedSources[sourceMutation.name] = modified
+        MutatedSource(Sources(modifiedSources), sources, listOf(sourceMutation), 1, mutations.size - 1)
+    }
+}

@@ -16,7 +16,18 @@ import java.time.Instant
 @Suppress("UNUSED")
 val logger = KotlinLogging.logger {}
 
-data class Sources(val sources: Map<String, String>) : Map<String, String> by sources
+data class Sources(val sources: Map<String, String>) : Map<String, String> by sources {
+    val contents: String
+        get() = sources.values.let {
+            check(it.size == 1) { "Can only retrieve contents for sources with single file" }
+            it.first()
+        }
+    val name: String
+        get() = sources.keys.let {
+            check(it.size == 1) { "Can only retrieve name for sources with single file" }
+            it.first()
+        }
+}
 
 open class Source(
     sourceMap: Map<String, String>,
@@ -26,16 +37,10 @@ open class Source(
     val sources = Sources(sourceMap)
 
     val contents: String
-        get() = sources.values.let {
-            check(it.size == 1) { "Can only retrieve contents for sources with single file" }
-            it.first()
-        }
+        get() = sources.contents
 
     val name: String
-        get() = sources.keys.let {
-            check(it.size == 1) { "Can only retrieve name for sources with single file" }
-            it.first()
-        }
+        get() = sources.name
 
     operator fun get(filename: String) = sources.get(filename)
     override fun toString() = if (sources.keys.size == 1 && name == "") {
