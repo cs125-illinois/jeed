@@ -118,11 +118,12 @@ System.err.println("There");
             """.trim()
         ).compile()
         val executionResult = Sandbox.execute(compiledSource.classLoader) { (classLoader, redirectOutput) ->
-            val (stdout, stderr) = redirectOutput {
+            redirectOutput {
                 classLoader.findClassMethod().invoke(null)
+            }.also {
+                assert(it.stdout == "Here")
+                assert(it.stderr == "There")
             }
-            assert(stdout == "Here")
-            assert(stderr == "There")
         }
         executionResult should haveCompleted()
         executionResult shouldNot haveTimedOut()

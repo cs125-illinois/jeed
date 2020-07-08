@@ -41,7 +41,7 @@ import kotlin.reflect.full.memberProperties
 import kotlin.reflect.jvm.isAccessible
 import kotlin.reflect.jvm.javaMethod
 
-private typealias SandboxCallableArguments<T> = (Pair<ClassLoader, (() -> Any?) -> Sandbox.RedirectedOutput>) -> T
+private typealias SandboxCallableArguments<T> = (Pair<ClassLoader, (() -> Any?) -> JeedOutputCapture>) -> T
 
 object Sandbox {
     @JsonClass(generateAdapter = true)
@@ -977,8 +977,8 @@ object Sandbox {
                     labelsToRewrite.add(handler)
                 } else {
                     if (unsafeExceptionClasses.any {
-                        exceptionClass.isAssignableFrom(it) || it.isAssignableFrom(exceptionClass)
-                    }
+                            exceptionClass.isAssignableFrom(it) || it.isAssignableFrom(exceptionClass)
+                        }
                     ) {
                         labelsToRewrite.add(handler)
                     }
@@ -1238,26 +1238,29 @@ object Sandbox {
         }
     }
 
-    data class RedirectedOutput(val stdout: String, val stderr: String, val returned: Any?)
-
     @JvmStatic
-    fun redirectOutput(block: () -> Any?): RedirectedOutput {
+    fun redirectOutput(block: () -> Any?): JeedOutputCapture {
         val confinedTask = confinedTaskByThreadGroup() ?: check { "should only be used from a confined task" }
         check(!confinedTask.redirectingOutput) { "can't nest calls to redirectOutput" }
 
         confinedTask.redirectingOutput = true
-        val returned = block()
+        @Suppress("TooGenericExceptionCaught")
+        val result = try {
+            block().let { Pair(it, null) }
+        } catch (e: Throwable) {
+            Pair(null, e)
+        }
         confinedTask.redirectingOutput = false
 
-        val toReturn = RedirectedOutput(
+        return JeedOutputCapture(
+            result.first,
+            result.second,
             confinedTask.redirectedOutputLines[TaskResults.OutputLine.Console.STDOUT].toString(),
-            confinedTask.redirectedOutputLines[TaskResults.OutputLine.Console.STDERR].toString(),
-            returned
-        )
-        confinedTask.redirectedOutputLines[TaskResults.OutputLine.Console.STDOUT] = StringBuilder()
-        confinedTask.redirectedOutputLines[TaskResults.OutputLine.Console.STDERR] = StringBuilder()
-
-        return toReturn
+            confinedTask.redirectedOutputLines[TaskResults.OutputLine.Console.STDERR].toString()
+        ).also {
+            confinedTask.redirectedOutputLines[TaskResults.OutputLine.Console.STDOUT] = StringBuilder()
+            confinedTask.redirectedOutputLines[TaskResults.OutputLine.Console.STDERR] = StringBuilder()
+        }
     }
 
     /*
@@ -1434,6 +1437,7 @@ object Sandbox {
     private class SandboxDeath : ThreadDeath() {
         override fun fillInStackTrace() = this
     }
+
     class SandboxStartFailed(message: String, cause: Throwable? = null) : RuntimeException(message, cause)
     class SandboxContainmentFailure(message: String) : Throwable(message)
 
@@ -1524,3 +1528,6 @@ fun Sandbox.SandboxableClassLoader.sandbox(
 ): Sandbox.SandboxedClassLoader {
     return Sandbox.SandboxedClassLoader(this, classLoaderConfiguration)
 }
+
+data class JeedOutputCapture(val returned: Any?, val threw: Throwable?, val stdout: String, val stderr: String)
+
