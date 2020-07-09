@@ -977,8 +977,8 @@ object Sandbox {
                     labelsToRewrite.add(handler)
                 } else {
                     if (unsafeExceptionClasses.any {
-                            exceptionClass.isAssignableFrom(it) || it.isAssignableFrom(exceptionClass)
-                        }
+                        exceptionClass.isAssignableFrom(it) || it.isAssignableFrom(exceptionClass)
+                    }
                     ) {
                         labelsToRewrite.add(handler)
                     }
@@ -1530,4 +1530,3 @@ fun Sandbox.SandboxableClassLoader.sandbox(
 }
 
 data class JeedOutputCapture(val returned: Any?, val threw: Throwable?, val stdout: String, val stderr: String)
-

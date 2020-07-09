@@ -22,7 +22,7 @@ dependencies {
     implementation(project(":core"))
     implementation(kotlin("stdlib"))
     implementation("io.ktor:ktor-server-netty:$ktorVersion")
-    implementation("org.mongodb:mongodb-driver:3.12.5")
+    implementation("org.mongodb:mongodb-driver:3.12.6")
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-core:1.3.6")
     implementation("com.squareup.moshi:moshi-kotlin-codegen:1.9.3")
     implementation("com.github.cs125-illinois:ktor-moshi:1.0.3")
@@ -30,7 +30,7 @@ dependencies {
     implementation("com.uchuhimo:konf-core:0.22.1")
     implementation("com.uchuhimo:konf-yaml:0.22.1")
     implementation("io.github.microutils:kotlin-logging:1.8.0.1")
-    implementation("com.google.api-client:google-api-client:1.30.9")
+    implementation("com.google.api-client:google-api-client:1.30.10")
 
     val kotlintestVersion = "3.4.2"
     testImplementation("io.kotlintest:kotlintest-runner-junit5:$kotlintestVersion")
