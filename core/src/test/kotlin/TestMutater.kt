@@ -1,6 +1,7 @@
 package edu.illinois.cs.cs125.jeed.core
 
 import io.kotlintest.matchers.collections.shouldHaveSize
+import io.kotlintest.matchers.string.shouldMatch
 import io.kotlintest.shouldBe
 import io.kotlintest.shouldNotBe
 import io.kotlintest.specs.StringSpec
@@ -47,7 +48,9 @@ public class Example {
 }"""
         ).checkMutations<StringLiteral> { mutations, contents ->
             mutations shouldHaveSize 2
-            mutations[0].check(contents, "\"Hello, world!\"")
+            mutations[0].check(contents, "\"Hello, world!\"").also {
+                it shouldMatch ".*println\\(\".*".toRegex(RegexOption.DOT_MATCHES_ALL)
+            }
             mutations[1].check(contents, "\"\"")
         }
     }
@@ -353,14 +356,15 @@ inline fun <reified T : Mutation> Source.checkMutations(
     checker(Mutation.find<T>(parsedSource), contents)
 }
 
-fun Mutation.check(contents: String, original: String, modified: String? = null) {
+fun Mutation.check(contents: String, original: String, modified: String? = null): String {
     original shouldNotBe modified
     applied shouldBe false
     this.original shouldBe original
     this.modified shouldBe null
-    apply(contents)
+    val toReturn = apply(contents)
     applied shouldBe true
     this.original shouldBe original
     this.modified shouldNotBe original
     modified?.also { this.modified shouldBe modified }
+    return toReturn
 }

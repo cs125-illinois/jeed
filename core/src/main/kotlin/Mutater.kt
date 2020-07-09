@@ -270,6 +270,8 @@ class StringLiteral(location: Location, original: String) : Mutation(Type.STRING
                     (ALPHANUMERIC_CHARS.filter { it != characters[position] } + ' ').shuffled(random).first()
                 characters.joinToString("")
             }
+        }.let {
+            "\"$it\""
         }
     }
 }
