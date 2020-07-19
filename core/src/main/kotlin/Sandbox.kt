@@ -98,6 +98,7 @@ object Sandbox {
         }
     }
 
+    @Suppress("LongParameterList")
     @JsonClass(generateAdapter = true)
     open class ExecutionArguments(
         // var because may be increased in the presence of coroutines
@@ -107,13 +108,15 @@ object Sandbox {
         var maxExtraThreads: Int = DEFAULT_MAX_EXTRA_THREADS,
         val maxOutputLines: Int = DEFAULT_MAX_OUTPUT_LINES,
         val classLoaderConfiguration: ClassLoaderConfiguration = ClassLoaderConfiguration(),
-        val waitForShutdown: Boolean = DEFAULT_WAIT_FOR_SHUTDOWN
+        val waitForShutdown: Boolean = DEFAULT_WAIT_FOR_SHUTDOWN,
+        val returnTimeout: Int = DEFAULT_RETURN_TIMEOUT
     ) {
         companion object {
             const val DEFAULT_TIMEOUT = 100L
             const val DEFAULT_MAX_EXTRA_THREADS = 0
             const val DEFAULT_MAX_OUTPUT_LINES = 1024
             const val DEFAULT_WAIT_FOR_SHUTDOWN = false
+            const val DEFAULT_RETURN_TIMEOUT = 1
         }
     }
 
@@ -263,8 +266,17 @@ object Sandbox {
                     confinedTask.thread.start()
                     TaskResult(confinedTask.task.get(executionArguments.timeout, TimeUnit.MILLISECONDS))
                 } catch (e: TimeoutException) {
-                    confinedTask.task.cancel(true)
-                    TaskResult(null, null, true)
+                    confinedTask.thread.interrupt()
+                    val (returnValue, threw) = try {
+                        Pair(
+                            confinedTask.task.get(executionArguments.returnTimeout.toLong(), TimeUnit.MILLISECONDS),
+                            null
+                        )
+                    } catch (e: Throwable) {
+                        confinedTask.task.cancel(true)
+                        Pair(null, e)
+                    }
+                    TaskResult(returnValue, threw, true)
                 } catch (e: Throwable) {
                     TaskResult(null, e.cause ?: e)
                 }
@@ -1246,7 +1258,7 @@ object Sandbox {
         confinedTask.redirectingOutput = true
         @Suppress("TooGenericExceptionCaught")
         val result = try {
-            block().let { Pair(it, null) }
+            Pair(block(), null)
         } catch (e: Throwable) {
             Pair(null, e)
         }

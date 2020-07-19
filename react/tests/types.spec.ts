@@ -7,9 +7,9 @@ import fs from "fs"
 import { String } from "runtypes"
 import { diff } from "deep-diff"
 
-import { ServerStatus, Request, Response, TaskArguments, postRequest } from "@cs125/react-jeed"
+import { ServerStatus, Request, Response, TaskArguments, postRequest } from "@cs125/jeed"
 
-const server = String.check(process.env.JEED)
+const server = String.check(process.env.JEED_SERVER)
 
 describe("ServerStatus", function () {
   this.timeout(1000)

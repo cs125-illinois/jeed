@@ -29,9 +29,9 @@ dependencies {
     implementation("org.ow2.asm:asm-util:8.0.1")
     implementation("org.slf4j:slf4j-api:1.7.30")
     implementation("ch.qos.logback:logback-classic:1.2.3")
-    implementation("io.github.microutils:kotlin-logging:1.8.0.1")
+    implementation("io.github.microutils:kotlin-logging:1.8.3")
     implementation("io.github.classgraph:classgraph:4.8.87")
-    implementation("net.java.dev.jna:jna:5.5.0")
+    implementation("net.java.dev.jna:jna:5.6.0")
     api("com.github.ben-manes.caffeine:caffeine:2.8.5")
 
     testImplementation("io.kotlintest:kotlintest-runner-junit5:3.4.2")

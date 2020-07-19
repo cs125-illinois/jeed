@@ -3,6 +3,7 @@ import PropTypes from "prop-types"
 
 import { ServerStatus, Request, Response } from "./types"
 
+// eslint-disable-next-line @typescript-eslint/no-var-requires
 require("es6-promise").polyfill()
 require("isomorphic-fetch")
 
@@ -10,31 +11,6 @@ export interface JeedContext {
   connected: boolean
   status: ServerStatus | undefined
   run: (request: Request, validate?: boolean) => Promise<Response>
-}
-export const JeedContext = React.createContext<JeedContext>({
-  connected: false,
-  status: undefined,
-  run: (): Promise<Response> => {
-    throw new Error("Jeed Context not available")
-  },
-})
-
-async function getStatus(server: string, validate = true): Promise<ServerStatus> {
-  const status = await (await fetch(server)).json()
-  return validate ? ServerStatus.check(status) : (status as ServerStatus)
-}
-
-export async function postRequest(server: string, request: Request, validate = true): Promise<Response> {
-  request = validate ? Request.check(request) : request
-  const response = await (
-    await fetch(server, {
-      method: "post",
-      body: JSON.stringify(request),
-      headers: { "Content-Type": "application/json" },
-      credentials: "include",
-    })
-  ).json()
-  return validate ? Response.check(response) : (response as Response)
 }
 
 interface JeedProviderProps {
@@ -49,7 +25,7 @@ export const JeedProvider: React.FC<JeedProviderProps> = ({ server, children }) 
     getStatus(server)
       .then((status) => setStatus(status))
       .catch(() => setStatus(undefined))
-  }, [])
+  }, [server])
 
   const run = useCallback(
     async (request: Request, validate = true): Promise<Response> => {
@@ -131,4 +107,30 @@ export {
   Response,
 } from "./types"
 
-export { terminalOutput } from "./output"
+export { terminalOutput, getOriginalLine } from "./output"
+
+async function getStatus(server: string, validate = true): Promise<ServerStatus> {
+  const status = await (await fetch(server)).json()
+  return validate ? ServerStatus.check(status) : (status as ServerStatus)
+}
+
+export async function postRequest(server: string, request: Request, validate = true): Promise<Response> {
+  request = validate ? Request.check(request) : request
+  const response = await (
+    await fetch(server, {
+      method: "post",
+      body: JSON.stringify(request),
+      headers: { "Content-Type": "application/json" },
+      credentials: "include",
+    })
+  ).json()
+  return validate ? Response.check(response) : (response as Response)
+}
+
+export const JeedContext = React.createContext<JeedContext>({
+  connected: false,
+  status: undefined,
+  run: (): Promise<Response> => {
+    throw new Error("Jeed Context not available")
+  },
+})

@@ -1,13 +1,15 @@
+import replace from "@rollup/plugin-replace"
 import typescript from "rollup-plugin-typescript2"
 import resolve from "rollup-plugin-node-resolve"
 import commonJS from "@rollup/plugin-commonjs"
 
-export default {
+export default ["cjs", "es"].map((format) => ({
   input: "./src/index.tsx",
   output: {
-    format: "cjs",
-    file: "./dist/index.cjs.js",
+    format,
+    file: `./dist/index.${format}.js`,
     sourcemap: true,
+    strict: false,
   },
   plugins: [
     typescript({
@@ -16,12 +18,13 @@ export default {
         compilerOptions: { declaration: true },
       },
     }),
-    resolve({ preferBuiltins: true }),
+    replace({
+      "process.env.npm_package_version": `"${process.env.npm_package_version}"`,
+      "process.env.GIT_COMMIT": `"${process.env.GIT_COMMIT}"`,
+    }),
+    resolve({ browser: true, preferBuiltins: true }),
     commonJS({
       include: "node_modules/**",
-      namedExports: {
-        runtypes: ["Record", "Partial", "Number", "String", "Array", "Static", "Boolean", "Union", "Dictionary"],
-      },
     }),
   ],
   external: ["react", "prop-types"],
@@ -30,4 +33,4 @@ export default {
     if (warning.code === "EVAL") return
     next(warning)
   },
-}
+}))

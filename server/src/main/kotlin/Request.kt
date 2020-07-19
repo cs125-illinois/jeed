@@ -95,7 +95,8 @@ class Request(
         @Suppress("MaxLineLength")
         if (Task.snippet in tasks && Task.checkstyle in tasks && defaultChecker.indentation != null) {
             require(arguments.snippet.indent == defaultChecker.indentation) {
-                "snippet indentation must match checkstyle indentation"
+                "snippet indentation must match checkstyle indentation: " +
+                    "${arguments.snippet.indent} != ${defaultChecker.indentation}"
             }
         }
         if (Task.execute in tasks) {

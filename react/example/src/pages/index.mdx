@@ -1,19 +1,16 @@
-import { LoginButton, Lead } from "@cs125/semantic-ui"
-import Example, { ExampleLanguage } from "./components/Example"
+import { Single } from "../sites/"
+export default Single
 
-# Jeed
+import { Lead } from "@cs125/gatsby-theme-cs125/src/material-ui"
 
 [![Release](https://jitpack.io/v/cs125-illinois/jeed.svg)](https://jitpack.io/#cs125-illinois/jeed)
 [![Docker Image Version (latest by date)](https://img.shields.io/docker/v/cs125/jeed?color=green&label=Docker&sort=date)](https://hub.docker.com/r/cs125/jeed/tags)
-[![npm version](https://badge.fury.io/js/%40cs125%2Freact-jeed.svg)](https://badge.fury.io/js/%40cs125%2Freact-jeed)
+[![npm](https://img.shields.io/npm/v/@cs125/jeed)](https://www.npmjs.com/package/@cs125/jeed)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
-
-<LoginButton style={{ float: "right" }} />
 
 <Lead>
 
-Jeed is a speedy Java and Kotlin in-memory compilation and execution toolkit.
-Jeed can rapidly compile and analyze Java and Kotlin code and safely execute the resulting bytecode in a secure sandbox.
+Jeed: the speedy Java and Kotlin compilation and execution toolkit.
 
 </Lead>
 
@@ -46,17 +43,13 @@ But you can recover the original example contents using the reset button.
 
 Jeed can quickly compile and execute Java code:
 
-<Example id="java_class_hello_world" tasks={["compile", "execute"]} path="Main.java">
-
-```java
+```java id=hello_java noCheckstyle
 public class Main {
   public static void main() {
     System.out.println("Hello, Java!");
   }
 }
 ```
-
-</Example>
 
 While this is a simple example, you can also compile multiple Java files, control package availability at compile time,
 choose the entrypoint for execution, and set many execution options.
@@ -72,9 +65,7 @@ Feel free to launch it using any of the examples on this page!
 If you find problems, we'd love to know.
 And, if it makes you nervous, it's a bit slower, but Jeed can also run your bytecode in a container:
 
-<Example id="java_class_hello_world_cexecute" tasks={["compile", "cexecute"]} path="Main.java">
-
-```java
+```java useContainer id=hello_java_container noCheckstyle
 public class Main {
   public static void main() {
     System.out.println("Hello, Java!");
@@ -82,9 +73,8 @@ public class Main {
 }
 ```
 
-</Example>
-
-As an optimization, Jeed caches compilation results.
+As an optimization, Jeed can cache compilation results, although this is
+disabled by default.
 Currently this caching is fairly simple, meaning that even trivial whitespace changes will cause it to break.
 However, for examples that are not editable or where you don't expect heavy editing, even this simple caching approach can be at least somewhat effective.
 
@@ -93,19 +83,13 @@ However, for examples that are not editable or where you don't expect heavy edit
 Full Java class examples can be intimidating for beginners.
 To help bootstrap our CS1 class, Jeed includes a Java snippet mode, enabling compiling and executing snippets of loose code like this one:
 
-<Example id="java_snippet_hello_world" tasks={["snippet", "compile", "execute"]}>
-
-```java
+```java snippet id=simple_snippet noCheckstyle
 System.out.println("Hello, Java!");
 ```
 
-</Example>
-
 Snippets can also include function and class definitions:
 
-<Example id="java_snippet_example" tasks={["snippet", "compile", "execute"]}>
-
-```java
+```java snippet id=longer_snippet noCheckstyle noComplexity
 public class Example {
   public String name = "";
   public Example(String setName) {
@@ -121,8 +105,6 @@ void greeting(Example example) {
 greeting(new Example("Ben"));
 ```
 
-</Example>
-
 Our snippeting approach is based on a straightforward transformation into a valid Java class.
 As you would expect, it has limitations, but serves us well bootstrapping students to the point where they are ready to work with complete class files.
 
@@ -133,21 +115,12 @@ Jeed can run [`checkstyle`](https://checkstyle.sourceforge.io/) on sources, usua
 They learn to love it, and produce code that is easy for our staff to read and correct.)
 Here we configure Jeed to fail the build if `checkstyle` reports any violations:
 
-<Example
-  id="java_checkstyle_class"
-  tasks={["checkstyle", "compile", "execute"]}
-  jeedArguments={{ checkstyle: { failOnError: true }}}
-  path="Main.java"
->
-
-```java
+```java id=java_checkstyle_class
 public class Main {
   // checkstyle would like you to add some whitespace here...
   public static void main() { System.out.println("Hello, Java!"); }
 }
 ```
-
-</Example>
 
 Currently `checkstyle` is configured on a per-server basis, but with a bit more work could be configured on a per-build basis.
 
@@ -157,17 +130,9 @@ Jeed can compute [static cyclomatic complexity](https://en.wikipedia.org/wiki/Cy
 Complexity values are computed for each method and aggregated into classes.
 For our CS1 course we provide use complexity to encourage students to write concise and clean code by providing a small number of
 submitting a solution with complexity within delta of a reference solution.
-The following example will annotate the left margin with the complexity of each method.
-(You have to look hard to see the annotations... they're a bit small.)
+The following example will the left margin and produce a popup with the complexity of each method.
 
-<Example
-  id="java_complexity_snippet"
-  tasks={["snippet", "complexity", "compile", "execute"]}
-  complexity
-  maxOutputLines={32}
->
-
-```java
+```java id=complexity_example complexity snippet
 int complicated(int which) {
   if (which < 0) {
     return 0;
@@ -185,8 +150,6 @@ System.out.println(complicated(0));
 System.out.println(complicated(1));
 ```
 
-</Example>
-
 ### Complete Server Response
 
 Most of the examples on this page are configured to display output similar to what would be produced by the equivalent command-line tool.
@@ -195,6 +158,7 @@ Here's an example showing the complete response returned to the client, which in
 We use a snippet configured to run `checkstyle` and complexity analysis to show all of the steps that Jeed is currently
 capable of performing on Java code.
 
+<!--
 <Example
   id="java_complete_output"
   tasks={["snippet", "checkstyle", "complexity", "compile", "execute"]}
@@ -207,6 +171,8 @@ System.out.println("Let's produce a complete response!");
 ```
 
 </Example>
+-->
+
 
 ## Kotlin
 
@@ -214,13 +180,9 @@ Jeed can also run Kotlin code!
 Which is great, because
 [Kotlin is fantastic](https://kotlin.cs.illinois.edu).
 
-<Example id="kotlin_hello_world" tasks={["snippet", "kompile", "execute" ]}>
-
-```kotlin
+```kotlin id=kotlin_hello_world
 println("Hello, Kotlin!")
 ```
-
-</Example>
 
 The compilation process is different for Kotlin, and the compiler is a touch slower, but once it is bytecode everything works the same as Java.
 So you can also run your bytecode in a container if you'd prefer:

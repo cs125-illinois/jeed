@@ -1,6 +1,6 @@
 import { Request, Response, SourceLocation } from "./types"
 
-function getOriginalLine(request: Request, line: number, source?: string): string {
+export function getOriginalLine(request: Request, line: number, source?: string): string {
   if (request.snippet) {
     return request.snippet.split("\n")[line - 1]
   }
@@ -11,6 +11,7 @@ function getOriginalLine(request: Request, line: number, source?: string): strin
   }
   throw new Error(`Couldn't find line ${line} in source ${source}`)
 }
+
 export function terminalOutput(response: Response | undefined): string {
   if (!response) {
     return ""
@@ -28,8 +29,6 @@ export function terminalOutput(response: Response | undefined): string {
     return `${output}
   ${errorCount} error${errorCount > 1 ? "s" : ""}`
   } else if (response.failed.compilation || response.failed.kompilation) {
-    console.log("Here")
-    console.log(response.failed.kompilation)
     const output =
       (response.failed.compilation || response.failed.kompilation)?.errors
         .filter(({ location }) => location !== undefined)

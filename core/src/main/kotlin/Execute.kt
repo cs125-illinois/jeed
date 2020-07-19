@@ -53,6 +53,7 @@ class ExecutionFailed(
 }
 
 @Throws(ExecutionFailed::class)
+@Suppress("ReturnCount")
 suspend fun CompiledSource.execute(
     executionArguments: SourceExecutionArguments = SourceExecutionArguments()
 ): Sandbox.TaskResults<out Any?> {
@@ -73,14 +74,14 @@ suspend fun CompiledSource.execute(
     // Fail fast if the class or method don't exist
     classLoader.findClassMethod(executionArguments.klass!!, executionArguments.method)
 
-    return Sandbox.execute(classLoader, executionArguments) { (classLoader) ->
+    return Sandbox.execute(classLoader, executionArguments) sandbox@{ (classLoader) ->
         if (executionArguments.dryRun) {
             @Suppress("LABEL_NAME_CLASH")
-            return@execute
+            return@sandbox null
         }
         try {
             val method = classLoader.findClassMethod(executionArguments.klass!!, executionArguments.method)
-            if (method.parameterTypes.isEmpty()) {
+            return@sandbox if (method.parameterTypes.isEmpty()) {
                 method.invoke(null)
             } else {
                 method.invoke(null, null)

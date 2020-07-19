@@ -19,6 +19,7 @@ import io.kotlintest.specs.StringSpec
 import kotlinx.coroutines.async
 import java.lang.IllegalArgumentException
 
+@Suppress("LargeClass")
 class TestResourceExhaustion : StringSpec({
     "should timeout correctly on snippet" {
         val executionResult = Source.fromSnippet(
@@ -67,6 +68,24 @@ while (true) {
         executionResult shouldNot haveCompleted()
         executionResult should haveTimedOut()
         executionResult should haveOutput("Here")
+    }
+    "should return value after timeout if code is prepared" {
+        val executionResult = Source.fromJava(
+            """
+public class Main {
+  public static int main() {
+    int i = 0;
+    while (i >= 0 && !Thread.currentThread().isInterrupted()) {
+      i++;
+    }
+    return 1;
+  }
+}
+            """.trim()
+        ).compile().execute()
+        executionResult shouldNot haveCompleted()
+        executionResult should haveTimedOut()
+        executionResult.returned shouldBe 1
     }
     "should shut down a runaway thread" {
         val executionResult = Source.fromSnippet(
@@ -445,7 +464,7 @@ for (int i = 0; i < (($value + 10) * 10000); i++) {
         }
     }
     "should survive a very large class file" {
-        // TODO: What's the right behavior here?
+        // What's the right behavior here?
         // Throwing an exception during compilation/rewriting is probably OK
         // It's only a problem if it dies at a time that causes a ConfinedTask to be leaked
 

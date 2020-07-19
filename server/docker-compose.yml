@@ -4,7 +4,7 @@ networks:
     driver: bridge
 services:
   mongodb:
-    image: "bitnami/mongodb:4.0"
+    image: "bitnami/mongodb:4.2"
     ports:
       - "27017:27017"
     volumes:
