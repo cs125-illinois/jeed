@@ -8,6 +8,7 @@ require("es6-promise").polyfill()
 require("isomorphic-fetch")
 
 export interface JeedContext {
+  available: boolean
   connected: boolean
   status: ServerStatus | undefined
   run: (request: Request, validate?: boolean) => Promise<Response>
@@ -43,7 +44,9 @@ export const JeedProvider: React.FC<JeedProviderProps> = ({ server, children }) 
   )
 
   return (
-    <JeedContext.Provider value={{ status, connected: status !== undefined, run }}>{children}</JeedContext.Provider>
+    <JeedContext.Provider value={{ available: true, status, connected: status !== undefined, run }}>
+      {children}
+    </JeedContext.Provider>
   )
 }
 JeedProvider.propTypes = {
@@ -128,6 +131,7 @@ export async function postRequest(server: string, request: Request, validate = t
 }
 
 export const JeedContext = React.createContext<JeedContext>({
+  available: false,
   connected: false,
   status: undefined,
   run: (): Promise<Response> => {
