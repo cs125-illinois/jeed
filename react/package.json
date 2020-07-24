@@ -6,7 +6,7 @@
   "homepage": "https://github.com/cs125-illinois/jeed",
   "repository": "https://github.com/cs125-illinois/jeed",
   "bugs": "https://github.com/cs125-illinois/jeed/issues",
-  "version": "2020.7.1",
+  "version": "2020.7.2",
   "main": "dist/index.cjs.js",
   "module": "dist/index.es.js",
   "files": [
