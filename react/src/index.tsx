@@ -15,11 +15,12 @@ export interface JeedContext {
 }
 
 interface JeedProviderProps {
+  googleToken?: string | undefined
   server: string
   children: React.ReactNode
 }
 
-export const JeedProvider: React.FC<JeedProviderProps> = ({ server, children }) => {
+export const JeedProvider: React.FC<JeedProviderProps> = ({ googleToken, server, children }) => {
   const [status, setStatus] = useState<ServerStatus | undefined>(undefined)
 
   useEffect(() => {
@@ -30,6 +31,9 @@ export const JeedProvider: React.FC<JeedProviderProps> = ({ server, children }) 
 
   const run = useCallback(
     async (request: Request, validate = true): Promise<Response> => {
+      if (googleToken) {
+        request.authToken = googleToken
+      }
       return postRequest(server, request, validate)
         .then((response) => {
           setStatus(response.status)
@@ -40,7 +44,7 @@ export const JeedProvider: React.FC<JeedProviderProps> = ({ server, children }) 
           throw err
         })
     },
-    [server]
+    [googleToken, server]
   )
 
   return (
@@ -50,6 +54,7 @@ export const JeedProvider: React.FC<JeedProviderProps> = ({ server, children }) 
   )
 }
 JeedProvider.propTypes = {
+  googleToken: PropTypes.string,
   server: PropTypes.string.isRequired,
   children: PropTypes.node.isRequired,
 }
