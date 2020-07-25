@@ -32,7 +32,8 @@ class RequestJson(
     val authToken: String?,
     val label: String,
     val waitForSave: Boolean? = false,
-    val requireSave: Boolean? = true
+    val requireSave: Boolean? = true,
+    val checkForSnippet: Boolean? = false
 )
 
 class JobAdapter {
@@ -49,7 +50,8 @@ class JobAdapter {
             requestJson.authToken,
             requestJson.label,
             requestJson.waitForSave ?: false,
-            requestJson.requireSave ?: true
+            requestJson.requireSave ?: true,
+            requestJson.checkForSnippet ?: false
         )
     }
 
@@ -65,7 +67,8 @@ class JobAdapter {
             null,
             request.label,
             request.waitForSave,
-            request.requireSave
+            request.requireSave,
+            request.checkForSnippet
         )
     }
 }

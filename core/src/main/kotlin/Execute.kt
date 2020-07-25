@@ -12,7 +12,7 @@ import java.util.PropertyPermission
 @Suppress("LongParameterList")
 class SourceExecutionArguments(
     var klass: String? = null,
-    val method: String = DEFAULT_METHOD,
+    var method: String? = null,
     timeout: Long = DEFAULT_TIMEOUT,
     permissions: Set<Permission> = setOf(),
     maxExtraThreads: Int = DEFAULT_MAX_EXTRA_THREADS,
@@ -57,11 +57,9 @@ class ExecutionFailed(
 suspend fun CompiledSource.execute(
     executionArguments: SourceExecutionArguments = SourceExecutionArguments()
 ): Sandbox.TaskResults<out Any?> {
-    if (executionArguments.klass == null) {
-        executionArguments.klass = when (this.source.type) {
-            Source.FileType.JAVA -> "Main"
-            Source.FileType.KOTLIN -> "MainKt"
-        }
+    val defaultKlass = when (this.source.type) {
+        Source.FileType.JAVA -> "Main"
+        Source.FileType.KOTLIN -> "MainKt"
     }
 
     // Coroutines need some extra time and threads to run.
@@ -72,15 +70,20 @@ suspend fun CompiledSource.execute(
     }
 
     // Fail fast if the class or method don't exist
-    classLoader.findClassMethod(executionArguments.klass!!, executionArguments.method)
+    val methodToRun = classLoader.findClassMethod(
+        executionArguments.klass, executionArguments.method, defaultKlass, SourceExecutionArguments.DEFAULT_METHOD
+    )
+    executionArguments.klass = executionArguments.klass ?: methodToRun.declaringClass.simpleName
+    executionArguments.method = executionArguments.method ?: methodToRun.getQualifiedName()
 
     return Sandbox.execute(classLoader, executionArguments) sandbox@{ (classLoader) ->
         if (executionArguments.dryRun) {
             @Suppress("LABEL_NAME_CLASH")
             return@sandbox null
         }
+        classLoader as Sandbox.SandboxedClassLoader
         try {
-            val method = classLoader.findClassMethod(executionArguments.klass!!, executionArguments.method)
+            val method = classLoader.findClassMethod(executionArguments.klass!!, executionArguments.method!!)
             return@sandbox if (method.parameterTypes.isEmpty()) {
                 method.invoke(null)
             } else {
@@ -93,37 +96,49 @@ suspend fun CompiledSource.execute(
 }
 
 @Throws(ExecutionFailed::class)
-@Suppress("ThrowsCount")
+@Suppress("ThrowsCount", "ComplexMethod")
 fun ClassLoader.findClassMethod(
-    klass: String = SourceExecutionArguments.DEFAULT_KLASS,
-    name: String = SourceExecutionArguments.DEFAULT_METHOD
+    klass: String? = null,
+    name: String? = null,
+    defaultKlass: String = SourceExecutionArguments.DEFAULT_KLASS,
+    defaultMethod: String = SourceExecutionArguments.DEFAULT_METHOD
 ): Method {
+    this as Sandbox.EnumerableClassLoader
+    val klassToLoad = if (klass == null && definedClasses.size == 1) {
+        definedClasses.first()
+    } else {
+        klass ?: defaultKlass
+    }
     try {
-        return loadClass(klass).declaredMethods.find { method ->
-            @Suppress("ComplexCondition")
-            if ((name == "main(String[])" || name == "main()") &&
-                method.name == "main" &&
-                Modifier.isStatic(method.modifiers) &&
-                Modifier.isPublic(method.modifiers) &&
-                method.parameterTypes.size == 1 &&
-                method.parameterTypes[0].canonicalName == "java.lang.String[]"
-            ) {
-                return@find true
-            }
-            if (!Modifier.isStatic(method.modifiers) ||
-                !Modifier.isPublic(method.modifiers) ||
-                method.parameterTypes.isNotEmpty()
-            ) {
-                return@find false
-            }
-            method.getQualifiedName() == name
-        } ?: throw ExecutionFailed.MethodNotFoundException(
-            name,
-            "Cannot locate public static no-argument method $name in $klass"
-        )
+        val loadedKlass = loadClass(klassToLoad)
+        val staticNoArgMethods = loadedKlass.declaredMethods.filter {
+            Modifier.isPublic(it.modifiers) && Modifier.isStatic(it.modifiers) && it.parameterTypes.isEmpty()
+        }
+        return if (name == null && staticNoArgMethods.size == 1) {
+            staticNoArgMethods.first()
+        } else {
+            val nameToFind = name ?: defaultMethod
+            loadedKlass.declaredMethods.filter {
+                Modifier.isPublic(it.modifiers) && Modifier.isStatic(it.modifiers) &&
+                    (
+                        it.parameterTypes.isEmpty() ||
+                            (it.parameterTypes.size == 1 && it.parameterTypes[0].canonicalName == "java.lang.String[]")
+                        )
+            }.find { method ->
+                @Suppress("ComplexCondition")
+                return@find if (method.getQualifiedName() == nameToFind) {
+                    true
+                } else {
+                    method.name == "main" && (nameToFind == "main()" || nameToFind == "main(String[])")
+                }
+            } ?: throw ExecutionFailed.MethodNotFoundException(
+                nameToFind,
+                "Cannot locate public static no-argument method $name in $klassToLoad"
+            )
+        }
     } catch (methodNotFoundException: ExecutionFailed.MethodNotFoundException) {
         throw ExecutionFailed(methodNotFoundException)
     } catch (classNotFoundException: ClassNotFoundException) {
-        throw ExecutionFailed(ExecutionFailed.ClassMissingException(klass, classNotFoundException.message))
+        throw ExecutionFailed(ExecutionFailed.ClassMissingException(klassToLoad, classNotFoundException.message))
     }
 }

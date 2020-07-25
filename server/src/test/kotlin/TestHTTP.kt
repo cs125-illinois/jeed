@@ -619,7 +619,7 @@ public class Main {
     "path": "Main.java",
     "contents": " 
 public class Main {
-  public static void min() {
+  private static void min() {
     System.out.println(\"Here\");
   }
 }"
@@ -666,6 +666,74 @@ public class Main {
             }.apply {
                 response.shouldHaveStatus(HttpStatusCode.BadRequest.value)
                 Request.mongoCollection?.countDocuments() shouldBe 0
+            }
+        }
+        "should handle a java source that is actually a snippet" {
+            withTestApplication(Application::jeed) {
+                handleRequest(HttpMethod.Post, "/") {
+                    addHeader("content-type", "application/json")
+                    setBody(
+                        """
+{
+"label": "test",
+"sources": [
+  {
+    "path": "Main.java",
+    "contents": " 
+System.out.println(\"Here\");
+"
+  }
+],
+"tasks": [ "compile", "execute" ],
+"checkForSnippet": true
+}""".trim()
+                    )
+                }
+            }.apply {
+                response.shouldHaveStatus(HttpStatusCode.OK.value)
+                Request.mongoCollection?.countDocuments() shouldBe 1
+
+                val jeedResponse = Response.from(response.content)
+                jeedResponse.completedTasks.size shouldBe 3
+                jeedResponse.failedTasks.size shouldBe 0
+
+                jeedResponse.completed.execution?.outputLines?.joinToString(separator = "\n") {
+                    it.line
+                }?.trim() shouldBe "Here"
+            }
+        }
+        "should handle a kotlin source that is actually a snippet" {
+            withTestApplication(Application::jeed) {
+                handleRequest(HttpMethod.Post, "/") {
+                    addHeader("content-type", "application/json")
+                    setBody(
+                        """
+{
+"label": "test",
+"sources": [
+  {
+    "path": "Main.kt",
+    "contents": " 
+println(\"Here\")
+"
+  }
+],
+"tasks": [ "kompile", "execute" ],
+"checkForSnippet": true
+}""".trim()
+                    )
+                }
+            }.apply {
+                response.shouldHaveStatus(HttpStatusCode.OK.value)
+                Request.mongoCollection?.countDocuments() shouldBe 1
+
+                val jeedResponse = Response.from(response.content)
+                jeedResponse.completedTasks.size shouldBe 3
+                jeedResponse.failedTasks.size shouldBe 0
+
+                jeedResponse.completed.execution?.outputLines?.joinToString(separator = "\n") {
+                    it.line
+                }?.trim() shouldBe "Here"
             }
         }
         "should reject neither source nor snippet request" {

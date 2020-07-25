@@ -20,6 +20,7 @@ i++;
 System.out.println(i);
             """.trim()
         ).compile().execute()
+        println(executeMainResult.threw?.message)
         executeMainResult should haveCompleted()
         executeMainResult should haveOutput("1")
     }

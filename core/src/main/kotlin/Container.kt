@@ -22,12 +22,11 @@ private val MAX_CONCURRENT_CONTAINERS = try {
     Runtime.getRuntime().availableProcessors()
 }
 private val containerSemaphore = Semaphore(MAX_CONCURRENT_CONTAINERS)
-private val runtime = Runtime.getRuntime()
 
 @JsonClass(generateAdapter = true)
 data class ContainerExecutionArguments(
     var klass: String? = null,
-    val method: String = SourceExecutionArguments.DEFAULT_METHOD,
+    var method: String? = null,
     val image: String = DEFAULT_IMAGE,
     val tmpDir: String? = CONTAINER_TMP_DIR,
     val timeout: Long = DEFAULT_TIMEOUT,
@@ -68,17 +67,19 @@ suspend fun CompiledSource.cexecute(
 ): ContainerExecutionResults {
     val started = Instant.now()
 
-    if (executionArguments.klass == null) {
-        executionArguments.klass = when (this.source.type) {
-            Source.FileType.JAVA -> "Main"
-            Source.FileType.KOTLIN -> "MainKt"
-        }
+    val defaultKlass = when (this.source.type) {
+        Source.FileType.JAVA -> "Main"
+        Source.FileType.KOTLIN -> "MainKt"
     }
 
     // Check that we can load the class before we start the container
     // Note that this check is different than what is used to load the method by the actual containerrunner,
     // but should be similar enough
-    classLoader.findClassMethod(executionArguments.klass!!, executionArguments.method)
+    val methodToRun = classLoader.findClassMethod(
+        executionArguments.klass, executionArguments.method, defaultKlass, SourceExecutionArguments.DEFAULT_METHOD
+    )
+    executionArguments.klass = executionArguments.klass ?: methodToRun.declaringClass.simpleName
+    executionArguments.method = executionArguments.method ?: methodToRun.getQualifiedName()
 
     val tempRoot = when {
         executionArguments.tmpDir != null -> File(executionArguments.tmpDir)
@@ -89,7 +90,7 @@ suspend fun CompiledSource.cexecute(
     return withTempDir(tempRoot) { tempDir ->
         eject(tempDir)
 
-        val containerMethodName = executionArguments.method.split("(")[0]
+        val containerMethodName = executionArguments.method!!.split("(")[0]
 
         val dockerName = UUID.randomUUID().toString()
         val actualCommand = "docker run " +
@@ -152,7 +153,7 @@ suspend fun CompiledSource.cexecute(
 
             ContainerExecutionResults(
                 executionArguments.klass!!,
-                executionArguments.method,
+                executionArguments.method!!,
                 process.exitValue(),
                 timeout,
                 outputLines,

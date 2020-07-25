@@ -26,7 +26,6 @@ import edu.illinois.cs.cs125.jeed.core.Sources
 import edu.illinois.cs.cs125.jeed.core.TemplatedSource
 import edu.illinois.cs.cs125.jeed.core.TemplatingError
 import edu.illinois.cs.cs125.jeed.core.TemplatingFailed
-import edu.illinois.cs.cs125.jeed.core.check
 import edu.illinois.cs.cs125.jeed.core.getStackTraceForSource
 import edu.illinois.cs.cs125.jeed.core.server.FlatSource
 import edu.illinois.cs.cs125.jeed.core.server.toFlatSources
@@ -344,8 +343,8 @@ class SourceTaskResults(
         taskResults: Sandbox.TaskResults<*>,
         sourceExecutionArguments: SourceExecutionArguments
     ) : this(
-        sourceExecutionArguments.klass ?: check { "should have a klass name" },
-        sourceExecutionArguments.method,
+        sourceExecutionArguments.klass ?: error("should have a klass name"),
+        sourceExecutionArguments.method ?: error("Should have a method name"),
         taskResults.returned.toString(),
         if (taskResults.threw != null) {
             ThrownException(taskResults.threw, source)

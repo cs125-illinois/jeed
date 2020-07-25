@@ -10,12 +10,14 @@ import edu.illinois.cs.cs125.jeed.core.Interval
 import edu.illinois.cs.cs125.jeed.core.KtLintFailed
 import edu.illinois.cs.cs125.jeed.core.SnippetTransformationFailed
 import edu.illinois.cs.cs125.jeed.core.Source
+import edu.illinois.cs.cs125.jeed.core.SourceType
 import edu.illinois.cs.cs125.jeed.core.TemplatingFailed
 import edu.illinois.cs.cs125.jeed.core.cexecute
 import edu.illinois.cs.cs125.jeed.core.checkstyle
 import edu.illinois.cs.cs125.jeed.core.compile
 import edu.illinois.cs.cs125.jeed.core.complexity
 import edu.illinois.cs.cs125.jeed.core.defaultChecker
+import edu.illinois.cs.cs125.jeed.core.distinguish
 import edu.illinois.cs.cs125.jeed.core.execute
 import edu.illinois.cs.cs125.jeed.core.fromSnippet
 import edu.illinois.cs.cs125.jeed.core.fromTemplates
@@ -38,15 +40,16 @@ import java.time.Instant
 
 @Suppress("LongParameterList")
 class Request(
-    val source: Map<String, String>?,
+    passedSource: Map<String, String>?,
     val templates: Map<String, String>?,
-    val snippet: String?,
+    passedSnippet: String?,
     passedTasks: Set<Task>,
     arguments: TaskArguments?,
     @Suppress("MemberVisibilityCanBePrivate") val authToken: String?,
     val label: String,
     val waitForSave: Boolean = false,
-    val requireSave: Boolean = true
+    val requireSave: Boolean = true,
+    val checkForSnippet: Boolean = false
 ) {
     val tasks: Set<Task>
     val arguments = arguments ?: TaskArguments()
@@ -54,23 +57,50 @@ class Request(
     var email: String? = null
     var audience: List<String>? = null
 
+    val source: Map<String, String>?
+    val snippet: String?
     init {
+        var potentialSource = passedSource
+        var potentialSnippet = passedSnippet
+
         val tasksToRun = passedTasks.toMutableSet()
 
-        require(!(source != null && snippet != null)) { "can't create task with both sources and snippet" }
-        require(source != null || snippet != null) { "must provide either sources or a snippet" }
-
-        if (templates != null) {
-            require(source != null) { "can't use both templates and snippet mode" }
+        require(!(potentialSource != null && potentialSnippet != null)) {
+            "can't create task with both sources and snippet"
         }
-        if (source != null) {
-            val fileTypes = Source.filenamesToFileTypes(source.keys)
+        require(potentialSource != null || potentialSnippet != null) {
+            "must provide either sources or a snippet"
+        }
+
+        if (potentialSource != null) {
+            val fileTypes = Source.filenamesToFileTypes(potentialSource.keys)
             require(fileTypes.size == 1) { "can't compile mixed Java and Kotlin sources" }
             if (tasksToRun.contains(Task.checkstyle)) {
                 require(fileTypes[0] == Source.FileType.JAVA) { "can't run checkstyle on Kotlin sources" }
             }
+            // Hack to support snippets when we know the language but not whether the content is a snippet or not
+            if (potentialSource.keys.size == 1 && checkForSnippet) {
+                val fileType = fileTypes.first()
+                val singleSource = potentialSource.values.first()
+                if (
+                    fileType == Source.FileType.JAVA &&
+                    singleSource.distinguish("java") == SourceType.JAVA_SNIPPET
+                ) {
+                    potentialSnippet = singleSource
+                    potentialSource = null
+                } else if (
+                    fileType == Source.FileType.KOTLIN &&
+                    singleSource.distinguish("kotlin") == SourceType.KOTLIN_SNIPPET
+                ) {
+                    potentialSnippet = singleSource
+                    potentialSource = null
+                }
+            }
         }
 
+        if (templates != null) {
+            require(potentialSource != null) { "can't use both templates and snippet mode" }
+        }
         if (tasksToRun.contains(Task.execute)) {
             require(tasksToRun.contains(Task.compile) || tasksToRun.contains(Task.kompile)) {
                 "must compile code before execution"
@@ -82,13 +112,15 @@ class Request(
         require(!(tasksToRun.containsAll(setOf(Task.execute, Task.cexecute)))) {
             "can't both run code in the sandbox and in the container"
         }
-        if (snippet != null) {
+        if (potentialSnippet != null) {
             tasksToRun.add(Task.snippet)
         }
         if (templates != null) {
             tasksToRun.add(Task.template)
         }
         tasks = tasksToRun.toSet()
+        source = potentialSource
+        snippet = potentialSnippet
     }
 
     fun check(): Request {
