@@ -502,6 +502,37 @@ Test.test();
         stacktrace shouldHaveSize 3
         stacktrace[1].trim() shouldBe "at Test.test(:4)"
     }
+    "should execute sources that use Java 14 features" {
+        @Suppress("MagicNumber")
+        if (systemCompilerVersion < 14) {
+            throw SkipTestException("Cannot run this test until Java 14")
+        } else {
+            val executionResult = Source(
+                mapOf(
+                    "Main.java" to """
+record Range(int lo, int hi) {
+    public Range {
+        if (lo > hi) {
+            throw new IllegalArgumentException(String.format("(%d,%d)", lo, hi));
+        }
+    }
+}
+public class Main {
+    public static void main() {
+        Object o = new Range(0, 10);
+        if (o instanceof Range r) {
+            System.out.println(r.hi());
+        }
+    }
+}
+                """.trim()
+                )
+            ).compile().execute()
+
+            executionResult should haveCompleted()
+            executionResult should haveStdout("10")
+        }
+    }
 })
 
 fun haveCompleted() = object : Matcher<Sandbox.TaskResults<out Any?>> {

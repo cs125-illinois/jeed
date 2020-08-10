@@ -134,7 +134,7 @@ protected void test3() {
         """.trim()
         ).compile()
     }
-    // TODO: Update if and when ANTLR4 grammar is updated
+    // Update if and when ANTLR4 grammar is updated
     "!should parse Java 13 constructs in snippets" {
         Source.fromSnippet(
             """
@@ -294,6 +294,29 @@ println("Hello, world!")
         }
         exception.errors shouldHaveSize 1
         exception.errors[0].location?.line shouldBe 1
+    }
+    "should parse instanceof pattern matching properly" {
+        Source.fromSnippet(
+            """
+Object o = new String("");
+if (o instanceof String s) {
+  System.out.println(s.length());
+}
+            """.trim()
+        ).compile()
+    }
+    // Requires ANTLR4 support...
+    "!should parse records properly" {
+        Source.fromSnippet(
+            """
+record Range(int lo, int hi) {
+    public Range {
+        if (lo > hi) {
+            throw new IllegalArgumentException(String.format("(%d,%d)", lo, hi));
+        }
+    }
+}            """.trim()
+        ).compile()
     }
 })
 

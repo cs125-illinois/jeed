@@ -486,7 +486,7 @@ expression
     | expression bop=('+'|'-') expression
     | expression ('<' '<' | '>' '>' '>' | '>' '>') expression
     | expression bop=('<=' | '>=' | '>' | '<') expression
-    | expression bop=INSTANCEOF typeType
+    | expression bop=INSTANCEOF typeType IDENTIFIER?
     | expression bop=('==' | '!=') expression
     | expression bop='&' expression
     | expression bop='^' expression

@@ -139,8 +139,7 @@ public int add(int a,int b) {
         checkstyleError.errors[0].location.line shouldBe 1
         checkstyleError.errors[1].location.line shouldBe 2
     }
-    // TODO: Update if and when checkstyle supports switch expressions
-    "!should not fail on new Java features" {
+    "!should not fail on Java switch" {
         val checkstyleResult = Source(
             mapOf(
                 "Test.java" to """
@@ -154,6 +153,46 @@ public class Test {
     }
     public static void main() {
         System.out.println(testYieldKeyword(1));
+    }
+}
+                """.trim()
+            )
+        ).checkstyle()
+
+        checkstyleResult shouldNot haveCheckstyleErrors()
+    }
+    "should not fail on Java instanceof pattern" {
+        val checkstyleResult = Source(
+            mapOf(
+                "Test.java" to """
+public class Test {
+    public static void main() {
+        Object o = new String("");
+        if (o instanceof String s) {
+            System.out.println(s.length());
+        }
+    }
+}
+                """.trim()
+            )
+        ).checkstyle()
+
+        checkstyleResult shouldNot haveCheckstyleErrors()
+    }
+    "should not fail on Java records" {
+        val checkstyleResult = Source(
+            mapOf(
+                "Test.java" to """
+record Range(int lo, int hi) {
+    public Range {
+        if (lo > hi) {
+            throw new IllegalArgumentException(String.format("(%d,%d)", lo, hi));
+        }
+    }
+}
+public class Test {
+    public static void main() {
+        Object o = new Range(0, 10);
     }
 }
                 """.trim()
