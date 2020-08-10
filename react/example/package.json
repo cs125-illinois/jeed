@@ -14,29 +14,29 @@
     "tsc": "tsc"
   },
   "dependencies": {
-    "@cs125/gatsby-theme-cs125": "^2020.7.3",
+    "@cs125/gatsby-theme-cs125": "^2020.7.10",
     "@material-ui/core": "^4.11.0",
-    "gatsby": "^2.24.2",
+    "gatsby": "^2.24.11",
     "gatsby-alias-imports": "^1.0.4",
-    "gatsby-plugin-typescript": "^2.4.14",
+    "gatsby-plugin-typescript": "^2.4.16",
     "react": "^16.13.1",
     "react-dom": "^16.13.1",
     "source-map-support": "^0.5.19",
     "ts-node": "^8.10.2",
     "tsconfig-paths": "^3.9.0",
-    "typescript": "^3.9.6"
+    "typescript": "^3.9.7"
   },
   "devDependencies": {
-    "@typescript-eslint/eslint-plugin": "^3.6.0",
-    "@typescript-eslint/parser": "^3.6.0",
+    "@typescript-eslint/eslint-plugin": "^3.7.0",
+    "@typescript-eslint/parser": "^3.7.0",
     "depcheck": "^1.0.0",
-    "eslint": "^7.4.0",
+    "eslint": "^7.5.0",
     "eslint-config-prettier": "^6.11.0",
     "eslint-plugin-prettier": "^3.1.4",
     "eslint-plugin-react": "^7.20.3",
-    "eslint-plugin-react-hooks": "^4.0.7",
+    "eslint-plugin-react-hooks": "^4.0.8",
     "gh-pages": "^3.1.0",
-    "npm-check-updates": "^7.0.1",
+    "npm-check-updates": "^7.0.2",
     "prettier": "2.0.5",
     "prettier-package-json": "^2.1.3"
   },

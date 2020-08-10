@@ -190,6 +190,7 @@ export const Request = Record({
     authToken: String,
     waitForSave: Boolean,
     requireSave: Boolean,
+    checkForSnippet: Boolean,
   })
 )
 export type Request = Static<typeof Request>
