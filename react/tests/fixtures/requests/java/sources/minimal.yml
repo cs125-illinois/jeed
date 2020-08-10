@@ -1,9 +1,0 @@
-tasks: ["compile", "execute"]
-label: "testing"
-sources:
-  - path: Example.java
-    contents: public class Example {
-      public static void main() {
-      System.out.println("Here");
-      }
-      }

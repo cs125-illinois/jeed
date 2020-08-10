@@ -1,9 +1,0 @@
-dist
-node_modules
-.DS_Store
-*.swp
-*.swo
-.cache
-/.env*
-/docs/serve.json
-/report.html
