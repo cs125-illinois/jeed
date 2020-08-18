@@ -6,7 +6,7 @@ plugins {
     kotlin("kapt") version kotlinVersion apply false
     id("org.jmailen.kotlinter") version "2.4.1" apply false
     id("com.github.ben-manes.versions") version "0.29.0"
-    id("io.gitlab.arturbosch.detekt") version "1.10.0"
+    id("io.gitlab.arturbosch.detekt") version "1.11.0"
 }
 allprojects {
     repositories {
@@ -17,7 +17,7 @@ allprojects {
 }
 subprojects {
     group = "com.github.cs125-illinois.jeed"
-    version = "2020.8.0"
+    version = "2020.8.2"
     tasks.withType<KotlinCompile> {
         val javaVersion = JavaVersion.VERSION_1_8.toString()
         sourceCompatibility = javaVersion

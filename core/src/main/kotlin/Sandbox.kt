@@ -272,6 +272,9 @@ object Sandbox {
                             confinedTask.task.get(executionArguments.returnTimeout.toLong(), TimeUnit.MILLISECONDS),
                             null
                         )
+                    } catch (e: TimeoutException) {
+                        confinedTask.task.cancel(true)
+                        Pair(null, null)
                     } catch (e: Throwable) {
                         confinedTask.task.cancel(true)
                         Pair(null, e)
