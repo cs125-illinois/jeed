@@ -455,7 +455,7 @@ object Sandbox {
                     currentLines.remove(console)
 
                     if (redirectingOutput) {
-                        redirectedOutputLines[console]?.append(currentLine.line.toString())
+                        redirectedOutputLines[console]?.append(currentLine.line.toString() + "\n")
                     }
                 }
                 '\r' -> {

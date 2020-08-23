@@ -110,10 +110,11 @@ for (int i = 0; i < 32; i++) {
         val unrelatedOutput = combinedOutputStream.toString()
         unrelatedOutput.lines().filter { it == "Bad" }.size shouldBe 4 * 2 * 512
     }
-    "should redirect output to trusted task properly" {
+    "f:should redirect output to trusted task properly" {
         val compiledSource = Source.fromSnippet(
             """
 System.out.println("Here");
+System.out.println("There");
 System.err.println("There");
             """.trim()
         ).compile()
@@ -121,13 +122,13 @@ System.err.println("There");
             redirectOutput {
                 classLoader.findClassMethod().invoke(null)
             }.also {
-                assert(it.stdout == "Here")
-                assert(it.stderr == "There")
+                assert(it.stdout == "Here\nThere\n")
+                assert(it.stderr == "There\n")
             }
         }
         executionResult should haveCompleted()
         executionResult shouldNot haveTimedOut()
-        executionResult should haveStdout("Here")
+        executionResult should haveStdout("Here\nThere")
         executionResult should haveStderr("There")
     }
     "should handle null print arguments" {
