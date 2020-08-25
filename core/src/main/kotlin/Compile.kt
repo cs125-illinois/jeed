@@ -52,13 +52,15 @@ data class CompilationArguments(
     @Transient val parentClassLoader: ClassLoader? = null,
     val useCache: Boolean? = null,
     val waitForCache: Boolean = false,
-    val isolatedClassLoader: Boolean = false
+    val isolatedClassLoader: Boolean = false,
+    val parameters: Boolean = DEFAULT_PARAMETERS
 ) {
     companion object {
         const val DEFAULT_WERROR = false
         const val DEFAULT_XLINT = "all"
         const val DEFAULT_ENABLE_PREVIEW = true
         const val PREVIEW_STARTED = 11
+        const val DEFAULT_PARAMETERS = false
     }
 
     override fun equals(other: Any?): Boolean {
@@ -72,6 +74,7 @@ data class CompilationArguments(
         if (Xlint != other.Xlint) return false
         if (useCache != other.useCache) return false
         if (waitForCache != other.waitForCache) return false
+        if (parameters != other.parameters) return false
 
         return true
     }
@@ -82,6 +85,7 @@ data class CompilationArguments(
         result = 31 * result + Xlint.hashCode()
         result = 31 * result + useCache.hashCode()
         result = 31 * result + waitForCache.hashCode()
+        result = 31 * result + parameters.hashCode()
         return result
     }
 }
@@ -133,7 +137,9 @@ private fun compile(
 
     val options = mutableSetOf<String>()
     options.add("-Xlint:${compilationArguments.Xlint}")
-
+    if (compilationArguments.parameters) {
+        options.add("-parameters")
+    }
     if (compilationArguments.enablePreview && systemCompilerVersion >= CompilationArguments.PREVIEW_STARTED) {
         options.addAll(listOf("--enable-preview", "--release", systemCompilerVersion.toString()))
     }

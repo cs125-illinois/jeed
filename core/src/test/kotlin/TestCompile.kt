@@ -518,6 +518,25 @@ public class Test {
                 .getDeclaredMethod("welcome").invoke(null) shouldBe "Jeed"
         }
     }
+    "should compile with parameter names when requested" {
+        val source = Source(
+            mapOf(
+                "Test.java" to """
+public class Test {
+    public static void method(int first, String second) { }
+}
+            """.trim()
+            )
+        )
+        source.compile().also {
+            val klass = it.classLoader.loadClass("Test")
+            klass.declaredMethods.find { it.name == "method" }?.parameters?.map { it.name }?.first() shouldBe "arg0"
+        }
+        source.compile(CompilationArguments(parameters = true)).also {
+            val klass = it.classLoader.loadClass("Test")
+            klass.declaredMethods.find { it.name == "method" }?.parameters?.map { it.name }?.first() shouldBe "first"
+        }
+    }
 })
 
 fun haveCompilationErrorAt(source: String = SNIPPET_SOURCE, line: Int, column: Int? = null) =
