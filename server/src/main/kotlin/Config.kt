@@ -17,6 +17,7 @@ object TopLevel : ConfigSpec("") {
     val hosts by optional<List<String>>(listOf())
     val semester by optional<String?>(null)
     val mongodb by optional<String?>(null)
+    val sentinelDelay by optional(5L)
 
     object Mongo : ConfigSpec() {
         val collection by optional(NAME)
@@ -50,6 +51,7 @@ object Limits : ConfigSpec() {
             val unsafeExceptions by optional(Sandbox.ClassLoaderConfiguration.DEFAULT_UNSAFE_EXCEPTIONS)
         }
     }
+
     object Cexecution : ConfigSpec() {
         val timeout by optional(ContainerExecutionArguments.DEFAULT_TIMEOUT)
     }

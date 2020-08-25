@@ -31,13 +31,16 @@ import io.ktor.server.netty.Netty
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.GlobalScope
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.time.delay
 import kotlinx.coroutines.withContext
 import mu.KotlinLogging
 import org.apache.http.auth.AuthenticationException
 import org.bson.BsonDocument
 import java.net.URI
+import java.time.Duration
 import java.time.Instant
 import java.util.Properties
+import kotlin.system.exitProcess
 import edu.illinois.cs.cs125.jeed.core.moshi.Adapters as JeedAdapters
 
 @Suppress("UNUSED")
@@ -140,7 +143,9 @@ fun Application.jeed() {
         }
     }
     intercept(ApplicationCallPipeline.Fallback) {
-        if (call.response.status() == null) { call.respond(HttpStatusCode.NotFound) }
+        if (call.response.status() == null) {
+            call.respond(HttpStatusCode.NotFound)
+        }
     }
 }
 
@@ -168,10 +173,29 @@ fun main() {
 
     GlobalScope.launch { warm(2) }
     GlobalScope.launch { Request.mongoCollection?.find(Filters.eq("_id", "")) }
+    GlobalScope.launch {
+        delay(Duration.ofMinutes(configuration[TopLevel.sentinelDelay]))
+        try {
+            warm(2)
+            logger.debug("Sentinel succeeded")
+        } catch (err: Throwable) {
+            logger.error("Restarting due to sentinel failure")
+            err.printStackTrace()
+            exitProcess(-1)
+        }
+    }
 
     embeddedServer(Netty, host = httpUri.host, port = httpUri.port, module = Application::jeed).start(wait = true)
 }
 
-fun assert(block: () -> String): Nothing { throw AssertionError(block()) }
-fun check(block: () -> String): Nothing { throw IllegalStateException(block()) }
-fun require(block: () -> String): Nothing { throw IllegalArgumentException(block()) }
+fun assert(block: () -> String): Nothing {
+    throw AssertionError(block())
+}
+
+fun check(block: () -> String): Nothing {
+    throw IllegalStateException(block())
+}
+
+fun require(block: () -> String): Nothing {
+    throw IllegalArgumentException(block())
+}
