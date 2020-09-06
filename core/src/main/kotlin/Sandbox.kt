@@ -95,6 +95,7 @@ object Sandbox {
                 )
             val ALWAYS_UNSAFE_EXCEPTIONS = setOf("java.lang.Error")
             val ALWAYS_ISOLATED_CLASSES = setOf("kotlin.coroutines.", "kotlinx.coroutines.")
+            val COROUTINE_REQUIRED_CLASSES = setOf("java.lang.reflect.Constructor")
         }
     }
 
@@ -671,6 +672,9 @@ object Sandbox {
             if (name in ALWAYS_ALLOWED_CLASS_NAMES) {
                 return delegateClass(name)
             }
+            if (name in ClassLoaderConfiguration.COROUTINE_REQUIRED_CLASSES) {
+                return delegateClass(name)
+            }
             return if (isWhiteList) {
                 if (whitelistedClasses.any { name.startsWith(it) }) {
                     delegateClass(name)
@@ -864,8 +868,11 @@ object Sandbox {
                             unsafeExceptionClasses,
                             preinspection.badTryCatchBlockPositions,
                             super.visitMethod(
-                                transformedModifiers, transformedMethodName,
-                                descriptor, signature, exceptions
+                                transformedModifiers,
+                                transformedMethodName,
+                                descriptor,
+                                signature,
+                                exceptions
                             )
                         )
                     }

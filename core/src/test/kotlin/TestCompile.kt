@@ -1,14 +1,13 @@
 package edu.illinois.cs.cs125.jeed.core
 
-import io.kotlintest.Matcher
-import io.kotlintest.MatcherResult
-import io.kotlintest.SkipTestException
-import io.kotlintest.matchers.collections.shouldHaveSize
-import io.kotlintest.matchers.numerics.shouldBeGreaterThan
-import io.kotlintest.should
-import io.kotlintest.shouldBe
-import io.kotlintest.shouldThrow
-import io.kotlintest.specs.StringSpec
+import io.kotest.assertions.throwables.shouldThrow
+import io.kotest.core.spec.style.StringSpec
+import io.kotest.matchers.Matcher
+import io.kotest.matchers.MatcherResult
+import io.kotest.matchers.collections.shouldHaveSize
+import io.kotest.matchers.ints.shouldBeGreaterThan
+import io.kotest.matchers.should
+import io.kotest.matchers.shouldBe
 
 class TestCompile : StringSpec({
     "should compile simple snippets" {
@@ -337,9 +336,7 @@ Widget w = new Widget();
         compiledSource should haveDefinedExactlyTheseClasses(setOf("Main"))
     }
     "should compile sources that use Java 12 features" {
-        if (systemCompilerVersion < 12) {
-            throw SkipTestException("Cannot run this test until Java 12")
-        } else {
+        if (systemCompilerVersion >= 12) {
             val compiledSource = Source(
                 mapOf(
                     "Test.java" to """
@@ -363,9 +360,7 @@ public class Test {
         }
     }
     "should compile sources that use Java 13 features" {
-        if (systemCompilerVersion < 13) {
-            throw SkipTestException("Cannot run this test until Java 13")
-        } else {
+        if (systemCompilerVersion >= 13) {
             val compiledSource = Source(
                 mapOf(
                     "Test.java" to """
@@ -389,9 +384,7 @@ public class Test {
         }
     }
     "should compile sources that use Java 14 features" {
-        if (systemCompilerVersion < 14) {
-            throw SkipTestException("Cannot run this test until Java 14")
-        } else {
+        if (systemCompilerVersion >= 14) {
             val compiledSource = Source(
                 mapOf(
                     "Test.java" to """
@@ -414,9 +407,7 @@ public class Test {
         }
     }
     "should compile sources that use Java 14 preview features" {
-        if (systemCompilerVersion < 14) {
-            throw SkipTestException("Cannot run this test until Java 14")
-        } else {
+        if (systemCompilerVersion >= 14) {
             val tripleQuote = "\"\"\""
             val compiledSource = Source(
                 mapOf(
@@ -436,9 +427,7 @@ public class Test {
         }
     }
     "should not support Java 14 preview features when preview is disabled" {
-        if (systemCompilerVersion < 14) {
-            throw SkipTestException("Cannot run this test until Java 14")
-        } else {
+        if (systemCompilerVersion >= 14) {
             shouldThrow<CompilationFailed> {
                 val tripleQuote = "\"\"\""
                 Source(
@@ -528,12 +517,12 @@ public class Test {
             """.trim()
             )
         )
-        source.compile().also {
-            val klass = it.classLoader.loadClass("Test")
+        source.compile().also { compiledSource ->
+            val klass = compiledSource.classLoader.loadClass("Test")
             klass.declaredMethods.find { it.name == "method" }?.parameters?.map { it.name }?.first() shouldBe "arg0"
         }
-        source.compile(CompilationArguments(parameters = true)).also {
-            val klass = it.classLoader.loadClass("Test")
+        source.compile(CompilationArguments(parameters = true)).also { compiledSource ->
+            val klass = compiledSource.classLoader.loadClass("Test")
             klass.declaredMethods.find { it.name == "method" }?.parameters?.map { it.name }?.first() shouldBe "first"
         }
     }

@@ -1,11 +1,11 @@
 package edu.illinois.cs.cs125.jeed.core
 
-import io.kotlintest.matchers.beLessThan
-import io.kotlintest.should
-import io.kotlintest.shouldBe
-import io.kotlintest.shouldNot
-import io.kotlintest.shouldNotBe
-import io.kotlintest.specs.StringSpec
+import io.kotest.core.spec.style.StringSpec
+import io.kotest.matchers.longs.shouldBeLessThan
+import io.kotest.matchers.should
+import io.kotest.matchers.shouldBe
+import io.kotest.matchers.shouldNot
+import io.kotest.matchers.shouldNotBe
 import kotlinx.coroutines.GlobalScope
 import kotlinx.coroutines.launch
 
@@ -205,7 +205,7 @@ fun main() {
         ).kompile().execute(SourceExecutionArguments(timeout = 9000L, waitForShutdown = true))
         executionResult should haveCompleted()
         executionResult should haveOutput("Finished")
-        executionResult.executionInterval.length should beLessThan(5000L)
+        executionResult.executionInterval.length shouldBeLessThan (5000L)
     }
     "should terminate runaway unscoped coroutines" {
         val executionResult = Source(
@@ -328,5 +328,24 @@ fun main() = runBlocking {
 
         executionResult should haveCompleted()
         executionResult shouldNot haveTimedOut()
+    }
+    "f:should run coroutines" {
+        val executionResult = Source(
+            mapOf(
+                "Main.kt" to """
+import kotlinx.coroutines.*
+fun main() {
+    val job = GlobalScope.launch {
+        println("Here")
+    }
+    runBlocking {
+        job.join()
+    }
+}
+                """.trimIndent()
+            )
+        ).kompile().execute()
+
+        println(executionResult.threw)
     }
 })

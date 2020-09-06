@@ -164,7 +164,9 @@ private fun kompile(
     setIdeaIoUseFallback()
 
     val environment = KotlinCoreEnvironment.createForProduction(
-        rootDisposable, configuration, EnvironmentConfigFiles.JVM_CONFIG_FILES
+        rootDisposable,
+        configuration,
+        EnvironmentConfigFiles.JVM_CONFIG_FILES
     )
 
     val psiFileFactory = PsiFileFactory.getInstance(environment.project) as PsiFileFactoryImpl
@@ -201,7 +203,12 @@ private fun kompile(
     val classLoader = JeedClassLoader(fileManager, parentClassLoader)
 
     return CompiledSource(
-        source, messageCollector.warnings, started, Interval(started, Instant.now()), classLoader, fileManager
+        source,
+        messageCollector.warnings,
+        started,
+        Interval(started, Instant.now()),
+        classLoader,
+        fileManager
     ).also {
         it.cache(kompilationArguments)
     }

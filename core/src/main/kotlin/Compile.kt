@@ -25,7 +25,7 @@ private val systemCompiler = ToolProvider.getSystemJavaCompiler() ?: error {
     "systemCompiler not found: you are probably running a JRE, not a JDK"
 }
 const val DEFAULT_JAVA_VERSION = 10
-val systemCompilerName = systemCompiler.sourceVersions.max().toString()
+val systemCompilerName = systemCompiler.sourceVersions.maxOrNull().toString()
 val systemCompilerVersion = systemCompilerName.let {
     @Suppress("TooGenericExceptionCaught") try {
         it.split("_")[1].toInt()

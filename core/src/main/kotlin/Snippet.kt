@@ -312,7 +312,9 @@ private fun sourceFromJavaSnippet(originalSource: String, snippetArguments: Snip
             } else if (type == "import" && sawNonImport) {
                 errors.add(
                     SnippetTransformationError(
-                        start - 1, 0, "import statements must be at the top of the snippet"
+                        start - 1,
+                        0,
+                        "import statements must be at the top of the snippet"
                     )
                 )
             }
@@ -326,7 +328,8 @@ private fun sourceFromJavaSnippet(originalSource: String, snippetArguments: Snip
         override fun visitPackageDeclaration(context: SnippetParser.PackageDeclarationContext) {
             errors.add(
                 SnippetTransformationError(
-                    context.start.line, context.start.charPositionInLine,
+                    context.start.line,
+                    context.start.charPositionInLine,
                     "Snippets may not contain package declarations"
                 )
             )
@@ -402,10 +405,7 @@ private fun sourceFromJavaSnippet(originalSource: String, snippetArguments: Snip
         val lineNumber = i + 1
         if (contentMapping[lineNumber]?.startsWith(("method")) == true) {
             val (actualLine, extraIndentation) =
-                if ((contentMapping[lineNumber] == "method:start") && !line.contains(
-                    """\bstatic\b""".toRegex()
-                )
-                ) {
+                if ((contentMapping[lineNumber] == "method:start") && !line.contains("""\bstatic\b""".toRegex())) {
                     val matchVisibilityModifier = JAVA_VISIBILITY_PATTERN.find(line)
                     if (matchVisibilityModifier != null) {
                         val rewrittenLine = line.replace(JAVA_VISIBILITY_PATTERN, "").let {

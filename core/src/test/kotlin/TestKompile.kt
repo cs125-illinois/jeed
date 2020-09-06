@@ -1,10 +1,10 @@
 package edu.illinois.cs.cs125.jeed.core
 
-import io.kotlintest.matchers.collections.shouldContainExactlyInAnyOrder
-import io.kotlintest.matchers.numerics.shouldBeLessThan
-import io.kotlintest.should
-import io.kotlintest.shouldBe
-import io.kotlintest.specs.StringSpec
+import io.kotest.core.spec.style.StringSpec
+import io.kotest.matchers.collections.shouldContainExactlyInAnyOrder
+import io.kotest.matchers.longs.shouldBeLessThan
+import io.kotest.matchers.should
+import io.kotest.matchers.shouldBe
 
 class TestKompile : StringSpec({
     "should compile simple sources" {

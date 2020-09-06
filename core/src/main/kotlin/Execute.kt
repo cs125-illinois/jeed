@@ -71,7 +71,10 @@ suspend fun CompiledSource.execute(
 
     // Fail fast if the class or method don't exist
     val methodToRun = classLoader.findClassMethod(
-        executionArguments.klass, executionArguments.method, defaultKlass, SourceExecutionArguments.DEFAULT_METHOD
+        executionArguments.klass,
+        executionArguments.method,
+        defaultKlass,
+        SourceExecutionArguments.DEFAULT_METHOD
     )
     executionArguments.klass = executionArguments.klass ?: methodToRun.declaringClass.simpleName
     executionArguments.method = executionArguments.method ?: methodToRun.getQualifiedName()

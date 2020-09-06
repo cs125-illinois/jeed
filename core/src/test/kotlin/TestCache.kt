@@ -1,13 +1,13 @@
 package edu.illinois.cs.cs125.jeed.core
 
-import io.kotlintest.matchers.numerics.shouldBeGreaterThan
-import io.kotlintest.matchers.numerics.shouldBeLessThan
-import io.kotlintest.matchers.types.shouldBeTypeOf
-import io.kotlintest.should
-import io.kotlintest.shouldBe
-import io.kotlintest.shouldNot
-import io.kotlintest.shouldNotBe
-import io.kotlintest.specs.StringSpec
+import io.kotest.core.spec.style.StringSpec
+import io.kotest.matchers.ints.shouldBeGreaterThan
+import io.kotest.matchers.longs.shouldBeLessThan
+import io.kotest.matchers.should
+import io.kotest.matchers.shouldBe
+import io.kotest.matchers.shouldNot
+import io.kotest.matchers.shouldNotBe
+import io.kotest.matchers.types.shouldBeTypeOf
 import java.util.PropertyPermission
 
 class TestCache : StringSpec({
@@ -113,10 +113,12 @@ public class Main {
     }
     "should cache compiled simple kotlin snippets" {
         val first = Source.fromSnippet(
-            "val weirdKame = 8", SnippetArguments(fileType = Source.FileType.KOTLIN)
+            "val weirdKame = 8",
+            SnippetArguments(fileType = Source.FileType.KOTLIN)
         ).kompile(KompilationArguments(useCache = true, waitForCache = true))
         val second = Source.fromSnippet(
-            "val weirdKame = 8", SnippetArguments(fileType = Source.FileType.KOTLIN)
+            "val weirdKame = 8",
+            SnippetArguments(fileType = Source.FileType.KOTLIN)
         ).kompile(KompilationArguments(useCache = true, waitForCache = true))
 
         first.cached shouldBe false

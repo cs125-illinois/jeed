@@ -151,7 +151,9 @@ class SnippetTransformationErrorAdapter {
         snippetParseErrorJson: SnippetTransformationErrorJson
     ): SnippetTransformationError {
         return SnippetTransformationError(
-            snippetParseErrorJson.line, snippetParseErrorJson.column, snippetParseErrorJson.message
+            snippetParseErrorJson.line,
+            snippetParseErrorJson.column,
+            snippetParseErrorJson.message
         )
     }
 
@@ -194,7 +196,10 @@ class TemplatingErrorAdapter {
     @FromJson
     fun templatingErrorFromJson(templatingErrorJson: TemplatingErrorJson): TemplatingError {
         return TemplatingError(
-            templatingErrorJson.name, templatingErrorJson.line, templatingErrorJson.column, templatingErrorJson.message
+            templatingErrorJson.name,
+            templatingErrorJson.line,
+            templatingErrorJson.column,
+            templatingErrorJson.message
         )
     }
 

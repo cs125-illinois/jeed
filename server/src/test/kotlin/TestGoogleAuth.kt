@@ -1,8 +1,8 @@
 package edu.illinois.cs.cs125.jeed.server
 
-import io.kotlintest.Spec
-import io.kotlintest.assertions.ktor.shouldHaveStatus
-import io.kotlintest.specs.StringSpec
+import io.kotest.assertions.ktor.shouldHaveStatus
+import io.kotest.core.spec.Spec
+import io.kotest.core.spec.style.StringSpec
 import io.ktor.application.Application
 import io.ktor.http.HttpMethod
 import io.ktor.http.HttpStatusCode

@@ -1,8 +1,8 @@
 package edu.illinois.cs.cs125.jeed.core
 
-import io.kotlintest.shouldBe
-import io.kotlintest.shouldNotBe
-import io.kotlintest.specs.StringSpec
+import io.kotest.core.spec.style.StringSpec
+import io.kotest.matchers.shouldBe
+import io.kotest.matchers.shouldNotBe
 
 class TestSource : StringSpec({
     "should hash identical sources properly" {

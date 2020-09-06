@@ -9,11 +9,11 @@ import edu.illinois.cs.cs125.jeed.core.fromSnippet
 import edu.illinois.cs.cs125.jeed.core.haveCompleted
 import edu.illinois.cs.cs125.jeed.core.haveOutput
 import edu.illinois.cs.cs125.jeed.core.haveTimedOut
-import io.kotlintest.matchers.beInstanceOf
-import io.kotlintest.matchers.types.shouldBeTypeOf
-import io.kotlintest.should
-import io.kotlintest.shouldNot
-import io.kotlintest.specs.StringSpec
+import io.kotest.core.spec.style.StringSpec
+import io.kotest.matchers.should
+import io.kotest.matchers.shouldNot
+import io.kotest.matchers.types.beInstanceOf
+import io.kotest.matchers.types.shouldBeTypeOf
 import kotlinx.coroutines.async
 
 class TestByteCodeRewriters : StringSpec({

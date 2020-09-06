@@ -1,8 +1,8 @@
 package edu.illinois.cs.cs125.jeed.core
 
-import io.kotlintest.shouldBe
-import io.kotlintest.shouldThrow
-import io.kotlintest.specs.StringSpec
+import io.kotest.assertions.throwables.shouldThrow
+import io.kotest.core.spec.style.StringSpec
+import io.kotest.matchers.shouldBe
 
 class TestComplexity : StringSpec({
     "should calculate complexity for snippets" {
@@ -15,7 +15,6 @@ int i = 0;
 """.trim()
         ).complexity()
         complexityResults.lookup("").complexity shouldBe 2
-        println((complexityResults.results[""]?.get("") as ClassComplexity).methods[""]?.range)
     }
     "should calculate complexity for sources" {
         val complexityResults = Source(

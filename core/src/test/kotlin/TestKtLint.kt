@@ -2,12 +2,10 @@
 
 package edu.illinois.cs.cs125.jeed.core
 
-import io.kotlintest.matchers.beEmpty
-import io.kotlintest.matchers.collections.shouldHaveSize
-import io.kotlintest.should
-import io.kotlintest.shouldBe
-import io.kotlintest.shouldThrow
-import io.kotlintest.specs.StringSpec
+import io.kotest.assertions.throwables.shouldThrow
+import io.kotest.core.spec.style.StringSpec
+import io.kotest.matchers.collections.shouldHaveSize
+import io.kotest.matchers.shouldBe
 
 class TestKtLint : StringSpec({
     "it should check simple kotlin sources" {
@@ -16,7 +14,7 @@ class TestKtLint : StringSpec({
             SnippetArguments(fileType = Source.FileType.KOTLIN)
         ).ktLint()
 
-        results.errors should beEmpty()
+        results.errors.isEmpty() shouldBe true
     }
     "it should check simple kotlin sources with indentation errors" {
         val ktLintFailed = shouldThrow<KtLintFailed> {

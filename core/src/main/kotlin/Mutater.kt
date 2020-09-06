@@ -404,7 +404,10 @@ class ConditionalBoundary(
 
     companion object {
         fun matches(contents: String) = contents in setOf(
-            Conditionals.LT, Conditionals.LTE, Conditionals.GT, Conditionals.GTE
+            Conditionals.LT,
+            Conditionals.LTE,
+            Conditionals.GT,
+            Conditionals.GTE
         )
     }
 }
@@ -429,7 +432,12 @@ class NegateConditional(
 
     companion object {
         fun matches(contents: String) = contents in setOf(
-            Conditionals.EQ, Conditionals.NE, Conditionals.LT, Conditionals.LTE, Conditionals.GT, Conditionals.GTE
+            Conditionals.EQ,
+            Conditionals.NE,
+            Conditionals.LT,
+            Conditionals.LTE,
+            Conditionals.GT,
+            Conditionals.GTE
         )
     }
 }

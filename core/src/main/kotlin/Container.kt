@@ -76,7 +76,10 @@ suspend fun CompiledSource.cexecute(
     // Note that this check is different than what is used to load the method by the actual containerrunner,
     // but should be similar enough
     val methodToRun = classLoader.findClassMethod(
-        executionArguments.klass, executionArguments.method, defaultKlass, SourceExecutionArguments.DEFAULT_METHOD
+        executionArguments.klass,
+        executionArguments.method,
+        defaultKlass,
+        SourceExecutionArguments.DEFAULT_METHOD
     )
     executionArguments.klass = executionArguments.klass ?: methodToRun.declaringClass.simpleName
     executionArguments.method = executionArguments.method ?: methodToRun.getQualifiedName()

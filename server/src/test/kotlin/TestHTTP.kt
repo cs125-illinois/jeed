@@ -4,14 +4,14 @@ package edu.illinois.cs.cs125.jeed.server
 
 import com.mongodb.MongoClient
 import com.mongodb.MongoClientURI
-import io.kotlintest.Spec
-import io.kotlintest.TestCase
-import io.kotlintest.TestResult
-import io.kotlintest.assertions.ktor.shouldHaveStatus
-import io.kotlintest.matchers.numerics.shouldBeGreaterThan
-import io.kotlintest.shouldBe
-import io.kotlintest.shouldNotBe
-import io.kotlintest.specs.StringSpec
+import io.kotest.assertions.ktor.shouldHaveStatus
+import io.kotest.core.spec.Spec
+import io.kotest.core.spec.style.StringSpec
+import io.kotest.core.test.TestCase
+import io.kotest.core.test.TestResult
+import io.kotest.matchers.ints.shouldBeGreaterThan
+import io.kotest.matchers.shouldBe
+import io.kotest.matchers.shouldNotBe
 import io.ktor.application.Application
 import io.ktor.http.HttpMethod
 import io.ktor.http.HttpStatusCode
@@ -171,6 +171,9 @@ fun main() {
 
                     val jeedResponse = Response.from(response.content)
                     jeedResponse.completed.execution?.klass shouldBe "MainKt"
+                    jeedResponse.completed.execution?.outputLines?.joinToString(separator = "\n") {
+                        it.line
+                    }?.trim() shouldBe "Here"
                     jeedResponse.completedTasks.size shouldBe 2
                     jeedResponse.failedTasks.size shouldBe 0
                 }
@@ -207,6 +210,7 @@ fun main() {
                     Request.mongoCollection?.countDocuments() shouldBe 1
 
                     val jeedResponse = Response.from(response.content)
+                    println(jeedResponse.completed.execution?.permissionRequests?.filter { !it.granted }?.map { it.permission })
                     jeedResponse.completed.execution?.klass shouldBe "MainKt"
                     jeedResponse.completed.execution?.outputLines?.joinToString(separator = "\n") {
                         it.line

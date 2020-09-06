@@ -63,12 +63,16 @@ class ConfiguredChecker(configurationString: String) {
         @Suppress("TooGenericExceptionCaught")
         indentation = try {
             XPathFactory.newInstance().newXPath().evaluate(
-                INDENTATION_PATH, configurationDocument, XPathConstants.NODE
+                INDENTATION_PATH,
+                configurationDocument,
+                XPathConstants.NODE
             ) as Node
             try {
                 (
                     XPathFactory.newInstance().newXPath().evaluate(
-                        "$INDENTATION_PATH/property[@name='basicOffset']", configurationDocument, XPathConstants.NODE
+                        "$INDENTATION_PATH/property[@name='basicOffset']",
+                        configurationDocument,
+                        XPathConstants.NODE
                     ) as Node
                     ).attributes.getNamedItem("value").nodeValue.toInt()
             } catch (e: Exception) {
@@ -80,7 +84,8 @@ class ConfiguredChecker(configurationString: String) {
 
         val checkerClass = Checker::class.java
         checker = PackageObjectFactory(
-            checkerClass.packageName, checkerClass.classLoader
+            checkerClass.packageName,
+            checkerClass.classLoader
         ).createModule(configuration.name) as Checker
         checker.setModuleClassLoader(checkerClass.classLoader)
         checker.configure(configuration)

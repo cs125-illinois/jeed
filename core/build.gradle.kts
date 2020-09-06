@@ -34,7 +34,7 @@ dependencies {
     implementation("net.java.dev.jna:jna:5.6.0")
     api("com.github.ben-manes.caffeine:caffeine:2.8.5")
 
-    testImplementation("io.kotlintest:kotlintest-runner-junit5:3.4.2")
+    testImplementation("io.kotest:kotest-runner-junit5:4.2.3")
 }
 tasks.test {
     useJUnitPlatform()

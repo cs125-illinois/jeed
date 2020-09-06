@@ -1,15 +1,14 @@
 package edu.illinois.cs.cs125.jeed.core
 
-import io.kotlintest.Matcher
-import io.kotlintest.MatcherResult
-import io.kotlintest.SkipTestException
-import io.kotlintest.matchers.collections.shouldHaveSize
-import io.kotlintest.should
-import io.kotlintest.shouldBe
-import io.kotlintest.shouldNot
-import io.kotlintest.shouldNotBe
-import io.kotlintest.shouldThrow
-import io.kotlintest.specs.StringSpec
+import io.kotest.assertions.throwables.shouldThrow
+import io.kotest.core.spec.style.StringSpec
+import io.kotest.matchers.Matcher
+import io.kotest.matchers.MatcherResult
+import io.kotest.matchers.collections.shouldHaveSize
+import io.kotest.matchers.should
+import io.kotest.matchers.shouldBe
+import io.kotest.matchers.shouldNot
+import io.kotest.matchers.shouldNotBe
 
 class TestExecute : StringSpec({
     "should execute snippets" {
@@ -20,7 +19,6 @@ i++;
 System.out.println(i);
             """.trim()
         ).compile().execute()
-        println(executeMainResult.threw?.message)
         executeMainResult should haveCompleted()
         executeMainResult should haveOutput("1")
     }
@@ -307,9 +305,7 @@ public class Main {
     }
     "should execute sources that use Java 12 features" {
         @Suppress("MagicNumber")
-        if (systemCompilerVersion < 12) {
-            throw SkipTestException("Cannot run this test until Java 12")
-        } else {
+        if (systemCompilerVersion >= 12) {
             val executionResult = Source(
                 mapOf(
                     "Main.java" to """
@@ -335,9 +331,7 @@ public class Main {
     }
     "should execute sources that use Java 13 features" {
         @Suppress("MagicNumber")
-        if (systemCompilerVersion < 13) {
-            throw SkipTestException("Cannot run this test until Java 13")
-        } else {
+        if (systemCompilerVersion >= 13) {
             val executionResult = Source(
                 mapOf(
                     "Main.java" to """
@@ -504,9 +498,7 @@ Test.test();
     }
     "should execute sources that use Java 14 features" {
         @Suppress("MagicNumber")
-        if (systemCompilerVersion < 14) {
-            throw SkipTestException("Cannot run this test until Java 14")
-        } else {
+        if (systemCompilerVersion >= 14) {
             val executionResult = Source(
                 mapOf(
                     "Main.java" to """
@@ -544,6 +536,7 @@ fun haveCompleted() = object : Matcher<Sandbox.TaskResults<out Any?>> {
         )
     }
 }
+
 fun haveTimedOut() = object : Matcher<Sandbox.TaskResults<out Any?>> {
     override fun test(value: Sandbox.TaskResults<out Any?>): MatcherResult {
         return MatcherResult(
@@ -553,6 +546,7 @@ fun haveTimedOut() = object : Matcher<Sandbox.TaskResults<out Any?>> {
         )
     }
 }
+
 fun haveOutput(output: String = "") = object : Matcher<Sandbox.TaskResults<out Any?>> {
     override fun test(value: Sandbox.TaskResults<out Any?>): MatcherResult {
         val actualOutput = value.output.trim()
@@ -563,6 +557,7 @@ fun haveOutput(output: String = "") = object : Matcher<Sandbox.TaskResults<out A
         )
     }
 }
+
 fun haveStdout(output: String) = object : Matcher<Sandbox.TaskResults<out Any?>> {
     override fun test(value: Sandbox.TaskResults<out Any?>): MatcherResult {
         val actualOutput = value.stdout.trim()
@@ -573,6 +568,7 @@ fun haveStdout(output: String) = object : Matcher<Sandbox.TaskResults<out Any?>>
         )
     }
 }
+
 fun haveStderr(output: String) = object : Matcher<Sandbox.TaskResults<out Any?>> {
     override fun test(value: Sandbox.TaskResults<out Any?>): MatcherResult {
         val actualOutput = value.stderr.trim()

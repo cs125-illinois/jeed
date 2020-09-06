@@ -12,11 +12,11 @@ import edu.illinois.cs.cs125.jeed.core.haveOutput
 import edu.illinois.cs.cs125.jeed.core.haveStderr
 import edu.illinois.cs.cs125.jeed.core.haveStdout
 import edu.illinois.cs.cs125.jeed.core.haveTimedOut
-import io.kotlintest.matchers.collections.shouldNotContain
-import io.kotlintest.should
-import io.kotlintest.shouldBe
-import io.kotlintest.shouldNot
-import io.kotlintest.specs.StringSpec
+import io.kotest.core.spec.style.StringSpec
+import io.kotest.matchers.collections.shouldNotContain
+import io.kotest.matchers.should
+import io.kotest.matchers.shouldBe
+import io.kotest.matchers.shouldNot
 import kotlinx.coroutines.async
 import kotlinx.coroutines.delay
 import java.io.ByteArrayOutputStream
