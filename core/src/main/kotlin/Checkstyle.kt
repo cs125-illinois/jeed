@@ -20,7 +20,8 @@ import javax.xml.xpath.XPathFactory
 @JsonClass(generateAdapter = true)
 data class CheckstyleArguments(
     val sources: Set<String>? = null,
-    val failOnError: Boolean = false
+    val failOnError: Boolean = false,
+    val skipUnmapped: Boolean = true
 )
 
 @JsonClass(generateAdapter = true)
@@ -58,9 +59,7 @@ class ConfiguredChecker(configurationString: String) {
             it.isCoalescing = false
             it.isValidating = false
             it.setFeature("http://apache.org/xml/features/nonvalidating/load-external-dtd", false)
-        }.newDocumentBuilder().let { documentBuilder ->
-            documentBuilder.parse(InputSource(StringReader(configurationString)))
-        }
+        }.newDocumentBuilder().parse(InputSource(StringReader(configurationString)))
         @Suppress("TooGenericExceptionCaught")
         indentation = try {
             XPathFactory.newInstance().newXPath().evaluate(
@@ -71,9 +70,7 @@ class ConfiguredChecker(configurationString: String) {
                     XPathFactory.newInstance().newXPath().evaluate(
                         "$INDENTATION_PATH/property[@name='basicOffset']", configurationDocument, XPathConstants.NODE
                     ) as Node
-                    ).let {
-                    it.attributes.getNamedItem("value").nodeValue.toInt()
-                }
+                    ).attributes.getNamedItem("value").nodeValue.toInt()
             } catch (e: Exception) {
                 DEFAULT_CHECKSTYLE_INDENTATION
             }
@@ -146,8 +143,20 @@ fun Source.checkstyle(checkstyleArguments: CheckstyleArguments = CheckstyleArgum
         sources.filter {
             names.contains(it.key)
         }
-    ).values.flatten().map {
-        CheckstyleError(it.severity, mapLocation(it.location), it.message)
+    ).values.flatten().mapNotNull {
+        val mappedLocation = try {
+            mapLocation(it.location)
+        } catch (e: SourceMappingException) {
+            if (!checkstyleArguments.skipUnmapped) {
+                throw e
+            }
+            null
+        }
+        if (mappedLocation != null) {
+            CheckstyleError(it.severity, mappedLocation, it.message)
+        } else {
+            null
+        }
     }.sortedWith(compareBy({ it.location.source }, { it.location.line }))
 
     if (checkstyleArguments.failOnError && checkstyleResults.any { it.severity == "error" }) {

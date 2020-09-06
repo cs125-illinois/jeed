@@ -175,6 +175,7 @@ fun main() {
     GlobalScope.launch { Request.mongoCollection?.find(Filters.eq("_id", "")) }
     GlobalScope.launch {
         delay(Duration.ofMinutes(configuration[TopLevel.sentinelDelay]))
+        @Suppress("TooGenericExceptionCaught")
         try {
             warm(2)
             logger.debug("Sentinel succeeded")

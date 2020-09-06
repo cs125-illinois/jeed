@@ -11,13 +11,14 @@ import java.io.File
 
 const val DEFAULT_HTTP = "http://0.0.0.0:8888"
 const val NAME = "jeed"
+const val DEFAULT_SENTINEL_DELAY = 5L
 
 object TopLevel : ConfigSpec("") {
     val http by optional(DEFAULT_HTTP)
     val hosts by optional<List<String>>(listOf())
     val semester by optional<String?>(null)
     val mongodb by optional<String?>(null)
-    val sentinelDelay by optional(5L)
+    val sentinelDelay by optional(DEFAULT_SENTINEL_DELAY)
 
     object Mongo : ConfigSpec() {
         val collection by optional(NAME)

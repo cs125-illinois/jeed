@@ -303,3 +303,5 @@ fun check(block: () -> String): Nothing {
 fun require(block: () -> String): Nothing {
     throw IllegalArgumentException(block())
 }
+
+class SourceMappingException(message: String) : Exception(message)

@@ -50,11 +50,13 @@ class Snippet(
         fun mapLocation(input: SourceLocation, remappedLineMapping: Map<Int, RemappedLine>): SourceLocation {
             check(input.source == SNIPPET_SOURCE) { "Incorrect input source: ${input.source}" }
             val remappedLineInfo = remappedLineMapping[input.line]
-            check(remappedLineInfo != null) {
-                "can't remap line ${input.line}: ${remappedLineMapping.values.joinToString(
-                    separator = ","
-                )}"
-            }
+                ?: throw SourceMappingException(
+                    "can't remap line ${input.line}: ${
+                    remappedLineMapping.values.joinToString(
+                        separator = ","
+                    )
+                    }"
+                )
             return SourceLocation(
                 SNIPPET_SOURCE,
                 remappedLineInfo.sourceLineNumber,
@@ -88,7 +90,11 @@ class SnippetErrorListener(
         e: RecognitionException?
     ) {
         // Decrement line number by 1 to account for added braces
-        var actualLine = if (decrement) { line - 1 } else { line }
+        var actualLine = if (decrement) {
+            line - 1
+        } else {
+            line
+        }
         var actualCharPositionInLine = charPositionInLine
         var actualMsg = msg
 
@@ -269,6 +275,7 @@ ${" ".repeat(snippetArguments.indent)}}
 
 private val JAVA_VISIBILITY_PATTERN =
     """^\s*(public|private|protected)""".toRegex()
+
 @Suppress("LongMethod", "ComplexMethod")
 private fun sourceFromJavaSnippet(originalSource: String, snippetArguments: SnippetArguments): Snippet {
     val sourceLines = originalSource.lines().map { it.trim().length }
@@ -454,8 +461,10 @@ private fun sourceFromJavaSnippet(originalSource: String, snippetArguments: Snip
     if (methodDeclarations.size > 0) {
         rewrittenSource += methodDeclarations.joinToString(separator = "\n", postfix = "\n")
     }
-    rewrittenSource += """${" "
-        .repeat(snippetArguments.indent)}public static void $snippetMainMethodName() throws Exception {""" + "\n"
+    rewrittenSource += """${
+    " "
+        .repeat(snippetArguments.indent)
+    }public static void $snippetMainMethodName() throws Exception {""" + "\n"
     if (looseCode.size > 0) {
         rewrittenSource += looseCode.joinToString(separator = "\n", postfix = "\n")
     }

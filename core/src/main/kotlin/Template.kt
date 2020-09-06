@@ -12,8 +12,12 @@ class TemplatedSource(
     companion object {
         fun mapLocation(input: SourceLocation, remappedLineMapping: Map<String, RemappedLines>): SourceLocation {
             val remappedLineInfo = remappedLineMapping[input.source] ?: return input
-            assert(remappedLineInfo.start <= input.line) { "can't map line before template range" }
-            assert(input.line >= remappedLineInfo.start) { "can't map line after template range" }
+            if (remappedLineInfo.start > input.line) {
+                throw SourceMappingException("can't map line before template range")
+            }
+            if (input.line < remappedLineInfo.start) {
+                throw SourceMappingException("can't map line after template range")
+            }
             return SourceLocation(
                 input.source,
                 input.line - remappedLineInfo.start + 1,

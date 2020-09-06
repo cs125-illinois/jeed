@@ -15,16 +15,16 @@ repositories {
     maven(url = "https://maven.google.com/")
 }
 dependencies {
-    val ktorVersion = "1.3.2"
+    val ktorVersion = "1.4.0"
 
-    kapt("com.squareup.moshi:moshi-kotlin-codegen:1.9.3")
+    kapt("com.squareup.moshi:moshi-kotlin-codegen:1.10.0")
 
     implementation(project(":core"))
     implementation(kotlin("stdlib"))
     implementation("io.ktor:ktor-server-netty:$ktorVersion")
     implementation("org.mongodb:mongodb-driver:3.12.7")
-    implementation("org.jetbrains.kotlinx:kotlinx-coroutines-core:1.3.6")
-    implementation("com.squareup.moshi:moshi-kotlin-codegen:1.9.3")
+    implementation("org.jetbrains.kotlinx:kotlinx-coroutines-core:1.3.9")
+    implementation("com.squareup.moshi:moshi-kotlin-codegen:1.10.0")
     implementation("com.github.cs125-illinois:ktor-moshi:1.0.3")
     implementation("ch.qos.logback:logback-classic:1.2.3")
     implementation("com.uchuhimo:konf-core:0.22.1")

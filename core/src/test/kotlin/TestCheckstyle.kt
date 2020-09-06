@@ -139,7 +139,7 @@ public int add(int a,int b) {
         checkstyleError.errors[0].location.line shouldBe 1
         checkstyleError.errors[1].location.line shouldBe 2
     }
-    "!should not fail on Java switch" {
+    "should not fail on Java switch" {
         val checkstyleResult = Source(
             mapOf(
                 "Test.java" to """
@@ -185,9 +185,9 @@ public class Test {
                 "Test.java" to """
 record Range(int lo, int hi) {
     public Range {
-        if (lo > hi) {
-            throw new IllegalArgumentException(String.format("(%d,%d)", lo, hi));
-        }
+    if (lo > hi) {
+        throw new IllegalArgumentException(String.format("(%d,%d)", lo, hi));
+    }
     }
 }
 public class Test {
@@ -200,6 +200,25 @@ public class Test {
         ).checkstyle()
 
         checkstyleResult shouldNot haveCheckstyleErrors()
+    }
+    "should ignore errors on unmapped lines when configured" {
+        val templatedSource = Source.fromTemplates(
+            mapOf(
+                "Test.java" to "    int i = 0;"
+            ),
+            mapOf(
+                "Test.java.hbs" to """
+  public class Question {
+{{{ contents }}}
+}
+"""
+            )
+        )
+        val checkstyleResult = templatedSource.checkstyle()
+        checkstyleResult shouldNot haveCheckstyleErrors()
+        shouldThrow<SourceMappingException> {
+            templatedSource.checkstyle(CheckstyleArguments(skipUnmapped = false))
+        }
     }
 })
 
