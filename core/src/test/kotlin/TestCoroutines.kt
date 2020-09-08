@@ -329,23 +329,4 @@ fun main() = runBlocking {
         executionResult should haveCompleted()
         executionResult shouldNot haveTimedOut()
     }
-    "f:should run coroutines" {
-        val executionResult = Source(
-            mapOf(
-                "Main.kt" to """
-import kotlinx.coroutines.*
-fun main() {
-    val job = GlobalScope.launch {
-        println("Here")
-    }
-    runBlocking {
-        job.join()
-    }
-}
-                """.trimIndent()
-            )
-        ).kompile().execute()
-
-        println(executionResult.threw)
-    }
 })

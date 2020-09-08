@@ -397,9 +397,11 @@ object Sandbox {
 
         data class CurrentLine(
             var started: Instant = Instant.now(),
-            val line: StringBuilder = StringBuilder(),
+            val bytes: MutableList<Byte> = mutableListOf(),
             val startedThread: Long = Thread.currentThread().id
-        )
+        ) {
+            override fun toString() = bytes.toByteArray().decodeToString()
+        }
 
         private class IdentityHolder(val item: Any) {
             override fun equals(other: Any?): Boolean {
@@ -439,13 +441,13 @@ object Sandbox {
             }
 
             val currentLine = currentLines.getOrPut(console, { CurrentLine() })
-            when (val char = int.toChar()) {
+            when (int.toChar()) {
                 '\n' -> {
                     if (outputLines.size < maxOutputLines) {
                         outputLines.add(
                             TaskResults.OutputLine(
                                 console,
-                                currentLine.line.toString(),
+                                currentLine.toString(),
                                 currentLine.started,
                                 currentLine.startedThread
                             )
@@ -456,7 +458,7 @@ object Sandbox {
                     currentLines.remove(console)
 
                     if (redirectingOutput) {
-                        redirectedOutputLines[console]?.append(currentLine.line.toString() + "\n")
+                        redirectedOutputLines[console]?.append(currentLine.toString() + "\n")
                     }
                 }
                 '\r' -> {
@@ -464,7 +466,7 @@ object Sandbox {
                 }
                 else -> {
                     if (truncatedLines == 0) {
-                        currentLine.line.append(char)
+                        currentLine.bytes.add(int.toByte())
                     }
                 }
             }
@@ -564,11 +566,11 @@ object Sandbox {
         if (confinedTask.truncatedLines == 0) {
             for (console in TaskResults.OutputLine.Console.values()) {
                 val currentLine = confinedTask.currentLines[console] ?: continue
-                if (currentLine.line.isNotEmpty()) {
+                if (currentLine.bytes.isNotEmpty()) {
                     confinedTask.outputLines.add(
                         TaskResults.OutputLine(
                             console,
-                            currentLine.line.toString(),
+                            currentLine.toString(),
                             currentLine.started,
                             currentLine.startedThread
                         )

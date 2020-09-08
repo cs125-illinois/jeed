@@ -525,6 +525,15 @@ public class Main {
             executionResult should haveStdout("10")
         }
     }
+    "should print unicode" {
+        val executeMainResult = Source.fromSnippet(
+            """
+System.out.println("➡️👤 are ❌️ alone");
+            """.trim()
+        ).compile().execute()
+        executeMainResult should haveCompleted()
+        executeMainResult should haveOutput("""➡️👤 are ❌️ alone""")
+    }
 })
 
 fun haveCompleted() = object : Matcher<Sandbox.TaskResults<out Any?>> {
