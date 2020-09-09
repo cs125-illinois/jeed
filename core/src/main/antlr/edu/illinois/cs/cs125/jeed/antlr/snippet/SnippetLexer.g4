@@ -103,6 +103,8 @@ CHAR_LITERAL:       '\'' (~['\\\r\n] | EscapeSequence) '\'';
 
 STRING_LITERAL:     '"' (~["\\\r\n] | EscapeSequence)* '"';
 
+TEXT_BLOCK_LITERAL: '"""' .*? '"""';
+
 NULL_LITERAL:       'null';
 
 // Separators

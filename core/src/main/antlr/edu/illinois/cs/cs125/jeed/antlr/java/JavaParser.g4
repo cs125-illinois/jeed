@@ -279,6 +279,7 @@ literal
     | floatLiteral
     | CHAR_LITERAL
     | STRING_LITERAL
+    | TEXT_BLOCK_LITERAL
     | BOOL_LITERAL
     | NULL_LITERAL
     ;

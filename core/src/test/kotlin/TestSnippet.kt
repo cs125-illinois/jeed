@@ -318,6 +318,12 @@ record Range(int lo, int hi) {
 }            """.trim()
         ).compile()
     }
+    "should parse text blocks properly" {
+        val input = "String data = \"\"\"\nHere\n\"\"\";\n" + "System.out.println(data);".trim()
+        Source.fromSnippet(input).compile().execute().also {
+            it should haveOutput("Here")
+        }
+    }
 })
 
 fun haveParseErrorOnLine(line: Int) = object : Matcher<SnippetTransformationFailed> {
