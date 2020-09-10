@@ -324,6 +324,17 @@ record Range(int lo, int hi) {
             it should haveOutput("Here")
         }
     }
+    "should not fail on unmapped compiler errors" {
+        shouldThrow<CompilationFailed> {
+            Source.fromSnippet(
+                """
+int count(int[] v) {
+  return 0;
+}}
+            """.trim()
+            ).compile()
+        }
+    }
 })
 
 fun haveParseErrorOnLine(line: Int) = object : Matcher<SnippetTransformationFailed> {

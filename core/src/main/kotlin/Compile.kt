@@ -158,7 +158,12 @@ private fun compile(
     val errors = results.diagnostics.filter {
         it.kind == Diagnostic.Kind.ERROR || (it.kind == Diagnostic.Kind.WARNING && compilationArguments.wError)
     }.map {
-        CompilationError(getMappedLocation(it), it.getMessage(Locale.US))
+        val location = try {
+            getMappedLocation(it)
+        } catch (e: SourceMappingException) {
+            null
+        }
+        CompilationError(location, it.getMessage(Locale.US))
     }
     if (errors.isNotEmpty()) {
         throw CompilationFailed(errors)
