@@ -59,7 +59,7 @@ sealed class Mutation(val type: Type, var location: Location, val original: Stri
 
         modified = applyMutation(random)
 
-        check(modified != original) { "Mutation did not change the input" }
+        check(modified != original) { "Mutation did not change the input: $type" }
 
         return prefix + modified + postfix
     }
@@ -261,7 +261,7 @@ class StringLiteral(location: Location, original: String) : Mutation(Type.STRING
     private val string = original.removeSurrounding("\"")
 
     override fun applyMutation(random: Random): String {
-        return if (string.isBlank()) {
+        return if (string.isEmpty()) {
             " "
         } else {
             string.toCharArray().let { characters ->

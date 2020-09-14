@@ -29,12 +29,12 @@ dependencies {
     implementation("ch.qos.logback:logback-classic:1.2.3")
     implementation("com.uchuhimo:konf-core:0.22.1")
     implementation("com.uchuhimo:konf-yaml:0.22.1")
-    implementation("io.github.microutils:kotlin-logging:1.8.3")
+    implementation("io.github.microutils:kotlin-logging:1.11.3")
     implementation("com.google.api-client:google-api-client:1.30.10")
 
-    val kotlintestVersion = "4.2.4"
-    testImplementation("io.kotest:kotest-runner-junit5:$kotlintestVersion")
-    testImplementation("io.kotest:kotest-assertions-ktor:$kotlintestVersion")
+    val kotestVersion = "4.2.5"
+    testImplementation("io.kotest:kotest-runner-junit5:$kotestVersion")
+    testImplementation("io.kotest:kotest-assertions-ktor:$kotestVersion")
     testImplementation("io.ktor:ktor-server-test-host:$ktorVersion")
 }
 application {

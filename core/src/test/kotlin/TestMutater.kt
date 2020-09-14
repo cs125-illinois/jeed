@@ -348,6 +348,22 @@ public class Example {
             }
         }
     }
+    "it should apply mutations correctly with Strings" {
+        Source.fromJava(
+            """
+public class Example {
+  String reformatName(String input) {
+    if (input == null) {
+      return null;
+    }
+    String[] parts = input.split(",");
+    return parts[1].trim() + " " + parts[0].trim();
+  }
+}"""
+        ).also { source ->
+            source.allMutations()
+        }
+    }
 })
 
 inline fun <reified T : Mutation> Source.checkMutations(
