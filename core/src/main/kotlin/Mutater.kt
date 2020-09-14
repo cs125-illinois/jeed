@@ -255,6 +255,7 @@ class CharLiteral(
 
 val NUMERIC_CHARS = ('0'..'9').toSet()
 
+val ALPHANUMERIC_CHARS_AND_SPACE = (('a'..'z') + ('A'..'Z') + ('0'..'9') + (' ')).toSet()
 class StringLiteral(location: Location, original: String) : Mutation(Type.STRING_LITERAL, location, original) {
     override val preservesLength = true
 
@@ -267,7 +268,7 @@ class StringLiteral(location: Location, original: String) : Mutation(Type.STRING
             string.toCharArray().let { characters ->
                 val position = random.nextInt(characters.size)
                 characters[position] =
-                    (ALPHANUMERIC_CHARS.filter { it != characters[position] } + ' ').shuffled(random).first()
+                    (ALPHANUMERIC_CHARS_AND_SPACE.filter { it != characters[position] }).shuffled(random).first()
                 characters.joinToString("")
             }
         }.let {
