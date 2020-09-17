@@ -80,6 +80,7 @@ TRANSIENT:          'transient';
 TRY:                'try';
 VOID:               'void';
 VOLATILE:           'volatile';
+YIELD:              'yield';
 WHILE:              'while';
 
 // Literals

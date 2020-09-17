@@ -4,6 +4,7 @@ import io.kotest.assertions.throwables.shouldThrow
 import io.kotest.core.spec.style.StringSpec
 import io.kotest.matchers.collections.shouldHaveSize
 import io.kotest.matchers.shouldBe
+import io.kotest.matchers.shouldNot
 
 class TestTemplate : StringSpec({
     "should work with simple templates" {
@@ -158,5 +159,23 @@ public class Question {
         compilationFailed.errors shouldHaveSize 1
         compilationFailed.errors[0].location!!.line shouldBe 1
         compilationFailed.errors[0].location!!.column shouldBe 9
+    }
+    "should remap exception line numbers properly" {
+        val source = Source.fromTemplates(
+            mapOf(
+                "Test.java" to "String s = null;\ns.length();"
+            ),
+            mapOf(
+                "Test.java.hbs" to """
+public class Question {
+    public static void main() {
+        {{{ contents }}}
+    }
+}""".trim()
+            )
+        )
+        val executionResult = source.compile().execute()
+        executionResult shouldNot haveCompleted()
+        executionResult.threw?.getStackTraceForSource(source)!!.lines()[1].trim() shouldBe "at Question.main(:2)"
     }
 })

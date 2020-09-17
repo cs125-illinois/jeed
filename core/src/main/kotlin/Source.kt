@@ -246,7 +246,7 @@ fun Throwable.getStackTraceAsString(): String {
     return stringWriter.toString()
 }
 
-val stackTraceLineRegex = Regex("""^at (\w+)\.(\w+)\((\w*):(\d+)\)$""")
+val stackTraceLineRegex = Regex("""^at (\w+)\.(\w+)\(([\w\.]*):(\d+)\)$""")
 
 @Suppress("unused")
 fun Throwable.getStackTraceForSource(source: Source): String {
@@ -261,7 +261,7 @@ fun Throwable.getStackTraceForSource(source: Source): String {
         ) {
             break
         }
-        if (source !is Snippet) {
+        if (!(source is Snippet || source is TemplatedSource)) {
             betterStackTrace.add(line)
             continue
         }
@@ -271,12 +271,12 @@ fun Throwable.getStackTraceForSource(source: Source): String {
             continue
         }
         val (klass, method, name, correctLine) = parsedLine.destructured
-        val fixedKlass = if (klass == source.wrappedClassName) {
+        val fixedKlass = if (source is Snippet && klass == source.wrappedClassName) {
             ""
         } else {
             "$klass."
         }
-        val fixedMethod = if (method == source.looseCodeMethodName) {
+        val fixedMethod = if (source is Snippet && method == source.looseCodeMethodName) {
             ""
         } else {
             method

@@ -134,19 +134,23 @@ protected void test3() {
         """.trim()
         ).compile()
     }
-    // Update if and when ANTLR4 grammar is updated
-    "!should parse Java 13 constructs in snippets" {
-        Source.fromSnippet(
+    "should parse Java 13 constructs in snippets" {
+        val executionResult = Source.fromSnippet(
             """
 static String test(int arg) {
-  switch (arg) {
+  return switch (arg) {
       case 0 -> "test";
+      case 1 -> {
+        yield "interesting";
+      }
       default -> "whatever";
-  }
+  };
 }
 System.out.println(test(0));
         """.trim()
-        )
+        ).compile().execute()
+        executionResult should haveCompleted()
+        executionResult should haveOutput("test")
     }
     "should not allow package declarations in snippets" {
         val exception = shouldThrow<SnippetTransformationFailed> {

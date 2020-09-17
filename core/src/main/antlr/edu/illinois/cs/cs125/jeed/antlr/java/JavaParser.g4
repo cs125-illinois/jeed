@@ -390,8 +390,10 @@ statement
     | TRY block (catchClause+ finallyBlock? | finallyBlock)
     | TRY resourceSpecification block catchClause* finallyBlock?
     | SWITCH parExpression '{' switchBlockStatementGroup* switchLabel* '}'
+    | SWITCH parExpression '{' switchExpressionBlockStatementGroup* switchLabel* '}'
     | SYNCHRONIZED parExpression block
     | RETURN expression? ';'
+    | YIELD expression ';'
     | THROW expression ';'
     | BREAK IDENTIFIER? ';'
     | CONTINUE IDENTIFIER? ';'
@@ -434,6 +436,15 @@ switchBlockStatementGroup
 switchLabel
     : CASE (constantExpression=expression | enumConstantName=IDENTIFIER) ':'
     | DEFAULT ':'
+    ;
+
+switchExpressionBlockStatementGroup
+    : switchExpressionLabel+ blockStatement+
+    ;
+
+switchExpressionLabel
+    : CASE (constantExpression=expression | enumConstantName=IDENTIFIER) '->'
+    | DEFAULT '->'
     ;
 
 forControl
@@ -504,6 +515,8 @@ expression
     | expression '::' typeArguments? IDENTIFIER
     | typeType '::' (typeArguments? IDENTIFIER | NEW)
     | classType '::' typeArguments? NEW
+    // Java 14 switch
+    | SWITCH parExpression '{' switchExpressionBlockStatementGroup* switchLabel* '}'
     ;
 
 // Java8

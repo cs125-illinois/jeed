@@ -34,3 +34,4 @@ test-output/
 .idea/**/libraries
 .idea/**/compiler.xml
 .idea/google-java-format.xml
+core/src/main/gen
