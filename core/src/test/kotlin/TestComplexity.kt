@@ -85,4 +85,13 @@ public class Test {
         ).complexity()
         complexityResults.lookup("Test.chooser(int,int)", "Test.java").complexity shouldBe 4
     }
+    "should calculate complexity for classes in snippets" {
+        Source.fromSnippet(
+            """
+class Example {
+  int value = 0;
+}
+            """.trim()
+        ).complexity()
+    }
 })

@@ -277,6 +277,10 @@ class ComplexityResult(val source: Source, entry: Map.Entry<String, String>) : J
 
     override fun enterExpression(ctx: JavaParser.ExpressionContext) {
         assert(complexityStack.isNotEmpty())
+        // Ignore expressions in class declarations
+        if (complexityStack[0] is ClassComplexity) {
+            return
+        }
         val currentMethod = complexityStack[0] as MethodComplexity
 
         val bop = ctx.bop?.type ?: return

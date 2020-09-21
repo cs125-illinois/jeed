@@ -29,7 +29,7 @@ dependencies {
     implementation("ch.qos.logback:logback-classic:1.2.3")
     implementation("com.uchuhimo:konf-core:0.22.1")
     implementation("com.uchuhimo:konf-yaml:0.22.1")
-    implementation("io.github.microutils:kotlin-logging:1.11.5")
+    implementation("io.github.microutils:kotlin-logging:2.0.3")
     implementation("com.google.api-client:google-api-client:1.30.10")
 
     val kotestVersion = "4.2.5"

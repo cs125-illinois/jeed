@@ -29,7 +29,7 @@ dependencies {
     implementation("org.ow2.asm:asm-util:8.0.1")
     implementation("org.slf4j:slf4j-api:1.7.30")
     implementation("ch.qos.logback:logback-classic:1.2.3")
-    implementation("io.github.microutils:kotlin-logging:1.11.5")
+    implementation("io.github.microutils:kotlin-logging:2.0.3")
     implementation("io.github.classgraph:classgraph:4.8.90")
     implementation("net.java.dev.jna:jna:5.6.0")
     api("com.github.ben-manes.caffeine:caffeine:2.8.5")

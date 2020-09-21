@@ -17,7 +17,6 @@ sealed class Mutation(val type: Type, var location: Location, val original: Stri
         init {
             check(end >= start) { "Invalid location: $end $start" }
         }
-
         data class SourcePath(val type: Type, val name: String) {
             enum class Type { CLASS, METHOD }
         }
