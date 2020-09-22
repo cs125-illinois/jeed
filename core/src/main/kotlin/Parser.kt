@@ -97,6 +97,7 @@ class DistinguishErrorListener : BaseErrorListener() {
         msg: String,
         e: RecognitionException?
     ) {
+        check(!msg.trim().startsWith("extraneous input"))
         if (e != null) {
             throw(e)
         }
@@ -130,7 +131,7 @@ fun String.isJavaSnippet(): Boolean {
     val errorListener = DistinguishErrorListener()
     @Suppress("TooGenericExceptionCaught")
     return try {
-        CharStreams.fromString(this).let { charStream ->
+        CharStreams.fromString("{$this}").let { charStream ->
             SnippetLexer(charStream).let { lexer ->
                 lexer.removeErrorListeners()
                 lexer.addErrorListener(errorListener)

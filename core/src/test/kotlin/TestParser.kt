@@ -39,4 +39,20 @@ fun main() {
         kotlinSnippet.distinguish("kotlin") shouldBe SourceType.KOTLIN_SNIPPET
         kotlinSource.distinguish("kotlin") shouldBe SourceType.KOTLIN_SOURCE
     }
+    "it should identify a snippet" {
+        """
+class Flip {
+  boolean state;
+  Flip(boolean start) {
+    state = start;
+  }
+  boolean flop() {
+    state = !state;
+    return state;
+  }
+}
+Flip f = new Flip(true);
+System.out.println(f.flop());
+System.out.println(f.flop());""".trim().distinguish("java") shouldBe SourceType.JAVA_SNIPPET
+    }
 })
