@@ -21,7 +21,8 @@ class ClassComplexity(
     range: SourceRange,
     methods: MutableMap<String, MethodComplexity> = mutableMapOf(),
     classes: MutableMap<String, ClassComplexity> = mutableMapOf(),
-    override var complexity: Int = 0
+    override var complexity: Int = 0,
+    val isRecord: Boolean = false
 ) : LocatedClass(
     name,
     range,
@@ -78,13 +79,19 @@ class ComplexityResult(val source: Source, entry: Map.Entry<String, String>) : J
     private var complexityStack: MutableList<ComplexityValue> = mutableListOf()
     var results: MutableMap<String, ClassComplexity> = mutableMapOf()
 
-    private fun enterClassOrInterface(classOrInterfaceName: String, start: Location, end: Location) {
+    private fun enterClassOrInterface(
+        classOrInterfaceName: String,
+        start: Location,
+        end: Location,
+        isRecord: Boolean = false
+    ) {
         val locatedClass = if (source is Snippet && classOrInterfaceName == source.wrappedClassName) {
-            ClassComplexity("", source.snippetRange)
+            ClassComplexity("", source.snippetRange, isRecord = isRecord)
         } else {
             ClassComplexity(
                 classOrInterfaceName,
-                SourceRange(name, source.mapLocation(name, start), source.mapLocation(name, end))
+                SourceRange(name, source.mapLocation(name, start), source.mapLocation(name, end)),
+                isRecord = isRecord
             )
         }
         if (complexityStack.isNotEmpty()) {
@@ -136,6 +143,19 @@ class ComplexityResult(val source: Source, entry: Map.Entry<String, String>) : J
     }
 
     override fun exitInterfaceDeclaration(ctx: JavaParser.InterfaceDeclarationContext?) {
+        exitClassOrInterface()
+    }
+
+    override fun enterRecordDeclaration(ctx: JavaParser.RecordDeclarationContext) {
+        enterClassOrInterface(
+            ctx.children[1].text,
+            Location(ctx.start.line, ctx.start.charPositionInLine),
+            Location(ctx.stop.line, ctx.stop.charPositionInLine),
+            true
+        )
+    }
+
+    override fun exitRecordDeclaration(ctx: JavaParser.RecordDeclarationContext?) {
         exitClassOrInterface()
     }
 
@@ -228,6 +248,11 @@ class ComplexityResult(val source: Source, entry: Map.Entry<String, String>) : J
     override fun exitFormalParameters(ctx: JavaParser.FormalParametersContext) {
         assert(complexityStack.isNotEmpty())
         assert(complexityStack[0] is ClassComplexity)
+
+        // Records have a parameter list but we can ignore it
+        if ((complexityStack[0] as ClassComplexity).isRecord) {
+            return
+        }
 
         assert(currentMethodName != null)
         assert(currentMethodLocation != null)

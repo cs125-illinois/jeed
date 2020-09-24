@@ -341,6 +341,12 @@ private fun sourceFromJavaSnippet(originalSource: String, snippetArguments: Snip
             classNames.add(className)
         }
 
+        override fun visitRecordDeclaration(context: SnippetParser.RecordDeclarationContext) {
+            markAs(context.start.line, context.stop.line, "record")
+            val className = context.IDENTIFIER().text
+            classNames.add(className)
+        }
+
         override fun visitMethodDeclaration(context: SnippetParser.MethodDeclarationContext) {
             markAs(context.start.line, context.stop.line, "method")
             contentMapping[context.start.line - 1] = "method:start"
@@ -389,7 +395,7 @@ private fun sourceFromJavaSnippet(originalSource: String, snippetArguments: Snip
     val classDeclarations = mutableListOf<String>()
     originalSource.lines().forEachIndexed { i, line ->
         val lineNumber = i + 1
-        if (contentMapping[lineNumber] == "class") {
+        if (contentMapping[lineNumber] == "class" || contentMapping[lineNumber] == "record") {
             classDeclarations.add(line)
             assert(!remappedLineMapping.containsKey(currentOutputLineNumber))
             remappedLineMapping[currentOutputLineNumber] = Snippet.RemappedLine(lineNumber, currentOutputLineNumber)

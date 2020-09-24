@@ -94,4 +94,11 @@ class Example {
             """.trim()
         ).complexity()
     }
+    "should not fail on records in snippets" {
+        Source.fromSnippet(
+            """
+record Example(int value) { };
+            """.trim()
+        ).complexity()
+    }
 })
