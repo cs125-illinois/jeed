@@ -309,8 +309,7 @@ if (o instanceof String s) {
             """.trim()
         ).compile()
     }
-    // Requires ANTLR4 support...
-    "!should parse records properly" {
+    "should parse records properly" {
         Source.fromSnippet(
             """
 record Range(int lo, int hi) {

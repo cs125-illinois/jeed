@@ -45,7 +45,7 @@ importDeclaration
 
 typeDeclaration
     : classOrInterfaceModifier*
-      (classDeclaration | enumDeclaration | interfaceDeclaration | annotationTypeDeclaration)
+      (classDeclaration | enumDeclaration | interfaceDeclaration | annotationTypeDeclaration | recordDeclaration)
     | ';'
     ;
 
@@ -71,6 +71,12 @@ classOrInterfaceModifier
 variableModifier
     : FINAL
     | annotation
+    ;
+
+recordDeclaration
+    : RECORD IDENTIFIER formalParameters
+      (IMPLEMENTS typeList)?
+      classBody
     ;
 
 classDeclaration
@@ -132,6 +138,7 @@ memberDeclaration
     | fieldDeclaration
     | constructorDeclaration
     | genericConstructorDeclaration
+    | recordConstructorDeclaration
     | interfaceDeclaration
     | annotationTypeDeclaration
     | classDeclaration
@@ -169,6 +176,10 @@ genericConstructorDeclaration
 
 constructorDeclaration
     : IDENTIFIER formalParameters (THROWS qualifiedNameList)? constructorBody=block
+    ;
+
+recordConstructorDeclaration
+    : IDENTIFIER (THROWS qualifiedNameList)? constructorBody=block
     ;
 
 fieldDeclaration
@@ -376,7 +387,7 @@ localVariableDeclaration
 
 localTypeDeclaration
     : classOrInterfaceModifier*
-      (classDeclaration | interfaceDeclaration)
+      (classDeclaration | interfaceDeclaration | recordDeclaration)
     | ';'
     ;
 

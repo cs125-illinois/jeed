@@ -55,4 +55,15 @@ Flip f = new Flip(true);
 System.out.println(f.flop());
 System.out.println(f.flop());""".trim().distinguish("java") shouldBe SourceType.JAVA_SNIPPET
     }
+    "it should identify a source with records" {
+        """
+record State(int value) {
+  State {
+    if (value < 0) {
+      throw new IllegalArgumentException("Bad");
+    }
+  }
+}
+""".trim().distinguish("java") shouldBe SourceType.JAVA_SOURCE
+    }
 })
