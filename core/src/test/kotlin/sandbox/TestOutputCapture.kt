@@ -131,6 +131,27 @@ System.err.println("There");
         executionResult should haveStdout("Here\nThere")
         executionResult should haveStderr("There")
     }
+    "should redirect output to trusted task properly with print" {
+        val compiledSource = Source.fromSnippet(
+            """
+System.out.println("Here");
+System.out.print("There");
+System.err.print("There");
+            """.trim()
+        ).compile()
+        val executionResult = Sandbox.execute(compiledSource.classLoader) { (classLoader, redirectOutput) ->
+            redirectOutput {
+                classLoader.findClassMethod().invoke(null)
+            }.also {
+                assert(it.stdout == "Here\nThere")
+                assert(it.stderr == "There")
+            }
+        }
+        executionResult should haveCompleted()
+        executionResult shouldNot haveTimedOut()
+        executionResult should haveStdout("Here\nThere")
+        executionResult should haveStderr("There")
+    }
     "should handle null print arguments" {
         val executionResult = Source.fromSnippet(
             """
@@ -142,5 +163,15 @@ System.out.println(output);
         executionResult shouldNot haveTimedOut()
         executionResult should haveStdout("null")
         executionResult should haveStderr("")
+    }
+    "should handle print without newline" {
+        val executionResult = Source.fromSnippet(
+            """
+System.out.print("Hello");
+            """.trim()
+        ).compile().execute()
+        executionResult should haveCompleted()
+        executionResult shouldNot haveTimedOut()
+        executionResult should haveStdout("Hello")
     }
 })

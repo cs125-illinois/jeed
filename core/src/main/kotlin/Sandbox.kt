@@ -1276,11 +1276,14 @@ object Sandbox {
         }
         confinedTask.redirectingOutput = false
 
+        val flushedStdout = confinedTask.currentLines[TaskResults.OutputLine.Console.STDOUT]?.toString() ?: ""
+        val flushedStderr = confinedTask.currentLines[TaskResults.OutputLine.Console.STDERR]?.toString() ?: ""
+
         return JeedOutputCapture(
             result.first,
             result.second,
-            confinedTask.redirectedOutputLines[TaskResults.OutputLine.Console.STDOUT].toString(),
-            confinedTask.redirectedOutputLines[TaskResults.OutputLine.Console.STDERR].toString()
+            confinedTask.redirectedOutputLines[TaskResults.OutputLine.Console.STDOUT].toString() + flushedStdout,
+            confinedTask.redirectedOutputLines[TaskResults.OutputLine.Console.STDERR].toString() + flushedStderr
         ).also {
             confinedTask.redirectedOutputLines[TaskResults.OutputLine.Console.STDOUT] = StringBuilder()
             confinedTask.redirectedOutputLines[TaskResults.OutputLine.Console.STDERR] = StringBuilder()
