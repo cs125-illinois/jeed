@@ -250,7 +250,7 @@ class ComplexityResult(val source: Source, entry: Map.Entry<String, String>) : J
         assert(complexityStack[0] is ClassComplexity)
 
         // Records have a parameter list but we can ignore it
-        if ((complexityStack[0] as ClassComplexity).isRecord) {
+        if ((complexityStack[0] as ClassComplexity).isRecord && currentMethodName == null) {
             return
         }
 

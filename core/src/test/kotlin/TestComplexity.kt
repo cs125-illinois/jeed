@@ -101,4 +101,15 @@ record Example(int value) { };
             """.trim()
         ).complexity()
     }
+    "should not fail on records with contents" {
+        Source.fromSnippet(
+            """
+record Example(int value) {
+  public int it() {
+    return value;
+  }
+};
+            """.trim()
+        ).complexity()
+    }
 })
