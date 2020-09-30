@@ -1,8 +1,9 @@
 (function ($) {
-  function runWithJeed(server, snippet, language) {
+  function runWithJeed(server, snippet, language, checkstyle) {
     const tasks = { execute: true };
     if (language === "java") {
       tasks.compile = true;
+      tasks.checkstyle = checkstyle;
     } else if (language === "kotlin") {
       tasks.kompile = true;
     } else {
@@ -14,6 +15,9 @@
       arguments: {
         snippet: {
           indent: 2,
+        },
+        checkstyle: {
+          failOnError: true,
         },
       },
     };
@@ -51,35 +55,40 @@ ${errorCount} error${errorCount > 1 ? "s" : ""}`;
       const { errors } = result.failed.compilation || result.failed.kompilation;
       resultOutput += errors
         .map((error) => {
-          const { source, line, column } = error.location;
-          const originalLine =
-            source === ""
-              ? request.snippet.split("\n")[line - 1]
-              : request.sources[0].contents.split("\n")[line - 1];
-          const firstErrorLine = error.message
-            .split("\n")
-            .slice(0, 1)
-            .join("\n");
-          const restError = error.message
-            .split("\n")
-            .slice(1)
-            .filter((errorLine) => {
-              if (
-                source === "" &&
-                errorLine.trim().startsWith("location: class")
-              ) {
-                return false;
-              } else {
-                return true;
-              }
-            })
-            .join("\n");
-          return `${
-            source === "" ? "Line " : `${source}:`
-          }${line}: error: ${firstErrorLine}
-${originalLine}
-${new Array(column).join(" ")}^
-${restError}`;
+          const { location, message } = error
+          if (location) {
+            const { source, line, column } = location;
+            const originalLine =
+              source === ""
+                ? request.snippet.split("\n")[line - 1]
+                : request.sources[0].contents.split("\n")[line - 1];
+            const firstErrorLine = error.message
+              .split("\n")
+              .slice(0, 1)
+              .join("\n");
+            const restError = error.message
+              .split("\n")
+              .slice(1)
+              .filter((errorLine) => {
+                if (
+                  source === "" &&
+                  errorLine.trim().startsWith("location: class")
+                ) {
+                  return false;
+                } else {
+                  return true;
+                }
+              })
+              .join("\n");
+            return `${
+              source === "" ? "Line " : `${source}:`
+            }${line}: error: ${firstErrorLine}
+  ${originalLine}
+  ${new Array(column).join(" ")}^
+  ${restError}`;
+          } else {
+            return message
+          }
         })
         .join("\n");
       const errorCount = Object.keys(errors).length;
@@ -176,6 +185,7 @@ ${errorCount} error${errorCount > 1 ? "s" : ""}`;
       const output = $(outputWrapper).children("pre").eq(0);
       output.css({ display: "none" });
 
+      const checkstyle = options.checkstyle || false
       let timer;
       const runButton = $(options.runButton || defaultRunButton).on(
         "click",
@@ -185,7 +195,7 @@ ${errorCount} error${errorCount > 1 ? "s" : ""}`;
             $(outputWrapper).css({ display: "block" });
             runningBanner.css({ display: "block" });
           }, 100);
-          runWithJeed(server, $(this).prev("code").text(), language)
+          runWithJeed(server, $(this).prev("code").text(), language, checkstyle)
             .done((result) => {
               $(outputWrapper).css({ display: "block" });
               const jeedOutput = formatJeedResult(result);

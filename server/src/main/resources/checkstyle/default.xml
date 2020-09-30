@@ -151,7 +151,9 @@
         <!-- Jeed: allow empty statements for loop list walking.
         <module name="EmptyStatement"/>
         -->
+        <!-- Jeed: don't enforce this
         <module name="EqualsHashCode"/>
+        -->
         <module name="HiddenField"/>
         <module name="IllegalInstantiation"/>
         <module name="InnerAssignment"/>
