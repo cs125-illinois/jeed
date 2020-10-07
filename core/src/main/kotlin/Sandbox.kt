@@ -381,6 +381,7 @@ object Sandbox {
         val currentLines: MutableMap<TaskResults.OutputLine.Console, CurrentLine> = mutableMapOf()
         val outputLines: MutableList<TaskResults.OutputLine> = mutableListOf()
 
+        var currentRedirectedLines: MutableMap<TaskResults.OutputLine.Console, CurrentLine>? = null
         val redirectedOutputLines: MutableMap<TaskResults.OutputLine.Console, StringBuilder> = mutableMapOf(
             TaskResults.OutputLine.Console.STDOUT to StringBuilder(),
             TaskResults.OutputLine.Console.STDERR to StringBuilder()
@@ -441,6 +442,7 @@ object Sandbox {
             }
 
             val currentLine = currentLines.getOrPut(console, { CurrentLine() })
+            val currentRedirectingLine = currentRedirectedLines?.getOrPut(console, { CurrentLine() })
             when (int.toChar()) {
                 '\n' -> {
                     if (outputLines.size < maxOutputLines) {
@@ -457,8 +459,9 @@ object Sandbox {
                     }
                     currentLines.remove(console)
 
-                    if (redirectingOutput) {
-                        redirectedOutputLines[console]?.append(currentLine.toString() + "\n")
+                    if (redirectingOutput && currentRedirectingLine!!.bytes.size > 0) {
+                        redirectedOutputLines[console]?.append(currentRedirectingLine.toString() + "\n")
+                        currentRedirectedLines?.remove(console)
                     }
                 }
                 '\r' -> {
@@ -468,6 +471,7 @@ object Sandbox {
                     if (truncatedLines == 0) {
                         currentLine.bytes.add(int.toByte())
                     }
+                    currentRedirectingLine?.bytes?.add(int.toByte())
                 }
             }
         }
@@ -1268,6 +1272,7 @@ object Sandbox {
         check(!confinedTask.redirectingOutput) { "can't nest calls to redirectOutput" }
 
         confinedTask.redirectingOutput = true
+        confinedTask.currentRedirectedLines = mutableMapOf()
         @Suppress("TooGenericExceptionCaught")
         val result = try {
             Pair(block(), null)
@@ -1276,8 +1281,11 @@ object Sandbox {
         }
         confinedTask.redirectingOutput = false
 
-        val flushedStdout = confinedTask.currentLines[TaskResults.OutputLine.Console.STDOUT]?.toString() ?: ""
-        val flushedStderr = confinedTask.currentLines[TaskResults.OutputLine.Console.STDERR]?.toString() ?: ""
+        val flushedStdout =
+            confinedTask.currentRedirectedLines!![TaskResults.OutputLine.Console.STDOUT]?.toString() ?: ""
+        val flushedStderr =
+            confinedTask.currentRedirectedLines!![TaskResults.OutputLine.Console.STDERR]?.toString() ?: ""
+        confinedTask.currentRedirectedLines = null
 
         return JeedOutputCapture(
             result.first,

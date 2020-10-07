@@ -146,11 +146,17 @@ System.err.print("There");
                 assert(it.stdout == "Here\nThere")
                 assert(it.stderr == "There")
             }
+            redirectOutput {
+                classLoader.findClassMethod().invoke(null)
+            }.also {
+                assert(it.stdout == "Here\nThere")
+                assert(it.stderr == "There")
+            }
         }
         executionResult should haveCompleted()
         executionResult shouldNot haveTimedOut()
-        executionResult should haveStdout("Here\nThere")
-        executionResult should haveStderr("There")
+        executionResult should haveStdout("Here\nThereHere\nThere")
+        executionResult should haveStderr("ThereThere")
     }
     "should handle null print arguments" {
         val executionResult = Source.fromSnippet(

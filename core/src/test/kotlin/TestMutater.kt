@@ -275,6 +275,18 @@ public class Example {
             mutations[0].check(contents, "new Object()", "null")
         }
     }
+    "it should ignore suppressed mutations" {
+        Source.fromJava(
+            """
+public class Example {
+  public static Object fourth() {
+    return new Object(); // mutate-disable
+  }
+}"""
+        ).allMutations().also { mutations ->
+            mutations shouldHaveSize 0
+        }
+    }
     "it should apply multiple mutations" {
         Source.fromJava(
             """

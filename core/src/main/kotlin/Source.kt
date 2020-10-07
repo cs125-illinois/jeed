@@ -70,7 +70,7 @@ open class Source(
         return Location(resultSourceLocation.line, resultSourceLocation.column)
     }
 
-    data class ParsedSource(val tree: ParseTree, val stream: CharStream)
+    data class ParsedSource(val tree: ParseTree, val stream: CharStream, val contents: String)
 
     var parsed = false
 

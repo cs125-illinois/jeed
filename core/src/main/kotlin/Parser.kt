@@ -62,7 +62,7 @@ fun Source.parseJavaFile(entry: Map.Entry<String, String>): Source.ParsedSource 
         errorListener.check()
     }
 
-    return Source.ParsedSource(parseTree, charStream)
+    return Source.ParsedSource(parseTree, charStream, entry.value)
 }
 
 fun Source.parseKotlinFile(entry: Map.Entry<String, String>): Source.ParsedSource {
@@ -85,7 +85,7 @@ fun Source.parseKotlinFile(entry: Map.Entry<String, String>): Source.ParsedSourc
         errorListener.check()
     }
 
-    return Source.ParsedSource(parseTree, charStream)
+    return Source.ParsedSource(parseTree, charStream, entry.value)
 }
 
 class DistinguishErrorListener : BaseErrorListener() {

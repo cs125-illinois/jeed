@@ -11,7 +11,7 @@ plugins {
     id("org.jmailen.kotlinter")
 }
 dependencies {
-    kapt("com.squareup.moshi:moshi-kotlin-codegen:1.10.0")
+    kapt("com.squareup.moshi:moshi-kotlin-codegen:1.11.0")
 
     antlr("org.antlr:antlr4:4.8-1")
 
@@ -24,7 +24,7 @@ dependencies {
     implementation("com.pinterest.ktlint:ktlint-core:0.39.0")
     implementation("com.pinterest.ktlint:ktlint-ruleset-standard:0.39.0")
     implementation("com.github.jknack:handlebars:4.2.0")
-    implementation("com.squareup.moshi:moshi:1.10.0")
+    implementation("com.squareup.moshi:moshi:1.11.0")
     implementation("org.ow2.asm:asm:9.0")
     implementation("org.ow2.asm:asm-util:9.0")
     implementation("org.slf4j:slf4j-api:1.7.30")
@@ -34,7 +34,7 @@ dependencies {
     implementation("net.java.dev.jna:jna:5.6.0")
     api("com.github.ben-manes.caffeine:caffeine:2.8.5")
 
-    testImplementation("io.kotest:kotest-runner-junit5:4.2.5")
+    testImplementation("io.kotest:kotest-runner-junit5:4.2.6")
 }
 tasks.test {
     useJUnitPlatform()

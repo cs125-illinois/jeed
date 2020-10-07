@@ -13,10 +13,11 @@ import org.jetbrains.kotlin.backend.common.pop
 import kotlin.random.Random
 
 sealed class Mutation(val type: Type, var location: Location, val original: String) {
-    data class Location(val start: Int, val end: Int, val path: List<SourcePath>) {
+    data class Location(val start: Int, val end: Int, val path: List<SourcePath>, val line: String) {
         init {
             check(end >= start) { "Invalid location: $end $start" }
         }
+
         data class SourcePath(val type: Type, val name: String) {
             enum class Type { CLASS, METHOD }
         }
@@ -68,8 +69,9 @@ sealed class Mutation(val type: Type, var location: Location, val original: Stri
 
     override fun toString(): String = "$type: $location ($original)"
 
-    @Suppress("ComplexMethod", "LongMethod")
+    @Suppress("ComplexMethod", "LongMethod", "TooManyFunctions")
     class Listener(private val parsedSource: Source.ParsedSource) : JavaParserBaseListener() {
+        val lines = parsedSource.contents.lines()
         val mutations: MutableList<Mutation> = mutableListOf()
 
         private val currentPath: MutableList<Location.SourcePath> = mutableListOf()
@@ -98,10 +100,12 @@ sealed class Mutation(val type: Type, var location: Location, val original: Stri
             returnTypeStack.pop()
         }
 
-        private fun ParserRuleContext.toLocation() = Location(start.startIndex, stop.stopIndex, currentPath)
-        private fun Token.toLocation() = Location(startIndex, stopIndex, currentPath)
+        private fun ParserRuleContext.toLocation() =
+            Location(start.startIndex, stop.stopIndex, currentPath, lines[start.line - 1])
+
+        private fun Token.toLocation() = Location(startIndex, stopIndex, currentPath, lines[line - 1])
         private fun List<TerminalNode>.toLocation() =
-            Location(first().symbol.startIndex, last().symbol.stopIndex, currentPath)
+            Location(first().symbol.startIndex, last().symbol.stopIndex, currentPath, lines[first().symbol.line - 1])
 
         override fun enterLiteral(ctx: JavaParser.LiteralContext) {
             ctx.BOOL_LITERAL()?.also {
@@ -255,17 +259,26 @@ class CharLiteral(
 val NUMERIC_CHARS = ('0'..'9').toSet()
 
 val ALPHANUMERIC_CHARS_AND_SPACE = (('a'..'z') + ('A'..'Z') + ('0'..'9') + (' ')).toSet()
+
 class StringLiteral(location: Location, original: String) : Mutation(Type.STRING_LITERAL, location, original) {
     override val preservesLength = true
 
     private val string = original.removeSurrounding("\"")
 
+    @Suppress("NestedBlockDepth")
     override fun applyMutation(random: Random): String {
         return if (string.isEmpty()) {
             " "
         } else {
             string.toCharArray().let { characters ->
-                val position = random.nextInt(characters.size)
+                val position = random.nextInt(characters.size).let {
+                    // Avoid adding invalid escapes
+                    if (it > 0 && characters[it - 1] == '\\') {
+                        it - 1
+                    } else {
+                        it
+                    }
+                }
                 characters[position] =
                     (ALPHANUMERIC_CHARS_AND_SPACE.filter { it != characters[position] }).shuffled(random).first()
                 characters.joinToString("")
@@ -294,9 +307,16 @@ class NumberLiteral(
     override fun applyMutation(random: Random): String {
         val position = numberPositions.shuffled(random).first()
         return original.toCharArray().also { characters ->
+            val randomValue = Math.floorMod((characters[position].toString().toInt() + 1), base).let {
+                // Avoid adding leading zeros
+                if (position == 0 && it == 0) {
+                    1
+                } else {
+                    it
+                }
+            }
             // Sadder than it needs to be, since int <-> char conversions in Kotlin use ASCII values
-            characters[position] =
-                (Math.floorMod((characters[position].toString().toInt() + 1), base)).toString().toCharArray()[0]
+            characters[position] = randomValue.toString().toCharArray()[0]
         }.let { String(it) }
     }
 }
@@ -521,7 +541,7 @@ class MutatedSource(
     val unappliedMutations: Int
 ) : Source(sources)
 
-class Mutater(val originalSource: Source, shuffle: Boolean, seed: Int) {
+class Mutater(private val originalSource: Source, shuffle: Boolean, seed: Int) {
 
     init {
         check(originalSource.type == Source.FileType.JAVA) { "Can only mutate Java sources" }
@@ -584,11 +604,15 @@ fun Source.mutater(shuffle: Boolean = true, seed: Int = Random.nextInt()) = Muta
 fun Source.mutate(shuffle: Boolean = true, seed: Int = Random.nextInt(), limit: Int = 1) =
     Mutater(this, shuffle, seed).mutate(limit)
 
-fun Source.allMutations(): List<MutatedSource> {
+fun Source.allMutations(suppressWithComments: Boolean = true): List<MutatedSource> {
     check(type == Source.FileType.JAVA) { "Can only mutate Java sources" }
     val mutations = sources.keys.map { name ->
         Mutation.find<Mutation>(getParsed(name)).map { mutation -> SourceMutation(name, mutation) }
-    }.flatten()
+    }.flatten().filter {
+        !suppressWithComments || it.mutation.location.line.split("""//""").let { parts ->
+            parts.size <= 1 || !parts[1].contains("mutate-disable")
+        }
+    }
 
     return mutations.map { sourceMutation ->
         val modifiedSources = sources.copy().toMutableMap()
