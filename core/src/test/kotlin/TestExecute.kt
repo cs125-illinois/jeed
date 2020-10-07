@@ -534,6 +534,16 @@ System.out.println("➡️👤 are ❌️ alone");
         executeMainResult should haveCompleted()
         executeMainResult should haveOutput("""➡️👤 are ❌️ alone""")
     }
+    "should not fail on locales" {
+        val executeMainResult = Source.fromSnippet(
+            """
+import java.util.Date;
+long t = System.currentTimeMillis();
+System.out.println(new Date(t).toString());
+            """.trim()
+        ).compile().execute()
+        executeMainResult should haveCompleted()
+    }
 })
 
 fun haveCompleted() = object : Matcher<Sandbox.TaskResults<out Any?>> {

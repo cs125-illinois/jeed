@@ -32,11 +32,18 @@ class SourceExecutionArguments(
         const val DEFAULT_KLASS = "Main"
         const val DEFAULT_METHOD = "main()"
         val REQUIRED_PERMISSIONS = setOf(
+            // Why not?
+            PropertyPermission("java.version", "read"),
             // Required by newer versions of Kotlin
             PropertyPermission("java.specification.version", "read"),
             PropertyPermission("kotlinx.coroutines.*", "read"),
             RuntimePermission("accessDeclaredMembers"),
-            ReflectPermission("suppressAccessChecks")
+            ReflectPermission("suppressAccessChecks"),
+            // Required for Date to work
+            RuntimePermission("localeServiceProvider"),
+            // Not sure why this is required by Date, but it seems to be
+            // ClassLoader enumeration is probably not unsafe...
+            RuntimePermission("getClassLoader")
         )
     }
 }
