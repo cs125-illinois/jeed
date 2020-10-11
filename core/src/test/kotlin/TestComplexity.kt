@@ -112,4 +112,13 @@ record Example(int value) {
             """.trim()
         ).complexity()
     }
+    "should not fail on interfaces" {
+        Source.fromSnippet(
+            """
+interface Simple {
+  int simple(int first);
+}
+            """.trim()
+        ).complexity()
+    }
 })

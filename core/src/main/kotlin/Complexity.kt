@@ -14,7 +14,7 @@ interface ComplexityValue {
     fun lookup(name: String): ComplexityValue
 }
 
-@Suppress("UNCHECKED_CAST")
+@Suppress("UNCHECKED_CAST", "LongParameterList")
 @JsonClass(generateAdapter = true)
 class ClassComplexity(
     name: String,
@@ -22,7 +22,8 @@ class ClassComplexity(
     methods: MutableMap<String, MethodComplexity> = mutableMapOf(),
     classes: MutableMap<String, ClassComplexity> = mutableMapOf(),
     override var complexity: Int = 0,
-    val isRecord: Boolean = false
+    val isRecord: Boolean = false,
+    val isInterface: Boolean = false
 ) : LocatedClass(
     name,
     range,
@@ -83,15 +84,17 @@ class ComplexityResult(val source: Source, entry: Map.Entry<String, String>) : J
         classOrInterfaceName: String,
         start: Location,
         end: Location,
-        isRecord: Boolean = false
+        isRecord: Boolean = false,
+        isInterface: Boolean = false
     ) {
         val locatedClass = if (source is Snippet && classOrInterfaceName == source.wrappedClassName) {
-            ClassComplexity("", source.snippetRange, isRecord = isRecord)
+            ClassComplexity("", source.snippetRange, isRecord = isRecord, isInterface = isInterface)
         } else {
             ClassComplexity(
                 classOrInterfaceName,
                 SourceRange(name, source.mapLocation(name, start), source.mapLocation(name, end)),
-                isRecord = isRecord
+                isRecord = isRecord,
+                isInterface = isInterface
             )
         }
         if (complexityStack.isNotEmpty()) {
@@ -138,7 +141,8 @@ class ComplexityResult(val source: Source, entry: Map.Entry<String, String>) : J
         enterClassOrInterface(
             ctx.children[1].text,
             Location(ctx.start.line, ctx.start.charPositionInLine),
-            Location(ctx.stop.line, ctx.stop.charPositionInLine)
+            Location(ctx.stop.line, ctx.stop.charPositionInLine),
+            isInterface = true
         )
     }
 
@@ -251,6 +255,10 @@ class ComplexityResult(val source: Source, entry: Map.Entry<String, String>) : J
 
         // Records have a parameter list but we can ignore it
         if ((complexityStack[0] as ClassComplexity).isRecord && currentMethodName == null) {
+            return
+        }
+        // Interface methods have a parameter list but we can ignore it
+        if ((complexityStack[0] as ClassComplexity).isInterface && currentMethodName == null) {
             return
         }
 
