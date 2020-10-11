@@ -338,6 +338,18 @@ int count(int[] v) {
             ).compile()
         }
     }
+    "f:should allow interfaces in snippets" {
+        Source.fromSnippet(
+            """
+interface Test {
+  void test();
+}
+class Tester implements Test {
+  public void test() { }
+}
+            """.trim()
+        ).compile()
+    }
 })
 
 fun haveParseErrorOnLine(line: Int) = object : Matcher<SnippetTransformationFailed> {

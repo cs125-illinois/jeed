@@ -341,6 +341,12 @@ private fun sourceFromJavaSnippet(originalSource: String, snippetArguments: Snip
             classNames.add(className)
         }
 
+        override fun visitInterfaceDeclaration(context: SnippetParser.InterfaceDeclarationContext) {
+            markAs(context.start.line, context.stop.line, "class")
+            val className = context.IDENTIFIER().text
+            classNames.add(className)
+        }
+
         override fun visitRecordDeclaration(context: SnippetParser.RecordDeclarationContext) {
             markAs(context.start.line, context.stop.line, "record")
             val className = context.IDENTIFIER().text
