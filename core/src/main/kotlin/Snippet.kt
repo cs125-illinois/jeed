@@ -335,20 +335,33 @@ private fun sourceFromJavaSnippet(originalSource: String, snippetArguments: Snip
             )
         }
 
+        // Always part of loose code
+        override fun visitLocalVariableDeclaration(ctx: SnippetParser.LocalVariableDeclarationContext?) {
+            return
+        }
+
+        // Always part of loose code
+        override fun visitStatement(ctx: SnippetParser.StatementContext?) {
+            return
+        }
+
         override fun visitClassDeclaration(context: SnippetParser.ClassDeclarationContext) {
-            markAs(context.start.line, context.stop.line, "class")
+            val parent = context.parent as SnippetParser.LocalTypeDeclarationContext
+            markAs(parent.start.line, parent.stop.line, "class")
             val className = context.IDENTIFIER().text
             classNames.add(className)
         }
 
         override fun visitInterfaceDeclaration(context: SnippetParser.InterfaceDeclarationContext) {
-            markAs(context.start.line, context.stop.line, "class")
+            val parent = context.parent as SnippetParser.LocalTypeDeclarationContext
+            markAs(parent.start.line, parent.stop.line, "class")
             val className = context.IDENTIFIER().text
             classNames.add(className)
         }
 
         override fun visitRecordDeclaration(context: SnippetParser.RecordDeclarationContext) {
-            markAs(context.start.line, context.stop.line, "record")
+            val parent = context.parent as SnippetParser.LocalTypeDeclarationContext
+            markAs(parent.start.line, parent.stop.line, "record")
             val className = context.IDENTIFIER().text
             classNames.add(className)
         }

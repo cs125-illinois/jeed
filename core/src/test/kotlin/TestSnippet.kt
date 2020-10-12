@@ -338,7 +338,7 @@ int count(int[] v) {
             ).compile()
         }
     }
-    "f:should allow interfaces in snippets" {
+    "should allow interfaces in snippets" {
         Source.fromSnippet(
             """
 interface Test {
@@ -347,6 +347,19 @@ interface Test {
 class Tester implements Test {
   public void test() { }
 }
+            """.trim()
+        ).compile()
+    }
+    "should allow anonymous classes in snippets" {
+        Source.fromSnippet(
+            """
+interface Test {
+  void test();
+}
+Test test = new Test() {
+  @Override
+  public void test() { }
+};
             """.trim()
         ).compile()
     }
