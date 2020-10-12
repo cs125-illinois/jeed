@@ -73,6 +73,7 @@ class MethodComplexity(
 @Suppress("TooManyFunctions")
 class ComplexityResult(val source: Source, entry: Map.Entry<String, String>) : JavaParserBaseListener() {
     private val name = entry.key
+    private var anonymousCounter = 0
 
     @Suppress("unused")
     private val contents = entry.value
@@ -110,6 +111,10 @@ class ComplexityResult(val source: Source, entry: Map.Entry<String, String>) : J
             }
         }
         complexityStack.add(0, locatedClass)
+        currentMethodName = null
+        currentMethodLocation = null
+        currentMethodParameters = null
+        currentMethodReturnType = null
     }
 
     private fun exitClassOrInterface() {
@@ -160,6 +165,24 @@ class ComplexityResult(val source: Source, entry: Map.Entry<String, String>) : J
     }
 
     override fun exitRecordDeclaration(ctx: JavaParser.RecordDeclarationContext?) {
+        exitClassOrInterface()
+    }
+
+    override fun enterClassCreatorRest(ctx: JavaParser.ClassCreatorRestContext) {
+        val parent = ctx.parent as JavaParser.CreatorContext
+        val name = if (parent.children[1] is JavaParser.CreatedNameContext) {
+            parent.children[1].text
+        } else {
+            parent.children[0].text
+        } + "_Anonymous${anonymousCounter++}"
+        enterClassOrInterface(
+            name,
+            Location(ctx.start.line, ctx.start.charPositionInLine),
+            Location(ctx.stop.line, ctx.stop.charPositionInLine)
+        )
+    }
+
+    override fun exitClassCreatorRest(ctx: JavaParser.ClassCreatorRestContext) {
         exitClassOrInterface()
     }
 

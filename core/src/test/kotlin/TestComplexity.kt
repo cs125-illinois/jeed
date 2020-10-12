@@ -121,4 +121,17 @@ interface Simple {
             """.trim()
         ).complexity()
     }
+    "should not fail on anonymous classes" {
+        Source.fromSnippet(
+            """
+interface Test {
+  void test();
+}
+Test test = new Test() {
+  @Override
+  public void test() { }
+};
+            """.trim()
+        ).complexity()
+    }
 })
