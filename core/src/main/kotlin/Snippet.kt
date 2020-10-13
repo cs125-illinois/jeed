@@ -370,7 +370,13 @@ private fun sourceFromJavaSnippet(originalSource: String, snippetArguments: Snip
             markAs(context.start.line, context.stop.line, "method")
             contentMapping[context.start.line - 1] = "method:start"
             val methodName = context.IDENTIFIER().text
+            methodNames.add(methodName)
+        }
 
+        override fun visitGenericMethodDeclaration(context: SnippetParser.GenericMethodDeclarationContext) {
+            markAs(context.start.line, context.stop.line, "method")
+            contentMapping[context.start.line - 1] = "method:start"
+            val methodName = context.methodDeclaration().IDENTIFIER().text
             methodNames.add(methodName)
         }
 

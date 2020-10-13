@@ -380,6 +380,7 @@ blockStatement
     | statement
     | localTypeDeclaration
     | modifier* methodDeclaration
+    | modifier* genericMethodDeclaration
     | importDeclaration
     ;
 

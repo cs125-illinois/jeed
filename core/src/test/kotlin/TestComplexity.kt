@@ -134,4 +134,13 @@ Test test = new Test() {
             """.trim()
         ).complexity()
     }
+    "should not fail on generic methods" {
+        Source.fromSnippet(
+            """
+<T> T max(T[] array) {
+  return null;
+}
+            """.trim()
+        ).complexity()
+    }
 })

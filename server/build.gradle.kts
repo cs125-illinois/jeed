@@ -27,8 +27,8 @@ dependencies {
     implementation("com.squareup.moshi:moshi-kotlin-codegen:1.11.0")
     implementation("com.github.cs125-illinois:ktor-moshi:1.0.3")
     implementation("ch.qos.logback:logback-classic:1.2.3")
-    implementation("com.uchuhimo:konf-core:0.22.1")
-    implementation("com.uchuhimo:konf-yaml:0.22.1")
+    implementation("com.uchuhimo:konf-core:0.23.0")
+    implementation("com.uchuhimo:konf-yaml:0.23.0")
     implementation("io.github.microutils:kotlin-logging:2.0.3")
     implementation("com.google.api-client:google-api-client:1.30.10")
 

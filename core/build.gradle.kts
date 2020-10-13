@@ -32,7 +32,7 @@ dependencies {
     implementation("io.github.microutils:kotlin-logging:2.0.3")
     implementation("io.github.classgraph:classgraph:4.8.90")
     implementation("net.java.dev.jna:jna:5.6.0")
-    api("com.github.ben-manes.caffeine:caffeine:2.8.5")
+    api("com.github.ben-manes.caffeine:caffeine:2.8.6")
 
     testImplementation("io.kotest:kotest-runner-junit5:4.3.0")
 }

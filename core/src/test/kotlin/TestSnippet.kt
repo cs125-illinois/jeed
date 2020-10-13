@@ -363,6 +363,15 @@ Test test = new Test() {
             """.trim()
         ).compile()
     }
+    "should allow generic methods in snippets" {
+        Source.fromSnippet(
+            """
+<T> T max(T[] array) {
+  return null;
+}
+            """.trim()
+        ).compile()
+    }
 })
 
 fun haveParseErrorOnLine(line: Int) = object : Matcher<SnippetTransformationFailed> {
