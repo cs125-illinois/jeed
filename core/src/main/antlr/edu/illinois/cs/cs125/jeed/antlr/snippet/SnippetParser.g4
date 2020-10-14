@@ -370,6 +370,18 @@ defaultValue
     ;
 
 // STATEMENTS / BLOCKS
+snippet
+    : '{' snippetStatement* '}'
+    ;
+
+snippetStatement
+    : localVariableDeclaration ';'
+    | statement
+    | localTypeDeclaration
+    | modifier* methodDeclaration
+    | modifier* genericMethodDeclaration
+    | importDeclaration
+    ;
 
 block
     : '{' blockStatement* '}'
@@ -379,9 +391,6 @@ blockStatement
     : localVariableDeclaration ';'
     | statement
     | localTypeDeclaration
-    | modifier* methodDeclaration
-    | modifier* genericMethodDeclaration
-    | importDeclaration
     ;
 
 localVariableDeclaration

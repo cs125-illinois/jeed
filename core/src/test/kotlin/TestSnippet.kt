@@ -52,6 +52,40 @@ i++
         exception.errors shouldHaveSize 1
         exception should haveParseErrorOnLine(12)
     }
+    "should not allow top-level return in snippet" {
+        val exception = shouldThrow<SnippetTransformationFailed> {
+            Source.fromSnippet(
+                """
+class Test {
+    int me = 0;
+    int anotherTest() {
+      return 8;
+    }
+}
+int testing() {
+    int j = 0;
+    return 10;
+}
+return;
+""".trim()
+            )
+        }
+        exception.errors shouldHaveSize 1
+        exception should haveParseErrorOnLine(11)
+    }
+    "should not allow package declarations in snippets" {
+        val exception = shouldThrow<SnippetTransformationFailed> {
+            Source.fromSnippet(
+                """
+package test.me;
+int i = 0;
+System.out.println(i);
+""".trim()
+            )
+        }
+        exception.errors shouldHaveSize 1
+        exception should haveParseErrorOnLine(1)
+    }
     "should identify multiple parse errors in a broken snippet" {
         val exception = shouldThrow<SnippetTransformationFailed> {
             Source.fromSnippet(
@@ -152,19 +186,6 @@ System.out.println(test(0));
         executionResult should haveCompleted()
         executionResult should haveOutput("test")
     }
-    "should not allow package declarations in snippets" {
-        val exception = shouldThrow<SnippetTransformationFailed> {
-            Source.fromSnippet(
-                """
-package test.me;
-
-System.out.println("Hello, world!");
-        """.trim()
-            )
-        }
-        exception.errors shouldHaveSize 1
-        exception should haveParseErrorOnLine(1)
-    }
     "should reject imports not at top of snippet" {
         val exception = shouldThrow<SnippetTransformationFailed> {
             Source.fromSnippet(
@@ -172,6 +193,21 @@ System.out.println("Hello, world!");
 public class Foo { }
 System.out.println("Hello, world!");
 import java.util.List;
+        """.trim()
+            )
+        }
+        exception.errors shouldHaveSize 1
+        exception should haveParseErrorOnLine(3)
+    }
+    "should not allow class declarations in blocks" {
+        val exception = shouldThrow<SnippetTransformationFailed> {
+            Source.fromSnippet(
+                """
+boolean value = true;
+if (value) {
+  public class Foo { }
+}
+System.out.println("Hello, world!");
         """.trim()
             )
         }
@@ -350,25 +386,27 @@ class Tester implements Test {
             """.trim()
         ).compile()
     }
-    "should allow anonymous classes in snippets" {
-        Source.fromSnippet(
-            """
-interface Test {
-  void test();
-}
-Test test = new Test() {
-  @Override
-  public void test() { }
-};
-            """.trim()
-        ).compile()
-    }
     "should allow generic methods in snippets" {
         Source.fromSnippet(
             """
 <T> T max(T[] array) {
   return null;
 }
+            """.trim()
+        ).compile()
+    }
+    "should allow anonymous classes in snippets" {
+        Source.fromSnippet(
+            """
+interface Adder {
+  int addTo(int value);
+}
+Adder addOne = new Adder() {
+  @Override
+  public int addTo(int value) {
+    return value + 1;
+  }
+};
             """.trim()
         ).compile()
     }

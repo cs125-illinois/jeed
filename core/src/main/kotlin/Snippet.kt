@@ -292,7 +292,7 @@ private fun sourceFromJavaSnippet(originalSource: String, snippetArguments: Snip
     }.let {
         it.removeErrorListeners()
         it.addErrorListener(errorListener)
-        it.block()
+        it.snippet()
     }.also {
         errorListener.check()
     }
@@ -305,8 +305,11 @@ private fun sourceFromJavaSnippet(originalSource: String, snippetArguments: Snip
     val visitorResults = object : SnippetParserBaseVisitor<Unit>() {
         val errors = mutableListOf<SnippetTransformationError>()
         var sawNonImport = false
+        var statementDepth = 0
 
         fun markAs(start: Int, stop: Int, type: String) {
+            check(statementDepth == 0) { "Shouldn't mark inside statement" }
+
             if (type != "import") {
                 sawNonImport = true
             } else if (type == "import" && sawNonImport) {
@@ -328,7 +331,7 @@ private fun sourceFromJavaSnippet(originalSource: String, snippetArguments: Snip
         override fun visitPackageDeclaration(context: SnippetParser.PackageDeclarationContext) {
             errors.add(
                 SnippetTransformationError(
-                    context.start.line,
+                    context.start.line - 1,
                     context.start.charPositionInLine,
                     "Snippets may not contain package declarations"
                 )
@@ -341,11 +344,34 @@ private fun sourceFromJavaSnippet(originalSource: String, snippetArguments: Snip
         }
 
         // Always part of loose code
-        override fun visitStatement(ctx: SnippetParser.StatementContext?) {
-            return
+        override fun visitStatement(context: SnippetParser.StatementContext) {
+            context.RETURN()?.also {
+                errors.add(
+                    SnippetTransformationError(
+                        context.start.line - 1,
+                        context.start.charPositionInLine,
+                        "Snippets may not contain top-level return statements"
+                    )
+                )
+            }
+            check(statementDepth >= 0) { "Invalid statement depth" }
+            statementDepth++
+            super.visitStatement(context)
+            statementDepth--
+            check(statementDepth >= 0) { "Invalid statement depth" }
         }
 
         override fun visitClassDeclaration(context: SnippetParser.ClassDeclarationContext) {
+            if (statementDepth > 0) {
+                errors.add(
+                    SnippetTransformationError(
+                        context.start.line - 1,
+                        context.start.charPositionInLine,
+                        "Class declarations must be at the top level"
+                    )
+                )
+                return
+            }
             val parent = context.parent as SnippetParser.LocalTypeDeclarationContext
             markAs(parent.start.line, parent.stop.line, "class")
             val className = context.IDENTIFIER().text
@@ -353,6 +379,16 @@ private fun sourceFromJavaSnippet(originalSource: String, snippetArguments: Snip
         }
 
         override fun visitInterfaceDeclaration(context: SnippetParser.InterfaceDeclarationContext) {
+            if (statementDepth > 0) {
+                errors.add(
+                    SnippetTransformationError(
+                        context.start.line - 1,
+                        context.start.charPositionInLine,
+                        "Interface declarations must be at the top level"
+                    )
+                )
+                return
+            }
             val parent = context.parent as SnippetParser.LocalTypeDeclarationContext
             markAs(parent.start.line, parent.stop.line, "class")
             val className = context.IDENTIFIER().text
@@ -360,6 +396,16 @@ private fun sourceFromJavaSnippet(originalSource: String, snippetArguments: Snip
         }
 
         override fun visitRecordDeclaration(context: SnippetParser.RecordDeclarationContext) {
+            if (statementDepth > 0) {
+                errors.add(
+                    SnippetTransformationError(
+                        context.start.line - 1,
+                        context.start.charPositionInLine,
+                        "Record declarations must be at the top level"
+                    )
+                )
+                return
+            }
             val parent = context.parent as SnippetParser.LocalTypeDeclarationContext
             markAs(parent.start.line, parent.stop.line, "record")
             val className = context.IDENTIFIER().text
@@ -367,6 +413,16 @@ private fun sourceFromJavaSnippet(originalSource: String, snippetArguments: Snip
         }
 
         override fun visitMethodDeclaration(context: SnippetParser.MethodDeclarationContext) {
+            if (statementDepth > 0) {
+                errors.add(
+                    SnippetTransformationError(
+                        context.start.line - 1,
+                        context.start.charPositionInLine,
+                        "Method declarations must be at the top level"
+                    )
+                )
+                return
+            }
             markAs(context.start.line, context.stop.line, "method")
             contentMapping[context.start.line - 1] = "method:start"
             val methodName = context.IDENTIFIER().text
@@ -374,6 +430,16 @@ private fun sourceFromJavaSnippet(originalSource: String, snippetArguments: Snip
         }
 
         override fun visitGenericMethodDeclaration(context: SnippetParser.GenericMethodDeclarationContext) {
+            if (statementDepth > 0) {
+                errors.add(
+                    SnippetTransformationError(
+                        context.start.line - 1,
+                        context.start.charPositionInLine,
+                        "Method declarations must be at the top level"
+                    )
+                )
+                return
+            }
             markAs(context.start.line, context.stop.line, "method")
             contentMapping[context.start.line - 1] = "method:start"
             val methodName = context.methodDeclaration().IDENTIFIER().text
@@ -381,10 +447,20 @@ private fun sourceFromJavaSnippet(originalSource: String, snippetArguments: Snip
         }
 
         override fun visitImportDeclaration(context: SnippetParser.ImportDeclarationContext) {
+            if (statementDepth > 0) {
+                errors.add(
+                    SnippetTransformationError(
+                        context.start.line - 1,
+                        context.start.charPositionInLine,
+                        "Imports must be at the top level"
+                    )
+                )
+                return
+            }
             markAs(context.start.line, context.stop.line, "import")
         }
 
-        override fun visitBlock(ctx: SnippetParser.BlockContext) {
+        override fun visitSnippet(ctx: SnippetParser.SnippetContext) {
             snippetRange = SourceRange(
                 SNIPPET_SOURCE,
                 Location(1, 0),
@@ -462,7 +538,7 @@ private fun sourceFromJavaSnippet(originalSource: String, snippetArguments: Snip
     }
 
     // Adding public static void $snippetMainMethodName()
-    val looseCodeStart = currentOutputLineNumber
+    @Suppress("UNUSED_VARIABLE") val looseCodeStart = currentOutputLineNumber
     currentOutputLineNumber++
 
     val looseCode = mutableListOf<String>()
@@ -476,8 +552,6 @@ private fun sourceFromJavaSnippet(originalSource: String, snippetArguments: Snip
             currentOutputLineNumber++
         }
     }
-
-    checkJavaLooseCode(looseCode.joinToString(separator = "\n"), looseCodeStart, remappedLineMapping)
 
     assert(originalSource.lines().size == remappedLineMapping.keys.size)
 
@@ -517,6 +591,8 @@ private fun sourceFromJavaSnippet(originalSource: String, snippetArguments: Snip
     )
 }
 
+// Used to be used to check for return statements, but that has been moved into the walker
+@Suppress("unused")
 private fun checkJavaLooseCode(
     looseCode: String,
     looseCodeStart: Int,
