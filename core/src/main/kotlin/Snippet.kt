@@ -363,13 +363,6 @@ private fun sourceFromJavaSnippet(originalSource: String, snippetArguments: Snip
 
         override fun visitClassDeclaration(context: SnippetParser.ClassDeclarationContext) {
             if (statementDepth > 0) {
-                errors.add(
-                    SnippetTransformationError(
-                        context.start.line - 1,
-                        context.start.charPositionInLine,
-                        "Class declarations must be at the top level"
-                    )
-                )
                 return
             }
             val parent = context.parent as SnippetParser.LocalTypeDeclarationContext
@@ -397,13 +390,6 @@ private fun sourceFromJavaSnippet(originalSource: String, snippetArguments: Snip
 
         override fun visitRecordDeclaration(context: SnippetParser.RecordDeclarationContext) {
             if (statementDepth > 0) {
-                errors.add(
-                    SnippetTransformationError(
-                        context.start.line - 1,
-                        context.start.charPositionInLine,
-                        "Record declarations must be at the top level"
-                    )
-                )
                 return
             }
             val parent = context.parent as SnippetParser.LocalTypeDeclarationContext
@@ -414,13 +400,6 @@ private fun sourceFromJavaSnippet(originalSource: String, snippetArguments: Snip
 
         override fun visitMethodDeclaration(context: SnippetParser.MethodDeclarationContext) {
             if (statementDepth > 0) {
-                errors.add(
-                    SnippetTransformationError(
-                        context.start.line - 1,
-                        context.start.charPositionInLine,
-                        "Method declarations must be at the top level"
-                    )
-                )
                 return
             }
             markAs(context.start.line, context.stop.line, "method")
@@ -431,13 +410,6 @@ private fun sourceFromJavaSnippet(originalSource: String, snippetArguments: Snip
 
         override fun visitGenericMethodDeclaration(context: SnippetParser.GenericMethodDeclarationContext) {
             if (statementDepth > 0) {
-                errors.add(
-                    SnippetTransformationError(
-                        context.start.line - 1,
-                        context.start.charPositionInLine,
-                        "Method declarations must be at the top level"
-                    )
-                )
                 return
             }
             markAs(context.start.line, context.stop.line, "method")

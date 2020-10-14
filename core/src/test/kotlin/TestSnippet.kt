@@ -199,20 +199,42 @@ import java.util.List;
         exception.errors shouldHaveSize 1
         exception should haveParseErrorOnLine(3)
     }
-    "should not allow class declarations in blocks" {
-        val exception = shouldThrow<SnippetTransformationFailed> {
-            Source.fromSnippet(
-                """
+    "should allow class declarations in blocks" {
+        Source.fromSnippet(
+            """
 boolean value = true;
 if (value) {
-  public class Foo { }
+  class Foo { }
 }
 System.out.println("Hello, world!");
         """.trim()
-            )
-        }
-        exception.errors shouldHaveSize 1
-        exception should haveParseErrorOnLine(3)
+        ).compile()
+    }
+    "should allow method declarations in anonymous classes in snippets" {
+        Source.fromSnippet(
+            """
+interface IncludeValue {
+  boolean include(int value);
+}
+int countArray(int[] values, IncludeValue includeValue) {
+  int count = 0;
+  for (int value : values) {
+    if (includeValue.include(value)) {
+      count++;
+    }
+  }
+  return count;
+}
+
+int[] array = {1, 2, 5, -1};
+System.out.println(countArray(array, new IncludeValue() {
+  @Override
+  public boolean include(int value) {
+    return value < 5 && value > 10;
+  }
+}));
+        """.trim()
+        ).compile()
     }
     "should parse kotlin snippets" {
         Source.fromSnippet(
