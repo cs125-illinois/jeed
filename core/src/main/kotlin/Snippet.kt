@@ -343,6 +343,9 @@ private fun sourceFromJavaSnippet(originalSource: String, snippetArguments: Snip
             return
         }
 
+        override fun visitLambdaExpression(ctx: SnippetParser.LambdaExpressionContext?) {
+            return
+        }
         // Always part of loose code
         override fun visitStatement(context: SnippetParser.StatementContext) {
             context.RETURN()?.also {

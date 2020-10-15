@@ -210,6 +210,21 @@ System.out.println("Hello, world!");
         """.trim()
         ).compile()
     }
+    "should allow top-level lambda expression returns" {
+        Source.fromSnippet(
+            """
+interface Test {
+  int test();
+}
+void tester(Test test) {
+  System.out.println(test.test());
+}
+tester(() -> {
+  return 0;
+});
+        """.trim()
+        ).compile()
+    }
     "should allow method declarations in anonymous classes in snippets" {
         Source.fromSnippet(
             """
