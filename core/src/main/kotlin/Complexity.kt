@@ -63,7 +63,8 @@ class MethodComplexity(
     range,
     classes as MutableMap<String, LocatedClass>,
     methods as MutableMap<String, LocatedMethod>
-), ComplexityValue {
+),
+    ComplexityValue {
     override fun lookup(name: String): ComplexityValue {
         check(name.isNotEmpty())
         @Suppress("TooGenericExceptionCaught")
