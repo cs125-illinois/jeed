@@ -55,17 +55,30 @@ class ClassComplexity(
 class MethodComplexity(
     name: String,
     range: SourceRange,
+    methods: MutableMap<String, MethodComplexity> = mutableMapOf(),
     classes: MutableMap<String, ClassComplexity> = mutableMapOf(),
     override var complexity: Int = 1
-) : LocatedMethod(name, range, classes as MutableMap<String, LocatedClass>), ComplexityValue {
+) : LocatedMethod(
+    name,
+    range,
+    classes as MutableMap<String, LocatedClass>,
+    methods as MutableMap<String, LocatedMethod>
+), ComplexityValue {
     override fun lookup(name: String): ComplexityValue {
         check(name.isNotEmpty())
-        check(name[0].isUpperCase()) { "methods cannot contain other methods" }
         @Suppress("TooGenericExceptionCaught")
         return try {
-            classes[name] as ComplexityValue
+            if (name[0].isUpperCase()) {
+                classes[name] as ComplexityValue
+            } else {
+                methods[name] as ComplexityValue
+            }
         } catch (e: Exception) {
-            error("class $name not found")
+            if (name[0].isUpperCase()) {
+                error("class $name not found: ${classes.keys}")
+            } else {
+                error("method $name not found: ${methods.keys}")
+            }
         }
     }
 }
@@ -199,12 +212,12 @@ class ComplexityResult(val source: Source, entry: Map.Entry<String, String>) : J
         returnType: String?
     ) {
         assert(complexityStack.isNotEmpty())
-        assert(complexityStack[0] is ClassComplexity)
-
-        assert(currentMethodName == null)
-        assert(currentMethodLocation == null)
-        assert(currentMethodReturnType == null)
-        assert(currentMethodParameters == null)
+        if (complexityStack[0] is ClassComplexity) {
+            assert(currentMethodName == null)
+            assert(currentMethodLocation == null)
+            assert(currentMethodReturnType == null)
+            assert(currentMethodParameters == null)
+        }
         currentMethodName = methodOrConstructorName
         currentMethodLocation = SourceRange(name, start, end)
         currentMethodReturnType = returnType
@@ -289,15 +302,16 @@ class ComplexityResult(val source: Source, entry: Map.Entry<String, String>) : J
 
     private fun exitParameters() {
         assert(complexityStack.isNotEmpty())
-        assert(complexityStack[0] is ClassComplexity)
 
-        // Records have a parameter list but we can ignore it
-        if ((complexityStack[0] as ClassComplexity).isRecord && currentMethodName == null) {
-            return
-        }
-        // Interface methods have a parameter list but we can ignore it
-        if ((complexityStack[0] as ClassComplexity).isInterface && currentMethodName == null) {
-            return
+        if (complexityStack[0] is ClassComplexity) {
+            // Records have a parameter list but we can ignore it
+            if ((complexityStack[0] as ClassComplexity).isRecord && currentMethodName == null) {
+                return
+            }
+            // Interface methods have a parameter list but we can ignore it
+            if ((complexityStack[0] as ClassComplexity).isInterface && currentMethodName == null) {
+                return
+            }
         }
 
         assert(currentMethodName != null)
@@ -327,9 +341,15 @@ class ComplexityResult(val source: Source, entry: Map.Entry<String, String>) : J
                 )
             )
         }
-        val currentComplexity = complexityStack[0] as ClassComplexity
-        assert(!currentComplexity.methods.containsKey(methodComplexity.name))
-        currentComplexity.methods[methodComplexity.name] = methodComplexity
+        if (complexityStack[0] is ClassComplexity) {
+            val currentComplexity = complexityStack[0] as ClassComplexity
+            assert(!currentComplexity.methods.containsKey(methodComplexity.name))
+            currentComplexity.methods[methodComplexity.name] = methodComplexity
+        } else if (complexityStack[0] is MethodComplexity) {
+            val currentComplexity = complexityStack[0] as MethodComplexity
+            assert(!currentComplexity.methods.containsKey(methodComplexity.name))
+            currentComplexity.methods[methodComplexity.name] = methodComplexity
+        }
         complexityStack.add(0, methodComplexity)
     }
 
@@ -343,9 +363,6 @@ class ComplexityResult(val source: Source, entry: Map.Entry<String, String>) : J
 
     override fun enterStatement(ctx: JavaParser.StatementContext) {
         assert(complexityStack.isNotEmpty())
-        if (complexityStack[0] is ClassComplexity) {
-            println((complexityStack[0] as ClassComplexity).name)
-        }
         val currentMethod = complexityStack[0] as MethodComplexity
 
         val firstToken = ctx.getStart() ?: error("can't get first token in statement")

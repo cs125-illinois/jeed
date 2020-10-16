@@ -152,4 +152,15 @@ Thread thread = new Thread(() -> {
             """.trim()
         ).complexity()
     }
+    "should not fail on lambda expressions without body" {
+        Source.fromSnippet(
+            """
+interface Modify {
+  int modify(int value);
+}
+Modify first = (v) -> v + 1;
+System.out.println(first.getClass());
+            """.trim()
+        ).complexity()
+    }
 })

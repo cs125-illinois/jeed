@@ -205,7 +205,8 @@ open class LocatedClass(
 open class LocatedMethod(
     val name: String,
     @Suppress("unused") val range: SourceRange,
-    var classes: MutableMap<String, LocatedClass> = mutableMapOf()
+    var classes: MutableMap<String, LocatedClass> = mutableMapOf(),
+    val methods: MutableMap<String, LocatedMethod> = mutableMapOf()
 )
 
 @JsonClass(generateAdapter = true)
