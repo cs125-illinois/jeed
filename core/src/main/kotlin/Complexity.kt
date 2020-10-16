@@ -74,6 +74,7 @@ class MethodComplexity(
 class ComplexityResult(val source: Source, entry: Map.Entry<String, String>) : JavaParserBaseListener() {
     private val name = entry.key
     private var anonymousCounter = 0
+    private var lambdaCounter = 0
 
     @Suppress("unused")
     private val contents = entry.value
@@ -195,7 +196,7 @@ class ComplexityResult(val source: Source, entry: Map.Entry<String, String>) : J
         methodOrConstructorName: String,
         start: Location,
         end: Location,
-        returnType: String
+        returnType: String?
     ) {
         assert(complexityStack.isNotEmpty())
         assert(complexityStack[0] is ClassComplexity)
@@ -251,6 +252,20 @@ class ComplexityResult(val source: Source, entry: Map.Entry<String, String>) : J
         exitMethodOrConstructor()
     }
 
+    override fun enterLambdaExpression(ctx: JavaParser.LambdaExpressionContext) {
+        assert(complexityStack.isNotEmpty())
+        enterMethodOrConstructor(
+            "Lambda${lambdaCounter++}",
+            Location(ctx.start.line, ctx.start.charPositionInLine),
+            Location(ctx.stop.line, ctx.stop.charPositionInLine),
+            null
+        )
+    }
+
+    override fun exitLambdaExpression(ctx: JavaParser.LambdaExpressionContext?) {
+        exitMethodOrConstructor()
+    }
+
     override fun enterFormalParameter(ctx: JavaParser.FormalParameterContext) {
         if (!insideLambda) {
             assert(ctx.children.size >= 2)
@@ -272,7 +287,7 @@ class ComplexityResult(val source: Source, entry: Map.Entry<String, String>) : J
         }
     }
 
-    override fun exitFormalParameters(ctx: JavaParser.FormalParametersContext) {
+    private fun exitParameters() {
         assert(complexityStack.isNotEmpty())
         assert(complexityStack[0] is ClassComplexity)
 
@@ -287,11 +302,16 @@ class ComplexityResult(val source: Source, entry: Map.Entry<String, String>) : J
 
         assert(currentMethodName != null)
         assert(currentMethodLocation != null)
-        assert(currentMethodReturnType != null)
         assert(currentMethodParameters != null)
 
-        val fullName = "$currentMethodName(${currentMethodParameters?.joinToString(separator = ",")})"
-        val methodComplexity = if (source is Snippet && source.looseCodeMethodName == fullName) {
+        val fullName = "$currentMethodName(${currentMethodParameters?.joinToString(separator = ",")})".let {
+            if (currentMethodReturnType != null) {
+                "$currentMethodReturnType $it"
+            } else {
+                it
+            }
+        }
+        val methodComplexity = if (source is Snippet && "void " + source.looseCodeMethodName == fullName) {
             val snippetMethodComplexity = MethodComplexity("", source.snippetRange)
             // We add "throws Exception" to the main method wrapping loose code for snippets.
             // This hack ensures that we still calculate complexity correctly in this special case.
@@ -313,8 +333,19 @@ class ComplexityResult(val source: Source, entry: Map.Entry<String, String>) : J
         complexityStack.add(0, methodComplexity)
     }
 
+    override fun exitFormalParameters(ctx: JavaParser.FormalParametersContext) {
+        exitParameters()
+    }
+
+    override fun exitLambdaParameters(ctx: JavaParser.LambdaParametersContext) {
+        exitParameters()
+    }
+
     override fun enterStatement(ctx: JavaParser.StatementContext) {
         assert(complexityStack.isNotEmpty())
+        if (complexityStack[0] is ClassComplexity) {
+            println((complexityStack[0] as ClassComplexity).name)
+        }
         val currentMethod = complexityStack[0] as MethodComplexity
 
         val firstToken = ctx.getStart() ?: error("can't get first token in statement")
@@ -370,14 +401,6 @@ class ComplexityResult(val source: Source, entry: Map.Entry<String, String>) : J
 
     // Ignore argument lists that are part of lambda expressions
     private var insideLambda = false
-
-    override fun enterLambdaExpression(ctx: JavaParser.LambdaExpressionContext?) {
-        insideLambda = true
-    }
-
-    override fun exitLambdaExpression(ctx: JavaParser.LambdaExpressionContext?) {
-        insideLambda = false
-    }
 
     private var insideSwitch = false
     override fun enterSwitchBlockStatementGroup(ctx: JavaParser.SwitchBlockStatementGroupContext) {

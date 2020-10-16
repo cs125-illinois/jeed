@@ -28,7 +28,7 @@ public class Test {
 """.trim()
             )
         ).complexity()
-        complexityResults.lookup("Test.add(int,int)", "Test.java").complexity shouldBe 1
+        complexityResults.lookup("Test.int add(int,int)", "Test.java").complexity shouldBe 1
     }
     "should fail properly on parse errors" {
         shouldThrow<ComplexityFailed> {
@@ -61,7 +61,7 @@ public class Test {
 """.trim()
             )
         ).complexity()
-        complexityResults.lookup("Test.chooser(int,int)", "Test.java").complexity shouldBe 2
+        complexityResults.lookup("Test.int chooser(int,int)", "Test.java").complexity shouldBe 2
     }
     "should calculate complexity for complex conditional statements" {
         val complexityResults = Source(
@@ -83,7 +83,7 @@ public class Test {
 """.trim()
             )
         ).complexity()
-        complexityResults.lookup("Test.chooser(int,int)", "Test.java").complexity shouldBe 4
+        complexityResults.lookup("Test.int chooser(int,int)", "Test.java").complexity shouldBe 4
     }
     "should calculate complexity for classes in snippets" {
         Source.fromSnippet(
@@ -140,6 +140,15 @@ Test test = new Test() {
 <T> T max(T[] array) {
   return null;
 }
+            """.trim()
+        ).complexity()
+    }
+    "should not fail on lambda expressions with body" {
+        Source.fromSnippet(
+            """
+Thread thread = new Thread(() -> {
+  System.out.println("Blah");
+});
             """.trim()
         ).complexity()
     }
