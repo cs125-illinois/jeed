@@ -11,10 +11,12 @@ import edu.illinois.cs.cs125.jeed.core.haveOutput
 import edu.illinois.cs.cs125.jeed.core.haveTimedOut
 import io.kotest.core.spec.style.StringSpec
 import io.kotest.matchers.should
+import io.kotest.matchers.shouldBe
 import io.kotest.matchers.shouldNot
 import io.kotest.matchers.types.beInstanceOf
 import io.kotest.matchers.types.shouldBeTypeOf
 import kotlinx.coroutines.async
+import org.junit.jupiter.api.assertThrows
 
 class TestByteCodeRewriters : StringSpec({
     "should not intercept safe exceptions" {
@@ -657,5 +659,69 @@ public class Main {
         executionResult shouldNot haveTimedOut()
         executionResult should haveCompleted()
         executionResult should haveOutput("200")
+    }
+    "should prevent untrusted code from running after the task ends" {
+        val executionResult = Source(
+            mapOf(
+                "Main.java" to """
+public class Main {
+    public static Object main() {
+        return new Object() {
+            @Override
+            public String toString() {
+                System.exit(125);
+                return "unreachable";
+            }
+        };
+    }
+}""".trim()
+            )
+        ).compile().execute()
+        executionResult should haveCompleted()
+        assertThrows<SecurityException> { executionResult.returned!!.toString() }
+    }
+    "should prevent custom exceptions from escaping the sandbox" {
+        val executionResult = Source(
+            mapOf(
+                "Main.java" to """
+public class Main {
+    public static void main() {
+        throw new RuntimeException() {
+            @Override
+            public String toString() {
+                System.exit(125);
+                return "unreachable";
+            }
+        };
+    }
+}""".trim()
+            )
+        ).compile().execute()
+        executionResult shouldNot haveCompleted()
+        executionResult.threw!!.javaClass shouldBe SecurityException::class.java
+    }
+    "should not choke on abstract methods" {
+        val executionResult = Source(
+            mapOf(
+                "Main.java" to """
+public abstract class Describable {
+    public void printDescription() {
+        System.out.println(describe());
+    }
+    public abstract String describe();
+}
+public class Main {
+    public static void main() {
+        new Describable() {
+            public String describe() {
+                return "Implementation";
+            }
+        }.printDescription();
+    }
+}""".trim()
+            )
+        ).compile().execute()
+        executionResult should haveCompleted()
+        executionResult should haveOutput("Implementation")
     }
 })

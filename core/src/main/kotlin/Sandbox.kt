@@ -632,7 +632,11 @@ object Sandbox {
 
         init {
             knownClasses = sandboxableClassLoader.bytecodeForClasses.mapValues { (_, unsafeByteArray) ->
-                RewriteBytecode.rewrite(unsafeByteArray, unsafeExceptionClasses)
+                RewriteBytecode.rewrite(
+                    unsafeByteArray,
+                    unsafeExceptionClasses,
+                    RewriteBytecode.RewritingSubject.UNTRUSTED
+                )
             }
         }
 
@@ -722,7 +726,11 @@ object Sandbox {
                     val originalBytes = sandboxableClassLoader.classLoader.parent
                         .getResourceAsStream("${name.replace('.', '/')}.class")?.readAllBytes()
                         ?: throw ClassNotFoundException("failed to reload $name")
-                    RewriteBytecode.rewrite(originalBytes, unsafeExceptionClasses)
+                    RewriteBytecode.rewrite(
+                        originalBytes,
+                        unsafeExceptionClasses,
+                        RewriteBytecode.RewritingSubject.ISOLATING
+                    )
                 }
                 loadedClasses.add(name)
                 return defineClass(name, classBytes, 0, classBytes.size)
@@ -746,6 +754,11 @@ object Sandbox {
             ?: error("should have a method name")
         private val checkMethodDescription = Type.getMethodDescriptor(RewriteBytecode::checkException.javaMethod)
             ?: error("should be able to retrieve method signature")
+        private val enclosureMethodName = RewriteBytecode::checkSandboxEnclosure.javaMethod?.name
+            ?: error("should have a method name for the enclosure checker")
+        private val enclosureMethodDescription =
+            Type.getMethodDescriptor(RewriteBytecode::checkSandboxEnclosure.javaMethod)
+                ?: error("should be able to retrieve method signature for enclosure checker")
         private val syncNotifyMethods = mapOf(
             "wait:()V" to RewriteBytecode::conditionWait,
             "wait:(J)V" to RewriteBytecode::conditionWaitMs,
@@ -814,7 +827,18 @@ object Sandbox {
             confinedTask.getIsolatedCondition(monitor).signalAll()
         }
 
-        fun rewrite(originalByteArray: ByteArray, unsafeExceptionClasses: Set<Class<*>>): ByteArray {
+        @JvmStatic
+        fun checkSandboxEnclosure() {
+            if (confinedTaskByThreadGroup() == null) {
+                throw SecurityException("invocation of untrusted code outside confined task")
+            }
+        }
+
+        internal fun rewrite(
+            originalByteArray: ByteArray,
+            unsafeExceptionClasses: Set<Class<*>>,
+            subject: RewritingSubject
+        ): ByteArray {
             require(originalByteArray.size <= MAX_CLASS_FILE_SIZE) { "bytecode is over 1 MB" }
             val classReader = ClassReader(originalByteArray)
             val allPreinspections = preInspectMethods(classReader)
@@ -873,6 +897,7 @@ object Sandbox {
                         SandboxingMethodVisitor(
                             unsafeExceptionClasses,
                             preinspection.badTryCatchBlockPositions,
+                            subject,
                             super.visitMethod(
                                 transformedModifiers,
                                 transformedMethodName,
@@ -945,6 +970,10 @@ object Sandbox {
             methodVisitor.visitEnd()
         }
 
+        internal enum class RewritingSubject {
+            UNTRUSTED, ISOLATING
+        }
+
         private open class MonitorIsolatingMethodVisitor(
             downstream: MethodVisitor
         ) : MethodVisitor(Opcodes.ASM8, downstream) {
@@ -976,11 +1005,25 @@ object Sandbox {
         private class SandboxingMethodVisitor(
             val unsafeExceptionClasses: Set<Class<*>>,
             val badTryCatchBlockPositions: Set<Int>,
+            val subject: RewritingSubject,
             methodVisitor: MethodVisitor
         ) : MonitorIsolatingMethodVisitor(methodVisitor) {
             private val labelsToRewrite: MutableSet<Label> = mutableSetOf()
             private var rewroteLabel = false
             private var currentTryCatchBlockPosition = -1
+
+            override fun visitCode() {
+                super.visitCode()
+                if (subject == RewritingSubject.UNTRUSTED) {
+                    super.visitMethodInsn(
+                        Opcodes.INVOKESTATIC,
+                        rewriterClassName,
+                        enclosureMethodName,
+                        enclosureMethodDescription,
+                        false
+                    )
+                }
+            }
 
             override fun visitTryCatchBlock(start: Label, end: Label, handler: Label, type: String?) {
                 currentTryCatchBlockPosition++
