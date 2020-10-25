@@ -295,17 +295,22 @@ object Sandbox {
 
                 val coroutinesUsed = sandboxedClassLoader.loadedClasses.any { it.startsWith("kotlinx.coroutines.") }
                 fun anyActiveCoroutines(): Boolean {
-                    try {
-                        if (!coroutinesUsed) return false
-                        val defaultExecutorName = "kotlinx.coroutines.DefaultExecutor"
-                        val defaultExecutorClass = sandboxedClassLoader.loadClass(defaultExecutorName)
-                        if (!sandboxedClassLoader.isClassReloaded(defaultExecutorClass)) return false // Shenanigans
-                        val defaultExecutor = defaultExecutorClass.kotlin.objectInstance
-                        val emptyProp = defaultExecutorClass.kotlin.memberProperties
-                            .first { it.name == "isEmpty" }.also { it.isAccessible = true } as KProperty<*>
-                        return emptyProp.getter.call(defaultExecutor) == false
-                    } catch (e: Exception) {
-                        return false
+                    if (!coroutinesUsed) return false
+                    synchronized(safeUnconstrainedInvocationSyncRoot) {
+                        try {
+                            safeUnconstrainedInvokerThread = Thread.currentThread()
+                            val defaultExecutorName = "kotlinx.coroutines.DefaultExecutor"
+                            val defaultExecutorClass = sandboxedClassLoader.loadClass(defaultExecutorName)
+                            if (!sandboxedClassLoader.isClassReloaded(defaultExecutorClass)) return false // Shenanigans
+                            val defaultExecutor = defaultExecutorClass.kotlin.objectInstance
+                            val emptyProp = defaultExecutorClass.kotlin.memberProperties
+                                .first { it.name == "isEmpty" }.also { it.isAccessible = true } as KProperty<*>
+                            return emptyProp.getter.call(defaultExecutor) == false
+                        } catch (e: Throwable) {
+                            return false
+                        } finally {
+                            safeUnconstrainedInvokerThread = null
+                        }
                     }
                 }
 
@@ -634,8 +639,7 @@ object Sandbox {
             knownClasses = sandboxableClassLoader.bytecodeForClasses.mapValues { (_, unsafeByteArray) ->
                 RewriteBytecode.rewrite(
                     unsafeByteArray,
-                    unsafeExceptionClasses,
-                    RewriteBytecode.RewritingSubject.UNTRUSTED
+                    unsafeExceptionClasses
                 )
             }
         }
@@ -728,8 +732,7 @@ object Sandbox {
                         ?: throw ClassNotFoundException("failed to reload $name")
                     RewriteBytecode.rewrite(
                         originalBytes,
-                        unsafeExceptionClasses,
-                        RewriteBytecode.RewritingSubject.ISOLATING
+                        unsafeExceptionClasses
                     )
                 }
                 loadedClasses.add(name)
@@ -829,15 +832,14 @@ object Sandbox {
 
         @JvmStatic
         fun checkSandboxEnclosure() {
-            if (confinedTaskByThreadGroup() == null) {
+            if (confinedTaskByThreadGroup() == null && Thread.currentThread() != safeUnconstrainedInvokerThread) {
                 throw SecurityException("invocation of untrusted code outside confined task")
             }
         }
 
         internal fun rewrite(
             originalByteArray: ByteArray,
-            unsafeExceptionClasses: Set<Class<*>>,
-            subject: RewritingSubject
+            unsafeExceptionClasses: Set<Class<*>>
         ): ByteArray {
             require(originalByteArray.size <= MAX_CLASS_FILE_SIZE) { "bytecode is over 1 MB" }
             val classReader = ClassReader(originalByteArray)
@@ -897,7 +899,6 @@ object Sandbox {
                         SandboxingMethodVisitor(
                             unsafeExceptionClasses,
                             preinspection.badTryCatchBlockPositions,
-                            subject,
                             super.visitMethod(
                                 transformedModifiers,
                                 transformedMethodName,
@@ -970,10 +971,6 @@ object Sandbox {
             methodVisitor.visitEnd()
         }
 
-        internal enum class RewritingSubject {
-            UNTRUSTED, ISOLATING
-        }
-
         private open class MonitorIsolatingMethodVisitor(
             downstream: MethodVisitor
         ) : MethodVisitor(Opcodes.ASM8, downstream) {
@@ -1005,7 +1002,6 @@ object Sandbox {
         private class SandboxingMethodVisitor(
             val unsafeExceptionClasses: Set<Class<*>>,
             val badTryCatchBlockPositions: Set<Int>,
-            val subject: RewritingSubject,
             methodVisitor: MethodVisitor
         ) : MonitorIsolatingMethodVisitor(methodVisitor) {
             private val labelsToRewrite: MutableSet<Label> = mutableSetOf()
@@ -1014,15 +1010,13 @@ object Sandbox {
 
             override fun visitCode() {
                 super.visitCode()
-                if (subject == RewritingSubject.UNTRUSTED) {
-                    super.visitMethodInsn(
-                        Opcodes.INVOKESTATIC,
-                        rewriterClassName,
-                        enclosureMethodName,
-                        enclosureMethodDescription,
-                        false
-                    )
-                }
+                super.visitMethodInsn(
+                    Opcodes.INVOKESTATIC,
+                    rewriterClassName,
+                    enclosureMethodName,
+                    enclosureMethodDescription,
+                    false
+                )
             }
 
             override fun visitTryCatchBlock(start: Label, end: Label, handler: Label, type: String?) {
@@ -1539,6 +1533,9 @@ object Sandbox {
     var running = false
 
     private lateinit var originalPrintStreams: Map<TaskResults.OutputLine.Console, PrintStream>
+
+    private val safeUnconstrainedInvocationSyncRoot = Object()
+    private var safeUnconstrainedInvokerThread: Thread? = null
 
     @JvmStatic
     @Synchronized

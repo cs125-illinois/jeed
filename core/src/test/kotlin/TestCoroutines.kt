@@ -329,4 +329,35 @@ fun main() = runBlocking {
         executionResult should haveCompleted()
         executionResult shouldNot haveTimedOut()
     }
+    "should not run untrusted code after the coroutine idle check" {
+        val executionResult = Source(
+            mapOf(
+                "Main.kt" to """
+import kotlinx.coroutines.*
+fun main() {
+    val job = GlobalScope.launch {
+        println("Coroutine")
+    }
+}
+                """.trimIndent()
+            )
+        ).kompile().execute(SourceExecutionArguments(waitForShutdown = true))
+        executionResult should haveOutput("Coroutine")
+        val badExecutionResult = Source(
+            mapOf(
+                "Main.kt" to """
+import kotlinx.coroutines.*
+fun main() {
+    throw object : RuntimeException() {
+        override fun toString(): String {
+            System.exit(-1)
+            return ""
+        }
+    }
+}
+                """.trimIndent()
+            )
+        ).kompile().execute(SourceExecutionArguments(waitForShutdown = true))
+        badExecutionResult.threw!!.javaClass shouldBe SecurityException::class.java
+    }
 })
