@@ -57,14 +57,13 @@ object Sandbox {
         val isolatedClasses = isolatedClasses.union(ALWAYS_ISOLATED_CLASSES)
 
         init {
-            require(
-                !whitelistedClasses.any { whitelistedClass ->
-                    PERMANENTLY_BLACKLISTED_CLASSES.any { blacklistedClass ->
-                        whitelistedClass.startsWith(blacklistedClass)
-                    }
+            val badClasses = whitelistedClasses.filter { whitelistedClass ->
+                PERMANENTLY_BLACKLISTED_CLASSES.any { blacklistedClass ->
+                    whitelistedClass.startsWith(blacklistedClass)
                 }
-            ) {
-                "attempt to allow access to unsafe classes"
+            }
+            require(badClasses.isEmpty()) {
+                "attempt to allow access to unsafe classes: $badClasses"
             }
             require(
                 !(

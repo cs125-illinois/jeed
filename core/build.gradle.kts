@@ -19,7 +19,7 @@ dependencies {
     implementation(kotlin("compiler-embeddable"))
     implementation(kotlin("reflect"))
 
-    implementation("org.jetbrains.kotlinx:kotlinx-coroutines-core:1.3.9")
+    implementation("org.jetbrains.kotlinx:kotlinx-coroutines-core:1.4.0")
     implementation("com.puppycrawl.tools:checkstyle:8.36.2")
     implementation("com.pinterest.ktlint:ktlint-core:0.39.0")
     implementation("com.pinterest.ktlint:ktlint-ruleset-standard:0.39.0")
