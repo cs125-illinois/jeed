@@ -20,10 +20,11 @@ dependencies {
     kapt("com.squareup.moshi:moshi-kotlin-codegen:1.11.0")
 
     implementation(project(":core"))
+    implementation(project(":cs125"))
     implementation(kotlin("stdlib"))
     implementation("io.ktor:ktor-server-netty:$ktorVersion")
     implementation("org.mongodb:mongodb-driver:3.12.7")
-    implementation("org.jetbrains.kotlinx:kotlinx-coroutines-core:1.4.0")
+    implementation("org.jetbrains.kotlinx:kotlinx-coroutines-core:1.4.1")
     implementation("com.squareup.moshi:moshi-kotlin-codegen:1.11.0")
     implementation("com.github.cs125-illinois:ktor-moshi:1.0.3")
     implementation("ch.qos.logback:logback-classic:1.2.3")
