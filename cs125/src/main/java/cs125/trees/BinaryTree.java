@@ -16,8 +16,14 @@ public class BinaryTree<T> {
 
     public BinaryTree(T setValue, T setLeft, T setRight) {
         value = setValue;
-        left = new BinaryTree(setLeft);
-        right = new BinaryTree(setRight);
+        if (setLeft != null) {
+            left = new BinaryTree(setLeft);
+            size++;
+        }
+        if (setRight != null) {
+            right = new BinaryTree(setRight);
+            size++;
+        }
     }
 
     public void setRight(BinaryTree<T> setRight) {
