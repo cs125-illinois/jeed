@@ -2,15 +2,15 @@ package cs125.sorting.quicksort;
 
 @SuppressWarnings("unused")
 public class Partitioner {
-    public static <T extends Comparable<T>> int partition(T[] values) {
+    public static <T extends Comparable<T>> int partition(T[] values, int start, int end) {
         if (values == null || values.length == 0) {
             throw new IllegalArgumentException();
         }
 
         T tmp;
-        int pivotPosition = 0;
-        for (int i = 1; i < values.length; i++) {
-            if (values[i].compareTo(values[0]) < 0) {
+        int pivotPosition = start;
+        for (int i = start + 1; i < end; i++) {
+            if (values[i].compareTo(values[start]) < 0) {
                 pivotPosition++;
                 tmp = values[pivotPosition];
                 values[pivotPosition] = values[i];
@@ -19,8 +19,12 @@ public class Partitioner {
         }
 
         tmp = values[pivotPosition];
-        values[pivotPosition] = values[0];
-        values[0] = tmp;
+        values[pivotPosition] = values[start];
+        values[start] = tmp;
         return pivotPosition;
+    }
+
+    public static <T extends Comparable<T>> int partition(T[] values) {
+        return partition(values, 0, values.length);
     }
 }
