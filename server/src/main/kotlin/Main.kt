@@ -95,50 +95,55 @@ fun Application.jeed() {
         }
         @Suppress("TooGenericExceptionCaught")
         post("/auth") {
-            if (Request.googleTokenVerifier == null) {
-                call.respond(HttpStatusCode.ExpectationFailed)
-                return@post
-            }
-            val preAuthenticationRequest = try {
-                call.receive<PreAuthenticationRequest>()
-            } catch (e: Exception) {
-                call.respond(HttpStatusCode.BadRequest)
-                return@post
-            }
-            try {
-                withContext(Dispatchers.IO) { Request.googleTokenVerifier!!.verify(preAuthenticationRequest.authToken) }
-            } catch (e: Exception) {
-                call.respond(HttpStatusCode.Unauthorized)
-            } finally {
-                call.respond(HttpStatusCode.OK)
+            withContext(Dispatchers.IO) {
+                if (Request.googleTokenVerifier == null) {
+                    call.respond(HttpStatusCode.ExpectationFailed)
+                    return@withContext
+                }
+                val preAuthenticationRequest = try {
+                    call.receive<PreAuthenticationRequest>()
+                } catch (e: Exception) {
+                    call.respond(HttpStatusCode.BadRequest)
+                    return@withContext
+                }
+                try {
+                    @Suppress("BlockingMethodInNonBlockingContext")
+                    Request.googleTokenVerifier!!.verify(preAuthenticationRequest.authToken)
+                } catch (e: Exception) {
+                    call.respond(HttpStatusCode.Unauthorized)
+                } finally {
+                    call.respond(HttpStatusCode.OK)
+                }
             }
         }
         post("/") {
-            @Suppress("TooGenericExceptionCaught")
-            val job = try {
-                call.receive<Request>().check()
-            } catch (e: Exception) {
-                logger.warn(e.toString())
-                call.respond(HttpStatusCode.BadRequest)
-                return@post
-            }
+            withContext(Dispatchers.IO) {
+                @Suppress("TooGenericExceptionCaught")
+                val job = try {
+                    call.receive<Request>().check()
+                } catch (e: Exception) {
+                    logger.warn(e.toString())
+                    call.respond(HttpStatusCode.BadRequest)
+                    return@withContext
+                }
 
-            try {
-                job.authenticate()
-            } catch (e: AuthenticationException) {
-                logger.warn(e.toString())
-                call.respond(HttpStatusCode.Unauthorized)
-                return@post
-            }
+                try {
+                    job.authenticate()
+                } catch (e: AuthenticationException) {
+                    logger.warn(e.toString())
+                    call.respond(HttpStatusCode.Unauthorized)
+                    return@withContext
+                }
 
-            @Suppress("TooGenericExceptionCaught")
-            try {
-                val result = job.run()
-                currentStatus.lastRequest = Instant.now()
-                call.respond(result)
-            } catch (e: Exception) {
-                logger.warn(e.toString())
-                call.respond(HttpStatusCode.BadRequest)
+                @Suppress("TooGenericExceptionCaught")
+                try {
+                    val result = job.run()
+                    currentStatus.lastRequest = Instant.now()
+                    call.respond(result)
+                } catch (e: Exception) {
+                    logger.warn(e.toString())
+                    call.respond(HttpStatusCode.BadRequest)
+                }
             }
         }
     }

@@ -17,11 +17,11 @@ public class BinaryTree<T> {
     public BinaryTree(T setValue, T setLeft, T setRight) {
         value = setValue;
         if (setLeft != null) {
-            left = new BinaryTree(setLeft);
+            left = new BinaryTree<>(setLeft);
             size++;
         }
         if (setRight != null) {
-            right = new BinaryTree(setRight);
+            right = new BinaryTree<>(setRight);
             size++;
         }
     }

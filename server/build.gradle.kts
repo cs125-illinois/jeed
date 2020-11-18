@@ -15,7 +15,7 @@ repositories {
     maven(url = "https://maven.google.com/")
 }
 dependencies {
-    val ktorVersion = "1.4.1"
+    val ktorVersion = "1.4.2"
 
     kapt("com.squareup.moshi:moshi-kotlin-codegen:1.11.0")
 
@@ -31,7 +31,7 @@ dependencies {
     implementation("com.uchuhimo:konf-core:0.23.0")
     implementation("com.uchuhimo:konf-yaml:0.23.0")
     implementation("io.github.microutils:kotlin-logging:2.0.3")
-    implementation("com.google.api-client:google-api-client:1.30.11")
+    implementation("com.google.api-client:google-api-client:1.31.1")
 
     val kotestVersion = "4.3.1"
     testImplementation("io.kotest:kotest-runner-junit5:$kotestVersion")
