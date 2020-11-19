@@ -1,7 +1,7 @@
 import org.jetbrains.kotlin.gradle.tasks.KotlinCompile
 
 plugins {
-    val kotlinVersion = "1.4.10"
+    val kotlinVersion = "1.4.20"
     kotlin("jvm") version kotlinVersion apply false
     kotlin("kapt") version kotlinVersion apply false
     id("org.jmailen.kotlinter") version "3.2.0" apply false
@@ -17,7 +17,7 @@ allprojects {
 }
 subprojects {
     group = "com.github.cs125-illinois.jeed"
-    version = "2020.11.3"
+    version = "2020.11.4"
     tasks.withType<KotlinCompile> {
         val javaVersion = JavaVersion.VERSION_1_8.toString()
         sourceCompatibility = javaVersion
