@@ -1313,6 +1313,9 @@ object Sandbox {
         val result = try {
             Pair(block(), null)
         } catch (e: Throwable) {
+            if (e is ThreadDeath) {
+                throw e
+            }
             Pair(null, e)
         }
         confinedTask.redirectingOutput = false
