@@ -15,7 +15,7 @@ repositories {
     maven(url = "https://maven.google.com/")
 }
 dependencies {
-    val ktorVersion = "1.4.2"
+    val ktorVersion = "1.4.1"
 
     kapt("com.squareup.moshi:moshi-kotlin-codegen:1.11.0")
 
