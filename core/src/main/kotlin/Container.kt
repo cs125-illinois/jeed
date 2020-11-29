@@ -61,7 +61,7 @@ data class ContainerExecutionResults(
         }
 }
 
-@Suppress("LongMethod")
+@Suppress("LongMethod", "BlockingMethodInNonBlockingContext")
 suspend fun CompiledSource.cexecute(
     executionArguments: ContainerExecutionArguments = ContainerExecutionArguments()
 ): ContainerExecutionResults {
@@ -190,7 +190,7 @@ class StreamGobbler(
 }
 
 suspend fun <T> withTempDir(root: File? = null, f: suspend (directory: File) -> T): T {
-    val directory = createTempDir("containerrunner", null, root)
+    @Suppress("DEPRECATION") val directory = createTempDir("containerrunner", null, root)
     return try {
         f(directory)
     } finally {

@@ -13,7 +13,7 @@ plugins {
 dependencies {
     kapt("com.squareup.moshi:moshi-kotlin-codegen:1.11.0")
 
-    antlr("org.antlr:antlr4:4.8-1")
+    antlr("org.antlr:antlr4:4.9")
 
     implementation(kotlin("stdlib"))
     implementation(kotlin("compiler-embeddable"))
@@ -30,7 +30,7 @@ dependencies {
     implementation("org.slf4j:slf4j-api:1.7.30")
     implementation("ch.qos.logback:logback-classic:1.2.3")
     implementation("io.github.microutils:kotlin-logging:2.0.3")
-    implementation("io.github.classgraph:classgraph:4.8.90")
+    implementation("io.github.classgraph:classgraph:4.8.92")
     implementation("net.java.dev.jna:jna:5.6.0")
     api("com.github.ben-manes.caffeine:caffeine:2.8.6")
 
