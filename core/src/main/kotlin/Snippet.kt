@@ -213,14 +213,15 @@ ${" ".repeat(snippetArguments.indent)}}
     val looseLines: MutableList<String> = mutableListOf()
     val looseCodeMapping: MutableMap<Int, Int> = mutableMapOf()
 
-    parseTree.topLevelObject()?.map { it.statement() }?.filter { it.isNotEmpty() }?.forEach {
-        val looseStart = it?.first()?.start?.line ?: 0
-        val looseEnd = it?.last()?.stop?.line ?: 0
+    parseTree.topLevelObject()?.map { it.blockLevelExpression() }?.filterNotNull()?.forEach {
+        val looseStart = it.start?.line ?: 0
+        val looseEnd = it.stop?.line ?: 0
         for (lineNumber in looseStart..looseEnd) {
             looseCodeMapping[looseLines.size + 1] = lineNumber
             looseLines.add(sourceLines[lineNumber - 1])
         }
     }
+
     KotlinLexer(CharStreams.fromString(looseLines.joinToString(separator = "\n"))).let {
         it.removeErrorListeners()
         CommonTokenStream(it)
@@ -346,6 +347,7 @@ private fun sourceFromJavaSnippet(originalSource: String, snippetArguments: Snip
         override fun visitLambdaExpression(ctx: SnippetParser.LambdaExpressionContext?) {
             return
         }
+
         // Always part of loose code
         override fun visitStatement(context: SnippetParser.StatementContext) {
             context.RETURN()?.also {

@@ -13,7 +13,7 @@ dependencies {
     implementation("ch.qos.logback:logback-classic:1.2.3")
     implementation("io.github.microutils:kotlin-logging:2.0.3")
     implementation("com.github.ajalt:clikt:2.8.0")
-    implementation("io.github.classgraph:classgraph:4.8.92")
+    implementation("io.github.classgraph:classgraph:4.8.93")
 }
 application {
     mainClassName = "edu.illinois.cs.cs125.jeed.containerrunner.MainKt"

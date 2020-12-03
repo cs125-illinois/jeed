@@ -331,6 +331,20 @@ if (i < 1) {
         exception.errors shouldHaveSize 1
         exception should haveParseErrorOnLine(3)
     }
+    "should allow return statements in loose kotlin code in methods" {
+        Source.fromSnippet(
+            """
+println("Here")
+fun add(a: Int, b: Int): Int {
+  return a + b
+}
+println(add(2, 3))
+        """.trim(),
+            SnippetArguments(fileType = Source.FileType.KOTLIN)
+        ).also {
+            println(it.rewrittenSource)
+        }
+    }
     "should not allow package declarations in kotlin snippets" {
         val exception = shouldThrow<SnippetTransformationFailed> {
             Source.fromSnippet(

@@ -56,7 +56,7 @@ topLevelObject
     | functionDeclaration
     | propertyDeclaration
     | typeAlias
-    | (anysemi* (statement (anysemi+ statement?))+)
+    | blockLevelExpression
     ;
 
 classDeclaration
