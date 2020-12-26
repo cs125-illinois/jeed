@@ -16,6 +16,7 @@ dependencies {
     implementation("io.github.classgraph:classgraph:4.8.93")
 }
 application {
+    @Suppress("DEPRECATION")
     mainClassName = "edu.illinois.cs.cs125.jeed.containerrunner.MainKt"
 }
 tasks.test {

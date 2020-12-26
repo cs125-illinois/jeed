@@ -427,7 +427,7 @@ public class Test {
         }
     }
     "should not support Java 14 preview features when preview is disabled" {
-        if (systemCompilerVersion >= 14) {
+        if (systemCompilerVersion >= 14 && systemCompilerVersion < 15) {
             shouldThrow<CompilationFailed> {
                 val tripleQuote = "\"\"\""
                 Source(
@@ -443,6 +443,23 @@ public class Test {
                     )
                 ).compile(CompilationArguments(enablePreview = false))
             }
+        }
+    }
+    "should support Java 15 features" {
+        if (systemCompilerVersion >= 15) {
+            val tripleQuote = "\"\"\""
+            Source(
+                mapOf(
+                    "Test.java" to """
+public class Test {
+    public static void main() {
+        String textBlock = $tripleQuote
+                           Hello world!
+                           $tripleQuote;
+    }
+}""".trim()
+                )
+            ).compile(CompilationArguments(enablePreview = false))
         }
     }
     "should load classes from a separate classloader" {
@@ -563,9 +580,11 @@ fun <T> haveDefinedExactlyTheseClasses(classes: Set<String>) = object : Matcher<
         return MatcherResult(
             definedClasses == classes,
             "should have defined ${classes.joinToString(separator = ", ")} " +
-                "(found ${definedClasses.joinToString(
+                "(found ${
+                definedClasses.joinToString(
                     separator = ", "
-                )})",
+                )
+                })",
             "should not have defined ${classes.joinToString(separator = ", ")}"
         )
     }
@@ -595,8 +614,10 @@ fun <T> haveProvidedExactlyTheseClasses(classes: Set<String>) = object : Matcher
         }
         return MatcherResult(
             providedClasses == classes,
-            "should have provided ${classes.joinToString(separator = ", ")} (found ${providedClasses
-                .joinToString(separator = ", ")})",
+            "should have provided ${classes.joinToString(separator = ", ")} (found ${
+            providedClasses
+                .joinToString(separator = ", ")
+            })",
             "should not have provided ${classes.joinToString(separator = ", ")}"
         )
     }
@@ -612,9 +633,11 @@ fun <T> haveLoadedAtLeastTheseClasses(classes: Set<String>) = object : Matcher<T
         return MatcherResult(
             loadedClasses.containsAll(classes),
             "should have loaded at least ${classes.joinToString(separator = ", ")} " +
-                "(found ${loadedClasses.joinToString(
+                "(found ${
+                loadedClasses.joinToString(
                     separator = ", "
-                )})",
+                )
+                })",
             "should not have loaded at least ${classes.joinToString(separator = ", ")}"
         )
     }

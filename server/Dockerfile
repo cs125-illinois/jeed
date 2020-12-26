@@ -1,4 +1,4 @@
-FROM openjdk:14-jdk-slim
+FROM openjdk:15-jdk-slim
 
 RUN apt update && \
     apt install -y --no-install-recommends software-properties-common \
