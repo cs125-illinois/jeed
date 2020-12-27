@@ -15,7 +15,7 @@ repositories {
     maven(url = "https://maven.google.com/")
 }
 dependencies {
-    val ktorVersion = "1.4.3"
+    val ktorVersion = "1.5.0"
 
     kapt("com.squareup.moshi:moshi-kotlin-codegen:1.11.0")
 
@@ -30,15 +30,16 @@ dependencies {
     implementation("ch.qos.logback:logback-classic:1.2.3")
     implementation("com.uchuhimo:konf-core:0.23.0")
     implementation("com.uchuhimo:konf-yaml:0.23.0")
-    implementation("io.github.microutils:kotlin-logging:2.0.3")
+    implementation("io.github.microutils:kotlin-logging:2.0.4")
     implementation("com.google.api-client:google-api-client:1.31.1")
 
-    val kotestVersion = "4.3.1"
+    val kotestVersion = "4.3.2"
     testImplementation("io.kotest:kotest-runner-junit5:$kotestVersion")
     testImplementation("io.kotest:kotest-assertions-ktor:$kotestVersion")
     testImplementation("io.ktor:ktor-server-test-host:$ktorVersion")
 }
 application {
+    @Suppress("DEPRECATION")
     mainClassName = "edu.illinois.cs.cs125.jeed.server.MainKt"
 }
 docker {

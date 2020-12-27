@@ -25,11 +25,11 @@ class ClassComplexity(
     val isRecord: Boolean = false,
     val isInterface: Boolean = false
 ) : LocatedClass(
-    name,
-    range,
-    classes as MutableMap<String, LocatedClass>,
-    methods as MutableMap<String, LocatedMethod>
-),
+        name,
+        range,
+        classes as MutableMap<String, LocatedClass>,
+        methods as MutableMap<String, LocatedMethod>
+    ),
     ComplexityValue {
     override fun lookup(name: String): ComplexityValue {
         check(name.isNotEmpty())
@@ -59,11 +59,11 @@ class MethodComplexity(
     classes: MutableMap<String, ClassComplexity> = mutableMapOf(),
     override var complexity: Int = 1
 ) : LocatedMethod(
-    name,
-    range,
-    classes as MutableMap<String, LocatedClass>,
-    methods as MutableMap<String, LocatedMethod>
-),
+        name,
+        range,
+        classes as MutableMap<String, LocatedClass>,
+        methods as MutableMap<String, LocatedMethod>
+    ),
     ComplexityValue {
     override fun lookup(name: String): ComplexityValue {
         check(name.isNotEmpty())

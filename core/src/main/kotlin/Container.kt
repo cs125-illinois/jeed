@@ -132,7 +132,6 @@ suspend fun CompiledSource.cexecute(
 
             val timeout = !process.waitFor(executionArguments.timeout, TimeUnit.MILLISECONDS)
             if (timeout) {
-                println(dockerName)
                 """docker kill $dockerName""".runCommand()
                 """docker wait $dockerName""".runCommand()
             }

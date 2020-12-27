@@ -341,9 +341,7 @@ fun add(a: Int, b: Int): Int {
 println(add(2, 3))
         """.trim(),
             SnippetArguments(fileType = Source.FileType.KOTLIN)
-        ).also {
-            println(it.rewrittenSource)
-        }
+        )
     }
     "should not allow package declarations in kotlin snippets" {
         val exception = shouldThrow<SnippetTransformationFailed> {
