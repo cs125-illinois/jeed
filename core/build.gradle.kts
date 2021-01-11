@@ -13,14 +13,14 @@ plugins {
 dependencies {
     kapt("com.squareup.moshi:moshi-kotlin-codegen:1.11.0")
 
-    antlr("org.antlr:antlr4:4.9")
+    antlr("org.antlr:antlr4:4.9.1")
 
     implementation(kotlin("stdlib"))
     implementation(kotlin("compiler-embeddable"))
     implementation(kotlin("reflect"))
 
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-core:1.4.2")
-    implementation("com.puppycrawl.tools:checkstyle:8.38")
+    implementation("com.puppycrawl.tools:checkstyle:8.39")
     implementation("com.pinterest.ktlint:ktlint-core:0.40.0")
     implementation("com.pinterest.ktlint:ktlint-ruleset-standard:0.40.0")
     implementation("com.github.jknack:handlebars:4.2.0")
