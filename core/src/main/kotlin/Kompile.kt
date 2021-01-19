@@ -49,7 +49,8 @@ data class KompilationArguments(
     val allWarningsAsErrors: Boolean = DEFAULT_ALLWARNINGSASERRORS,
     val useCache: Boolean = useCompilationCache,
     val waitForCache: Boolean = false,
-    @Transient val parentFileManager: JeedFileManager? = null
+    @Transient val parentFileManager: JeedFileManager? = null,
+    val parameters: Boolean = DEFAULT_PARAMETERS
 ) {
     val arguments: K2JVMCompilerArguments = K2JVMCompilerArguments()
 
@@ -60,11 +61,13 @@ data class KompilationArguments(
         arguments.allWarningsAsErrors = allWarningsAsErrors
 
         arguments.noStdlib = true
+        arguments.javaParameters = parameters
     }
 
     companion object {
         const val DEFAULT_VERBOSE = false
         const val DEFAULT_ALLWARNINGSASERRORS = false
+        const val DEFAULT_PARAMETERS = false
     }
 
     override fun equals(other: Any?): Boolean {
@@ -309,3 +312,5 @@ class SimpleVirtualFile(
     override fun isWritable() = TODO("isWritable")
     override fun getOutputStream(p0: Any?, p1: Long, p2: Long) = TODO("getOutputStream")
 }
+
+fun Class<*>.isKotlin() = getAnnotation(Metadata::class.java) != null
