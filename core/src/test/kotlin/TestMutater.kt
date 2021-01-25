@@ -5,6 +5,7 @@ import io.kotest.matchers.collections.shouldHaveSize
 import io.kotest.matchers.shouldBe
 import io.kotest.matchers.shouldNotBe
 import io.kotest.matchers.string.shouldMatch
+import kotlin.random.Random
 
 class TestMutater : StringSpec({
     "it should find boolean literals to mutate" {
@@ -357,6 +358,24 @@ public class Example {
             source.allMutations().also { mutations ->
                 mutations shouldHaveSize 3
                 mutations.map { it.contents }.toSet() shouldHaveSize 3
+            }
+        }
+    }
+    "it should return predictable mutations" {
+        Source.fromJava(
+            """
+public class Example {
+  public static int testing() {
+    boolean it = true;
+    return 10;
+  }
+}"""
+        ).also { source ->
+            val first = source.allMutations(random = Random(seed = 10))
+            val second = source.allMutations(random = Random(seed = 10))
+            first.size shouldBe second.size
+            first.zip(second).forEach { (first, second) ->
+                first.contents shouldBe second.contents
             }
         }
     }

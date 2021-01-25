@@ -604,7 +604,7 @@ fun Source.mutater(shuffle: Boolean = true, seed: Int = Random.nextInt()) = Muta
 fun Source.mutate(shuffle: Boolean = true, seed: Int = Random.nextInt(), limit: Int = 1) =
     Mutater(this, shuffle, seed).mutate(limit)
 
-fun Source.allMutations(suppressWithComments: Boolean = true): List<MutatedSource> {
+fun Source.allMutations(suppressWithComments: Boolean = true, random: Random = Random): List<MutatedSource> {
     check(type == Source.FileType.JAVA) { "Can only mutate Java sources" }
     val mutations = sources.keys.map { name ->
         Mutation.find<Mutation>(getParsed(name)).map { mutation -> SourceMutation(name, mutation) }
@@ -617,7 +617,7 @@ fun Source.allMutations(suppressWithComments: Boolean = true): List<MutatedSourc
     return mutations.map { sourceMutation ->
         val modifiedSources = sources.copy().toMutableMap()
         val original = modifiedSources[sourceMutation.name] ?: error("Couldn't find a source that should be there")
-        val modified = sourceMutation.mutation.apply(original)
+        val modified = sourceMutation.mutation.apply(original, random)
         check(original != modified) { "Mutation did not change source" }
         modifiedSources[sourceMutation.name] = modified
         MutatedSource(Sources(modifiedSources), sources, listOf(sourceMutation), 1, mutations.size - 1)

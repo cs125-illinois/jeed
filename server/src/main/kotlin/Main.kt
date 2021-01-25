@@ -4,7 +4,7 @@ package edu.illinois.cs.cs125.jeed.server
 
 import com.google.api.client.googleapis.auth.oauth2.GoogleIdTokenVerifier
 import com.google.api.client.http.javanet.NetHttpTransport
-import com.google.api.client.json.jackson2.JacksonFactory
+import com.google.api.client.json.gson.GsonFactory
 import com.mongodb.MongoClient
 import com.mongodb.MongoClientURI
 import com.mongodb.client.model.Filters
@@ -170,7 +170,7 @@ fun main() {
     }
     configuration[Auth.Google.clientIDs].let {
         if (it.isNotEmpty()) {
-            Request.googleTokenVerifier = GoogleIdTokenVerifier.Builder(NetHttpTransport(), JacksonFactory())
+            Request.googleTokenVerifier = GoogleIdTokenVerifier.Builder(NetHttpTransport(), GsonFactory())
                 .setAudience(it)
                 .build()
         }
