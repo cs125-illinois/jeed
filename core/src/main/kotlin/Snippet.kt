@@ -193,8 +193,8 @@ ${" ".repeat(snippetArguments.indent * 2)}@JvmStatic fun main() {""".lines().let
         currentOutputLineNumber += it.size
     }
 
-    val topLevelStart = parseTree.topLevelObject()?.first()?.start?.line ?: 0
-    val topLevelEnd = parseTree.topLevelObject()?.last()?.stop?.line?.inc() ?: 0
+    val topLevelStart = parseTree.topLevelObject()?.firstOrNull()?.start?.line ?: 0
+    val topLevelEnd = parseTree.topLevelObject()?.lastOrNull()?.stop?.line?.inc() ?: 0
     @Suppress("MagicNumber")
     for (lineNumber in topLevelStart until topLevelEnd) {
         rewrittenSourceLines.add(" ".repeat(snippetArguments.indent * 3) + sourceLines[lineNumber - 1].trimEnd())

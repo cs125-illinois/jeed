@@ -265,6 +265,14 @@ test()
             SnippetArguments(fileType = Source.FileType.KOTLIN)
         )
     }
+    "f: should parse kotlin snippets containing only comments" {
+        Source.fromSnippet(
+            """
+// Test me
+""".trim(),
+            SnippetArguments(fileType = Source.FileType.KOTLIN)
+        )
+    }
     "should identify parse errors in broken kotlin snippets" {
         val exception = shouldThrow<SnippetTransformationFailed> {
             Source.fromSnippet(

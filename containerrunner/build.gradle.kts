@@ -6,7 +6,7 @@ plugins {
     kotlin("jvm")
     application
     id("com.github.johnrengelman.shadow") version "6.1.0"
-    id("com.palantir.docker") version "0.25.0"
+    id("com.palantir.docker") version "0.26.0"
     id("org.jmailen.kotlinter")
 }
 dependencies {

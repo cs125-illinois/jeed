@@ -8,7 +8,7 @@ plugins {
     application
     `maven-publish`
     id("com.github.johnrengelman.shadow") version "6.1.0"
-    id("com.palantir.docker") version "0.25.0"
+    id("com.palantir.docker") version "0.26.0"
     id("org.jmailen.kotlinter")
 }
 repositories {
@@ -33,7 +33,7 @@ dependencies {
     implementation("io.github.microutils:kotlin-logging:2.0.4")
     implementation("com.google.api-client:google-api-client:1.31.2")
 
-    val kotestVersion = "4.3.2"
+    val kotestVersion = "4.4.0"
     testImplementation("io.kotest:kotest-runner-junit5:$kotestVersion")
     testImplementation("io.kotest:kotest-assertions-ktor:$kotestVersion")
     testImplementation("io.ktor:ktor-server-test-host:$ktorVersion")

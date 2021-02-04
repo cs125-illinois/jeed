@@ -52,6 +52,7 @@ class KtLintFailed(errors: List<KtLintError>) : AlwaysLocatedJeedError(errors) {
 @JsonClass(generateAdapter = true)
 data class KtLintResults(val errors: List<KtLintError>)
 
+@Suppress("Deprecation")
 val editorConfigPath: String = run {
     val tempFile = File(createTempDir("ktlint"), ".editorconfig")
     object {}::class.java.getResourceAsStream("/ktlint/.editorconfig").let { input ->
