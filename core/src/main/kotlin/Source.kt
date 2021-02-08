@@ -247,9 +247,9 @@ fun Throwable.getStackTraceAsString(): String {
     return stringWriter.toString()
 }
 
-val stackTraceLineRegex = Regex("""^at (\w+)\.(\w+)\(([\w\.]*):(\d+)\)$""")
+val stackTraceLineRegex = Regex("""^at ([\w$]+)\.(\w+)\(([\w\.]*):(\d+)\)$""")
 
-@Suppress("unused")
+@Suppress("unused", "ComplexMethod")
 fun Throwable.getStackTraceForSource(source: Source): String {
     val originalStackTrace = this.getStackTraceAsString().lines().toMutableList()
     val firstLine = originalStackTrace.removeAt(0)
@@ -258,7 +258,8 @@ fun Throwable.getStackTraceForSource(source: Source): String {
     @Suppress("LoopWithTooManyJumpStatements")
     for (line in originalStackTrace) {
         if (line.trim()
-            .startsWith("""at java.base/jdk.internal.reflect.NativeMethodAccessorImpl.invoke0(Native Method)""")
+            .startsWith("""at java.base/jdk.internal.reflect.NativeMethodAccessorImpl.invoke0(Native Method)""") ||
+            line.trim().startsWith("at MainKt.main()")
         ) {
             break
         }
@@ -272,7 +273,9 @@ fun Throwable.getStackTraceForSource(source: Source): String {
             continue
         }
         val (klass, method, name, correctLine) = parsedLine.destructured
-        val fixedKlass = if (source is Snippet && klass == source.wrappedClassName) {
+        val fixedKlass = if (source is Snippet &&
+            (klass == source.wrappedClassName || klass == "${source.wrappedClassName}${"$"}Companion")
+        ) {
             ""
         } else {
             "$klass."

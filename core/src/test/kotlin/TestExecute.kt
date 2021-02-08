@@ -496,6 +496,18 @@ Test.test();
         stacktrace shouldHaveSize 3
         stacktrace[1].trim() shouldBe "at Test.test(:4)"
     }
+    "should trim Kotlin stack traces properly" {
+        val source = Source.fromSnippet(
+            """
+var letters = CharArray(4)
+letters[-1] = 'X'
+        """.trim(),
+            SnippetArguments(fileType = Source.FileType.KOTLIN)
+        )
+
+        val executionFailed = source.kompile().execute()
+        executionFailed.threw!!.getStackTraceForSource(source).lines() shouldHaveSize 2
+    }
     "should execute sources that use Java 14 features" {
         @Suppress("MagicNumber")
         if (systemCompilerVersion >= 14) {

@@ -265,7 +265,7 @@ test()
             SnippetArguments(fileType = Source.FileType.KOTLIN)
         )
     }
-    "f: should parse kotlin snippets containing only comments" {
+    "should parse kotlin snippets containing only comments" {
         Source.fromSnippet(
             """
 // Test me
