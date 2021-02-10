@@ -31,10 +31,10 @@ dependencies {
     implementation("ch.qos.logback:logback-classic:1.2.3")
     implementation("io.github.microutils:kotlin-logging:2.0.4")
     implementation("io.github.classgraph:classgraph:4.8.102")
-    implementation("net.java.dev.jna:jna:5.6.0")
+    implementation("net.java.dev.jna:jna:5.7.0")
     api("com.github.ben-manes.caffeine:caffeine:2.8.8")
 
-    testImplementation("io.kotest:kotest-runner-junit5:4.4.0")
+    testImplementation("io.kotest:kotest-runner-junit5:4.4.1")
 }
 tasks.test {
     useJUnitPlatform()
