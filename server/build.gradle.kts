@@ -33,7 +33,7 @@ dependencies {
     implementation("io.github.microutils:kotlin-logging:2.0.4")
     implementation("com.google.api-client:google-api-client:1.31.2")
 
-    val kotestVersion = "4.4.0"
+    val kotestVersion = "4.4.1"
     testImplementation("io.kotest:kotest-runner-junit5:$kotestVersion")
     testImplementation("io.kotest:kotest-assertions-ktor:$kotestVersion")
     testImplementation("io.ktor:ktor-server-test-host:$ktorVersion")
