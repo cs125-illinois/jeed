@@ -42,7 +42,7 @@ open class Source(
     val name: String
         get() = sources.name
 
-    operator fun get(filename: String) = sources.get(filename)
+    operator fun get(filename: String) = sources[filename]
     override fun toString() = if (sources.keys.size == 1 && name == "") {
         contents
     } else {
@@ -164,6 +164,7 @@ open class Source(
         }
 
         fun fromJava(contents: String) = Source(mapOf("Main.java" to contents))
+        @Suppress("unused")
         fun fromKotlin(contents: String) = Source(mapOf("Main.kt" to contents))
     }
 }
@@ -247,27 +248,31 @@ fun Throwable.getStackTraceAsString(): String {
     return stringWriter.toString()
 }
 
-val stackTraceLineRegex = Regex("""^at ([\w$]+)\.(\w+)\(([\w\.]*):(\d+)\)$""")
+val stackTraceLineRegex = Regex("""^at ([\w$]+)\.(\w+)\(([\w.]*):(\d+)\)$""")
 
 @Suppress("unused", "ComplexMethod")
-fun Throwable.getStackTraceForSource(source: Source): String {
+fun Throwable.getStackTraceForSource(
+    source: Source,
+    boundaries: List<String> = listOf(
+        """at java.base/jdk.internal.reflect.NativeMethodAccessorImpl.invoke0(Native Method)""",
+        """at MainKt.main()"""
+    )
+): String {
     val originalStackTrace = this.getStackTraceAsString().lines().toMutableList()
     val firstLine = originalStackTrace.removeAt(0)
 
     val betterStackTrace = mutableListOf(firstLine)
     @Suppress("LoopWithTooManyJumpStatements")
     for (line in originalStackTrace) {
-        if (line.trim()
-            .startsWith("""at java.base/jdk.internal.reflect.NativeMethodAccessorImpl.invoke0(Native Method)""") ||
-            line.trim().startsWith("at MainKt.main()")
-        ) {
+        val l = line.trim()
+        if (boundaries.any { l.startsWith(it) }) {
             break
         }
         if (!(source is Snippet || source is TemplatedSource)) {
             betterStackTrace.add(line)
             continue
         }
-        val parsedLine = stackTraceLineRegex.find(line.trim())
+        val parsedLine = stackTraceLineRegex.find(l)
         if (parsedLine == null) {
             betterStackTrace.add(line)
             continue
