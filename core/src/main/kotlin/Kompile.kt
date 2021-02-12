@@ -29,6 +29,7 @@ import org.jetbrains.kotlin.com.intellij.testFramework.LightVirtualFile
 import org.jetbrains.kotlin.com.intellij.util.LocalTimeCounter
 import org.jetbrains.kotlin.config.CommonConfigurationKeys
 import org.jetbrains.kotlin.config.CompilerConfiguration
+import org.jetbrains.kotlin.config.JVMConfigurationKeys
 import org.jetbrains.kotlin.idea.KotlinLanguage
 import org.jetbrains.kotlin.konan.file.File
 import org.jetbrains.kotlin.metadata.jvm.deserialization.JvmProtoBufUtil
@@ -79,6 +80,7 @@ data class KompilationArguments(
         if (verbose != other.verbose) return false
         if (allWarningsAsErrors != other.allWarningsAsErrors) return false
         if (useCache != other.useCache) return false
+        if (parameters != other.parameters) return false
 
         return true
     }
@@ -87,6 +89,7 @@ data class KompilationArguments(
         var result = verbose.hashCode()
         result = 31 * result + allWarningsAsErrors.hashCode()
         result = 31 * result + useCache.hashCode()
+        result = 31 * result + parameters.hashCode()
         return result
     }
 }
@@ -160,6 +163,7 @@ private fun kompile(
     val configuration = CompilerConfiguration().apply {
         put(CLIConfigurationKeys.MESSAGE_COLLECTOR_KEY, messageCollector)
         put(CommonConfigurationKeys.MODULE_NAME, JvmProtoBufUtil.DEFAULT_MODULE_NAME)
+        put(JVMConfigurationKeys.PARAMETERS_METADATA, kompilationArguments.parameters)
         configureExplicitContentRoots(kompilationArguments.arguments)
     }
 

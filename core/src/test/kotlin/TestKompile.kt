@@ -204,4 +204,21 @@ fun main() {
             "test/Test.class"
         )
     }
+    "should compile with parameter names when requested" {
+        val source = Source(
+            mapOf(
+                "Test.kt" to """
+fun method(first: Int, second: Int) { }
+            """.trim()
+            )
+        )
+        source.kompile().also { compiledSource ->
+            val klass = compiledSource.classLoader.loadClass("TestKt")
+            klass.declaredMethods.find { it.name == "method" }?.parameters?.map { it.name }?.first() shouldBe "arg0"
+        }
+        source.kompile(KompilationArguments(parameters = true)).also { compiledSource ->
+            val klass = compiledSource.classLoader.loadClass("TestKt")
+            klass.declaredMethods.find { it.name == "method" }?.parameters?.map { it.name }?.first() shouldBe "first"
+        }
+    }
 })
