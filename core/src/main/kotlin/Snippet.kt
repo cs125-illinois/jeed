@@ -4,6 +4,7 @@ import com.squareup.moshi.JsonClass
 import edu.illinois.cs.cs125.jeed.core.antlr.JavaLexer
 import edu.illinois.cs.cs125.jeed.core.antlr.KnippetLexer
 import edu.illinois.cs.cs125.jeed.core.antlr.KnippetParser
+import edu.illinois.cs.cs125.jeed.core.antlr.KnippetParserBaseVisitor
 import edu.illinois.cs.cs125.jeed.core.antlr.KotlinLexer
 import edu.illinois.cs.cs125.jeed.core.antlr.SnippetLexer
 import edu.illinois.cs.cs125.jeed.core.antlr.SnippetParser
@@ -161,6 +162,15 @@ private fun sourceFromKotlinSnippet(originalSource: String, snippetArguments: Sn
         Location(parseTree.stop.line - 1, 0)
     )
 
+    val multilineLines = mutableSetOf<Int>()
+    object : KnippetParserBaseVisitor<Unit>() {
+        override fun visitMultiLineStringLiteral(context: KnippetParser.MultiLineStringLiteralContext) {
+            ((context.start.line + 1)..context.stop.line).forEach {
+                multilineLines.add(it)
+            }
+        }
+    }.also { it.visit(parseTree) }
+
     val rewrittenSourceLines: MutableList<String> = mutableListOf()
     var currentOutputLineNumber = 1
     val remappedLineMapping = hashMapOf<Int, Snippet.RemappedLine>()
@@ -193,27 +203,70 @@ ${" ".repeat(snippetArguments.indent * 2)}@JvmStatic fun main() {""".lines().let
         currentOutputLineNumber += it.size
     }
 
+    val methodLines = mutableSetOf<IntRange>()
+    val klassLines = mutableSetOf<IntRange>()
+    parseTree.topLevelObject().map { it.functionDeclaration() }.filterNotNull().forEach {
+        methodLines.add(it.start.line..it.stop.line)
+    }
+    parseTree.topLevelObject().map { it.classDeclaration() }.filterNotNull().forEach {
+        klassLines.add(it.start.line..it.stop.line)
+    }
+
     val topLevelStart = parseTree.topLevelObject()?.firstOrNull()?.start?.line ?: 0
     val topLevelEnd = parseTree.topLevelObject()?.lastOrNull()?.stop?.line?.inc() ?: 0
     @Suppress("MagicNumber")
     for (lineNumber in topLevelStart until topLevelEnd) {
-        rewrittenSourceLines.add(" ".repeat(snippetArguments.indent * 3) + sourceLines[lineNumber - 1].trimEnd())
+        if (methodLines.any { it.contains(lineNumber) } || klassLines.any { it.contains(lineNumber) }) {
+            continue
+        }
+        val indentAmount = if (lineNumber in multilineLines) {
+            0
+        } else {
+            snippetArguments.indent * 3
+        }
+        rewrittenSourceLines.add(" ".repeat(indentAmount) + sourceLines[lineNumber - 1].trimEnd())
         remappedLineMapping[currentOutputLineNumber] =
-            Snippet.RemappedLine(lineNumber, currentOutputLineNumber, snippetArguments.indent * 3)
+            Snippet.RemappedLine(lineNumber, currentOutputLineNumber, indentAmount)
         currentOutputLineNumber++
     }
 
+    rewrittenSourceLines.add("""${" ".repeat(snippetArguments.indent * 2)}}""")
+    currentOutputLineNumber++
+
+    @Suppress("MagicNumber")
+    for (methodRange in methodLines) {
+        for (lineNumber in methodRange) {
+            val indentAmount = if (lineNumber in multilineLines) {
+                0
+            } else {
+                snippetArguments.indent * 3
+            }
+            rewrittenSourceLines.add(" ".repeat(indentAmount) + sourceLines[lineNumber - 1].trimEnd())
+            remappedLineMapping[currentOutputLineNumber] =
+                Snippet.RemappedLine(lineNumber, currentOutputLineNumber, indentAmount)
+            currentOutputLineNumber++
+        }
+    }
+
     rewrittenSourceLines.addAll(
-        """${" ".repeat(snippetArguments.indent * 2)}}
-${" ".repeat(snippetArguments.indent)}}
-}
-""".lines()
+        """${" ".repeat(snippetArguments.indent)}}
+}""".lines()
     )
+    currentOutputLineNumber += 2
+
+    for (klassRange in klassLines) {
+        for (lineNumber in klassRange) {
+            rewrittenSourceLines.add(sourceLines[lineNumber - 1].trimEnd())
+            remappedLineMapping[currentOutputLineNumber] =
+                Snippet.RemappedLine(lineNumber, currentOutputLineNumber)
+            currentOutputLineNumber++
+        }
+    }
 
     val looseLines: MutableList<String> = mutableListOf()
     val looseCodeMapping: MutableMap<Int, Int> = mutableMapOf()
 
-    parseTree.topLevelObject()?.map { it.blockLevelExpression() }?.filterNotNull()?.forEach {
+    parseTree.topLevelObject()?.mapNotNull { it.blockLevelExpression() }?.forEach {
         val looseStart = it.start?.line ?: 0
         val looseEnd = it.stop?.line ?: 0
         for (lineNumber in looseStart..looseEnd) {

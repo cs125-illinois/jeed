@@ -589,6 +589,17 @@ fun haveOutput(output: String = "") = object : Matcher<Sandbox.TaskResults<out A
     }
 }
 
+fun haveExactOutput(output: String = "") = object : Matcher<Sandbox.TaskResults<out Any?>> {
+    override fun test(value: Sandbox.TaskResults<out Any?>): MatcherResult {
+        val actualOutput = value.output
+        return MatcherResult(
+            actualOutput == output,
+            "Expected output ->$output<-, found ->$actualOutput<-",
+            "Expected to not find output $actualOutput"
+        )
+    }
+}
+
 fun haveStdout(output: String) = object : Matcher<Sandbox.TaskResults<out Any?>> {
     override fun test(value: Sandbox.TaskResults<out Any?>): MatcherResult {
         val actualOutput = value.stdout.trim()

@@ -126,6 +126,22 @@ int adder(int first, int second) {
         source.rewrittenSource shouldNotBe (snippet)
         source.originalSourceFromMap() shouldBe (snippet)
     }
+    "should be able to reconstruct original Kotlin sources using entry map" {
+        val snippet =
+            """
+fun first() = Test(3)
+data class Test(val first: Int)
+fun second(): Test {
+  return first()
+}
+println(second())
+        """.trim()
+        val source = Source.fromSnippet(snippet, SnippetArguments(fileType = Source.FileType.KOTLIN))
+
+        source.originalSource shouldBe (snippet)
+        source.rewrittenSource shouldNotBe (snippet)
+        source.originalSourceFromMap() shouldBe (snippet)
+    }
     "should not allow return statements in loose code" {
         shouldThrow<SnippetTransformationFailed> {
             Source.fromSnippet(
@@ -420,6 +436,12 @@ record Range(int lo, int hi) {
             it should haveOutput("Here")
         }
     }
+    "should parse text blocks properly in Kotlin snippets" {
+        val input = "val data = \"\"\"Here\nMe\"\"\"\n" + "println(data)".trim()
+        Source.fromSnippet(input, SnippetArguments(fileType = Source.FileType.KOTLIN)).kompile().execute().also {
+            it should haveExactOutput("Here\nMe")
+        }
+    }
     "should not fail on unmapped compiler errors" {
         shouldThrow<CompilationFailed> {
             Source.fromSnippet(
@@ -466,6 +488,42 @@ Adder addOne = new Adder() {
 };
             """.trim()
         ).compile()
+    }
+    "should hoist functions in Kotlin snippets" {
+        Source.fromSnippet(
+            """
+fun first() = Test(3)
+data class Test(val first: Int)
+fun second(): Test {
+  return first()
+}
+println(second())
+            """.trim(),
+            SnippetArguments(fileType = Source.FileType.KOTLIN)
+        ).kompile().execute().also {
+            it should haveOutput("Test(first=3)")
+        }
+    }
+    "should rewrite stack traces for Kotlin snippets" {
+        val source = Source.fromSnippet(
+            """
+fun first(test: Int) {
+  require(test % 2 == 0) { "Test is not even" }
+}
+fun second(test: Int) {
+  return first(test)
+}
+second(3)
+            """.trim(),
+            SnippetArguments(fileType = Source.FileType.KOTLIN)
+        )
+        source.kompile().execute().also {
+            it.threw!!.getStackTraceForSource(source).lines().also {
+                it shouldHaveSize 4
+                it[2].trim() shouldBe "at second(:5)"
+                it[3].trim() shouldBe "at main(:7)"
+            }
+        }
     }
 })
 
