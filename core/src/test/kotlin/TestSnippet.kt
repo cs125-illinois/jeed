@@ -525,6 +525,24 @@ second(3)
             }
         }
     }
+    "f: should rewrite compilation errors for Kotlin snippets" {
+        val exception = shouldThrow<CompilationFailed> {
+            Source.fromSnippet(
+                """
+fun reversePrint(values: CharArray): Int {
+  var tempsize = values.size
+  var temp: CharArray = values.reverse()
+  for (i in 0..tempsize) {
+    println(temp[i])
+  }
+  return temp.size
+}
+            """.trim(),
+                SnippetArguments(fileType = Source.FileType.KOTLIN)
+            ).kompile()
+        }
+        println(exception)
+    }
 })
 
 fun haveParseErrorOnLine(line: Int) = object : Matcher<SnippetTransformationFailed> {

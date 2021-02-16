@@ -134,7 +134,7 @@ private class JeedMessageCollector(val source: Source, val allWarningsAsErrors: 
                         SNIPPET_SOURCE
                     }
                     it.path != KOTLIN_EMPTY_LOCATION -> {
-                        it.path
+                        it.path.removePrefix("/")
                     }
                     else -> {
                         null

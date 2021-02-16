@@ -160,6 +160,42 @@ public class Question {
         compilationFailed.errors[0].location!!.line shouldBe 1
         compilationFailed.errors[0].location!!.column shouldBe 9
     }
+    "should remap Kotlin line numbers properly" {
+        val templatedSource = Source.fromTemplates(
+            mapOf(
+                "Test.kt" to "val i = "
+            ),
+            mapOf(
+                "Test.kt.hbs" to """
+class Question {
+    companion object {
+        fun main() {
+            {{{ contents }}}
+        }
+    }
+}""".trim()
+            )
+        )
+
+        templatedSource.sources.keys shouldHaveSize 1
+        templatedSource.originalSources.keys shouldHaveSize 1
+        templatedSource.sources["Test.kt"] shouldBe """
+class Question {
+    companion object {
+        fun main() {
+            val i = 
+        }
+    }
+}""".trim()
+        templatedSource.originalSources["Test.kt"] shouldBe "val i = "
+
+        val compilationFailed = shouldThrow<CompilationFailed> {
+            templatedSource.kompile()
+        }
+        compilationFailed.errors shouldHaveSize 1
+        compilationFailed.errors[0].location!!.line shouldBe 1
+        compilationFailed.errors[0].location!!.column shouldBe 8
+    }
     "should remap exception line numbers properly" {
         val source = Source.fromTemplates(
             mapOf(
