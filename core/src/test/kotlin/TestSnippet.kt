@@ -517,15 +517,15 @@ second(3)
             """.trim(),
             SnippetArguments(fileType = Source.FileType.KOTLIN)
         )
-        source.kompile().execute().also {
-            it.threw!!.getStackTraceForSource(source).lines().also {
+        source.kompile().execute().also { results ->
+            results.threw!!.getStackTraceForSource(source).lines().also {
                 it shouldHaveSize 4
                 it[2].trim() shouldBe "at second(:5)"
                 it[3].trim() shouldBe "at main(:7)"
             }
         }
     }
-    "f: should rewrite compilation errors for Kotlin snippets" {
+    "should rewrite compilation errors for Kotlin snippets" {
         val exception = shouldThrow<CompilationFailed> {
             Source.fromSnippet(
                 """
@@ -542,6 +542,37 @@ fun reversePrint(values: CharArray): Int {
             ).kompile()
         }
         println(exception)
+    }
+    "should parse Java 15 case syntax" {
+        if (systemCompilerVersion >= 14) {
+            Source.fromSnippet(
+                """
+int foo = 3;
+boolean boo = switch (foo) {
+  case 1, 2, 3 -> true;
+  default -> false;
+};
+System.out.println(boo);
+            """.trim()
+            )
+        }
+    }
+    "should parse another Java 15 case syntax" {
+        if (systemCompilerVersion >= 14) {
+            Source.fromSnippet(
+                """
+int foo = 3;
+boolean boo = switch (foo) {
+  case 1:
+  case 2:
+  case 3:
+    yield false;
+  default:
+    yield true;
+};
+            """.trim()
+            )
+        }
     }
 })
 
