@@ -23,7 +23,7 @@ dependencies {
     implementation(project(":cs125"))
     implementation(kotlin("stdlib"))
     implementation("io.ktor:ktor-server-netty:$ktorVersion")
-    implementation("org.mongodb:mongodb-driver:3.12.7")
+    implementation("org.mongodb:mongodb-driver:3.12.8")
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-core:1.4.2")
     implementation("com.squareup.moshi:moshi-kotlin-codegen:1.11.0")
     implementation("com.github.cs125-illinois:ktor-moshi:1.0.3")
