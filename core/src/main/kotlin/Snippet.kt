@@ -239,7 +239,7 @@ ${" ".repeat(snippetArguments.indent * 2)}@JvmStatic fun main() {""".lines().let
             val indentAmount = if (lineNumber in multilineLines) {
                 0
             } else {
-                snippetArguments.indent * 3
+                snippetArguments.indent * 2
             }
             rewrittenSourceLines.add(" ".repeat(indentAmount) + sourceLines[lineNumber - 1].trimEnd())
             remappedLineMapping[currentOutputLineNumber] =

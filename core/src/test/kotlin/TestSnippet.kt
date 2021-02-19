@@ -489,18 +489,20 @@ Adder addOne = new Adder() {
             """.trim()
         ).compile()
     }
-    "should hoist functions in Kotlin snippets" {
+    "f: should hoist functions in Kotlin snippets" {
         Source.fromSnippet(
             """
 fun first() = Test(3)
 data class Test(val first: Int)
 fun second(): Test {
-  return first()
+    return first()
 }
 println(second())
             """.trim(),
-            SnippetArguments(fileType = Source.FileType.KOTLIN)
-        ).kompile().execute().also {
+            SnippetArguments(fileType = Source.FileType.KOTLIN, indent = 4)
+        ).also {
+            it.ktLint(KtLintArguments(failOnError = true))
+        }.kompile().execute().also {
             it should haveOutput("Test(first=3)")
         }
     }
