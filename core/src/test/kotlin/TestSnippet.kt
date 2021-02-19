@@ -489,7 +489,7 @@ Adder addOne = new Adder() {
             """.trim()
         ).compile()
     }
-    "f: should hoist functions in Kotlin snippets" {
+    "should hoist functions in Kotlin snippets" {
         Source.fromSnippet(
             """
 fun first() = Test(3)
