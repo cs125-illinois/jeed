@@ -22,6 +22,23 @@ class TestTemplate : StringSpec({
         templatedSource.sources["Test.java"] shouldBe "public class Question { int i = 0; }"
         templatedSource.originalSources["Test.java"] shouldBe "int i = 0;"
     }
+    "should not create blank lines in templates" {
+        val templatedSource = Source.fromTemplates(
+            mapOf(
+                "Test.java" to "int i = 0;\n\nSystem.out.println(i);"
+            ),
+            mapOf(
+                "Test.java.hbs" to """
+public class Question {
+  {{{ contents }}}
+}""".trim()
+            )
+        )
+
+        templatedSource.sources.keys shouldHaveSize 1
+        templatedSource.originalSources.keys shouldHaveSize 1
+        templatedSource.sources["Test.java"]!!.lines().count { it.isBlank() && it.isNotEmpty() } shouldBe 0
+    }
     "should work multiple times" {
         val templatedSource1 = Source.fromTemplates(
             mapOf(

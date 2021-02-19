@@ -100,7 +100,12 @@ fun Source.Companion.fromTemplates(sourceMap: Map<String, String>, templateMap: 
                 } else {
                     line
                 }
-            }.joinToString(separator = "\n")
+            }.joinToString(separator = "\n") {
+                when {
+                    it.isBlank() -> ""
+                    else -> it
+                }
+            }
             template.apply(mapOf("contents" to indentedSource))
         } catch (e: HandlebarsException) {
             templatingErrors.add(TemplatingError(name, e.error.line, e.error.column, e.error.message))
