@@ -495,6 +495,7 @@ Adder addOne = new Adder() {
 fun first() = Test(3)
 data class Test(val first: Int)
 fun second(): Test {
+
     return first()
 }
 println(second())
