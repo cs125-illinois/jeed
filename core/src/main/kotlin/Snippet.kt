@@ -315,11 +315,11 @@ ${" ".repeat(snippetArguments.indent * 2)}@JvmStatic fun main() {""".lines().let
     }
 
     val rewrittenSource = rewrittenSourceLines.map {
-      when {
-          it.isBlank() -> ""
-          else -> it
-      }
-    }. joinToString(separator = "\n")
+        when {
+            it.isBlank() -> ""
+            else -> it
+        }
+    }.joinToString(separator = "\n")
     return Snippet(
         Sources(hashMapOf(SNIPPET_SOURCE to rewrittenSource)),
         originalSource,
