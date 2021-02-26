@@ -187,6 +187,8 @@ propertyDeclaration
     (NL* (multiVariableDeclaration | variableDeclaration))
     (NL* typeConstraints)?
     (NL* (BY | ASSIGNMENT) NL* expression)?
+    (NL setter)?
+    (NL getter)?
     (getter (semi setter)? | setter (semi getter)?)?
     ;
 

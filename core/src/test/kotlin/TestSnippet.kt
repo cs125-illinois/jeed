@@ -544,7 +544,21 @@ fun reversePrint(values: CharArray): Int {
                 SnippetArguments(fileType = Source.FileType.KOTLIN)
             ).kompile()
         }
-        println(exception)
+        exception.errors.first().location!!.line shouldBe 3
+    }
+    "should parse Kotlin property getters and setters" {
+        Source.fromSnippet(
+            """
+class Dog(val name: String?) {
+  var age: Double
+    set(value) {
+      field = value
+    }
+    get() = field
+}
+            """.trim(),
+            SnippetArguments(fileType = Source.FileType.KOTLIN)
+        )
     }
     "should parse Java 15 case syntax" {
         if (systemCompilerVersion >= 14) {
