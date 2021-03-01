@@ -276,6 +276,39 @@ public class Example {
             mutations[0].check(contents, "new Object()", "null")
         }
     }
+    "it should find asserts to mutate" {
+        Source.fromJava(
+            """
+public class Example {
+  public static void test(int first, int second) {
+    assert first > 0;
+    assert second >= 0 : "Bad second value";
+  }
+}"""
+        ).checkMutations<RemoveAssert> { mutations, contents ->
+            mutations shouldHaveSize 2
+            mutations[0].check(contents, "assert first > 0;", "")
+            mutations[1].check(contents, """assert second >= 0 : "Bad second value";""", "")
+        }
+    }
+    "it should remove blank lines correctly" {
+        val source = Source.fromJava(
+            """
+public class Example {
+  public static void test(int first, int second) {
+    assert first > 0;
+    assert second >= 0 : "Bad second value";
+  }
+}""".trim()
+        )
+        source.allMutations(types = setOf(Mutation.Type.REMOVE_ASSERT)).also { mutations ->
+            mutations shouldHaveSize 2
+            mutations[0].contents.lines() shouldHaveSize 5
+            mutations[0].contents.lines().filter { it.isBlank() } shouldHaveSize 0
+            mutations[1].contents.lines() shouldHaveSize 5
+            mutations[1].contents.lines().filter { it.isBlank() } shouldHaveSize 0
+        }
+    }
     "it should ignore suppressed mutations" {
         Source.fromJava(
             """

@@ -41,7 +41,8 @@ sealed class Mutation(val type: Type, var location: Location, val original: Stri
         BOOLEAN_LITERAL, CHAR_LITERAL, STRING_LITERAL, NUMBER_LITERAL,
         CONDITIONAL_BOUNDARY, NEGATE_CONDITIONAL,
         INCREMENT_DECREMENT, INVERT_NEGATION, MATH,
-        PRIMITIVE_RETURN, TRUE_RETURN, FALSE_RETURN, NULL_RETURN
+        PRIMITIVE_RETURN, TRUE_RETURN, FALSE_RETURN, NULL_RETURN,
+        REMOVE_ASSERT
     }
 
     var modified: String? = null
@@ -193,6 +194,11 @@ sealed class Mutation(val type: Type, var location: Location, val original: Stri
         }
 
         override fun enterStatement(ctx: JavaParser.StatementContext) {
+            ctx.ASSERT()?.also {
+                ctx.toLocation().also { location ->
+                    mutations.add(RemoveAssert(location, parsedSource.contents(location)))
+                }
+            }
             ctx.RETURN()?.also {
                 ctx.expression()?.firstOrNull()?.toLocation()?.also { location ->
                     val contents = parsedSource.contents(location)
@@ -292,7 +298,7 @@ class StringLiteral(location: Location, original: String) : Mutation(Type.STRING
 class NumberLiteral(
     location: Location,
     original: String,
-    val base: Int = 10
+    private val base: Int = 10
 ) : Mutation(Type.NUMBER_LITERAL, location, original) {
     override val preservesLength = true
 
@@ -521,6 +527,15 @@ class NullReturn(
     }
 }
 
+class RemoveAssert(
+    location: Location,
+    original: String
+) : Mutation(Type.REMOVE_ASSERT, location, original) {
+    override val preservesLength = true
+
+    override fun applyMutation(random: Random): String = ""
+}
+
 fun Source.ParsedSource.contents(location: Mutation.Location): String =
     stream.getText(Interval(location.start, location.end))
 
@@ -541,15 +556,39 @@ class MutatedSource(
     val unappliedMutations: Int
 ) : Source(sources)
 
-class Mutater(private val originalSource: Source, shuffle: Boolean, seed: Int) {
+fun MutableMap<String, String>.blankMap(): Map<String, Set<Int>> = mapValues { (_, contents) ->
+    contents.lines()
+        .mapIndexed { index, line -> Pair(index, line) }
+        .filter { (_, line) -> line.isBlank() }
+        .map { (index, _) -> index }.toSet()
+}
+
+fun MutableMap<String, String>.removeNewBlank(blankMap: Map<String, Set<Int>>) =
+    forEach { (path, contents) ->
+        val toKeep = contents.lines()
+            .mapIndexed { index, line -> Pair(index, line) }
+            .filter { (index, line) -> line.isNotBlank() || blankMap[path]!!.contains(index) }
+            .map { (index, _) -> index }.toSet()
+        this[path] = contents.lines().filterIndexed { index, _ -> toKeep.contains(index) }.joinToString("\n")
+    }
+
+class Mutater(
+    private val originalSource: Source,
+    shuffle: Boolean,
+    seed: Int,
+    types: Set<Mutation.Type> = Mutation.Type.values().toSet()
+) {
 
     init {
         check(originalSource.type == Source.FileType.JAVA) { "Can only mutate Java sources" }
     }
 
-    val random = Random(seed)
-    val mutations = originalSource.sources.keys.map { name ->
+    private val random = Random(seed)
+    private val mutations = originalSource.sources.keys.map { name ->
         Mutation.find<Mutation>(originalSource.getParsed(name)).map { mutation -> SourceMutation(name, mutation) }
+            .filter {
+                types.contains(it.mutation.type)
+            }
     }.flatten().let {
         if (shuffle) {
             it.shuffled(random)
@@ -557,7 +596,7 @@ class Mutater(private val originalSource: Source, shuffle: Boolean, seed: Int) {
             it
         }
     }
-    val availableMutations: MutableList<SourceMutation> = mutations.toMutableList()
+    private val availableMutations: MutableList<SourceMutation> = mutations.toMutableList()
     val appliedMutations: MutableList<SourceMutation> = mutableListOf()
 
     val size: Int
@@ -582,13 +621,17 @@ class Mutater(private val originalSource: Source, shuffle: Boolean, seed: Int) {
         return Sources(sources)
     }
 
-    fun mutate(limit: Int = 1): MutatedSource {
+    fun mutate(limit: Int = 1, removeBlank: Boolean = true): MutatedSource {
         check(appliedMutations.isEmpty()) { "Some mutations already applied" }
+        val blankMap = sources.blankMap()
         for (i in 0 until limit) {
             if (availableMutations.isEmpty()) {
                 break
             }
             apply()
+        }
+        if (removeBlank) {
+            sources.removeNewBlank(blankMap)
         }
         return MutatedSource(
             Sources(sources),
@@ -601,25 +644,42 @@ class Mutater(private val originalSource: Source, shuffle: Boolean, seed: Int) {
 }
 
 fun Source.mutater(shuffle: Boolean = true, seed: Int = Random.nextInt()) = Mutater(this, shuffle, seed)
-fun Source.mutate(shuffle: Boolean = true, seed: Int = Random.nextInt(), limit: Int = 1) =
-    Mutater(this, shuffle, seed).mutate(limit)
+fun Source.mutate(
+    shuffle: Boolean = true,
+    seed: Int = Random.nextInt(),
+    limit: Int = 1,
+    types: Set<Mutation.Type> = Mutation.Type.values().toSet()
+) =
+    Mutater(this, shuffle, seed, types).mutate(limit)
 
-fun Source.allMutations(suppressWithComments: Boolean = true, random: Random = Random): List<MutatedSource> {
+fun Source.allMutations(
+    suppressWithComments: Boolean = true,
+    random: Random = Random,
+    types: Set<Mutation.Type> = Mutation.Type.values().toSet(),
+    removeBlank: Boolean = true
+): List<MutatedSource> {
     check(type == Source.FileType.JAVA) { "Can only mutate Java sources" }
     val mutations = sources.keys.map { name ->
-        Mutation.find<Mutation>(getParsed(name)).map { mutation -> SourceMutation(name, mutation) }
-    }.flatten().filter {
-        !suppressWithComments || it.mutation.location.line.split("""//""").let { parts ->
-            parts.size <= 1 || !parts[1].contains("mutate-disable")
+        Mutation.find<Mutation>(getParsed(name))
+            .map { mutation -> SourceMutation(name, mutation) }
+    }.flatten()
+        .filter { types.contains(it.mutation.type) }
+        .filter {
+            !suppressWithComments || it.mutation.location.line.split("""//""").let { parts ->
+                parts.size <= 1 || !parts[1].contains("mutate-disable")
+            }
         }
-    }
 
     return mutations.map { sourceMutation ->
         val modifiedSources = sources.copy().toMutableMap()
+        val blankMap = modifiedSources.blankMap()
         val original = modifiedSources[sourceMutation.name] ?: error("Couldn't find a source that should be there")
         val modified = sourceMutation.mutation.apply(original, random)
         check(original != modified) { "Mutation did not change source" }
         modifiedSources[sourceMutation.name] = modified
+        if (removeBlank) {
+            modifiedSources.removeNewBlank(blankMap)
+        }
         MutatedSource(Sources(modifiedSources), sources, listOf(sourceMutation), 1, mutations.size - 1)
     }
 }
