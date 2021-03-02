@@ -560,6 +560,19 @@ class Dog(val name: String?) {
             SnippetArguments(fileType = Source.FileType.KOTLIN)
         )
     }
+    "should parse Kotlin secondary constructors" {
+        Source.fromSnippet(
+            """
+class Person(val name: String, var age: Double) {
+  constructor(name: String) : this(name, 0.0)
+  init {
+    require(age >= 0.0) { "People can't have negative ages" }
+  }
+}
+            """.trim(),
+            SnippetArguments(fileType = Source.FileType.KOTLIN)
+        )
+    }
     "should parse Java 15 case syntax" {
         if (systemCompilerVersion >= 14) {
             Source.fromSnippet(
