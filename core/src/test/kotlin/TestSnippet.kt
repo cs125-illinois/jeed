@@ -559,6 +559,18 @@ class Dog(val name: String?) {
             """.trim(),
             SnippetArguments(fileType = Source.FileType.KOTLIN)
         )
+        Source.fromSnippet(
+            """
+class Dog(val name: String?) {
+  var age: Double
+    get() = field
+    set(value) {
+      field = value
+    }
+}
+            """.trim(),
+            SnippetArguments(fileType = Source.FileType.KOTLIN)
+        )
     }
     "should parse Kotlin secondary constructors" {
         Source.fromSnippet(
