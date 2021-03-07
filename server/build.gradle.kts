@@ -24,16 +24,16 @@ dependencies {
     implementation(kotlin("stdlib"))
     implementation("io.ktor:ktor-server-netty:$ktorVersion")
     implementation("org.mongodb:mongodb-driver:3.12.8")
-    implementation("org.jetbrains.kotlinx:kotlinx-coroutines-core:1.4.2")
+    implementation("org.jetbrains.kotlinx:kotlinx-coroutines-core:1.4.3")
     implementation("com.squareup.moshi:moshi-kotlin-codegen:1.11.0")
     implementation("com.github.cs125-illinois:ktor-moshi:1.0.3")
     implementation("ch.qos.logback:logback-classic:1.2.3")
     implementation("com.uchuhimo:konf-core:1.0.0")
     implementation("com.uchuhimo:konf-yaml:1.0.0")
-    implementation("io.github.microutils:kotlin-logging:2.0.4")
+    implementation("io.github.microutils:kotlin-logging:2.0.6")
     implementation("com.google.api-client:google-api-client:1.31.3")
 
-    val kotestVersion = "4.4.1"
+    val kotestVersion = "4.4.2"
     testImplementation("io.kotest:kotest-runner-junit5:$kotestVersion")
     testImplementation("io.kotest:kotest-assertions-ktor:$kotestVersion")
     testImplementation("io.ktor:ktor-server-test-host:$ktorVersion")

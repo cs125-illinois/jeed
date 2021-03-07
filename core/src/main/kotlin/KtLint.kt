@@ -7,8 +7,6 @@ import com.pinterest.ktlint.ruleset.standard.CommentSpacingRule
 import com.pinterest.ktlint.ruleset.standard.IndentationRule
 import com.pinterest.ktlint.ruleset.standard.MaxLineLengthRule
 import com.pinterest.ktlint.ruleset.standard.ModifierOrderRule
-import com.pinterest.ktlint.ruleset.standard.NoBlankLineBeforeRbraceRule
-import com.pinterest.ktlint.ruleset.standard.NoConsecutiveBlankLinesRule
 import com.pinterest.ktlint.ruleset.standard.NoEmptyClassBodyRule
 import com.pinterest.ktlint.ruleset.standard.NoLineBreakAfterElseRule
 import com.pinterest.ktlint.ruleset.standard.NoLineBreakBeforeAssignmentRule
@@ -70,8 +68,8 @@ val jeedRuleSet = RuleSet(
     IndentationRule(),
     MaxLineLengthRule(),
     ModifierOrderRule(),
-    NoBlankLineBeforeRbraceRule(),
-    NoConsecutiveBlankLinesRule(),
+    // NoBlankLineBeforeRbraceRule(),
+    // NoConsecutiveBlankLinesRule(),
     NoEmptyClassBodyRule(),
     NoLineBreakAfterElseRule(),
     NoLineBreakBeforeAssignmentRule(),
