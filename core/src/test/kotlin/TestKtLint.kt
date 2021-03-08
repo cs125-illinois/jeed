@@ -16,6 +16,25 @@ class TestKtLint : StringSpec({
 
         results.errors.isEmpty() shouldBe true
     }
+    "it should check kotlin sources with too long lines" {
+        @Suppress("MaxLineLength")
+        val ktLintFailed = shouldThrow<KtLintFailed> {
+            Source.fromSnippet(
+                """val test = "ttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttt"""",
+                SnippetArguments(fileType = Source.FileType.KOTLIN)
+            ).ktLint(KtLintArguments(failOnError = true))
+        }
+
+        ktLintFailed.errors.filterIsInstance<KtLintError>().filter { it.ruleId == "max-line-length" } shouldHaveSize 1
+    }
+    "!it should fail when everything is on one line" {
+        shouldThrow<KtLintFailed> {
+            Source.fromSnippet(
+                """class Course(var number: String) { fun changeNumber(newNumber: String) { number = newNumber } }""",
+                SnippetArguments(fileType = Source.FileType.KOTLIN)
+            ).ktLint(KtLintArguments(failOnError = true))
+        }
+    }
     "it should check simple kotlin sources with indentation errors" {
         val ktLintFailed = shouldThrow<KtLintFailed> {
             Source.fromSnippet(
