@@ -60,7 +60,7 @@ topLevelObject
     ;
 
 classDeclaration
-    : (JavadocComment NL+)? modifierList? (CLASS | INTERFACE) NL* simpleIdentifier
+    : (JavadocComment NL+)? modifierList? (CLASS | (FUN? INTERFACE)) NL* simpleIdentifier
     (NL* typeParameters)? (NL* primaryConstructor)?
     (NL* COLON NL* delegationSpecifiers)?
     (NL* typeConstraints)?

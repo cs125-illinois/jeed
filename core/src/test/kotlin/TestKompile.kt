@@ -17,6 +17,15 @@ class TestKompile : StringSpec({
         compiledSource should haveDefinedExactlyTheseClasses(setOf("TestKt"))
         compiledSource should haveProvidedThisManyClasses(0)
     }
+    "should compile simple lists" {
+        val executionResult = Source.fromKotlin(
+            """
+ val list = listOf<String>()
+        """.trim()
+        ).kompile().execute()
+
+        println(executionResult.sandboxedClassLoader!!.loadedClasses)
+    }
     "should compile simple classes" {
         val compiledSource = Source(
             mapOf(
@@ -208,16 +217,18 @@ fun main() {
         val source = Source(
             mapOf(
                 "Test.kt" to """
-fun method(first: Int, second: Int) { }
+class Test {
+  fun method(first: Int, second: Int) { }
+}
             """.trim()
             )
         )
         source.kompile().also { compiledSource ->
-            val klass = compiledSource.classLoader.loadClass("TestKt")
+            val klass = compiledSource.classLoader.loadClass("Test")
             klass.declaredMethods.find { it.name == "method" }?.parameters?.map { it.name }?.first() shouldBe "arg0"
         }
         source.kompile(KompilationArguments(parameters = true)).also { compiledSource ->
-            val klass = compiledSource.classLoader.loadClass("TestKt")
+            val klass = compiledSource.classLoader.loadClass("Test")
             klass.declaredMethods.find { it.name == "method" }?.parameters?.map { it.name }?.first() shouldBe "first"
         }
     }

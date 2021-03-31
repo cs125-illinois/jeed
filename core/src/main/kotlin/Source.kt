@@ -12,6 +12,7 @@ import java.io.StringWriter
 import java.lang.reflect.Method
 import java.security.MessageDigest
 import java.time.Instant
+import java.util.Locale
 
 @Suppress("UNUSED")
 val logger = KotlinLogging.logger {}
@@ -111,7 +112,7 @@ open class Source(
                 ).toByteArray()
             )
         }?.joinToString(separator = "") {
-            String.format("%02x", it)
+            String.format(Locale.US, "%02x", it)
         } ?: require { "Problem computing hash" }
     }
 
@@ -254,7 +255,7 @@ val stackTraceLineRegex = Regex("""^at ([\w$]+)\.(\w+)\(([\w.]*):(\d+)\)$""")
 fun Throwable.getStackTraceForSource(
     source: Source,
     boundaries: List<String> = listOf(
-        """at java.base/jdk.internal.reflect.NativeMethodAccessorImpl.invoke0(Native Method)""",
+        """at java.base/jdk.internal""",
         """at MainKt.main()"""
     )
 ): String {

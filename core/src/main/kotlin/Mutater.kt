@@ -101,6 +101,15 @@ sealed class Mutation(val type: Type, var location: Location, val original: Stri
             returnTypeStack.pop()
         }
 
+        private var insideAnnotation = false
+        override fun enterAnnotation(ctx: JavaParser.AnnotationContext?) {
+            insideAnnotation = true
+        }
+
+        override fun exitAnnotation(ctx: JavaParser.AnnotationContext?) {
+            insideAnnotation = false
+        }
+
         private fun ParserRuleContext.toLocation() =
             Location(start.startIndex, stop.stopIndex, currentPath, lines[start.line - 1])
 
@@ -109,6 +118,9 @@ sealed class Mutation(val type: Type, var location: Location, val original: Stri
             Location(first().symbol.startIndex, last().symbol.stopIndex, currentPath, lines[first().symbol.line - 1])
 
         override fun enterLiteral(ctx: JavaParser.LiteralContext) {
+            if (insideAnnotation) {
+                return
+            }
             ctx.BOOL_LITERAL()?.also {
                 ctx.toLocation().also { location ->
                     mutations.add(BooleanLiteral(location, parsedSource.contents(location)))
@@ -624,7 +636,8 @@ class Mutater(
     fun mutate(limit: Int = 1, removeBlank: Boolean = true): MutatedSource {
         check(appliedMutations.isEmpty()) { "Some mutations already applied" }
         val blankMap = sources.blankMap()
-        for (i in 0 until limit) {
+        @Suppress("UnusedPrivateMember")
+        for (unused in 0 until limit) {
             if (availableMutations.isEmpty()) {
                 break
             }

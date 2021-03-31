@@ -585,6 +585,17 @@ class Person(val name: String, var age: Double) {
             SnippetArguments(fileType = Source.FileType.KOTLIN)
         )
     }
+    "should parse Kotlin functional interfaces" {
+        Source.fromSnippet(
+            """
+fun interface It {
+  fun it(value: Int): Boolean
+}
+val first = It { value -> value % 2 == 0 }
+            """.trim(),
+            SnippetArguments(fileType = Source.FileType.KOTLIN)
+        )
+    }
     "should parse Java 15 case syntax" {
         if (systemCompilerVersion >= 14) {
             Source.fromSnippet(

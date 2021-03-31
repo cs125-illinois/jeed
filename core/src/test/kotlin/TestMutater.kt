@@ -428,6 +428,19 @@ public class Example {
             source.allMutations()
         }
     }
+    "it should not mutate annotations" {
+        Source.fromJava(
+            """
+public class Example {
+  @Suppress("unused")
+  void reformatName(String input) {
+    return;
+  }
+}"""
+        ).also { source ->
+            source.allMutations() shouldHaveSize 0
+        }
+    }
 })
 
 inline fun <reified T : Mutation> Source.checkMutations(

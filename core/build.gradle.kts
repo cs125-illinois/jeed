@@ -13,16 +13,16 @@ plugins {
 dependencies {
     kapt("com.squareup.moshi:moshi-kotlin-codegen:1.11.0")
 
-    antlr("org.antlr:antlr4:4.9.1")
+    antlr("org.antlr:antlr4:4.9.2")
 
     implementation(kotlin("stdlib"))
     implementation(kotlin("compiler-embeddable"))
     implementation(kotlin("reflect"))
 
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-core:1.4.3")
-    implementation("com.puppycrawl.tools:checkstyle:8.41")
+    implementation("com.puppycrawl.tools:checkstyle:8.41.1")
     implementation("com.pinterest.ktlint:ktlint-core:0.40.0")
-    implementation("com.pinterest.ktlint:ktlint-ruleset-standard:0.40.0")
+    implementation("com.pinterest.ktlint:ktlint-ruleset-standard:0.41.0")
     implementation("com.github.jknack:handlebars:4.2.0")
     implementation("com.squareup.moshi:moshi:1.11.0")
     implementation("org.ow2.asm:asm:9.1")
@@ -30,11 +30,11 @@ dependencies {
     implementation("org.slf4j:slf4j-api:1.7.30")
     implementation("ch.qos.logback:logback-classic:1.2.3")
     implementation("io.github.microutils:kotlin-logging:2.0.6")
-    implementation("io.github.classgraph:classgraph:4.8.102")
-    implementation("net.java.dev.jna:jna:5.7.0")
-    api("com.github.ben-manes.caffeine:caffeine:3.0.0")
+    implementation("io.github.classgraph:classgraph:4.8.104")
+    implementation("net.java.dev.jna:jna:5.8.0")
+    api("com.github.ben-manes.caffeine:caffeine:3.0.1")
 
-    testImplementation("io.kotest:kotest-runner-junit5:4.4.2")
+    testImplementation("io.kotest:kotest-runner-junit5:4.4.3")
 }
 tasks.test {
     useJUnitPlatform()

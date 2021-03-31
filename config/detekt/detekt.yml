@@ -1,0 +1,6 @@
+complexity:
+  LargeClass:
+    active: false
+exceptions:
+  SwallowedException:
+    active: false

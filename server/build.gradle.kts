@@ -15,14 +15,12 @@ repositories {
     maven(url = "https://maven.google.com/")
 }
 dependencies {
-    val ktorVersion = "1.5.2"
-
     kapt("com.squareup.moshi:moshi-kotlin-codegen:1.11.0")
 
     implementation(project(":core"))
     implementation(project(":cs125"))
     implementation(kotlin("stdlib"))
-    implementation("io.ktor:ktor-server-netty:$ktorVersion")
+    implementation("io.ktor:ktor-server-netty:1.5.2")
     implementation("org.mongodb:mongodb-driver:3.12.8")
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-core:1.4.3")
     implementation("com.squareup.moshi:moshi-kotlin-codegen:1.11.0")
@@ -33,10 +31,9 @@ dependencies {
     implementation("io.github.microutils:kotlin-logging:2.0.6")
     implementation("com.google.api-client:google-api-client:1.31.3")
 
-    val kotestVersion = "4.4.2"
-    testImplementation("io.kotest:kotest-runner-junit5:$kotestVersion")
-    testImplementation("io.kotest:kotest-assertions-ktor:$kotestVersion")
-    testImplementation("io.ktor:ktor-server-test-host:$ktorVersion")
+    testImplementation("io.kotest:kotest-runner-junit5:4.4.3")
+    testImplementation("io.kotest:kotest-assertions-ktor:4.4.3")
+    testImplementation("io.ktor:ktor-server-test-host:1.5.2")
 }
 application {
     @Suppress("DEPRECATION")
