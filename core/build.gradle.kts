@@ -11,7 +11,7 @@ plugins {
     id("org.jmailen.kotlinter")
 }
 dependencies {
-    kapt("com.squareup.moshi:moshi-kotlin-codegen:1.11.0")
+    kapt("com.squareup.moshi:moshi-kotlin-codegen:1.12.0")
 
     antlr("org.antlr:antlr4:4.9.2")
 
@@ -24,7 +24,7 @@ dependencies {
     implementation("com.pinterest.ktlint:ktlint-core:0.40.0")
     implementation("com.pinterest.ktlint:ktlint-ruleset-standard:0.41.0")
     implementation("com.github.jknack:handlebars:4.2.0")
-    implementation("com.squareup.moshi:moshi:1.11.0")
+    implementation("com.squareup.moshi:moshi:1.12.0")
     implementation("org.ow2.asm:asm:9.1")
     implementation("org.ow2.asm:asm-util:9.1")
     implementation("org.slf4j:slf4j-api:1.7.30")

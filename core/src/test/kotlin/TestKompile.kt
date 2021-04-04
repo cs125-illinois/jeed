@@ -133,6 +133,51 @@ fun main() {
         second should haveCompleted()
         second should haveOutput("test")
     }
+    "should load inner classes from a separate classloader" {
+        val first = Source(
+            mapOf(
+                "SimpleLinkedList.java" to """
+public class SimpleLinkedList {
+  protected class Item {
+    public Object value;
+    public Item next;
+
+    Item(Object setValue, Item setNext) {
+      value = setValue;
+      next = setNext;
+    }
+  }
+  protected Item start;
+}
+""".trim()
+            )
+        ).compile()
+
+        Source(
+            mapOf(
+                "CountLinkedList.kt" to """
+class CountLinkedList : SimpleLinkedList() {
+  fun count(value: Any): Int {
+    var count = 0
+    var current: SimpleLinkedList.Item? = start
+    while (current != null) {
+      if (current.value == value) {
+        count++
+      }
+      current = current.next
+    }
+    return count
+  }
+}
+""".trim()
+            )
+        ).kompile(
+            kompilationArguments = KompilationArguments(
+                parentFileManager = first.fileManager,
+                parentClassLoader = first.classLoader
+            )
+        )
+    }
     "should load classes from package in a separate classloader" {
         val first = Source(
             mapOf(

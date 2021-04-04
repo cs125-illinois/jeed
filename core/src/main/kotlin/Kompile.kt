@@ -247,7 +247,13 @@ fun JeedFileManager.toVirtualFile(): VirtualFile {
                 workingDirectory = workingDirectory.children.find { it.name == directory } as SimpleVirtualFile?
                     ?: workingDirectory.addChild(SimpleVirtualFile(directory))
             }
-            workingDirectory.addChild(SimpleVirtualFile(parts.last(), contents = file.openInputStream().readAllBytes()))
+            workingDirectory.addChild(
+                SimpleVirtualFile(
+                    parts.last(),
+                    contents = file.openInputStream().readAllBytes(),
+                    up = workingDirectory
+                )
+            )
         }
     }
     return root
@@ -276,7 +282,8 @@ class SimpleVirtualFile(
     private val name: String,
     children: List<SimpleVirtualFile> = listOf(),
     private val directory: Boolean? = null,
-    val contents: ByteArray? = null
+    val contents: ByteArray? = null,
+    val up: SimpleVirtualFile? = null
 ) : VirtualFile() {
     private val created = LocalTimeCounter.currentTime()
 
@@ -312,7 +319,7 @@ class SimpleVirtualFile(
     override fun getLength() = TODO("getLength")
     override fun getPath() = TODO("getPath")
     override fun getInputStream() = TODO("getInputStream")
-    override fun getParent() = TODO("getParent")
+    override fun getParent() = up
     override fun isWritable() = TODO("isWritable")
     override fun getOutputStream(p0: Any?, p1: Long, p2: Long) = TODO("getOutputStream")
 }
