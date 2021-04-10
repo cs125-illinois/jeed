@@ -98,6 +98,12 @@ tasks {
         add("archives", sourcesJar)
     }
 }
+tasks.detekt {
+    dependsOn(tasks.generateGrammarSource)
+}
+tasks.lintKotlinMain {
+    dependsOn(tasks.generateGrammarSource)
+}
 publishing {
     publications {
         create<MavenPublication>("core") {
