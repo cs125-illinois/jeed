@@ -30,6 +30,7 @@ import org.jetbrains.kotlin.com.intellij.util.LocalTimeCounter
 import org.jetbrains.kotlin.config.CommonConfigurationKeys
 import org.jetbrains.kotlin.config.CompilerConfiguration
 import org.jetbrains.kotlin.config.JVMConfigurationKeys
+import org.jetbrains.kotlin.config.JvmTarget
 import org.jetbrains.kotlin.idea.KotlinLanguage
 import org.jetbrains.kotlin.konan.file.File
 import org.jetbrains.kotlin.metadata.jvm.deserialization.JvmProtoBufUtil
@@ -51,7 +52,8 @@ data class KompilationArguments(
     val useCache: Boolean = useCompilationCache,
     val waitForCache: Boolean = false,
     @Transient val parentFileManager: JeedFileManager? = null,
-    val parameters: Boolean = DEFAULT_PARAMETERS
+    val parameters: Boolean = DEFAULT_PARAMETERS,
+    val jvmTarget: String = DEFAULT_JVM_TARGET
 ) {
     val arguments: K2JVMCompilerArguments = K2JVMCompilerArguments()
 
@@ -69,6 +71,7 @@ data class KompilationArguments(
         const val DEFAULT_VERBOSE = false
         const val DEFAULT_ALLWARNINGSASERRORS = false
         const val DEFAULT_PARAMETERS = false
+        val DEFAULT_JVM_TARGET = systemCompilerVersion.toCompilerVersion()
     }
 
     override fun equals(other: Any?): Boolean {
@@ -81,6 +84,7 @@ data class KompilationArguments(
         if (allWarningsAsErrors != other.allWarningsAsErrors) return false
         if (useCache != other.useCache) return false
         if (parameters != other.parameters) return false
+        if (jvmTarget != other.jvmTarget) return false
 
         return true
     }
@@ -90,6 +94,7 @@ data class KompilationArguments(
         result = 31 * result + allWarningsAsErrors.hashCode()
         result = 31 * result + useCache.hashCode()
         result = 31 * result + parameters.hashCode()
+        result = 31 * result + jvmTarget.hashCode()
         return result
     }
 }
@@ -130,15 +135,9 @@ private class JeedMessageCollector(val source: Source, val allWarningsAsErrors: 
         val sourceLocation = location
             ?.let {
                 when {
-                    source is Snippet -> {
-                        SNIPPET_SOURCE
-                    }
-                    it.path != KOTLIN_EMPTY_LOCATION -> {
-                        it.path.removePrefix("/")
-                    }
-                    else -> {
-                        null
-                    }
+                    source is Snippet -> SNIPPET_SOURCE
+                    it.path != KOTLIN_EMPTY_LOCATION -> it.path.removePrefix("/")
+                    else -> null
                 }
             }?.let { source.mapLocation(SourceLocation(it, location.line, location.column)) }
         messages.add(CompilationMessage(severity.presentableName, sourceLocation, message))
@@ -164,6 +163,7 @@ private fun kompile(
         put(CLIConfigurationKeys.MESSAGE_COLLECTOR_KEY, messageCollector)
         put(CommonConfigurationKeys.MODULE_NAME, JvmProtoBufUtil.DEFAULT_MODULE_NAME)
         put(JVMConfigurationKeys.PARAMETERS_METADATA, kompilationArguments.parameters)
+        put(JVMConfigurationKeys.JVM_TARGET, kompilationArguments.jvmTarget.toJvmTarget())
         configureExplicitContentRoots(kompilationArguments.arguments)
     }
 
@@ -324,4 +324,25 @@ class SimpleVirtualFile(
     override fun getOutputStream(p0: Any?, p1: Long, p2: Long) = TODO("getOutputStream")
 }
 
+@Suppress("unused")
 fun Class<*>.isKotlin() = getAnnotation(Metadata::class.java) != null
+
+private fun String.toJvmTarget() = when (this) {
+    "1.6" -> JvmTarget.JVM_1_6
+    "1.8" -> JvmTarget.JVM_1_8
+    "10" -> JvmTarget.JVM_10
+    "11" -> JvmTarget.JVM_11
+    "12" -> JvmTarget.JVM_12
+    "13" -> JvmTarget.JVM_13
+    "14" -> JvmTarget.JVM_14
+    "15" -> JvmTarget.JVM_15
+    else -> error("Bad JVM target: $this")
+}
+
+@Suppress("MagicNumber")
+private fun Int.toCompilerVersion() = when (this) {
+    6 -> "1.6"
+    8 -> "1.8"
+    in 10..16 -> toString()
+    else -> error("Bad JVM target: $this")
+}
