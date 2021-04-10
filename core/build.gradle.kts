@@ -9,6 +9,7 @@ plugins {
     java
     `maven-publish`
     id("org.jmailen.kotlinter")
+    id("io.gitlab.arturbosch.detekt")
 }
 dependencies {
     kapt("com.squareup.moshi:moshi-kotlin-codegen:1.12.0")

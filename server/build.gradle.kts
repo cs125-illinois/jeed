@@ -10,15 +10,12 @@ plugins {
     id("com.github.johnrengelman.shadow") version "6.1.0"
     id("com.palantir.docker") version "0.26.0"
     id("org.jmailen.kotlinter")
-}
-repositories {
-    maven(url = "https://maven.google.com/")
+    id("io.gitlab.arturbosch.detekt")
 }
 dependencies {
     kapt("com.squareup.moshi:moshi-kotlin-codegen:1.12.0")
 
     implementation(project(":core"))
-    implementation(project(":cs125"))
     implementation(kotlin("stdlib"))
     implementation("io.ktor:ktor-server-netty:1.5.3")
     implementation("org.mongodb:mongodb-driver:3.12.8")
@@ -26,10 +23,11 @@ dependencies {
     implementation("com.squareup.moshi:moshi-kotlin-codegen:1.12.0")
     implementation("com.github.cs125-illinois:ktor-moshi:1.0.3")
     implementation("ch.qos.logback:logback-classic:1.2.3")
-    implementation("com.uchuhimo:konf-core:1.0.0")
-    implementation("com.uchuhimo:konf-yaml:1.0.0")
+    implementation("com.uchuhimo:konf-core:1.1.2")
+    implementation("com.uchuhimo:konf-yaml:1.1.2")
     implementation("io.github.microutils:kotlin-logging:2.0.6")
-    implementation("com.google.api-client:google-api-client:1.31.3")
+    implementation("com.google.api-client:google-api-client:1.31.4")
+    implementation("com.github.cs125-illinois.libcs1:libcs1:2021.4.0")
 
     testImplementation("io.kotest:kotest-runner-junit5:4.4.3")
     testImplementation("io.kotest:kotest-assertions-ktor:4.4.3")

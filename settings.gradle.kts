@@ -1,2 +1,2 @@
 rootProject.name = "jeed"
-include("core", "server", "containerrunner", "cs125")
+include("core", "server", "containerrunner")

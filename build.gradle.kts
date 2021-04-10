@@ -11,13 +11,15 @@ plugins {
 allprojects {
     repositories {
         mavenCentral()
+        mavenLocal()
+        maven("https://jitpack.io")
+        maven("https://maven.google.com/")
         jcenter()
-        maven(url = "https://jitpack.io")
     }
 }
 subprojects {
     group = "com.github.cs125-illinois.jeed"
-    version = "2021.4.0"
+    version = "2021.4.1"
     tasks.withType<KotlinCompile> {
         val javaVersion = JavaVersion.VERSION_1_8.toString()
         sourceCompatibility = javaVersion
@@ -45,7 +47,6 @@ tasks.dependencyUpdates {
     gradleReleaseChannel = "current"
 }
 detekt {
-    input = files("core/src/main/kotlin", "server/src/main/kotlin", "containerrunner/src/main/kotlin")
     buildUponDefaultConfig = true
 }
 tasks.register("check") {
