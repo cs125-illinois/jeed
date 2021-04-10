@@ -87,9 +87,6 @@ kapt {
     useBuildCache = true
     includeCompileClasspath = false
 }
-java {
-    withSourcesJar()
-}
 publishing {
     publications {
         create<MavenPublication>("core") {
