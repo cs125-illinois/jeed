@@ -58,12 +58,14 @@ tasks.test {
 }
 tasks.generateGrammarSource {
     outputDirectory = File(projectDir, "src/main/java/edu/illinois/cs/cs125/jeed/core/antlr")
-    arguments.addAll(listOf(
-        "-visitor",
-        "-package", "edu.illinois.cs.cs125.jeed.core.antlr",
-        "-Xexact-output-dir",
-        "-lib", "src/main/antlr/edu/illinois/cs/cs125/jeed/antlr/lib/"
-    ))
+    arguments.addAll(
+        listOf(
+            "-visitor",
+            "-package", "edu.illinois.cs.cs125.jeed.core.antlr",
+            "-Xexact-output-dir",
+            "-lib", "src/main/antlr/edu/illinois/cs/cs125/jeed/antlr/lib/"
+        )
+    )
 }
 tasks.compileKotlin {
     dependsOn(tasks.generateGrammarSource, "createProperties")
@@ -75,17 +77,26 @@ task("createProperties") {
             it["version"] = project.version.toString()
         }
         File(projectDir, "src/main/resources/edu.illinois.cs.cs125.jeed.core.version")
-        .printWriter().use { printWriter ->
-            printWriter.print(
-                StringWriter().also { properties.store(it, null) }.buffer.toString()
-                    .lines().drop(1).joinToString(separator = "\n").trim()
-            )
-        }
+            .printWriter().use { printWriter ->
+                printWriter.print(
+                    StringWriter().also { properties.store(it, null) }.buffer.toString()
+                        .lines().drop(1).joinToString(separator = "\n").trim()
+                )
+            }
     }
 }
 kapt {
     useBuildCache = true
     includeCompileClasspath = false
+}
+tasks {
+    val sourcesJar by creating(Jar::class) {
+        archiveClassifier.set("sources")
+        from(sourceSets["main"].allSource)
+    }
+    artifacts {
+        add("archives", sourcesJar)
+    }
 }
 publishing {
     publications {
