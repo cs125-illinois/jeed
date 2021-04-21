@@ -51,7 +51,7 @@ tasks.test {
         jvmArgs("-ea", "-Xmx1G")
     }
     systemProperties["logback.configurationFile"] = File(projectDir, "src/test/resources/logback-test.xml").absolutePath
-    environment["MONGODB"] = "mongodb://localhost:27017/cs125"
+    environment["MONGODB"] = "mongodb://root:w8t@localhost:27017/code_jeed?authSource=admin"
     environment["SEMESTER"] = "Spring2020"
     environment["JEED_USE_CACHE"] = "true"
 }
