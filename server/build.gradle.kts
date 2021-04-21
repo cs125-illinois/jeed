@@ -27,7 +27,7 @@ dependencies {
     implementation("com.uchuhimo:konf-yaml:1.1.2")
     implementation("io.github.microutils:kotlin-logging:2.0.6")
     implementation("com.google.api-client:google-api-client:1.31.4")
-    implementation("com.github.cs125-illinois.libcs1:libcs1:2021.4.0")
+    implementation("com.github.cs125-illinois.libcs1:libcs1:2021.4.1")
 
     testImplementation("io.kotest:kotest-runner-junit5:4.4.3")
     testImplementation("io.kotest:kotest-assertions-ktor:4.4.3")

@@ -70,6 +70,9 @@ tasks.generateGrammarSource {
 tasks.compileKotlin {
     dependsOn(tasks.generateGrammarSource, "createProperties")
 }
+tasks.compileTestKotlin {
+    dependsOn(tasks.generateTestGrammarSource)
+}
 task("createProperties") {
     dependsOn(tasks.processResources)
     doLast {
