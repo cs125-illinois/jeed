@@ -119,7 +119,7 @@ fun Checker.processString(name: String, source: String): List<CheckstyleError> {
                 CheckstyleError(
                     it.severityLevel.toString(),
                     SourceLocation(name, it.lineNo, it.columnNo),
-                    it.message
+                    it.violation
                 )
             )
         }
