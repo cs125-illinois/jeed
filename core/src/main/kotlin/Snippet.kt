@@ -205,10 +205,10 @@ ${" ".repeat(snippetArguments.indent * 2)}@JvmStatic fun main() {""".lines().let
 
     val methodLines = mutableSetOf<IntRange>()
     val klassLines = mutableSetOf<IntRange>()
-    parseTree.topLevelObject().map { it.functionDeclaration() }.filterNotNull().forEach {
+    parseTree.topLevelObject().mapNotNull { it.functionDeclaration() }.forEach {
         methodLines.add(it.start.line..it.stop.line)
     }
-    parseTree.topLevelObject().map { it.classDeclaration() }.filterNotNull().forEach {
+    parseTree.topLevelObject().mapNotNull { it.classDeclaration() }.forEach {
         klassLines.add(it.start.line..it.stop.line)
     }
 
@@ -363,6 +363,7 @@ private fun sourceFromJavaSnippet(originalSource: String, snippetArguments: Snip
 
     val visitorResults = object : SnippetParserBaseVisitor<Unit>() {
         val errors = mutableListOf<SnippetTransformationError>()
+        var sawExampleMain = false
         var sawNonImport = false
         var statementDepth = 0
 
@@ -432,6 +433,20 @@ private fun sourceFromJavaSnippet(originalSource: String, snippetArguments: Snip
             markAs(parent.start.line, parent.stop.line, "class")
             val className = context.IDENTIFIER().text
             classNames.add(className)
+            if (context.IDENTIFIER().text == "Example") {
+                context.classBody()?.classBodyDeclaration()
+                    ?.filter { it?.memberDeclaration()?.methodDeclaration() != null }
+                    ?.any { c ->
+                        c.modifier().find { it.text == "public" } != null &&
+                            c.modifier().find { it.text == "static" } != null &&
+                            c.memberDeclaration().methodDeclaration().IDENTIFIER().text == "main" &&
+                            c.memberDeclaration().methodDeclaration().typeTypeOrVoid().text == "void"
+                    }?.also {
+                        if (it) {
+                            sawExampleMain = true
+                        }
+                    }
+            }
         }
 
         override fun visitInterfaceDeclaration(context: SnippetParser.InterfaceDeclarationContext) {
@@ -588,6 +603,7 @@ private fun sourceFromJavaSnippet(originalSource: String, snippetArguments: Snip
         }
     }
 
+    val hasLooseCode = looseCode.any { it.isNotBlank() }
     assert(originalSource.lines().size == remappedLineMapping.keys.size)
 
     var rewrittenSource = ""
@@ -601,6 +617,7 @@ private fun sourceFromJavaSnippet(originalSource: String, snippetArguments: Snip
     if (methodDeclarations.size > 0) {
         rewrittenSource += methodDeclarations.joinToString(separator = "\n", postfix = "\n")
     }
+
     rewrittenSource += """${
     " "
         .repeat(snippetArguments.indent)
@@ -609,18 +626,23 @@ private fun sourceFromJavaSnippet(originalSource: String, snippetArguments: Snip
         rewrittenSource += looseCode.joinToString(separator = "\n", postfix = "\n")
     }
     rewrittenSource += """${" ".repeat(snippetArguments.indent)}}""" + "\n}"
-
     // Add final two braces
     currentOutputLineNumber += 1
+
     assert(currentOutputLineNumber == rewrittenSource.lines().size)
 
+    val (className, methodName) = if (!hasLooseCode && visitorResults.sawExampleMain) {
+        Pair("Example", "main()")
+    } else {
+        Pair(snippetClassName, "$snippetMainMethodName()")
+    }
     return Snippet(
         Sources(hashMapOf(SNIPPET_SOURCE to rewrittenSource)),
         originalSource,
         rewrittenSource,
         snippetRange,
-        snippetClassName,
-        "$snippetMainMethodName()",
+        className,
+        methodName,
         Source.FileType.JAVA,
         remappedLineMapping
     )

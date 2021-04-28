@@ -64,9 +64,13 @@ class ExecutionFailed(
 suspend fun CompiledSource.execute(
     executionArguments: SourceExecutionArguments = SourceExecutionArguments()
 ): Sandbox.TaskResults<out Any?> {
-    val defaultKlass = when (this.source.type) {
-        Source.FileType.JAVA -> "Main"
-        Source.FileType.KOTLIN -> "MainKt"
+    val defaultKlass = if (this.source is Snippet) {
+        this.source.wrappedClassName
+    } else {
+        when (this.source.type) {
+            Source.FileType.JAVA -> "Main"
+            Source.FileType.KOTLIN -> "MainKt"
+        }
     }
 
     // Coroutines need some extra time and threads to run.

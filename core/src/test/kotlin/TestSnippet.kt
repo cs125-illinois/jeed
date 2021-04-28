@@ -627,6 +627,22 @@ boolean boo = switch (foo) {
             )
         }
     }
+    "should use Example.main when no loose code is provided" {
+        val executionResult = Source.fromSnippet(
+            """
+class Another {}
+int another() {
+ return 0;
+}
+public class Example {
+  public static void main(String[] unused) {
+    System.out.println("Here");
+  }
+}""".trim()
+        ).compile().execute()
+        executionResult should haveCompleted()
+        executionResult should haveOutput("Here")
+    }
 })
 
 fun haveParseErrorOnLine(line: Int) = object : Matcher<SnippetTransformationFailed> {
