@@ -605,7 +605,7 @@ private fun sourceFromJavaSnippet(originalSource: String, snippetArguments: Snip
         }
     }
 
-    val hasLooseCode = looseCode.any { it.isNotBlank() }
+    val hasLooseCode = looseCode.any { it.isNotBlank() } || methodDeclarations.isNotEmpty()
     assert(originalSource.lines().size == remappedLineMapping.keys.size)
 
     var rewrittenSource = ""

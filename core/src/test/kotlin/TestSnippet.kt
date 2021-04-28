@@ -631,9 +631,6 @@ boolean boo = switch (foo) {
         Source.fromSnippet(
             """
 class Another {}
-int another() {
- return 0;
-}
 public class Example {
   public static void main(String[] unused) {
     System.out.println("Here");
@@ -654,6 +651,22 @@ public class Example {
         ).compile().execute().also { executionResult ->
             executionResult should haveCompleted()
             executionResult should haveOutput("ran")
+        }
+    }
+    "should not use Example.main when a top-level method exists" {
+        Source.fromSnippet(
+            """
+int another() {
+ return 0;
+}
+public class Example {
+  public static void main(String[] unused) {
+    System.out.println("Here");
+  }
+}""".trim()
+        ).compile().execute().also { executionResult ->
+            executionResult should haveCompleted()
+            executionResult should haveOutput("")
         }
     }
 })
