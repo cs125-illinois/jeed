@@ -336,7 +336,7 @@ private fun String.toJvmTarget() = when (this) {
     "13" -> JvmTarget.JVM_13
     "14" -> JvmTarget.JVM_14
     "15" -> JvmTarget.JVM_15
-    "16" -> JvmTarget.JVM_16
+    "16" -> JvmTarget.JVM_15
     else -> error("Bad JVM target: $this")
 }
 

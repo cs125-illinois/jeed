@@ -17,6 +17,8 @@ dependencies {
 
     implementation(project(":core"))
     implementation(kotlin("stdlib"))
+    implementation(kotlin("reflect"))
+
     implementation("io.ktor:ktor-server-netty:1.5.3")
     implementation("org.mongodb:mongodb-driver:3.12.8")
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-core:1.4.3")
