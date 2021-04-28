@@ -2,4 +2,4 @@ FROM openjdk:16-jdk-slim
 WORKDIR /
 COPY *.jar containerrunner.jar
 ENV CLASSPATH=/containerrunner.jar:/jeed/
-ENTRYPOINT [ "java", "-ea", "--enable-preview", "-Xss256k", "edu.illinois.cs.cs125.jeed.containerrunner.MainKt" ]
+ENTRYPOINT [ "java", "-ea", "--enable-preview", "-Xss256k", "--illegal-access=permit", "edu.illinois.cs.cs125.jeed.containerrunner.MainKt" ]

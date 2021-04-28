@@ -65,7 +65,7 @@ suspend fun CompiledSource.execute(
     executionArguments: SourceExecutionArguments = SourceExecutionArguments()
 ): Sandbox.TaskResults<out Any?> {
     val defaultKlass = if (this.source is Snippet) {
-        this.source.wrappedClassName
+        this.source.entryClassName
     } else {
         when (this.source.type) {
             Source.FileType.JAVA -> "Main"

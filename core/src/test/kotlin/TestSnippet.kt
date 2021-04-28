@@ -628,7 +628,7 @@ boolean boo = switch (foo) {
         }
     }
     "should use Example.main when no loose code is provided" {
-        val executionResult = Source.fromSnippet(
+        Source.fromSnippet(
             """
 class Another {}
 int another() {
@@ -639,9 +639,22 @@ public class Example {
     System.out.println("Here");
   }
 }""".trim()
-        ).compile().execute()
-        executionResult should haveCompleted()
-        executionResult should haveOutput("Here")
+        ).compile().execute().also { executionResult ->
+            executionResult should haveCompleted()
+            executionResult should haveOutput("Here")
+        }
+        Source.fromSnippet(
+            """
+public class Example {
+  public static void main() {
+    int[] array = new int[] {1, 2, 4};
+    System.out.println("ran");
+  }
+}""".trim()
+        ).compile().execute().also { executionResult ->
+            executionResult should haveCompleted()
+            executionResult should haveOutput("ran")
+        }
     }
 })
 

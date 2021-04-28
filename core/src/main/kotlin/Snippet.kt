@@ -26,7 +26,8 @@ class Snippet(
     val wrappedClassName: String,
     val looseCodeMethodName: String,
     val fileType: FileType,
-    @Transient private val remappedLineMapping: Map<Int, RemappedLine> = mapOf()
+    @Transient private val remappedLineMapping: Map<Int, RemappedLine> = mapOf(),
+    @Transient val entryClassName: String = wrappedClassName
 ) : Source(
     sources,
     {
@@ -328,7 +329,8 @@ ${" ".repeat(snippetArguments.indent * 2)}@JvmStatic fun main() {""".lines().let
         "MainKt",
         "main()",
         Source.FileType.KOTLIN,
-        remappedLineMapping
+        remappedLineMapping,
+        "MainKt"
     )
 }
 
@@ -631,20 +633,21 @@ private fun sourceFromJavaSnippet(originalSource: String, snippetArguments: Snip
 
     assert(currentOutputLineNumber == rewrittenSource.lines().size)
 
-    val (className, methodName) = if (!hasLooseCode && visitorResults.sawExampleMain) {
-        Pair("Example", "main()")
+    val entryClassName = if (!hasLooseCode && visitorResults.sawExampleMain) {
+        "Example"
     } else {
-        Pair(snippetClassName, "$snippetMainMethodName()")
+        snippetClassName
     }
     return Snippet(
         Sources(hashMapOf(SNIPPET_SOURCE to rewrittenSource)),
         originalSource,
         rewrittenSource,
         snippetRange,
-        className,
-        methodName,
+        snippetClassName,
+        "$snippetMainMethodName()",
         Source.FileType.JAVA,
-        remappedLineMapping
+        remappedLineMapping,
+        entryClassName
     )
 }
 

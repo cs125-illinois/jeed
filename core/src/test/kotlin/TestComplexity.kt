@@ -163,4 +163,15 @@ System.out.println(first.getClass());
             """.trim()
         ).complexity()
     }
+    "should not fail on class declarations" {
+        Source.fromSnippet(
+            """
+public class Example {
+  public static void main() {
+    int[] array = new int[] {1, 2, 4};
+    System.out.println("ran");
+  }
+}""".trim()
+        ).complexity()
+    }
 })
