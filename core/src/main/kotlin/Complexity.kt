@@ -14,23 +14,17 @@ interface ComplexityValue {
     fun lookup(name: String): ComplexityValue
 }
 
-@Suppress("UNCHECKED_CAST", "LongParameterList")
+@Suppress("LongParameterList")
 @JsonClass(generateAdapter = true)
 class ClassComplexity(
     name: String,
     range: SourceRange,
-    methods: MutableMap<String, MethodComplexity> = mutableMapOf(),
-    classes: MutableMap<String, ClassComplexity> = mutableMapOf(),
+    methods: MutableMap<String, LocatedMethod> = mutableMapOf(),
+    classes: MutableMap<String, LocatedClass> = mutableMapOf(),
     override var complexity: Int = 0,
     val isRecord: Boolean = false,
     val isInterface: Boolean = false
-) : LocatedClass(
-    name,
-    range,
-    classes as MutableMap<String, LocatedClass>,
-    methods as MutableMap<String, LocatedMethod>
-),
-    ComplexityValue {
+) : LocatedClass(name, range, classes, methods), ComplexityValue {
     override fun lookup(name: String): ComplexityValue {
         check(name.isNotEmpty())
         @Suppress("TooGenericExceptionCaught")
@@ -50,21 +44,14 @@ class ClassComplexity(
     }
 }
 
-@Suppress("UNCHECKED_CAST")
 @JsonClass(generateAdapter = true)
 class MethodComplexity(
     name: String,
     range: SourceRange,
-    methods: MutableMap<String, MethodComplexity> = mutableMapOf(),
-    classes: MutableMap<String, ClassComplexity> = mutableMapOf(),
+    methods: MutableMap<String, LocatedMethod> = mutableMapOf(),
+    classes: MutableMap<String, LocatedClass> = mutableMapOf(),
     override var complexity: Int = 1
-) : LocatedMethod(
-    name,
-    range,
-    classes as MutableMap<String, LocatedClass>,
-    methods as MutableMap<String, LocatedMethod>
-),
-    ComplexityValue {
+) : LocatedMethod(name, range, classes, methods), ComplexityValue {
     override fun lookup(name: String): ComplexityValue {
         check(name.isNotEmpty())
         @Suppress("TooGenericExceptionCaught")

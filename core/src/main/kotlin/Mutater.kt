@@ -534,8 +534,8 @@ class NullReturn(
     override fun applyMutation(random: Random): String = "null"
 
     companion object {
-        fun matches(contents: String, returnType: String) =
-            contents != "null" && returnType == returnType.capitalize()
+        @Suppress("DEPRECATION")
+        fun matches(contents: String, returnType: String) = contents != "null" && returnType == returnType.capitalize()
     }
 }
 

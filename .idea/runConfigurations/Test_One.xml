@@ -4,7 +4,7 @@
       <option name="executionName" />
       <option name="externalProjectPath" value="$PROJECT_DIR$" />
       <option name="externalSystemIdString" value="GRADLE" />
-      <option name="scriptParameters" value="-Dorg.gradle.project.slowTests --tests &quot;edu.illinois.cs.cs125.jeed.core.TestContainer&quot;" />
+      <option name="scriptParameters" value="-Dorg.gradle.project.slowTests --tests &quot;edu.illinois.cs.cs125.jeed.core.TestCompile&quot;" />
       <option name="taskDescriptions">
         <list />
       </option>

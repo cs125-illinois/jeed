@@ -445,8 +445,8 @@ object Sandbox {
                 return
             }
 
-            val currentLine = currentLines.getOrPut(console, { CurrentLine() })
-            val currentRedirectingLine = currentRedirectedLines?.getOrPut(console, { CurrentLine() })
+            val currentLine = currentLines.getOrPut(console) { CurrentLine() }
+            val currentRedirectingLine = currentRedirectedLines?.getOrPut(console) { CurrentLine() }
             when (int.toChar()) {
                 '\n' -> {
                     if (outputLines.size < maxOutputLines) {
@@ -540,7 +540,7 @@ object Sandbox {
         if (threadGroup.activeGroupCount() > 0) {
             val threadGroups = Array<ThreadGroup?>(threadGroup.activeGroupCount()) { null }
             threadGroup.enumerate(threadGroups, true)
-            assert(threadGroups.toList().filterNotNull().map { it.activeCount() }.sum() == 0)
+            assert(threadGroups.toList().filterNotNull().sumOf { it.activeCount() } == 0)
         }
 
         val stoppedThreads: MutableSet<Thread> = mutableSetOf()
@@ -568,7 +568,9 @@ object Sandbox {
             throw SandboxContainmentFailure("failed to shut down thread group ($threadGroup)")
         }
 
+        @Suppress("DEPRECATION")
         threadGroup.destroy()
+        @Suppress("DEPRECATION")
         assert(threadGroup.isDestroyed)
 
         if (confinedTask.truncatedLines == 0) {
@@ -632,16 +634,13 @@ object Sandbox {
         private val reloader = TrustedReloader()
 
         @Suppress("MemberVisibilityCanBePrivate")
-        val knownClasses: Map<String, ByteArray>
-
-        init {
-            knownClasses = sandboxableClassLoader.bytecodeForClasses.mapValues { (_, unsafeByteArray) ->
+        val knownClasses = sandboxableClassLoader.bytecodeForClasses
+            .mapValues { (_, unsafeByteArray) ->
                 RewriteBytecode.rewrite(
                     unsafeByteArray,
                     unsafeExceptionClasses
                 )
             }
-        }
 
         override fun findClass(name: String): Class<*> {
             return if (knownClasses.containsKey(name)) {
@@ -1040,10 +1039,9 @@ object Sandbox {
                 if (exceptionClass == null) {
                     labelsToRewrite.add(handler)
                 } else {
-                    if (unsafeExceptionClasses.any {
-                        exceptionClass.isAssignableFrom(it) || it.isAssignableFrom(exceptionClass)
-                    }
-                    ) {
+                    val needsRewrite = unsafeExceptionClasses
+                        .any { exceptionClass.isAssignableFrom(it) || it.isAssignableFrom(exceptionClass) }
+                    if (needsRewrite) {
                         labelsToRewrite.add(handler)
                     }
                 }

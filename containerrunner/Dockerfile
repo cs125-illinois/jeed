@@ -1,4 +1,4 @@
-FROM openjdk:15-jdk-slim
+FROM openjdk:16-jdk-slim
 WORKDIR /
 COPY *.jar containerrunner.jar
 ENV CLASSPATH=/containerrunner.jar:/jeed/
