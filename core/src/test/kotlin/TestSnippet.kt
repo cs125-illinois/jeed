@@ -669,6 +669,19 @@ public class Example {
             executionResult should haveOutput("")
         }
     }
+    "should not use Example.main when Example is not public" {
+        Source.fromSnippet(
+            """
+class Example {
+  public static void main(String[] unused) {
+    System.out.println("Here");
+  }
+}""".trim()
+        ).compile().execute().also { executionResult ->
+            executionResult should haveCompleted()
+            executionResult should haveOutput("")
+        }
+    }
 })
 
 fun haveParseErrorOnLine(line: Int) = object : Matcher<SnippetTransformationFailed> {

@@ -435,7 +435,13 @@ private fun sourceFromJavaSnippet(originalSource: String, snippetArguments: Snip
             markAs(parent.start.line, parent.stop.line, "class")
             val className = context.IDENTIFIER().text
             classNames.add(className)
-            if (context.IDENTIFIER().text == "Example") {
+            if (context.parent is SnippetParser.LocalTypeDeclarationContext &&
+                (
+                    (context.parent as SnippetParser.LocalTypeDeclarationContext).classOrInterfaceModifier()
+                        ?.find { it.text == "public" } != null
+                    ) &&
+                context.IDENTIFIER().text == "Example"
+            ) {
                 context.classBody()?.classBodyDeclaration()
                     ?.filter { it?.memberDeclaration()?.methodDeclaration() != null }
                     ?.any { c ->
