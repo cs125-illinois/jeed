@@ -19,9 +19,9 @@ dependencies {
     implementation(kotlin("stdlib"))
     implementation(kotlin("reflect"))
 
-    implementation("io.ktor:ktor-server-netty:1.5.3")
+    implementation("io.ktor:ktor-server-netty:1.5.4")
     implementation("org.mongodb:mongodb-driver:3.12.8")
-    implementation("org.jetbrains.kotlinx:kotlinx-coroutines-core:1.4.3")
+    implementation("org.jetbrains.kotlinx:kotlinx-coroutines-core:1.5.0-RC-native-mt")
     implementation("com.squareup.moshi:moshi-kotlin-codegen:1.12.0")
     implementation("com.github.cs125-illinois:ktor-moshi:1.0.3")
     implementation("ch.qos.logback:logback-classic:1.2.3")
@@ -31,9 +31,9 @@ dependencies {
     implementation("com.google.api-client:google-api-client:1.31.4")
     implementation("com.github.cs125-illinois.libcs1:libcs1:2021.4.1")
 
-    testImplementation("io.kotest:kotest-runner-junit5:4.4.3")
+    testImplementation("io.kotest:kotest-runner-junit5:4.5.0")
     testImplementation("io.kotest:kotest-assertions-ktor:4.4.3")
-    testImplementation("io.ktor:ktor-server-test-host:1.5.3")
+    testImplementation("io.ktor:ktor-server-test-host:1.5.4")
 }
 application {
     @Suppress("DEPRECATION")

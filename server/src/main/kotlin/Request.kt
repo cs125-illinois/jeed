@@ -31,12 +31,15 @@ import edu.illinois.cs.cs125.jeed.core.moshi.TemplatedSourceResult
 import edu.illinois.cs.cs125.jeed.core.server.FlatComplexityResults
 import edu.illinois.cs.cs125.jeed.core.server.Task
 import edu.illinois.cs.cs125.jeed.core.server.TaskArguments
-import kotlinx.coroutines.GlobalScope
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.async
 import org.apache.http.auth.AuthenticationException
 import org.bson.BsonDocument
 import org.bson.BsonString
 import java.time.Instant
+
+private val mongoScope = CoroutineScope(Dispatchers.IO)
 
 @Suppress("LongParameterList")
 class Request(
@@ -231,7 +234,7 @@ class Request(
                         arguments.snippet.fileType
                     }
                 }
-                Source.fromSnippet(snippet ?: assert { "should have a snippet" }, arguments.snippet).also {
+                Source.fromSnippet(snippet ?: error("should have a snippet"), arguments.snippet).also {
                     response.completedTasks.add(Task.snippet)
                     response.completed.snippet = it
                 }
@@ -317,7 +320,7 @@ class Request(
             response.interval = Interval(started, Instant.now())
         }
         if (mongoCollection != null) {
-            val resultSave = GlobalScope.async {
+            val resultSave = mongoScope.async {
                 @Suppress("TooGenericExceptionCaught")
                 try {
                     mongoCollection?.insertOne(

@@ -146,6 +146,9 @@ suspend fun CompiledSource.cexecute(
             val outputLines = listOf(stdoutLines.commandOutputLines, stderrLines.commandOutputLines)
                 .flatten()
                 .sortedBy { it.timestamp }
+                .filter {
+                    !it.line.startsWith("OpenJDK 64-Bit Server VM warning:")
+                }
                 .also {
                     if (it.size > executionArguments.maxOutputLines) {
                         truncatedLines += it.size - executionArguments.maxOutputLines

@@ -4,7 +4,8 @@ package edu.illinois.cs.cs125.jeed.core
 
 import com.github.benmanes.caffeine.cache.Cache
 import com.github.benmanes.caffeine.cache.Caffeine
-import kotlinx.coroutines.GlobalScope
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
 import java.time.Instant
@@ -91,12 +92,13 @@ fun Source.tryCache(
     )
 }
 
+private val compilationScope = CoroutineScope(Dispatchers.IO)
 fun CompiledSource.cache(compilationArguments: CompilationArguments) {
     val useCache = compilationArguments.useCache ?: useCompilationCache
     if (cached || !useCache) {
         return
     }
-    GlobalScope.launch {
+    compilationScope.launch {
         compilationCache.put(
             source.md5,
             CachedCompilationResults(
@@ -154,7 +156,7 @@ fun CompiledSource.cache(kompilationArguments: KompilationArguments) {
     if (cached || !kompilationArguments.useCache) {
         return
     }
-    GlobalScope.launch {
+    compilationScope.launch {
         compilationCache.put(
             source.md5,
             CachedCompilationResults(

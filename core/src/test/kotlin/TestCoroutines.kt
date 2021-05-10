@@ -6,9 +6,11 @@ import io.kotest.matchers.should
 import io.kotest.matchers.shouldBe
 import io.kotest.matchers.shouldNot
 import io.kotest.matchers.shouldNotBe
+import kotlinx.coroutines.DelicateCoroutinesApi
 import kotlinx.coroutines.GlobalScope
 import kotlinx.coroutines.launch
 
+@DelicateCoroutinesApi
 @Suppress("ASSIGNED_BUT_NEVER_ACCESSED_VARIABLE")
 class TestCoroutines : StringSpec({
     "should allow coroutines to run" {

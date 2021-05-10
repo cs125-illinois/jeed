@@ -68,7 +68,7 @@ class Status(
         private val statusAdapter: JsonAdapter<Status> = moshi.adapter(Status::class.java)
         fun from(response: String?): Status {
             check(response != null) { "can't deserialize null string" }
-            return statusAdapter.fromJson(response) ?: check { "failed to deserialize status" }
+            return statusAdapter.fromJson(response) ?: error("failed to deserialize status")
         }
     }
 }

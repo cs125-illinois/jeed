@@ -27,7 +27,7 @@ class Response(val request: Request) {
         val RESPONSE_ADAPTER: JsonAdapter<Response> = moshi.adapter(Response::class.java)
         fun from(response: String?): Response {
             check(response != null) { "can't deserialize null string" }
-            return RESPONSE_ADAPTER.fromJson(response) ?: check { "failed to deserialize result" }
+            return RESPONSE_ADAPTER.fromJson(response) ?: error("failed to deserialize result")
         }
     }
 }

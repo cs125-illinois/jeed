@@ -25,7 +25,7 @@ class TestHTTP : StringSpec() {
     override fun beforeSpec(spec: Spec) {
         configuration[TopLevel.mongodb]?.let {
             val mongoUri = MongoClientURI(it)
-            val database = mongoUri.database ?: require { "MONGO must specify database to use" }
+            val database = mongoUri.database ?: error("MONGO must specify database to use")
             val collection = "${configuration[TopLevel.Mongo.collection]}-test"
             Request.mongoCollection = MongoClient(mongoUri)
                 .getDatabase(database)
@@ -210,7 +210,10 @@ fun main() {
                     Request.mongoCollection?.countDocuments() shouldBe 1
 
                     val jeedResponse = Response.from(response.content)
-                    println(jeedResponse.completed.execution?.permissionRequests?.filter { !it.granted }?.map { it.permission })
+                    println(
+                        jeedResponse.completed.execution?.permissionRequests?.filter { !it.granted }
+                            ?.map { it.permission }
+                    )
                     jeedResponse.completed.execution?.klass shouldBe "MainKt"
                     jeedResponse.completed.execution?.outputLines?.joinToString(separator = "\n") {
                         it.line

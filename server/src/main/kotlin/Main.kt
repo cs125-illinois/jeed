@@ -28,9 +28,11 @@ import io.ktor.routing.post
 import io.ktor.routing.routing
 import io.ktor.server.engine.embeddedServer
 import io.ktor.server.netty.Netty
+import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.GlobalScope
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.time.delay
 import kotlinx.coroutines.withContext
 import mu.KotlinLogging
@@ -154,7 +156,9 @@ fun Application.jeed() {
     }
 }
 
-fun main() {
+private val backgroundScope = CoroutineScope(Dispatchers.IO)
+
+fun main() = runBlocking<Unit> {
     logger.info(configuration.toJson.toText())
 
     val httpUri = URI(configuration[TopLevel.http])
@@ -162,7 +166,7 @@ fun main() {
 
     configuration[TopLevel.mongodb]?.let {
         val mongoUri = MongoClientURI(it)
-        val database = mongoUri.database ?: require { "MONGO must specify database to use" }
+        val database = mongoUri.database ?: error("MONGO must specify database to use")
         val collection = configuration[TopLevel.Mongo.collection]
         Request.mongoCollection = MongoClient(mongoUri)
             .getDatabase(database)
@@ -176,32 +180,21 @@ fun main() {
         }
     }
 
-    GlobalScope.launch { warm(2) }
-    GlobalScope.launch { Request.mongoCollection?.find(Filters.eq("_id", "")) }
-    GlobalScope.launch {
+    backgroundScope.launch { warm(2) }
+    backgroundScope.launch { Request.mongoCollection?.find(Filters.eq("_id", "")) }
+    backgroundScope.launch {
         delay(Duration.ofMinutes(configuration[TopLevel.sentinelDelay]))
         @Suppress("TooGenericExceptionCaught")
         try {
             warm(2)
             logger.debug("Sentinel succeeded")
+        } catch (e: CancellationException) {
+            return@launch
         } catch (err: Throwable) {
             logger.error("Restarting due to sentinel failure")
             err.printStackTrace()
             exitProcess(-1)
         }
     }
-
-    embeddedServer(Netty, host = httpUri.host, port = httpUri.port, module = Application::jeed).start(wait = true)
-}
-
-fun assert(block: () -> String): Nothing {
-    throw AssertionError(block())
-}
-
-fun check(block: () -> String): Nothing {
-    throw IllegalStateException(block())
-}
-
-fun require(block: () -> String): Nothing {
-    throw IllegalArgumentException(block())
+    embeddedServer(Netty, host = httpUri.host, port = httpUri.port, module = Application::jeed).start(true)
 }
