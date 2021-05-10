@@ -1,38 +1,46 @@
 package edu.illinois.cs.cs125.jeed.core
 
 import com.squareup.moshi.JsonClass
-import edu.illinois.cs.cs125.jeed.core.antlr.JavaLexer
 import edu.illinois.cs.cs125.jeed.core.antlr.JavaParser
 import edu.illinois.cs.cs125.jeed.core.antlr.JavaParserBaseListener
 import org.antlr.v4.runtime.tree.ParseTreeWalker
 
-val basicComplexityTokens = listOf(JavaLexer.FOR, JavaLexer.WHILE, JavaLexer.DO, JavaLexer.THROW)
-val complexityExpressionBOPs = listOf(JavaLexer.AND, JavaLexer.OR, JavaLexer.QUESTION)
+data class Features(
+    var localVariableDeclarations: Int = 0,
+    var variableAssignments: Int = 0,
+    var variableReassignments: Int = 0
+) {
+    operator fun plus(other: Features) = Features(
+        localVariableDeclarations + other.localVariableDeclarations,
+        variableAssignments + other.variableAssignments,
+        variableReassignments + other.variableReassignments
+    )
+}
 
-sealed interface ComplexityValue {
-    var complexity: Int
-    fun lookup(name: String): ComplexityValue
+sealed interface FeatureValue {
+    var features: Features
+    fun lookup(name: String): FeatureValue
 }
 
 @Suppress("LongParameterList")
 @JsonClass(generateAdapter = true)
-class ClassComplexity(
+class ClassFeatures(
     name: String,
     range: SourceRange,
     methods: MutableMap<String, LocatedClassOrMethod> = mutableMapOf(),
     classes: MutableMap<String, LocatedClassOrMethod> = mutableMapOf(),
-    override var complexity: Int = 0,
+    override var features: Features = Features(),
     val isRecord: Boolean = false,
     val isInterface: Boolean = false
-) : LocatedClassOrMethod(name, range, classes, methods), ComplexityValue {
-    override fun lookup(name: String): ComplexityValue {
+) : LocatedClassOrMethod(name, range, classes, methods), FeatureValue {
+    override fun lookup(name: String): FeatureValue {
         check(name.isNotEmpty())
         @Suppress("TooGenericExceptionCaught")
         return try {
             if (name[0].isUpperCase()) {
-                classes[name] as ComplexityValue
+                classes[name] as FeatureValue
             } else {
-                methods[name] as ComplexityValue
+                methods[name] as FeatureValue
             }
         } catch (e: Exception) {
             if (name[0].isUpperCase()) {
@@ -45,21 +53,21 @@ class ClassComplexity(
 }
 
 @JsonClass(generateAdapter = true)
-class MethodComplexity(
+class MethodFeatures(
     name: String,
     range: SourceRange,
     methods: MutableMap<String, LocatedClassOrMethod> = mutableMapOf(),
     classes: MutableMap<String, LocatedClassOrMethod> = mutableMapOf(),
-    override var complexity: Int = 1
-) : LocatedClassOrMethod(name, range, classes, methods), ComplexityValue {
-    override fun lookup(name: String): ComplexityValue {
+    override var features: Features = Features()
+) : LocatedClassOrMethod(name, range, classes, methods), FeatureValue {
+    override fun lookup(name: String): FeatureValue {
         check(name.isNotEmpty())
         @Suppress("TooGenericExceptionCaught")
         return try {
             if (name[0].isUpperCase()) {
-                classes[name] as ComplexityValue
+                classes[name] as FeatureValue
             } else {
-                methods[name] as ComplexityValue
+                methods[name] as FeatureValue
             }
         } catch (e: Exception) {
             if (name[0].isUpperCase()) {
@@ -72,7 +80,7 @@ class MethodComplexity(
 }
 
 @Suppress("TooManyFunctions")
-private class ComplexityListener(val source: Source, entry: Map.Entry<String, String>) : JavaParserBaseListener() {
+private class FeatureListener(val source: Source, entry: Map.Entry<String, String>) : JavaParserBaseListener() {
     private val name = entry.key
     private var anonymousCounter = 0
     private var lambdaCounter = 0
@@ -80,8 +88,11 @@ private class ComplexityListener(val source: Source, entry: Map.Entry<String, St
     @Suppress("unused")
     private val contents = entry.value
 
-    private var complexityStack: MutableList<ComplexityValue> = mutableListOf()
-    var results: MutableMap<String, ClassComplexity> = mutableMapOf()
+    private var featureStack: MutableList<FeatureValue> = mutableListOf()
+    var results: MutableMap<String, ClassFeatures> = mutableMapOf()
+
+    private val currentFeatures
+        get() = featureStack.first().features
 
     private fun enterClassOrInterface(
         classOrInterfaceName: String,
@@ -91,28 +102,28 @@ private class ComplexityListener(val source: Source, entry: Map.Entry<String, St
         isInterface: Boolean = false
     ) {
         val locatedClass = if (source is Snippet && classOrInterfaceName == source.wrappedClassName) {
-            ClassComplexity("", source.snippetRange, isRecord = isRecord, isInterface = isInterface)
+            ClassFeatures("", source.snippetRange, isRecord = isRecord, isInterface = isInterface)
         } else {
-            ClassComplexity(
+            ClassFeatures(
                 classOrInterfaceName,
                 SourceRange(name, source.mapLocation(name, start), source.mapLocation(name, end)),
                 isRecord = isRecord,
                 isInterface = isInterface
             )
         }
-        if (complexityStack.isNotEmpty()) {
-            when (val currentComplexity = complexityStack[0]) {
-                is ClassComplexity -> {
-                    assert(!currentComplexity.classes.containsKey(locatedClass.name))
-                    currentComplexity.classes[locatedClass.name] = locatedClass
+        if (featureStack.isNotEmpty()) {
+            when (val currentFeatures = featureStack[0]) {
+                is ClassFeatures -> {
+                    assert(!currentFeatures.classes.containsKey(locatedClass.name))
+                    currentFeatures.classes[locatedClass.name] = locatedClass
                 }
-                is MethodComplexity -> {
-                    assert(!currentComplexity.classes.containsKey(locatedClass.name))
-                    currentComplexity.classes[locatedClass.name] = locatedClass
+                is MethodFeatures -> {
+                    assert(!currentFeatures.classes.containsKey(locatedClass.name))
+                    currentFeatures.classes[locatedClass.name] = locatedClass
                 }
             }
         }
-        complexityStack.add(0, locatedClass)
+        featureStack.add(0, locatedClass)
         currentMethodName = null
         currentMethodLocation = null
         currentMethodParameters = null
@@ -120,15 +131,15 @@ private class ComplexityListener(val source: Source, entry: Map.Entry<String, St
     }
 
     private fun exitClassOrInterface() {
-        assert(complexityStack.isNotEmpty())
-        val lastComplexity = complexityStack.removeAt(0)
-        assert(lastComplexity is ClassComplexity)
-        if (complexityStack.isNotEmpty()) {
-            complexityStack[0].complexity += lastComplexity.complexity
+        assert(featureStack.isNotEmpty())
+        val lastFeatures = featureStack.removeAt(0)
+        assert(lastFeatures is ClassFeatures)
+        if (featureStack.isNotEmpty()) {
+            featureStack[0].features += lastFeatures.features
         } else {
-            val topLevelClassComplexity = lastComplexity as ClassComplexity
-            assert(!results.keys.contains(topLevelClassComplexity.name))
-            results[topLevelClassComplexity.name] = topLevelClassComplexity
+            val topLevelClassFeatures = lastFeatures as ClassFeatures
+            assert(!results.keys.contains(topLevelClassFeatures.name))
+            results[topLevelClassFeatures.name] = topLevelClassFeatures
         }
     }
 
@@ -199,8 +210,8 @@ private class ComplexityListener(val source: Source, entry: Map.Entry<String, St
         end: Location,
         returnType: String?
     ) {
-        assert(complexityStack.isNotEmpty())
-        if (complexityStack[0] is ClassComplexity) {
+        assert(featureStack.isNotEmpty())
+        if (featureStack[0] is ClassFeatures) {
             assert(currentMethodName == null)
             assert(currentMethodLocation == null)
             assert(currentMethodReturnType == null)
@@ -213,11 +224,11 @@ private class ComplexityListener(val source: Source, entry: Map.Entry<String, St
     }
 
     private fun exitMethodOrConstructor() {
-        assert(complexityStack.isNotEmpty())
-        val lastComplexity = complexityStack.removeAt(0)
-        assert(lastComplexity is MethodComplexity)
-        assert(complexityStack.isNotEmpty())
-        complexityStack[0].complexity += lastComplexity.complexity
+        assert(featureStack.isNotEmpty())
+        val lastFeatures = featureStack.removeAt(0)
+        assert(lastFeatures is MethodFeatures)
+        assert(featureStack.isNotEmpty())
+        featureStack[0].features += lastFeatures.features
 
         currentMethodName = null
         currentMethodLocation = null
@@ -239,8 +250,8 @@ private class ComplexityListener(val source: Source, entry: Map.Entry<String, St
     }
 
     override fun enterConstructorDeclaration(ctx: JavaParser.ConstructorDeclarationContext) {
-        assert(complexityStack.isNotEmpty())
-        val currentClass = complexityStack[0] as ClassComplexity
+        assert(featureStack.isNotEmpty())
+        val currentClass = featureStack[0] as ClassFeatures
         enterMethodOrConstructor(
             currentClass.name,
             Location(ctx.start.line, ctx.start.charPositionInLine),
@@ -254,7 +265,7 @@ private class ComplexityListener(val source: Source, entry: Map.Entry<String, St
     }
 
     override fun enterLambdaExpression(ctx: JavaParser.LambdaExpressionContext) {
-        assert(complexityStack.isNotEmpty())
+        assert(featureStack.isNotEmpty())
         enterMethodOrConstructor(
             "Lambda${lambdaCounter++}",
             Location(ctx.start.line, ctx.start.charPositionInLine),
@@ -285,15 +296,15 @@ private class ComplexityListener(val source: Source, entry: Map.Entry<String, St
     }
 
     private fun exitParameters() {
-        assert(complexityStack.isNotEmpty())
+        assert(featureStack.isNotEmpty())
 
-        if (complexityStack[0] is ClassComplexity) {
+        if (featureStack[0] is ClassFeatures) {
             // Records have a parameter list but we can ignore it
-            if ((complexityStack[0] as ClassComplexity).isRecord && currentMethodName == null) {
+            if ((featureStack[0] as ClassFeatures).isRecord && currentMethodName == null) {
                 return
             }
             // Interface methods have a parameter list but we can ignore it
-            if ((complexityStack[0] as ClassComplexity).isInterface && currentMethodName == null) {
+            if ((featureStack[0] as ClassFeatures).isInterface && currentMethodName == null) {
                 return
             }
         }
@@ -309,14 +320,10 @@ private class ComplexityListener(val source: Source, entry: Map.Entry<String, St
                 it
             }
         }
-        val methodComplexity = if (source is Snippet && "void " + source.looseCodeMethodName == fullName) {
-            val snippetMethodComplexity = MethodComplexity("", source.snippetRange)
-            // We add "throws Exception" to the main method wrapping loose code for snippets.
-            // This hack ensures that we still calculate complexity correctly in this special case.
-            snippetMethodComplexity.complexity = 0
-            snippetMethodComplexity
+        val methodFeatures = if (source is Snippet && "void " + source.looseCodeMethodName == fullName) {
+            MethodFeatures("", source.snippetRange)
         } else {
-            MethodComplexity(
+            MethodFeatures(
                 fullName,
                 SourceRange(
                     name,
@@ -325,16 +332,16 @@ private class ComplexityListener(val source: Source, entry: Map.Entry<String, St
                 )
             )
         }
-        if (complexityStack[0] is ClassComplexity) {
-            val currentComplexity = complexityStack[0] as ClassComplexity
-            assert(!currentComplexity.methods.containsKey(methodComplexity.name))
-            currentComplexity.methods[methodComplexity.name] = methodComplexity
-        } else if (complexityStack[0] is MethodComplexity) {
-            val currentComplexity = complexityStack[0] as MethodComplexity
-            assert(!currentComplexity.methods.containsKey(methodComplexity.name))
-            currentComplexity.methods[methodComplexity.name] = methodComplexity
+        if (featureStack[0] is ClassFeatures) {
+            val currentFeatures = featureStack[0] as ClassFeatures
+            assert(!currentFeatures.methods.containsKey(methodFeatures.name))
+            currentFeatures.methods[methodFeatures.name] = methodFeatures
+        } else if (featureStack[0] is MethodFeatures) {
+            val currentFeatures = featureStack[0] as MethodFeatures
+            assert(!currentFeatures.methods.containsKey(methodFeatures.name))
+            currentFeatures.methods[methodFeatures.name] = methodFeatures
         }
-        complexityStack.add(0, methodComplexity)
+        featureStack.add(0, methodFeatures)
     }
 
     override fun exitFormalParameters(ctx: JavaParser.FormalParametersContext) {
@@ -345,68 +352,18 @@ private class ComplexityListener(val source: Source, entry: Map.Entry<String, St
         exitParameters()
     }
 
+    override fun enterLocalVariableDeclaration(ctx: JavaParser.LocalVariableDeclarationContext) {
+        currentFeatures.localVariableDeclarations += ctx.variableDeclarators().variableDeclarator().size
+        currentFeatures.variableAssignments += ctx.variableDeclarators().variableDeclarator().filter {
+            it.variableInitializer() != null
+        }.size
+    }
+
     override fun enterStatement(ctx: JavaParser.StatementContext) {
-        assert(complexityStack.isNotEmpty())
-        val currentMethod = complexityStack[0] as MethodComplexity
-
-        val firstToken = ctx.getStart() ?: error("can't get first token in statement")
-
-        // for, while, do and throw each represent one new path
-        if (basicComplexityTokens.contains(firstToken.type)) {
-            currentMethod.complexity++
+        if (ctx.statementExpression != null) {
+            currentFeatures.variableReassignments++
+            currentFeatures.variableAssignments++
         }
-
-        // if statements only ever add one unit of complexity. If no else is present then we either enter the condition
-        // or not, adding one path. If else is present then we either take the condition or the else, adding one path.
-        if (firstToken.type == JavaLexer.IF) {
-            currentMethod.complexity++
-        }
-    }
-
-    override fun enterExpression(ctx: JavaParser.ExpressionContext) {
-        assert(complexityStack.isNotEmpty())
-        // Ignore expressions in class declarations
-        if (complexityStack[0] is ClassComplexity) {
-            return
-        }
-        val currentMethod = complexityStack[0] as MethodComplexity
-
-        val bop = ctx.bop?.type ?: return
-
-        // &&, ||, and ? each represent one new path
-        if (complexityExpressionBOPs.contains(bop)) {
-            currentMethod.complexity++
-        }
-    }
-
-    // Each switch label represents one new path
-    override fun enterSwitchLabel(ctx: JavaParser.SwitchLabelContext) {
-        assert(complexityStack.isNotEmpty())
-        val currentMethod = complexityStack[0] as MethodComplexity
-        currentMethod.complexity++
-    }
-
-    // Each throws clause in the method declaration indicates one new path
-    override fun enterQualifiedNameList(ctx: JavaParser.QualifiedNameListContext) {
-        assert(complexityStack.isNotEmpty())
-        val currentMethod = complexityStack[0] as MethodComplexity
-        currentMethod.complexity += ctx.children.size
-    }
-
-    // Each catch clause represents one new path
-    override fun enterCatchClause(ctx: JavaParser.CatchClauseContext) {
-        assert(complexityStack.isNotEmpty())
-        val currentMethod = complexityStack[0] as MethodComplexity
-        currentMethod.complexity++
-    }
-
-    private var insideSwitch = false
-    override fun enterSwitchBlockStatementGroup(ctx: JavaParser.SwitchBlockStatementGroupContext) {
-        insideSwitch = true
-    }
-
-    override fun exitSwitchBlockStatementGroup(ctx: JavaParser.SwitchBlockStatementGroupContext) {
-        insideSwitch = false
     }
 
     init {
@@ -414,9 +371,9 @@ private class ComplexityListener(val source: Source, entry: Map.Entry<String, St
     }
 }
 
-class ComplexityResults(val source: Source, val results: Map<String, Map<String, ClassComplexity>>) {
+class FeaturesResults(val source: Source, val results: Map<String, Map<String, ClassFeatures>>) {
     @Suppress("ReturnCount")
-    fun lookup(path: String, filename: String = ""): ComplexityValue {
+    fun lookup(path: String, filename: String = ""): FeatureValue {
         @Suppress("TooGenericExceptionCaught")
         return try {
             val components = path.split(".").toMutableList()
@@ -426,47 +383,47 @@ class ComplexityResults(val source: Source, val results: Map<String, Map<String,
             }
             val resultSource = results[filename] ?: error("results does not contain key $filename")
 
-            var currentComplexity = if (source is Snippet) {
-                val rootComplexity = resultSource[""] ?: error("")
+            var currentFeatures = if (source is Snippet) {
+                val rootFeatures = resultSource[""] ?: error("")
                 if (path.isEmpty()) {
-                    return rootComplexity
+                    return rootFeatures
                 } else if (path == ".") {
-                    return rootComplexity.methods[""] as ComplexityValue
+                    return rootFeatures.methods[""] as FeatureValue
                 }
-                rootComplexity
+                rootFeatures
             } else {
                 resultSource[components.removeAt(0)]
-            } as ComplexityValue
+            } as FeatureValue
 
             for (component in components) {
-                currentComplexity = currentComplexity.lookup(component)
+                currentFeatures = currentFeatures.lookup(component)
             }
-            currentComplexity
+            currentFeatures
         } catch (e: Exception) {
             error("lookup failed: $e")
         }
     }
 }
 
-class ComplexityFailed(errors: List<SourceError>) : JeedError(errors) {
+class FeaturesFailed(errors: List<SourceError>) : JeedError(errors) {
     override fun toString(): String {
-        return "errors were encountered while computing complexity: ${errors.joinToString(separator = ",")}"
+        return "errors were encountered while performing feature analysis: ${errors.joinToString(separator = ",")}"
     }
 }
 
-@Throws(ComplexityFailed::class)
-fun Source.complexity(names: Set<String> = sources.keys.toSet()): ComplexityResults {
-    require(type == Source.FileType.JAVA) { "Can't compute complexity yet for Kotlin sources" }
+@Throws(FeaturesFailed::class)
+fun Source.features(names: Set<String> = sources.keys.toSet()): FeaturesResults {
+    require(type == Source.FileType.JAVA) { "Can't perform feature analysis yet for Kotlin sources" }
     try {
-        return ComplexityResults(
+        return FeaturesResults(
             this,
             sources.filter {
                 names.contains(it.key)
             }.mapValues {
-                ComplexityListener(this, it).results
+                FeatureListener(this, it).results
             }
         )
     } catch (e: JeedParsingException) {
-        throw ComplexityFailed(e.errors)
+        throw FeaturesFailed(e.errors)
     }
 }
