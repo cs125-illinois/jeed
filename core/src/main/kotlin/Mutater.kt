@@ -10,7 +10,30 @@ import org.antlr.v4.runtime.misc.Interval
 import org.antlr.v4.runtime.tree.ParseTreeWalker
 import org.antlr.v4.runtime.tree.TerminalNode
 import org.jetbrains.kotlin.backend.common.pop
+import java.util.Objects
+import kotlin.math.pow
 import kotlin.random.Random
+
+val PITEST = setOf(
+    Mutation.Type.BOOLEAN_LITERAL,
+    Mutation.Type.CHAR_LITERAL,
+    Mutation.Type.STRING_LITERAL,
+    Mutation.Type.NUMBER_LITERAL,
+    Mutation.Type.CONDITIONAL_BOUNDARY,
+    Mutation.Type.NEGATE_CONDITIONAL,
+    Mutation.Type.INCREMENT_DECREMENT,
+    Mutation.Type.INVERT_NEGATION,
+    Mutation.Type.MATH,
+    Mutation.Type.PRIMITIVE_RETURN,
+    Mutation.Type.TRUE_RETURN,
+    Mutation.Type.FALSE_RETURN,
+    Mutation.Type.NULL_RETURN
+)
+val OTHER = setOf(
+    Mutation.Type.REMOVE_ASSERT,
+    Mutation.Type.REMOVE_METHOD
+)
+val ALL = PITEST + OTHER
 
 sealed class Mutation(val type: Type, var location: Location, val original: String) {
     data class Location(val start: Int, val end: Int, val path: List<SourcePath>, val line: String) {
@@ -23,6 +46,17 @@ sealed class Mutation(val type: Type, var location: Location, val original: Stri
         }
 
         fun shift(amount: Int) = copy(start = start + amount, end = end + amount)
+
+        override fun equals(other: Any?) = when {
+            this === other -> true
+            javaClass != other?.javaClass -> false
+            else -> {
+                other as Location
+                start == other.start && end == other.end && line == other.line
+            }
+        }
+
+        override fun hashCode() = Objects.hash(start, end, line)
     }
 
     fun overlaps(other: Mutation) =
@@ -42,12 +76,16 @@ sealed class Mutation(val type: Type, var location: Location, val original: Stri
         CONDITIONAL_BOUNDARY, NEGATE_CONDITIONAL,
         INCREMENT_DECREMENT, INVERT_NEGATION, MATH,
         PRIMITIVE_RETURN, TRUE_RETURN, FALSE_RETURN, NULL_RETURN,
-        REMOVE_ASSERT
+        REMOVE_ASSERT, REMOVE_METHOD
     }
 
     var modified: String? = null
     val applied: Boolean
         get() = modified != null
+
+    fun reset() {
+        modified = null
+    }
 
     fun apply(contents: String, random: Random = Random): String {
         val prefix = contents.substring(0 until location.start)
@@ -67,8 +105,20 @@ sealed class Mutation(val type: Type, var location: Location, val original: Stri
 
     abstract fun applyMutation(random: Random = Random): String
     abstract val preservesLength: Boolean
+    abstract val estimatedCount: Int
 
     override fun toString(): String = "$type: $location ($original)"
+
+    override fun equals(other: Any?) = when {
+        this === other -> true
+        javaClass != other?.javaClass -> false
+        else -> {
+            other as Mutation
+            type == other.type && location == other.location && original == other.original
+        }
+    }
+
+    override fun hashCode() = Objects.hash(type, location, original)
 
     @Suppress("ComplexMethod", "LongMethod", "TooManyFunctions")
     class Listener(private val parsedSource: Source.ParsedSource) : JavaParserBaseListener() {
@@ -101,6 +151,17 @@ sealed class Mutation(val type: Type, var location: Location, val original: Stri
             returnTypeStack.pop()
         }
 
+        override fun enterMethodBody(ctx: JavaParser.MethodBodyContext) {
+            if (ctx.block() != null) {
+                check(currentReturnType != null)
+                val location = ctx.block().toLocation()
+                val contents = parsedSource.contents(location)
+                if (RemoveMethod.matches(contents, currentReturnType!!)) {
+                    mutations.add(RemoveMethod(location, contents, currentReturnType!!))
+                }
+            }
+        }
+
         private var insideAnnotation = false
         override fun enterAnnotation(ctx: JavaParser.AnnotationContext?) {
             insideAnnotation = true
@@ -111,11 +172,22 @@ sealed class Mutation(val type: Type, var location: Location, val original: Stri
         }
 
         private fun ParserRuleContext.toLocation() =
-            Location(start.startIndex, stop.stopIndex, currentPath, lines[start.line - 1])
+            Location(
+                start.startIndex,
+                stop.stopIndex,
+                currentPath,
+                lines.filterIndexed { index, _ -> index >= start.line - 1 && index <= stop.line - 1 }.joinToString("\n")
+            )
 
         private fun Token.toLocation() = Location(startIndex, stopIndex, currentPath, lines[line - 1])
         private fun List<TerminalNode>.toLocation() =
-            Location(first().symbol.startIndex, last().symbol.stopIndex, currentPath, lines[first().symbol.line - 1])
+            Location(
+                first().symbol.startIndex,
+                last().symbol.stopIndex,
+                currentPath,
+                lines.filterIndexed { index, _ -> index >= first().symbol.line - 1 && index <= last().symbol.line - 1 }
+                    .joinToString("\n")
+            )
 
         override fun enterLiteral(ctx: JavaParser.LiteralContext) {
             if (insideAnnotation) {
@@ -248,6 +320,7 @@ class BooleanLiteral(
     original: String
 ) : Mutation(Type.BOOLEAN_LITERAL, location, original) {
     override val preservesLength = false
+    override val estimatedCount = 1
 
     override fun applyMutation(random: Random): String {
         return when (original) {
@@ -265,6 +338,7 @@ class CharLiteral(
     original: String
 ) : Mutation(Type.CHAR_LITERAL, location, original) {
     override val preservesLength = true
+    override val estimatedCount = ALPHANUMERIC_CHARS.size - 1
 
     private val character = original.removeSurrounding("'").also {
         check(it.length == 1) { "Character didn't have the correct length: $original" }
@@ -280,8 +354,8 @@ val ALPHANUMERIC_CHARS_AND_SPACE = (('a'..'z') + ('A'..'Z') + ('0'..'9') + (' ')
 
 class StringLiteral(location: Location, original: String) : Mutation(Type.STRING_LITERAL, location, original) {
     override val preservesLength = true
-
     private val string = original.removeSurrounding("\"")
+    override val estimatedCount = ALPHANUMERIC_CHARS_AND_SPACE.size.toDouble().pow(string.length).toInt() - 1
 
     @Suppress("NestedBlockDepth")
     override fun applyMutation(random: Random): String {
@@ -321,6 +395,7 @@ class NumberLiteral(
         .map { it.first }.also {
             check(it.isNotEmpty()) { "No numeric characters in numeric literal" }
         }
+    override val estimatedCount = numberPositions.size
 
     override fun applyMutation(random: Random): String {
         val position = numberPositions.shuffled(random).first()
@@ -344,6 +419,7 @@ class IncrementDecrement(
     original: String
 ) : Mutation(Type.INCREMENT_DECREMENT, location, original) {
     override val preservesLength = true
+    override val estimatedCount = 1
 
     override fun applyMutation(random: Random): String {
         return when (original) {
@@ -366,6 +442,7 @@ class InvertNegation(
     original: String
 ) : Mutation(Type.INVERT_NEGATION, location, original) {
     override val preservesLength = false
+    override val estimatedCount = 1
 
     override fun applyMutation(random: Random): String = ""
 
@@ -379,6 +456,7 @@ class MutateMath(
     original: String
 ) : Mutation(Type.MATH, location, original) {
     override val preservesLength = false
+    override val estimatedCount = 1
 
     override fun applyMutation(random: Random): String = when (original) {
         SUBTRACT -> ADD
@@ -429,6 +507,7 @@ class ConditionalBoundary(
     original: String
 ) : Mutation(Type.CONDITIONAL_BOUNDARY, location, original) {
     override val preservesLength = false
+    override val estimatedCount = 1
 
     override fun applyMutation(random: Random): String {
         return when (original) {
@@ -455,6 +534,7 @@ class NegateConditional(
     original: String
 ) : Mutation(Type.NEGATE_CONDITIONAL, location, original) {
     override val preservesLength = false
+    override val estimatedCount = 1
 
     override fun applyMutation(random: Random): String {
         return when (original) {
@@ -487,6 +567,7 @@ class PrimitiveReturn(
     original: String
 ) : Mutation(Type.PRIMITIVE_RETURN, location, original) {
     override val preservesLength = false
+    override val estimatedCount = 1
 
     override fun applyMutation(random: Random): String = "0"
 
@@ -502,6 +583,7 @@ class TrueReturn(
     original: String
 ) : Mutation(Type.TRUE_RETURN, location, original) {
     override val preservesLength = false
+    override val estimatedCount = 1
 
     override fun applyMutation(random: Random): String = "true"
 
@@ -516,6 +598,7 @@ class FalseReturn(
     original: String
 ) : Mutation(Type.FALSE_RETURN, location, original) {
     override val preservesLength = false
+    override val estimatedCount = 1
 
     override fun applyMutation(random: Random): String = "false"
 
@@ -530,6 +613,7 @@ class NullReturn(
     original: String
 ) : Mutation(Type.NULL_RETURN, location, original) {
     override val preservesLength = false
+    override val estimatedCount = 1
 
     override fun applyMutation(random: Random): String = "null"
 
@@ -543,9 +627,80 @@ class RemoveAssert(
     location: Location,
     original: String
 ) : Mutation(Type.REMOVE_ASSERT, location, original) {
-    override val preservesLength = true
+    override val preservesLength = false
+    override val estimatedCount = 1
 
     override fun applyMutation(random: Random): String = ""
+}
+
+class RemoveMethod(
+    location: Location,
+    original: String,
+    private val returnType: String
+) : Mutation(Type.REMOVE_METHOD, location, original) {
+    override val preservesLength = false
+    override val estimatedCount = 1
+
+    private val prefix = getPrefix(original)
+    private val postfix = getPostfix(original)
+
+    override fun applyMutation(random: Random) = forReturnType(returnType).let {
+        "$prefix$it;$postfix"
+    }
+
+    companion object {
+        @Suppress("DEPRECATION")
+        private fun forReturnType(returnType: String) = when (returnType) {
+            "String" -> "return \"\""
+            returnType.capitalize() -> "return null"
+            "void" -> "return"
+            "byte" -> "return 0"
+            "short" -> "return 0"
+            "int" -> "return 0"
+            "long" -> "return 0L"
+            "char" -> "return '0'"
+            "boolean" -> "return false"
+            "float" -> "return 0.0f"
+            "double" -> "return 0.0"
+            else -> error("Bad return type: $returnType")
+        }
+
+        private fun getPrefix(content: String): String {
+            var prefix = ""
+            var seenBrace = false
+            for (char in content.toCharArray()) {
+                if (seenBrace && !char.isWhitespace()) {
+                    break
+                }
+                if (char == '{') {
+                    seenBrace = true
+                }
+                prefix += char
+            }
+            return prefix
+        }
+
+        private fun getPostfix(content: String): String {
+            var postfix = ""
+            var seenBrace = false
+            for (char in content.toCharArray().reversed()) {
+                if (seenBrace && !char.isWhitespace()) {
+                    break
+                }
+                if (char == '}') {
+                    seenBrace = true
+                }
+                postfix += char
+            }
+            return postfix.reversed()
+        }
+
+        fun matches(contents: String, returnType: String) = contents.removePrefix(getPrefix(contents)).let {
+            it.removeSuffix(getPostfix(it))
+        }.let {
+            it.isNotBlank() && it.trim().removeSuffix(";").trim() != forReturnType(returnType)
+        }
+    }
 }
 
 fun Source.ParsedSource.contents(location: Mutation.Location): String =
@@ -588,7 +743,7 @@ class Mutater(
     private val originalSource: Source,
     shuffle: Boolean,
     seed: Int,
-    types: Set<Mutation.Type> = Mutation.Type.values().toSet()
+    types: Set<Mutation.Type>
 ) {
 
     init {
@@ -656,7 +811,9 @@ class Mutater(
     }
 }
 
-fun Source.mutater(shuffle: Boolean = true, seed: Int = Random.nextInt()) = Mutater(this, shuffle, seed)
+fun Source.mutater(shuffle: Boolean = true, seed: Int = Random.nextInt(), types: Set<Mutation.Type> = ALL) =
+    Mutater(this, shuffle, seed, types = types)
+
 fun Source.mutate(
     shuffle: Boolean = true,
     seed: Int = Random.nextInt(),
@@ -668,18 +825,19 @@ fun Source.mutate(
 fun Source.allMutations(
     suppressWithComments: Boolean = true,
     random: Random = Random,
-    types: Set<Mutation.Type> = Mutation.Type.values().toSet(),
+    types: Set<Mutation.Type> = ALL,
     removeBlank: Boolean = true
 ): List<MutatedSource> {
     check(type == Source.FileType.JAVA) { "Can only mutate Java sources" }
     val mutations = sources.keys.map { name ->
-        Mutation.find<Mutation>(getParsed(name))
-            .map { mutation -> SourceMutation(name, mutation) }
+        Mutation.find<Mutation>(getParsed(name)).map { mutation -> SourceMutation(name, mutation) }
     }.flatten()
         .filter { types.contains(it.mutation.type) }
         .filter {
-            !suppressWithComments || it.mutation.location.line.split("""//""").let { parts ->
-                parts.size <= 1 || !parts[1].contains("mutate-disable")
+            !suppressWithComments || it.mutation.location.line.lines().none { line ->
+                line.split("""//""").let { parts ->
+                    parts.size > 1 && parts[1].contains("mutate-disable")
+                }
             }
         }
 
@@ -694,5 +852,64 @@ fun Source.allMutations(
             modifiedSources.removeNewBlank(blankMap)
         }
         MutatedSource(Sources(modifiedSources), sources, listOf(sourceMutation), 1, mutations.size - 1)
+    }
+}
+
+fun Source.mutationStream(
+    suppressWithComments: Boolean = true,
+    random: Random = Random,
+    types: Set<Mutation.Type> = ALL,
+    removeBlank: Boolean = true,
+    retryCount: Int = 32
+) = sequence {
+    check(type == Source.FileType.JAVA) { "Can only mutate Java sources" }
+    val mutations = sources.keys.asSequence().map { name ->
+        Mutation.find<Mutation>(getParsed(name)).map { mutation -> SourceMutation(name, mutation) }
+    }.flatten()
+        .filter { types.contains(it.mutation.type) }
+        .filter {
+            !suppressWithComments || it.mutation.location.line.lines().none { line ->
+                line.split("""//""").let { parts ->
+                    parts.size > 1 && parts[1].contains("mutate-disable")
+                }
+            }
+        }.toMutableList()
+
+    val seen = mutableSetOf<String>()
+    var retries = 0
+    val remaining = mutableMapOf<SourceMutation, Int>()
+    @Suppress("LoopWithTooManyJumpStatements")
+    while (true) {
+        val mutation = mutations.shuffled(random).first()
+        if (mutation !in remaining) {
+            remaining[mutation] = mutation.mutation.estimatedCount
+        }
+        mutation.mutation.reset()
+        val modifiedSources = sources.copy().toMutableMap()
+        val blankMap = modifiedSources.blankMap()
+        val original = modifiedSources[mutation.name] ?: error("Couldn't find a source that should be there")
+        val modified = mutation.mutation.apply(original, random)
+        check(original != modified) { "Mutation did not change source" }
+        modifiedSources[mutation.name] = modified
+        if (removeBlank) {
+            modifiedSources.removeNewBlank(blankMap)
+        }
+        val source = MutatedSource(Sources(modifiedSources), sources, listOf(mutation), 1, mutations.size - 1)
+        if (source.md5 !in seen) {
+            retries = 0
+            seen += source.md5
+            yield(source)
+            remaining[mutation] = remaining[mutation]!! - 1
+            if (remaining[mutation] == 0) {
+                mutations.remove(mutation)
+                if (mutations.isEmpty()) {
+                    return@sequence
+                }
+            }
+        } else {
+            if (retries++ >= retryCount) {
+                return@sequence
+            }
+        }
     }
 }

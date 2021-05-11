@@ -291,6 +291,42 @@ public class Example {
             mutations[1].check(contents, """assert second >= 0 : "Bad second value";""", "")
         }
     }
+    "it should remove entire methods" {
+        Source.fromJava(
+            """
+public class Example {
+  public static int test(int first, int second) {
+    if (first > second) {
+      return first;
+    } else {
+      return second;
+    }
+  }
+}"""
+        ).checkMutations<RemoveMethod> { mutations, _ ->
+            mutations shouldHaveSize 1
+        }
+    }
+    "it should not remove entire methods if they are already blank" {
+        Source.fromJava(
+            """
+public class Example {
+  public static void test(int first, int second) {
+  }
+  public static void test2(int first, int second) { }
+  public static void test3(int first, int second) {
+  
+  
+    }
+  public static void test4(int first, int second) { return; }
+  public static void test4(int first, int second) {
+return ;
+}
+}"""
+        ).checkMutations<RemoveMethod> { mutations, _ ->
+            mutations shouldHaveSize 0
+        }
+    }
     "it should remove blank lines correctly" {
         val source = Source.fromJava(
             """
@@ -331,7 +367,7 @@ public class Example {
   }
 }"""
         ).also { source ->
-            source.mutater().also { mutater ->
+            source.mutater(types = ALL - setOf(Mutation.Type.REMOVE_METHOD)).also { mutater ->
                 mutater.appliedMutations shouldHaveSize 0
                 val modifiedSource = mutater.apply().contents
                 source.contents shouldNotBe modifiedSource
@@ -349,7 +385,7 @@ public class Example {
                 source.contents shouldNotBe mutatedSource.contents
                 mutatedSource.unappliedMutations shouldBe 0
             }
-            source.allMutations().also { mutatedSources ->
+            source.allMutations(types = ALL - setOf(Mutation.Type.REMOVE_METHOD)).also { mutatedSources ->
                 mutatedSources shouldHaveSize 2
                 mutatedSources.map { it.contents }.toSet() shouldHaveSize 2
             }
@@ -364,7 +400,7 @@ public class Example {
   }
 }"""
         ).also { source ->
-            source.mutater().also { mutater ->
+            source.mutater(types = ALL - setOf(Mutation.Type.REMOVE_METHOD)).also { mutater ->
                 mutater.size shouldBe 2
                 mutater.apply()
                 mutater.size shouldBe 0
@@ -381,14 +417,14 @@ public class Example {
   }
 }"""
         ).also { source ->
-            source.mutater(shuffle = false).also { mutater ->
+            source.mutater(shuffle = false, types = ALL - setOf(Mutation.Type.REMOVE_METHOD)).also { mutater ->
                 mutater.size shouldBe 3
                 mutater.apply()
                 mutater.size shouldBe 2
                 mutater.apply()
                 mutater.size shouldBe 0
             }
-            source.allMutations().also { mutations ->
+            source.allMutations(types = ALL - setOf(Mutation.Type.REMOVE_METHOD)).also { mutations ->
                 mutations shouldHaveSize 3
                 mutations.map { it.contents }.toSet() shouldHaveSize 3
             }
@@ -426,6 +462,33 @@ public class Example {
 }"""
         ).also { source ->
             source.allMutations()
+        }
+    }
+    "it should apply stream mutations" {
+        Source.fromJava(
+            """
+public class Example {
+  String testStream() {
+    String test = "foobarfoobarfoobarfoobar";
+    return test;
+  }
+}"""
+        ).also { source ->
+            source.mutationStream().take(1024).toList().size shouldBe 1024
+        }
+    }
+    "it should end stream mutations when out of things to mutate" {
+        Source.fromJava(
+            """
+public class Example {
+  int testStream() {
+    int i = 0;
+    i++;
+    return i;
+  }
+}"""
+        ).also { source ->
+            source.mutationStream().take(1024).toList().size shouldBe 4
         }
     }
     "it should not mutate annotations" {

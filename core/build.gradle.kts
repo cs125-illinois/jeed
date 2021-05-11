@@ -107,6 +107,9 @@ tasks.detekt {
 tasks.lintKotlinMain {
     dependsOn(tasks.generateGrammarSource)
 }
+tasks.formatKotlinMain {
+    dependsOn(tasks.generateGrammarSource)
+}
 publishing {
     publications {
         create<MavenPublication>("core") {
