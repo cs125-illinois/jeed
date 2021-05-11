@@ -424,7 +424,7 @@ class ComplexityResults(val source: Source, val results: Map<String, Map<String,
             if (source is Snippet) {
                 require(filename == "") { "filename cannot be set for snippet lookups" }
             }
-            val resultSource = results[filename] ?: error("results does not contain key $filename")
+            val resultSource = results[filename] ?: error("results does not contain filename \"$filename\"")
 
             var currentComplexity = if (source is Snippet) {
                 val rootComplexity = resultSource[""] ?: error("")
