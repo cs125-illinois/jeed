@@ -17,15 +17,6 @@ class TestKompile : StringSpec({
         compiledSource should haveDefinedExactlyTheseClasses(setOf("TestKt"))
         compiledSource should haveProvidedThisManyClasses(0)
     }
-    "should compile simple lists" {
-        val executionResult = Source.fromKotlin(
-            """
- val list = listOf<String>()
-        """.trim()
-        ).kompile().execute()
-
-        println(executionResult.sandboxedClassLoader!!.loadedClasses)
-    }
     "should compile simple classes" {
         val compiledSource = Source(
             mapOf(

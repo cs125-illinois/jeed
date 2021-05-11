@@ -1,5 +1,3 @@
-import org.jetbrains.kotlin.gradle.tasks.KotlinCompile
-
 plugins {
     kotlin("jvm") version "1.5.0" apply false
     kotlin("kapt") version "1.5.0" apply false
@@ -8,26 +6,16 @@ plugins {
     id("io.gitlab.arturbosch.detekt") version "1.16.0"
 }
 allprojects {
-    @Suppress("DEPRECATION")
     repositories {
         mavenCentral()
-        mavenLocal()
         maven("https://jitpack.io")
         maven("https://maven.google.com/")
-        jcenter()
+        maven("https://maven.pkg.jetbrains.space/public/p/kotlinx-html/maven")
     }
 }
 subprojects {
     group = "com.github.cs125-illinois.jeed"
     version = "2021.5.1"
-    tasks.withType<KotlinCompile> {
-        val javaVersion = JavaVersion.VERSION_1_8.toString()
-        sourceCompatibility = javaVersion
-        targetCompatibility = javaVersion
-        kotlinOptions {
-            jvmTarget = javaVersion
-        }
-    }
     tasks.withType<Test> {
         enableAssertions = true
     }
@@ -41,17 +29,11 @@ subprojects {
     }
 }
 tasks.dependencyUpdates {
-    resolutionStrategy {
-        componentSelection {
-            all {
-                if (listOf("alpha", "beta", "rc", "cr", "m", "preview", "b", "ea", "eap", "release").any { qualifier ->
-                        candidate.version.matches(Regex("(?i).*[.-]$qualifier[.\\d-+]*"))
-                    }) {
-                    reject("Release candidate")
-                }
-            }
-        }
-    }
+    fun String.isNonStable() = !(
+        listOf("RELEASE", "FINAL", "GA").any { toUpperCase().contains(it) }
+            || "^[0-9,.v-]+(-r)?$".toRegex().matches(this)
+        )
+    rejectVersionIf { candidate.version.isNonStable() }
     gradleReleaseChannel = "current"
 }
 detekt {
