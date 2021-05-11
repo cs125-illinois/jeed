@@ -7,7 +7,4 @@
 
 Jeed is a speedy Java and Kotlin in-memory compilation and execution toolkit.
 Jeed can rapidly compile Java and Kotlin code and safely execute the resulting bytecode in a secure sandbox.
-
-## Demo
-
-Visit the demo [here](https://cs125-illinois.github.io/jeed/).
+Jeed can also perform a wide and growing number of Java and Kotlin source code analysis tasks.
