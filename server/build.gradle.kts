@@ -29,7 +29,7 @@ dependencies {
     implementation("com.uchuhimo:konf-yaml:1.1.2")
     implementation("io.github.microutils:kotlin-logging:2.0.6")
     implementation("com.google.api-client:google-api-client:1.31.4")
-    implementation("com.github.cs125-illinois:libcs1:2021.5.1")
+    implementation("com.github.cs125-illinois:libcs1:2021.5.3")
 
     testImplementation("io.kotest:kotest-runner-junit5:4.5.0")
     testImplementation("io.kotest:kotest-assertions-ktor:4.4.3")
@@ -54,7 +54,7 @@ tasks.test {
     }
     systemProperties["logback.configurationFile"] = File(projectDir, "src/test/resources/logback-test.xml").absolutePath
     environment["MONGODB"] = "mongodb://root:w8t@localhost:27017/code_jeed?authSource=admin"
-    environment["SEMESTER"] = "Spring2020"
+    environment["SEMESTER"] = "Fall2021"
     environment["JEED_USE_CACHE"] = "true"
 }
 task("createProperties") {

@@ -15,7 +15,7 @@ allprojects {
 }
 subprojects {
     group = "com.github.cs125-illinois.jeed"
-    version = "2021.5.1"
+    version = "2021.5.2"
     tasks.withType<Test> {
         enableAssertions = true
     }
