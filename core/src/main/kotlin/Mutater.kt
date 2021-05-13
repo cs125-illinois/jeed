@@ -31,7 +31,8 @@ val PITEST = setOf(
 )
 val OTHER = setOf(
     Mutation.Type.REMOVE_ASSERT,
-    Mutation.Type.REMOVE_METHOD
+    Mutation.Type.REMOVE_METHOD,
+    Mutation.Type.NEGATE_IF
 )
 val ALL = PITEST + OTHER
 
@@ -76,7 +77,8 @@ sealed class Mutation(val type: Type, var location: Location, val original: Stri
         CONDITIONAL_BOUNDARY, NEGATE_CONDITIONAL,
         INCREMENT_DECREMENT, INVERT_NEGATION, MATH,
         PRIMITIVE_RETURN, TRUE_RETURN, FALSE_RETURN, NULL_RETURN,
-        REMOVE_ASSERT, REMOVE_METHOD
+        REMOVE_ASSERT, REMOVE_METHOD,
+        NEGATE_IF, NEGATE_WHILE
     }
 
     var modified: String? = null
@@ -302,6 +304,16 @@ sealed class Mutation(val type: Type, var location: Location, val original: Stri
                     } ?: error("Should have recorded a return type at this point")
                 }
             }
+            ctx.IF()?.also {
+                ctx.parExpression().toLocation().also { location ->
+                    mutations.add(NegateIf(location, parsedSource.contents(location)))
+                }
+            }
+            ctx.WHILE()?.also {
+                ctx.parExpression().toLocation().also { location ->
+                    mutations.add(NegateWhile(location, parsedSource.contents(location)))
+                }
+            }
         }
 
         init {
@@ -395,15 +407,25 @@ class NumberLiteral(
         .map { it.first }.also {
             check(it.isNotEmpty()) { "No numeric characters in numeric literal" }
         }
-    override val estimatedCount = numberPositions.size
+    override val estimatedCount = numberPositions.size * 2
 
     override fun applyMutation(random: Random): String {
         val position = numberPositions.shuffled(random).first()
         return original.toCharArray().also { characters ->
-            val randomValue = Math.floorMod((characters[position].toString().toInt() + 1), base).let {
+            val direction = random.nextBoolean()
+            val randomValue = if (direction) {
+                Math.floorMod(characters[position].toString().toInt() + 1, base)
+            } else {
+                Math.floorMod(characters[position].toString().toInt() - 1 + base, base)
+            }.let {
+                @Suppress("MagicNumber")
                 // Avoid adding leading zeros
                 if (position == 0 && it == 0) {
-                    1
+                    if (direction) {
+                        1
+                    } else {
+                        9
+                    }
                 } else {
                     it
                 }
@@ -619,7 +641,8 @@ class NullReturn(
 
     companion object {
         @Suppress("DEPRECATION")
-        fun matches(contents: String, returnType: String) = contents != "null" && returnType == returnType.capitalize()
+        fun matches(contents: String, returnType: String) = contents != "null" &&
+            (returnType == returnType.capitalize() || returnType.endsWith("[]"))
     }
 }
 
@@ -650,18 +673,18 @@ class RemoveMethod(
 
     companion object {
         @Suppress("DEPRECATION")
-        private fun forReturnType(returnType: String) = when (returnType) {
-            "String" -> "return \"\""
-            returnType.capitalize() -> "return null"
-            "void" -> "return"
-            "byte" -> "return 0"
-            "short" -> "return 0"
-            "int" -> "return 0"
-            "long" -> "return 0L"
-            "char" -> "return '0'"
-            "boolean" -> "return false"
-            "float" -> "return 0.0f"
-            "double" -> "return 0.0"
+        private fun forReturnType(returnType: String) = when {
+            returnType == "String" -> "return \"\""
+            returnType == returnType.capitalize() || returnType.endsWith("[]") -> "return null"
+            returnType == "void" -> "return"
+            returnType == "byte" -> "return 0"
+            returnType == "short" -> "return 0"
+            returnType == "int" -> "return 0"
+            returnType == "long" -> "return 0L"
+            returnType == "char" -> "return '0'"
+            returnType == "boolean" -> "return false"
+            returnType == "float" -> "return 0.0f"
+            returnType == "double" -> "return 0.0"
             else -> error("Bad return type: $returnType")
         }
 
@@ -701,6 +724,18 @@ class RemoveMethod(
             it.isNotBlank() && it.trim().removeSuffix(";").trim() != forReturnType(returnType)
         }
     }
+}
+
+class NegateIf(location: Location, original: String) : Mutation(Type.NEGATE_IF, location, original) {
+    override val preservesLength = false
+    override val estimatedCount = 1
+    override fun applyMutation(random: Random) = "(!$original)"
+}
+
+class NegateWhile(location: Location, original: String) : Mutation(Type.NEGATE_WHILE, location, original) {
+    override val preservesLength = false
+    override val estimatedCount = 1
+    override fun applyMutation(random: Random) = "(!$original)"
 }
 
 fun Source.ParsedSource.contents(location: Mutation.Location): String =
@@ -822,6 +857,16 @@ fun Source.mutate(
 ) =
     Mutater(this, shuffle, seed, types).mutate(limit)
 
+fun SourceMutation.suppressed() = mutation.location.line.lines().any { line ->
+    val suppressionComment = "mutate-disable-" + mutation.type.name.lowercase().replace("_", "-")
+    line.split("""//""").let { parts ->
+        parts.size == 2 && (
+            parts[1].split(" ").contains("mutate-disable") ||
+                parts[1].split(" ").contains(suppressionComment)
+            )
+    }
+}
+
 fun Source.allMutations(
     suppressWithComments: Boolean = true,
     random: Random = Random,
@@ -833,13 +878,7 @@ fun Source.allMutations(
         Mutation.find<Mutation>(getParsed(name)).map { mutation -> SourceMutation(name, mutation) }
     }.flatten()
         .filter { types.contains(it.mutation.type) }
-        .filter {
-            !suppressWithComments || it.mutation.location.line.lines().none { line ->
-                line.split("""//""").let { parts ->
-                    parts.size > 1 && parts[1].contains("mutate-disable")
-                }
-            }
-        }
+        .filter { !suppressWithComments || !it.suppressed() }
 
     return mutations.map { sourceMutation ->
         val modifiedSources = sources.copy().toMutableMap()
@@ -867,13 +906,8 @@ fun Source.mutationStream(
         Mutation.find<Mutation>(getParsed(name)).map { mutation -> SourceMutation(name, mutation) }
     }.flatten()
         .filter { types.contains(it.mutation.type) }
-        .filter {
-            !suppressWithComments || it.mutation.location.line.lines().none { line ->
-                line.split("""//""").let { parts ->
-                    parts.size > 1 && parts[1].contains("mutate-disable")
-                }
-            }
-        }.toMutableList()
+        .filter { !suppressWithComments || !it.suppressed() }
+        .toMutableList()
 
     val seen = mutableSetOf<String>()
     var retries = 0

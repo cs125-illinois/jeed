@@ -9,6 +9,7 @@ import io.kotest.matchers.should
 import io.kotest.matchers.shouldBe
 import io.kotest.matchers.shouldNot
 import io.kotest.matchers.shouldNotBe
+import java.nio.charset.Charset
 
 class TestExecute : StringSpec({
     "should execute snippets" {
@@ -538,13 +539,16 @@ public class Main {
         }
     }
     "should print unicode" {
-        val executeMainResult = Source.fromSnippet(
-            """
+        val charset = Charset.defaultCharset()
+        if (charset == Charsets.UTF_8 || charset == Charsets.UTF_16) {
+            val executeMainResult = Source.fromSnippet(
+                """
 System.out.println("➡️👤 are ❌️ alone");
             """.trim()
-        ).compile().execute()
-        executeMainResult should haveCompleted()
-        executeMainResult should haveOutput("""➡️👤 are ❌️ alone""")
+            ).compile().execute()
+            executeMainResult should haveCompleted()
+            executeMainResult should haveOutput("""➡️👤 are ❌️ alone""")
+        }
     }
     "should not fail on locales" {
         val executeMainResult = Source.fromSnippet(

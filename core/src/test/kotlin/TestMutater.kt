@@ -270,10 +270,14 @@ public class Example {
   public static Object fourth() {
     return new Object();
   }
+  public static int[] fifth() {
+    return new int[] {};
+  }
 }"""
         ).checkMutations<NullReturn> { mutations, contents ->
-            mutations shouldHaveSize 1
+            mutations shouldHaveSize 2
             mutations[0].check(contents, "new Object()", "null")
+            mutations[1].check(contents, "new int[] {}", "null")
         }
     }
     "it should find asserts to mutate" {
@@ -302,9 +306,12 @@ public class Example {
       return second;
     }
   }
+  public static long[] test(int first, int second) {
+    return new long[] {1L, 2L, 4L};
+  }
 }"""
         ).checkMutations<RemoveMethod> { mutations, _ ->
-            mutations shouldHaveSize 1
+            mutations shouldHaveSize 2
         }
     }
     "it should not remove entire methods if they are already blank" {
@@ -325,6 +332,39 @@ return ;
 }"""
         ).checkMutations<RemoveMethod> { mutations, _ ->
             mutations shouldHaveSize 0
+        }
+    }
+    "it should negate if statements" {
+        Source.fromJava(
+            """
+public class Example {
+  public static int test(int first, int second) {
+    if (first > second) {
+      return first;
+    } else {
+      return second;
+    }
+  }
+}"""
+        ).checkMutations<NegateIf> { mutations, contents ->
+            mutations shouldHaveSize 1
+            mutations[0].check(contents, "(first > second)", "(!(first > second))")
+        }
+    }
+    "it should negate while statements" {
+        Source.fromJava(
+            """
+public class Example {
+  public static int test(int first) {
+    int i = 0;
+    while (i < first) {
+      i++;
+    }
+  }
+}"""
+        ).checkMutations<NegateWhile> { mutations, contents ->
+            mutations shouldHaveSize 1
+            mutations[0].check(contents, "(i < first)", "(!(i < first))")
         }
     }
     "it should remove blank lines correctly" {
@@ -355,6 +395,22 @@ public class Example {
 }"""
         ).allMutations().also { mutations ->
             mutations shouldHaveSize 0
+        }
+    }
+    "it should ignore specific suppressed mutations" {
+        Source.fromJava(
+            """
+public class Example {
+  public static int fourth(int first, int second) {
+    if (first > second) { // mutate-disable-conditional-boundary
+      return first;
+    } else {
+      return second;
+    }
+  }
+}"""
+        ).allMutations().also { mutations ->
+            mutations shouldHaveSize 5
         }
     }
     "it should apply multiple mutations" {
@@ -488,7 +544,7 @@ public class Example {
   }
 }"""
         ).also { source ->
-            source.mutationStream().take(1024).toList().size shouldBe 4
+            source.mutationStream().take(1024).toList().size shouldBe 5
         }
     }
     "it should not mutate annotations" {

@@ -17,7 +17,10 @@ subprojects {
     group = "com.github.cs125-illinois.jeed"
     version = "2021.5.4"
     tasks.withType<Test> {
+        useJUnitPlatform()
         enableAssertions = true
+        // Try to fix encoding bug on Windows
+        jvmArgs("-Dfile.encoding=UTF-8")
     }
     configurations.all {
         resolutionStrategy {

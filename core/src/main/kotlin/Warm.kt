@@ -4,6 +4,8 @@ import java.util.concurrent.TimeUnit
 
 private const val COROUTINE_INIT_TIMEOUT = 10000L
 
+val isWindows = System.getProperty("os.name").lowercase().startsWith("windows")
+
 @Suppress("BlockingMethodInNonBlockingContext", "MagicNumber")
 suspend fun warm(indent: Int = 4) {
     logger.info(
@@ -35,10 +37,12 @@ suspend fun warm(indent: Int = 4) {
             SnippetArguments(indent = indent, fileType = Source.FileType.KOTLIN)
         ).kompile().execute(SourceExecutionArguments(waitForShutdown = true, timeout = COROUTINE_INIT_TIMEOUT)).output
     )
-    logger.info(
-        ProcessBuilder(listOf("/bin/sh", "-c", "docker pull ${ContainerExecutionArguments.DEFAULT_IMAGE}"))
-            .start().also {
-                it.waitFor(60, TimeUnit.SECONDS)
-            }.inputStream.bufferedReader().readText()
-    )
+    if (!isWindows) {
+        logger.info(
+            ProcessBuilder(listOf("/bin/sh", "-c", "docker pull ${ContainerExecutionArguments.DEFAULT_IMAGE}"))
+                .start().also {
+                    it.waitFor(60, TimeUnit.SECONDS)
+                }.inputStream.bufferedReader().readText()
+        )
+    }
 }
