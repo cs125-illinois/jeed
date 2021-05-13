@@ -367,6 +367,59 @@ public class Example {
             mutations[0].check(contents, "(i < first)", "(!(i < first))")
         }
     }
+    "it should remove if statements" {
+        Source.fromJava(
+            """
+public class Example {
+  public static int test(int first) {
+    if (first > 0) {
+      System.out.println(1);
+    }
+    if (first > 0) {
+      System.out.println(2);
+    } else {
+      System.out.println(3);
+    }
+    if (first > 0) {
+      System.out.println(4);
+    } else if (first < 0) {
+      System.out.println(5);
+    } else if (first == 0) {
+      System.out.println(6);
+    } else {
+      if (first < 0) {
+        System.out.println(7);
+      }
+      System.out.println(7);
+    }
+  }
+}"""
+        ).checkMutations<RemoveIf> { mutations, contents ->
+            mutations shouldHaveSize 8
+            mutations[0].check(
+                contents,
+                """if (first > 0) {
+      System.out.println(1);
+    }""",
+                ""
+            )
+        }
+    }
+    "it should flip and and or" {
+        Source.fromJava(
+            """
+public class Example {
+  public static int test(int first) {
+    if (first > 0 && first < 0) {
+      System.out.println(1);
+    }
+  }
+}"""
+        ).checkMutations<AndOr> { mutations, contents ->
+            mutations shouldHaveSize 1
+            mutations[0].check(contents, "&&", "||")
+        }
+    }
     "it should remove blank lines correctly" {
         val source = Source.fromJava(
             """
@@ -410,7 +463,7 @@ public class Example {
   }
 }"""
         ).allMutations().also { mutations ->
-            mutations shouldHaveSize 5
+            mutations shouldHaveSize 7
         }
     }
     "it should apply multiple mutations" {

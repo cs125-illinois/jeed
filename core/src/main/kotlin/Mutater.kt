@@ -32,7 +32,8 @@ val PITEST = setOf(
 val OTHER = setOf(
     Mutation.Type.REMOVE_ASSERT,
     Mutation.Type.REMOVE_METHOD,
-    Mutation.Type.NEGATE_IF
+    Mutation.Type.NEGATE_IF,
+    Mutation.Type.REMOVE_IF
 )
 val ALL = PITEST + OTHER
 
@@ -74,11 +75,11 @@ sealed class Mutation(val type: Type, var location: Location, val original: Stri
 
     enum class Type {
         BOOLEAN_LITERAL, CHAR_LITERAL, STRING_LITERAL, NUMBER_LITERAL,
-        CONDITIONAL_BOUNDARY, NEGATE_CONDITIONAL,
+        CONDITIONAL_BOUNDARY, NEGATE_CONDITIONAL, AND_OR,
         INCREMENT_DECREMENT, INVERT_NEGATION, MATH,
         PRIMITIVE_RETURN, TRUE_RETURN, FALSE_RETURN, NULL_RETURN,
         REMOVE_ASSERT, REMOVE_METHOD,
-        NEGATE_IF, NEGATE_WHILE
+        NEGATE_IF, NEGATE_WHILE, REMOVE_IF
     }
 
     var modified: String? = null
@@ -276,10 +277,68 @@ sealed class Mutation(val type: Type, var location: Location, val original: Stri
                 if (MutateMath.matches(contents)) {
                     mutations.add(MutateMath(location, contents))
                 }
+                if (AndOr.matches(contents)) {
+                    mutations.add(AndOr(location, contents))
+                }
             }
         }
 
+        private val seenIfStarts = mutableSetOf<Int>()
+
         override fun enterStatement(ctx: JavaParser.StatementContext) {
+            ctx.IF()?.also {
+                val outerLocation = ctx.toLocation()
+                if (outerLocation.start !in seenIfStarts) {
+                    // Add entire if
+                    mutations.add(RemoveIf(outerLocation, parsedSource.contents(outerLocation)))
+                    seenIfStarts += outerLocation.start
+                    check(ctx.statement().isNotEmpty())
+                    if (ctx.statement().size == 2 && ctx.statement(1).block() != null) {
+                        // Add else branch (2)
+                        check(ctx.ELSE() != null)
+                        val start = ctx.ELSE().symbol
+                        val end = ctx.statement(1).block().stop
+                        val elseLocation =
+                            Location(
+                                start.startIndex,
+                                end.stopIndex,
+                                currentPath,
+                                lines.filterIndexed { index, _ -> index >= start.line - 1 && index <= end.line - 1 }
+                                    .joinToString("\n")
+                            )
+                        mutations.add(RemoveIf(elseLocation, parsedSource.contents(elseLocation)))
+                    } else if (ctx.statement().size >= 2) {
+                        var statement = ctx.statement(1)
+                        var previousMarker = ctx.ELSE()
+                        check(previousMarker != null)
+                        while (statement != null) {
+                            if (statement.IF() != null) {
+                                seenIfStarts += statement.toLocation().start
+                            }
+                            val end = statement.statement(0) ?: statement.block()
+                            val currentLocation =
+                                Location(
+                                    previousMarker.symbol.startIndex,
+                                    end.stop.stopIndex,
+                                    currentPath,
+                                    lines
+                                        .filterIndexed { index, _ ->
+                                            index >= previousMarker.symbol.line - 1 && index <= end.stop.line - 1
+                                        }
+                                        .joinToString("\n")
+                                )
+                            mutations.add(RemoveIf(currentLocation, parsedSource.contents(currentLocation)))
+                            previousMarker = statement.ELSE()
+                            statement = statement.statement(1)
+                        }
+                    }
+                }
+            }
+            ctx.IF()?.also {
+                ctx.parExpression().toLocation().also { location ->
+                    mutations.add(NegateIf(location, parsedSource.contents(location)))
+                }
+            }
             ctx.ASSERT()?.also {
                 ctx.toLocation().also { location ->
                     mutations.add(RemoveAssert(location, parsedSource.contents(location)))
@@ -302,11 +361,6 @@ sealed class Mutation(val type: Type, var location: Location, val original: Stri
                             mutations.add(NullReturn(location, parsedSource.contents(location)))
                         }
                     } ?: error("Should have recorded a return type at this point")
-                }
-            }
-            ctx.IF()?.also {
-                ctx.parExpression().toLocation().also { location ->
-                    mutations.add(NegateIf(location, parsedSource.contents(location)))
                 }
             }
             ctx.WHILE()?.also {
@@ -582,6 +636,26 @@ class NegateConditional(
     }
 }
 
+class AndOr(
+    location: Location,
+    original: String
+) : Mutation(Type.AND_OR, location, original) {
+    override val preservesLength = true
+    override val estimatedCount = 1
+
+    override fun applyMutation(random: Random): String {
+        return when (original) {
+            "&&" -> "||"
+            "||" -> "&&"
+            else -> error("${javaClass.name} didn't find the expected text")
+        }
+    }
+
+    companion object {
+        fun matches(contents: String) = contents in setOf("&&", "||")
+    }
+}
+
 private val primitiveTypes = setOf("byte", "short", "int", "long", "float", "double", "char", "boolean")
 
 class PrimitiveReturn(
@@ -736,6 +810,16 @@ class NegateWhile(location: Location, original: String) : Mutation(Type.NEGATE_W
     override val preservesLength = false
     override val estimatedCount = 1
     override fun applyMutation(random: Random) = "(!$original)"
+}
+
+class RemoveIf(
+    location: Location,
+    original: String
+) : Mutation(Type.REMOVE_IF, location, original) {
+    override val preservesLength = false
+    override val estimatedCount = 1
+
+    override fun applyMutation(random: Random): String = ""
 }
 
 fun Source.ParsedSource.contents(location: Mutation.Location): String =
