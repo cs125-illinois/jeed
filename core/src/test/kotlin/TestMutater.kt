@@ -420,6 +420,21 @@ public class Example {
             mutations[0].check(contents, "&&", "||")
         }
     }
+    "it should remove loops correctly" {
+        Source.fromJava(
+            """
+public class Example {
+  public static int test(int first) {
+    for (int i = 0; i < first; i++) { }
+    while (true) { }
+    for (int i : new int[] {1, 2, 4}) { }
+  }
+}"""
+        ).checkMutations<RemoveLoop> { mutations, contents ->
+            mutations shouldHaveSize 3
+            mutations[0].check(contents, "for (int i = 0; i < first; i++) { }", "")
+        }
+    }
     "it should remove blank lines correctly" {
         val source = Source.fromJava(
             """

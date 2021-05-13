@@ -33,7 +33,8 @@ val OTHER = setOf(
     Mutation.Type.REMOVE_ASSERT,
     Mutation.Type.REMOVE_METHOD,
     Mutation.Type.NEGATE_IF,
-    Mutation.Type.REMOVE_IF
+    Mutation.Type.REMOVE_IF,
+    Mutation.Type.REMOVE_LOOP
 )
 val ALL = PITEST + OTHER
 
@@ -79,7 +80,7 @@ sealed class Mutation(val type: Type, var location: Location, val original: Stri
         INCREMENT_DECREMENT, INVERT_NEGATION, MATH,
         PRIMITIVE_RETURN, TRUE_RETURN, FALSE_RETURN, NULL_RETURN,
         REMOVE_ASSERT, REMOVE_METHOD,
-        NEGATE_IF, NEGATE_WHILE, REMOVE_IF
+        NEGATE_IF, NEGATE_WHILE, REMOVE_IF, REMOVE_LOOP
     }
 
     var modified: String? = null
@@ -367,6 +368,10 @@ sealed class Mutation(val type: Type, var location: Location, val original: Stri
                 ctx.parExpression().toLocation().also { location ->
                     mutations.add(NegateWhile(location, parsedSource.contents(location)))
                 }
+                mutations.add(RemoveLoop(ctx.toLocation(), parsedSource.contents(ctx.toLocation())))
+            }
+            ctx.FOR()?.also {
+                mutations.add(RemoveLoop(ctx.toLocation(), parsedSource.contents(ctx.toLocation())))
             }
         }
 
@@ -816,6 +821,16 @@ class RemoveIf(
     location: Location,
     original: String
 ) : Mutation(Type.REMOVE_IF, location, original) {
+    override val preservesLength = false
+    override val estimatedCount = 1
+
+    override fun applyMutation(random: Random): String = ""
+}
+
+class RemoveLoop(
+    location: Location,
+    original: String
+) : Mutation(Type.REMOVE_LOOP, location, original) {
     override val preservesLength = false
     override val estimatedCount = 1
 

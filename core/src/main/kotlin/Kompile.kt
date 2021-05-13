@@ -136,7 +136,7 @@ private class JeedMessageCollector(val source: Source, val allWarningsAsErrors: 
             ?.let {
                 when {
                     source is Snippet -> SNIPPET_SOURCE
-                    it.path != KOTLIN_EMPTY_LOCATION -> it.path.removePrefix("/")
+                    it.path != KOTLIN_EMPTY_LOCATION -> it.path.removePrefix(System.getProperty("file.separator"))
                     else -> null
                 }
             }?.let { source.mapLocation(SourceLocation(it, location.line, location.column)) }
