@@ -415,7 +415,7 @@ public class Example {
     }
   }
 }"""
-        ).checkMutations<AndOr> { mutations, contents ->
+        ).checkMutations<SwapAndOr> { mutations, contents ->
             mutations shouldHaveSize 1
             mutations[0].check(contents, "&&", "||")
         }
@@ -433,6 +433,21 @@ public class Example {
         ).checkMutations<RemoveLoop> { mutations, contents ->
             mutations shouldHaveSize 3
             mutations[0].check(contents, "for (int i = 0; i < first; i++) { }", "")
+        }
+    }
+    "it should remove and-ors correctly" {
+        Source.fromJava(
+            """
+public class Example {
+  public static int test(int first) {
+    if (true && false) { }
+    if (false || true) { }
+  }
+}"""
+        ).checkMutations<RemoveAndOr> { mutations, contents ->
+            mutations shouldHaveSize 4
+            mutations[0].check(contents, "true && ", "")
+            mutations[1].check(contents, " && false", "")
         }
     }
     "it should remove blank lines correctly" {

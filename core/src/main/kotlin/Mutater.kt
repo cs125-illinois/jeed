@@ -21,6 +21,7 @@ val PITEST = setOf(
     Mutation.Type.NUMBER_LITERAL,
     Mutation.Type.CONDITIONAL_BOUNDARY,
     Mutation.Type.NEGATE_CONDITIONAL,
+    Mutation.Type.SWAP_AND_OR,
     Mutation.Type.INCREMENT_DECREMENT,
     Mutation.Type.INVERT_NEGATION,
     Mutation.Type.MATH,
@@ -34,7 +35,8 @@ val OTHER = setOf(
     Mutation.Type.REMOVE_METHOD,
     Mutation.Type.NEGATE_IF,
     Mutation.Type.REMOVE_IF,
-    Mutation.Type.REMOVE_LOOP
+    Mutation.Type.REMOVE_LOOP,
+    Mutation.Type.REMOVE_AND_OR
 )
 val ALL = PITEST + OTHER
 
@@ -76,11 +78,11 @@ sealed class Mutation(val type: Type, var location: Location, val original: Stri
 
     enum class Type {
         BOOLEAN_LITERAL, CHAR_LITERAL, STRING_LITERAL, NUMBER_LITERAL,
-        CONDITIONAL_BOUNDARY, NEGATE_CONDITIONAL, AND_OR,
+        CONDITIONAL_BOUNDARY, NEGATE_CONDITIONAL, SWAP_AND_OR,
         INCREMENT_DECREMENT, INVERT_NEGATION, MATH,
         PRIMITIVE_RETURN, TRUE_RETURN, FALSE_RETURN, NULL_RETURN,
         REMOVE_ASSERT, REMOVE_METHOD,
-        NEGATE_IF, NEGATE_WHILE, REMOVE_IF, REMOVE_LOOP
+        NEGATE_IF, NEGATE_WHILE, REMOVE_IF, REMOVE_LOOP, REMOVE_AND_OR
     }
 
     var modified: String? = null
@@ -278,8 +280,36 @@ sealed class Mutation(val type: Type, var location: Location, val original: Stri
                 if (MutateMath.matches(contents)) {
                     mutations.add(MutateMath(location, contents))
                 }
-                if (AndOr.matches(contents)) {
-                    mutations.add(AndOr(location, contents))
+                if (SwapAndOr.matches(contents)) {
+                    mutations.add(SwapAndOr(location, contents))
+                }
+                @Suppress("ComplexCondition")
+                if (contents == "&&" || contents == "||") {
+                    check(ctx.expression().size == 2)
+                    val front = ctx.expression(0)
+                    val back = ctx.expression(1)
+                    val frontLocation = Location(
+                        front.start.startIndex,
+                        back.start.startIndex - 1,
+                        currentPath,
+                        lines
+                            .filterIndexed { index, _ ->
+                                index >= front.start.line - 1 && index <= back.start.line - 1
+                            }
+                            .joinToString("\n")
+                    )
+                    val backLocation = Location(
+                        front.stop.stopIndex + 1,
+                        back.stop.stopIndex,
+                        currentPath,
+                        lines
+                            .filterIndexed { index, _ ->
+                                index >= front.stop.line - 1 && index <= back.stop.line - 1
+                            }
+                            .joinToString("\n")
+                    )
+                    mutations.add(RemoveAndOr(frontLocation, parsedSource.contents(frontLocation)))
+                    mutations.add(RemoveAndOr(backLocation, parsedSource.contents(backLocation)))
                 }
             }
         }
@@ -641,10 +671,10 @@ class NegateConditional(
     }
 }
 
-class AndOr(
+class SwapAndOr(
     location: Location,
     original: String
-) : Mutation(Type.AND_OR, location, original) {
+) : Mutation(Type.SWAP_AND_OR, location, original) {
     override val preservesLength = true
     override val estimatedCount = 1
 
@@ -831,6 +861,16 @@ class RemoveLoop(
     location: Location,
     original: String
 ) : Mutation(Type.REMOVE_LOOP, location, original) {
+    override val preservesLength = false
+    override val estimatedCount = 1
+
+    override fun applyMutation(random: Random): String = ""
+}
+
+class RemoveAndOr(
+    location: Location,
+    original: String
+) : Mutation(Type.REMOVE_AND_OR, location, original) {
     override val preservesLength = false
     override val estimatedCount = 1
 
