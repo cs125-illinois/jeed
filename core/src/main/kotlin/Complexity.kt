@@ -379,11 +379,21 @@ private class ComplexityListener(val source: Source, entry: Map.Entry<String, St
         }
     }
 
-    // Each switch label represents one new path
+    // Each switch label that is not default represents one new path
     override fun enterSwitchLabel(ctx: JavaParser.SwitchLabelContext) {
         assert(complexityStack.isNotEmpty())
         val currentMethod = complexityStack[0] as MethodComplexity
-        currentMethod.complexity++
+        if (ctx.DEFAULT() == null) {
+            currentMethod.complexity++
+        }
+    }
+
+    override fun enterSwitchExpressionLabel(ctx: JavaParser.SwitchExpressionLabelContext) {
+        assert(complexityStack.isNotEmpty())
+        val currentMethod = complexityStack[0] as MethodComplexity
+        if (ctx.DEFAULT() == null) {
+            currentMethod.complexity++
+        }
     }
 
     // Each throws clause in the method declaration indicates one new path
@@ -398,15 +408,6 @@ private class ComplexityListener(val source: Source, entry: Map.Entry<String, St
         assert(complexityStack.isNotEmpty())
         val currentMethod = complexityStack[0] as MethodComplexity
         currentMethod.complexity++
-    }
-
-    private var insideSwitch = false
-    override fun enterSwitchBlockStatementGroup(ctx: JavaParser.SwitchBlockStatementGroupContext) {
-        insideSwitch = true
-    }
-
-    override fun exitSwitchBlockStatementGroup(ctx: JavaParser.SwitchBlockStatementGroupContext) {
-        insideSwitch = false
     }
 
     init {

@@ -85,6 +85,50 @@ public class Test {
         ).complexity()
         complexityResults.lookup("Test.int chooser(int,int)", "Test.java").complexity shouldBe 4
     }
+    "should calculate complexity for old switch statements" {
+        val complexityResults = Source(
+            mapOf(
+                "Test.java" to """
+public class Test {
+    int chooser(int i) {
+        int j = 0;
+        switch (i) {
+          case 0: j = 1;
+          case 1: j = 2;
+          case 2: j = 3;
+          default: j = 0;
+        }
+    }
+}
+""".trim()
+            )
+        ).complexity()
+        complexityResults.lookup("Test.int chooser(int)", "Test.java").complexity shouldBe 4
+    }
+    "should calculate complexity for new switch statements" {
+        val complexityResults = Source(
+            mapOf(
+                "Test.java" to """
+public class Test {
+    int chooser(int i) {
+        int j = 0;
+        switch (i) {
+          case 0 -> j = 1;
+          case 1 -> j = 2;
+          case 2 -> j = 3;
+          default -> {
+            if (i > 0) {
+              j = 0;
+            }
+          }
+        }
+    }
+}
+""".trim()
+            )
+        ).complexity()
+        complexityResults.lookup("Test.int chooser(int)", "Test.java").complexity shouldBe 5
+    }
     "should calculate complexity for classes in snippets" {
         Source.fromSnippet(
             """
