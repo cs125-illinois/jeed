@@ -1,4 +1,4 @@
-@file:Suppress("MatchingDeclarationName")
+@file:Suppress("MatchingDeclarationName", "TooManyFunctions")
 
 package edu.illinois.cs.cs125.jeed.core
 
@@ -39,6 +39,8 @@ val OTHER = setOf(
     Mutation.Type.REMOVE_AND_OR
 )
 val ALL = PITEST + OTHER
+
+fun Mutation.Type.suppressionComment() = "mutate-disable-" + name.lowercase().replace("_", "-")
 
 sealed class Mutation(val type: Type, var location: Location, val original: String) {
     data class Location(val start: Int, val end: Int, val path: List<SourcePath>, val line: String) {
@@ -895,7 +897,16 @@ class MutatedSource(
     val mutations: List<SourceMutation>,
     val appliedMutations: Int,
     val unappliedMutations: Int
-) : Source(sources)
+) : Source(sources) {
+    fun cleaned(): Source = Source(sources.mapValues { removeMutationSuppressions(it.value) })
+
+    companion object {
+        private val matchMutationSuppression = Regex("""\s*// mutate-disable.*$""")
+        fun removeMutationSuppressions(contents: String) = contents.lines().joinToString("\n") {
+            matchMutationSuppression.replace(it, "")
+        }
+    }
+}
 
 fun MutableMap<String, String>.blankMap(): Map<String, Set<Int>> = mapValues { (_, contents) ->
     contents.lines()
@@ -997,11 +1008,10 @@ fun Source.mutate(
     Mutater(this, shuffle, seed, types).mutate(limit)
 
 fun SourceMutation.suppressed() = mutation.location.line.lines().any { line ->
-    val suppressionComment = "mutate-disable-" + mutation.type.name.lowercase().replace("_", "-")
     line.split("""//""").let { parts ->
         parts.size == 2 && (
             parts[1].split(" ").contains("mutate-disable") ||
-                parts[1].split(" ").contains(suppressionComment)
+                parts[1].split(" ").contains(mutation.type.suppressionComment())
             )
     }
 }

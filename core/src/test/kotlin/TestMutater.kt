@@ -5,6 +5,7 @@ import io.kotest.matchers.collections.shouldHaveSize
 import io.kotest.matchers.shouldBe
 import io.kotest.matchers.shouldNotBe
 import io.kotest.matchers.string.shouldMatch
+import io.kotest.matchers.string.shouldNotContain
 import kotlin.random.Random
 
 class TestMutater : StringSpec({
@@ -473,11 +474,17 @@ public class Example {
             """
 public class Example {
   public static Object fourth() {
+    if (true) {
+      System.out.println("Here");
+    }
     return new Object(); // mutate-disable
   }
 }"""
         ).allMutations().also { mutations ->
-            mutations shouldHaveSize 0
+            mutations shouldHaveSize 4
+            mutations[0].cleaned().also {
+                it["Main.java"] shouldNotContain "mutate-disable"
+            }
         }
     }
     "it should ignore specific suppressed mutations" {
@@ -494,6 +501,9 @@ public class Example {
 }"""
         ).allMutations().also { mutations ->
             mutations shouldHaveSize 7
+            mutations[0].cleaned().also {
+                it["Main.java"] shouldNotContain "mutate-disable-conditional-boundary"
+            }
         }
     }
     "it should apply multiple mutations" {
