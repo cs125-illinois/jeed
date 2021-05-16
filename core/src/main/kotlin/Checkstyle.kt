@@ -140,11 +140,14 @@ val defaultChecker = run {
 }
 
 @Throws(CheckstyleFailed::class)
-fun Source.checkstyle(checkstyleArguments: CheckstyleArguments = CheckstyleArguments()): CheckstyleResults {
+fun Source.checkstyle(
+    checkstyleArguments: CheckstyleArguments = CheckstyleArguments(),
+    checker: ConfiguredChecker = defaultChecker
+): CheckstyleResults {
     require(type == Source.FileType.JAVA) { "Can't run checkstyle on non-Java sources" }
 
     val names = checkstyleArguments.sources ?: sources.keys
-    val checkstyleResults = defaultChecker.check(
+    val checkstyleResults = checker.check(
         sources.filter {
             names.contains(it.key)
         }

@@ -3,7 +3,7 @@ plugins {
     kotlin("kapt") version "1.5.0" apply false
     id("org.jmailen.kotlinter") version "3.4.4" apply false
     id("com.github.ben-manes.versions") version "0.38.0"
-    id("io.gitlab.arturbosch.detekt") version "1.16.0"
+    id("io.gitlab.arturbosch.detekt") version "1.17.0"
 }
 allprojects {
     repositories {

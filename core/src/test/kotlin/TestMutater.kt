@@ -653,6 +653,24 @@ public class Example {
             source.allMutations() shouldHaveSize 0
         }
     }
+    "it should mark mutations cleanly" {
+        Source.fromJava(
+            """
+public class Example {
+    void reformatName(String input) {
+        if (input == null) {
+            return;
+        }
+        System.out.println("Hello, " + input);
+    }
+}"""
+        ).allMutations().also { mutations ->
+            mutations shouldHaveSize 5
+            mutations.forEach { mutatedSource ->
+                mutatedSource.marked().checkstyle(CheckstyleArguments(failOnError = true))
+            }
+        }
+    }
 })
 
 inline fun <reified T : Mutation> Source.checkMutations(

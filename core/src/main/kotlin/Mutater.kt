@@ -2,6 +2,8 @@
 
 package edu.illinois.cs.cs125.jeed.core
 
+import com.github.difflib.DiffUtils
+import com.github.difflib.patch.DeltaType
 import edu.illinois.cs.cs125.jeed.core.antlr.JavaParser
 import edu.illinois.cs.cs125.jeed.core.antlr.JavaParserBaseListener
 import org.antlr.v4.runtime.ParserRuleContext
@@ -40,7 +42,8 @@ val OTHER = setOf(
 )
 val ALL = PITEST + OTHER
 
-fun Mutation.Type.suppressionComment() = "mutate-disable-" + name.lowercase().replace("_", "-")
+fun Mutation.Type.suppressionComment() = "mutate-disable-" + mutationName()
+fun Mutation.Type.mutationName() = name.lowercase().replace("_", "-")
 
 sealed class Mutation(val type: Type, var location: Location, val original: String) {
     data class Location(val start: Int, val end: Int, val path: List<SourcePath>, val line: String) {
@@ -890,7 +893,7 @@ fun MutableList<Mutation.Location.SourcePath>.method(): String =
 
 data class SourceMutation(val name: String, val mutation: Mutation)
 
-@Suppress("unused")
+@Suppress("unused", "MemberVisibilityCanBePrivate")
 class MutatedSource(
     sources: Sources,
     val originalSources: Sources,
@@ -898,7 +901,63 @@ class MutatedSource(
     val appliedMutations: Int,
     val unappliedMutations: Int
 ) : Source(sources) {
-    fun cleaned(): Source = Source(sources.mapValues { removeMutationSuppressions(it.value) })
+    fun cleaned() = Source(sources.mapValues { removeMutationSuppressions(it.value) })
+    fun marked(): Source {
+        require(mutations.size == 1) { "Can only mark sources that have been mutated once" }
+        val mutation = mutations.first()
+        return Source(
+            sources.mapValues { (name, modified) ->
+                if (name != mutation.name) {
+                    return@mapValues modified
+                }
+                val original = originalSources[name] ?: error("Didn't find original sources")
+                check(original != modified) { "Didn't find mutation" }
+                val originalLines = original.lines()
+                val modifiedLines = modified.lines()
+                val delta = DiffUtils.diff(originalLines, modifiedLines).deltas.let {
+                    check(it.size == 1)
+                    it.first()
+                }
+                check(delta.type == DeltaType.CHANGE || delta.type == DeltaType.DELETE) {
+                    "Found invalid delta type: ${delta.type}"
+                }
+                var i = 0
+                val output = mutableListOf<String>()
+                while (i < originalLines.size) {
+                    val line = originalLines[i]
+                    val nextLine = if (delta.type == DeltaType.CHANGE && i == delta.source.position) {
+                        val indentAmount = line.length - line.trimStart().length
+                        val currentIndent = " ".repeat(indentAmount)
+                        val originalContent = delta.source.lines.joinToString("\n") {
+                            currentIndent + "// " + it.substring(indentAmount)
+                        }
+                        i += delta.source.lines.size
+                        """
+                    |$currentIndent// Modified by ${mutation.mutation.type.mutationName()}. Originally:
+                    |$originalContent
+                    |${delta.target.lines.joinToString("\n")}
+                    """.trimMargin()
+                    } else if (delta.type == DeltaType.DELETE && i == delta.source.position) {
+                        val indentAmount = line.length - line.trimStart().length
+                        val currentIndent = " ".repeat(indentAmount)
+                        val originalContent = delta.source.lines.joinToString("\n") {
+                            currentIndent + "// " + it.substring(indentAmount)
+                        }
+                        i += delta.source.lines.size
+                        """
+                    |$currentIndent// Removed by ${mutation.mutation.type.mutationName()}. Originally:
+                    |$originalContent
+                    """.trimMargin()
+                    } else {
+                        i++
+                        line
+                    }
+                    output += nextLine
+                }
+                output.joinToString("\n")
+            }
+        )
+    }
 
     companion object {
         private val matchMutationSuppression = Regex("""\s*// mutate-disable.*$""")
@@ -921,11 +980,13 @@ fun MutableMap<String, String>.removeNewBlank(blankMap: Map<String, Set<Int>>) =
             .mapIndexed { index, line -> Pair(index, line) }
             .filter { (index, line) -> line.isNotBlank() || blankMap[path]!!.contains(index) }
             .map { (index, _) -> index }.toSet()
-        this[path] = contents.lines().filterIndexed { index, _ -> toKeep.contains(index) }.joinToString("\n")
+        this[path] =
+            contents.lines().filterIndexed { index, _ -> toKeep.contains(index) }.joinToString("\n")
     }
 
 class Mutater(
-    private val originalSource: Source,
+    private
+    val originalSource: Source,
     shuffle: Boolean,
     seed: Int,
     types: Set<Mutation.Type>
@@ -937,7 +998,8 @@ class Mutater(
 
     private val random = Random(seed)
     private val mutations = originalSource.sources.keys.map { name ->
-        Mutation.find<Mutation>(originalSource.getParsed(name)).map { mutation -> SourceMutation(name, mutation) }
+        Mutation.find<Mutation>(originalSource.getParsed(name))
+            .map { mutation -> SourceMutation(name, mutation) }
             .filter {
                 types.contains(it.mutation.type)
             }
@@ -1032,7 +1094,8 @@ fun Source.allMutations(
     return mutations.map { sourceMutation ->
         val modifiedSources = sources.copy().toMutableMap()
         val blankMap = modifiedSources.blankMap()
-        val original = modifiedSources[sourceMutation.name] ?: error("Couldn't find a source that should be there")
+        val original =
+            modifiedSources[sourceMutation.name] ?: error("Couldn't find a source that should be there")
         val modified = sourceMutation.mutation.apply(original, random)
         check(original != modified) { "Mutation did not change source" }
         modifiedSources[sourceMutation.name] = modified

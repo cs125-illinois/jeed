@@ -220,6 +220,23 @@ public class Test {
             templatedSource.checkstyle(CheckstyleArguments(skipUnmapped = false))
         }
     }
+    "should load checkers from files" {
+        val otherChecker = ConfiguredChecker(object {}::class.java.getResource("/checkstyle/indent2.xml")!!.readText())
+        otherChecker.indentation shouldBe 2
+    }
+    "should work with alternate checkers" {
+        val otherChecker = ConfiguredChecker(object {}::class.java.getResource("/checkstyle/indent2.xml")!!.readText())
+        Source.fromSnippet(
+            """
+public int add(int a, int b) {
+  return a + b;
+}
+""".trim(),
+            SnippetArguments(indent = 2)
+        ).checkstyle(checker = otherChecker).also {
+            it shouldNot haveCheckstyleErrors()
+        }
+    }
 })
 
 fun haveCheckstyleErrors() = object : Matcher<CheckstyleResults> {
@@ -231,6 +248,7 @@ fun haveCheckstyleErrors() = object : Matcher<CheckstyleResults> {
         )
     }
 }
+
 fun haveCheckstyleErrorAt(source: String = SNIPPET_SOURCE, line: Int) = object : Matcher<CheckstyleResults> {
     override fun test(value: CheckstyleResults): MatcherResult {
         return MatcherResult(
