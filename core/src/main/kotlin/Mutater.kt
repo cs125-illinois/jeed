@@ -902,6 +902,7 @@ class MutatedSource(
     val unappliedMutations: Int
 ) : Source(sources) {
     fun cleaned() = Source(sources.mapValues { removeMutationSuppressions(it.value) })
+    @Suppress("LongMethod")
     fun marked(): Source {
         require(mutations.size == 1) { "Can only mark sources that have been mutated once" }
         val mutation = mutations.first()
@@ -914,36 +915,53 @@ class MutatedSource(
                 check(original != modified) { "Didn't find mutation" }
                 val originalLines = original.lines()
                 val modifiedLines = modified.lines()
-                val delta = DiffUtils.diff(originalLines, modifiedLines).deltas.let {
-                    check(it.size == 1)
-                    it.first()
+
+                val deltas = DiffUtils.diff(originalLines, modifiedLines).deltas
+                val type = if (deltas.size == 1) {
+                    deltas.first().type
+                } else {
+                    check(deltas.size == 2)
+                    check(deltas.all { it.type == DeltaType.CHANGE })
+                    deltas.first().type
                 }
-                check(delta.type == DeltaType.CHANGE || delta.type == DeltaType.DELETE) {
-                    "Found invalid delta type: ${delta.type}"
+                val (sourceLines, targetLines) = if (deltas.size == 1) {
+                    Pair(deltas.first().source.lines, deltas.first().target.lines)
+                } else {
+                    Pair(
+                        originalLines.subList(deltas[0].source.position, deltas[1].source.position + 1),
+                        modifiedLines.subList(deltas[0].source.position, deltas[1].source.position + 1)
+                    )
+                }
+                check(type == DeltaType.CHANGE || type == DeltaType.DELETE) {
+                    "Found invalid delta type: $type"
                 }
                 var i = 0
                 val output = mutableListOf<String>()
                 while (i < originalLines.size) {
                     val line = originalLines[i]
-                    val nextLine = if (delta.type == DeltaType.CHANGE && i == delta.source.position) {
+                    val nextLine = if (type == DeltaType.CHANGE && i == deltas.first().source.position) {
                         val indentAmount = line.length - line.trimStart().length
                         val currentIndent = " ".repeat(indentAmount)
-                        val originalContent = delta.source.lines.joinToString("\n") {
-                            currentIndent + "// " + it.substring(indentAmount)
+                        val originalContent = sourceLines.joinToString("\n") {
+                            if (it.length < indentAmount) {
+                                "$currentIndent//"
+                            } else {
+                                currentIndent + "// " + it.substring(indentAmount)
+                            }
                         }
-                        i += delta.source.lines.size
+                        i += sourceLines.size
                         """
                     |$currentIndent// Modified by ${mutation.mutation.type.mutationName()}. Originally:
                     |$originalContent
-                    |${delta.target.lines.joinToString("\n")}
+                    |${targetLines.joinToString("\n")}
                     """.trimMargin()
-                    } else if (delta.type == DeltaType.DELETE && i == delta.source.position) {
+                    } else if (type == DeltaType.DELETE && i == deltas.first().source.position) {
                         val indentAmount = line.length - line.trimStart().length
                         val currentIndent = " ".repeat(indentAmount)
-                        val originalContent = delta.source.lines.joinToString("\n") {
+                        val originalContent = sourceLines.joinToString("\n") {
                             currentIndent + "// " + it.substring(indentAmount)
                         }
-                        i += delta.source.lines.size
+                        i += sourceLines.size
                         """
                     |$currentIndent// Removed by ${mutation.mutation.type.mutationName()}. Originally:
                     |$originalContent
@@ -967,7 +985,7 @@ class MutatedSource(
     }
 }
 
-fun MutableMap<String, String>.blankMap(): Map<String, Set<Int>> = mapValues { (_, contents) ->
+fun Map<String, String>.blankMap(): Map<String, Set<Int>> = mapValues { (_, contents) ->
     contents.lines()
         .mapIndexed { index, line -> Pair(index, line) }
         .filter { (_, line) -> line.isBlank() }
@@ -1091,15 +1109,15 @@ fun Source.allMutations(
         .filter { types.contains(it.mutation.type) }
         .filter { !suppressWithComments || !it.suppressed() }
 
+    val blankMap = sources.blankMap()
     return mutations.map { sourceMutation ->
         val modifiedSources = sources.copy().toMutableMap()
-        val blankMap = modifiedSources.blankMap()
         val original =
             modifiedSources[sourceMutation.name] ?: error("Couldn't find a source that should be there")
         val modified = sourceMutation.mutation.apply(original, random)
         check(original != modified) { "Mutation did not change source" }
         modifiedSources[sourceMutation.name] = modified
-        if (removeBlank) {
+        if (removeBlank && original.lines().size == modified.lines().size) {
             modifiedSources.removeNewBlank(blankMap)
         }
         MutatedSource(Sources(modifiedSources), sources, listOf(sourceMutation), 1, mutations.size - 1)
@@ -1124,6 +1142,7 @@ fun Source.mutationStream(
     val seen = mutableSetOf<String>()
     var retries = 0
     val remaining = mutableMapOf<SourceMutation, Int>()
+    val blankMap = sources.blankMap()
     @Suppress("LoopWithTooManyJumpStatements")
     while (true) {
         val mutation = mutations.shuffled(random).first()
@@ -1132,12 +1151,11 @@ fun Source.mutationStream(
         }
         mutation.mutation.reset()
         val modifiedSources = sources.copy().toMutableMap()
-        val blankMap = modifiedSources.blankMap()
         val original = modifiedSources[mutation.name] ?: error("Couldn't find a source that should be there")
         val modified = mutation.mutation.apply(original, random)
         check(original != modified) { "Mutation did not change source" }
         modifiedSources[mutation.name] = modified
-        if (removeBlank) {
+        if (removeBlank && original.lines().size == modified.lines().size) {
             modifiedSources.removeNewBlank(blankMap)
         }
         val source = MutatedSource(Sources(modifiedSources), sources, listOf(mutation), 1, mutations.size - 1)

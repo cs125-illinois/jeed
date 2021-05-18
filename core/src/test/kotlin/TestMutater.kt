@@ -671,6 +671,30 @@ public class Example {
             }
         }
     }
+    "it should handle double marks" {
+        Source.fromJava(
+            """
+public class Example {
+    public String startWord(String input, String word) {
+        if (input.length > 4
+            && word.length > 5
+            && word.length > 4) {
+            System.out.println("Here");
+        }
+        if (input.length() > 0 && input.substring(1).startsWith(word.substring(1))) {
+            return input.substring(0, word.length());
+        } else {
+            return "";
+        }   
+    }
+}"""
+        ).allMutations().also { mutations ->
+            mutations shouldHaveSize 34
+            mutations.forEach { mutatedSource ->
+                mutatedSource.marked().checkstyle(CheckstyleArguments(failOnError = true))
+            }
+        }
+    }
 })
 
 inline fun <reified T : Mutation> Source.checkMutations(
