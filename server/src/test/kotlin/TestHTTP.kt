@@ -210,10 +210,6 @@ fun main() {
                     Request.mongoCollection?.countDocuments() shouldBe 1
 
                     val jeedResponse = Response.from(response.content)
-                    println(
-                        jeedResponse.completed.execution?.permissionRequests?.filter { !it.granted }
-                            ?.map { it.permission }
-                    )
                     jeedResponse.completed.execution?.klass shouldBe "MainKt"
                     jeedResponse.completed.execution?.outputLines?.joinToString(separator = "\n") {
                         it.line
@@ -378,7 +374,6 @@ public class Main {
                     val jeedResponse = Response.from(response.content)
                     jeedResponse.completedTasks.size shouldBe 1
                     jeedResponse.failedTasks.size shouldBe 0
-                    println(jeedResponse.completed.complexity)
                 }
             }
         }

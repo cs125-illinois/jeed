@@ -7,6 +7,7 @@ import edu.illinois.cs.cs125.jeed.core.ClassComplexity
 import edu.illinois.cs.cs125.jeed.core.CompilationFailed
 import edu.illinois.cs.cs125.jeed.core.ComplexityFailed
 import edu.illinois.cs.cs125.jeed.core.ComplexityResults
+import edu.illinois.cs.cs125.jeed.core.ComplexityValue
 import edu.illinois.cs.cs125.jeed.core.ContainerExecutionResults
 import edu.illinois.cs.cs125.jeed.core.KtLintFailed
 import edu.illinois.cs.cs125.jeed.core.KtLintResults
@@ -53,7 +54,7 @@ data class FlatSource(val path: String, val contents: String)
 
 fun List<FlatSource>.toSource(): Map<String, String> {
     require(this.map { it.path }.distinct().size == this.size) { "duplicate paths in source list" }
-    return this.map { it.path to it.contents }.toMap()
+    return this.associate { it.path to it.contents }
 }
 
 fun Map<String, String>.toFlatSources(): List<FlatSource> {
@@ -87,50 +88,31 @@ data class FlatComplexityResult(
     val methods: List<FlatMethodComplexity>
 ) {
     companion object {
-        fun from(source: String, complexityResults: Map<String, ClassComplexity>): FlatComplexityResult {
+        fun from(source: String, complexityResults: Map<String, ComplexityValue>): FlatComplexityResult {
             val classes: MutableList<FlatClassComplexity> = mutableListOf()
             val methods: MutableList<FlatMethodComplexity> = mutableListOf()
-            complexityResults.forEach { (_, classComplexity) ->
-                addFromClass(classComplexity, "", classes, methods)
-            }
+            complexityResults.forEach { (_, complexityValue) -> add(complexityValue, "", classes, methods) }
             return FlatComplexityResult(source, classes, methods)
         }
 
-        private fun addFromMethod(
-            methodComplexity: MethodComplexity,
+        private fun add(
+            complexityValue: ComplexityValue,
             prefix: String,
             classes: MutableList<FlatClassComplexity>,
             methods: MutableList<FlatMethodComplexity>
         ) {
-            methods.add(FlatMethodComplexity(methodComplexity, prefix))
+            if (complexityValue is MethodComplexity) {
+                methods.add(FlatMethodComplexity(complexityValue, prefix))
+            } else if (complexityValue is ClassComplexity) {
+                classes.add(FlatClassComplexity(complexityValue, prefix))
+            }
             val nextPrefix = if (prefix.isBlank()) {
-                methodComplexity.name
+                complexityValue.name
             } else {
-                "$prefix.${methodComplexity.name}"
+                "$prefix.${complexityValue.name}"
             }
-            methodComplexity.classes.forEach {
-                addFromClass(it.value as ClassComplexity, nextPrefix, classes, methods)
-            }
-        }
-
-        private fun addFromClass(
-            classComplexity: ClassComplexity,
-            prefix: String,
-            classes: MutableList<FlatClassComplexity>,
-            methods: MutableList<FlatMethodComplexity>
-        ) {
-            classes.add(FlatClassComplexity(classComplexity, prefix))
-            val nextPrefix = if (prefix.isBlank()) {
-                classComplexity.name
-            } else {
-                "$prefix.${classComplexity.name}"
-            }
-            classComplexity.classes.values.forEach {
-                addFromClass(it as ClassComplexity, nextPrefix, classes, methods)
-            }
-            classComplexity.methods.values.forEach {
-                addFromMethod(it as MethodComplexity, nextPrefix, classes, methods)
-            }
+            complexityValue.methods.forEach { add(it.value as ComplexityValue, nextPrefix, classes, methods) }
+            complexityValue.classes.forEach { add(it.value as ComplexityValue, nextPrefix, classes, methods) }
         }
     }
 }

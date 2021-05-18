@@ -4,31 +4,39 @@ import io.kotest.assertions.throwables.shouldThrow
 import io.kotest.core.spec.style.StringSpec
 import io.kotest.matchers.shouldBe
 
-class TestComplexity : StringSpec({
+class TestJavaComplexity : StringSpec({
     "should calculate complexity for snippets" {
-        val complexityResults = Source.fromSnippet(
+        Source.fromSnippet(
             """
 int add(int i, int j) {
     return i + j;
 }
 int i = 0;
 """.trim()
-        ).complexity()
-        complexityResults.lookup("").complexity shouldBe 2
+        ).complexity().also {
+            it.lookup("").complexity shouldBe 2
+        }
     }
     "should calculate complexity for sources" {
-        val complexityResults = Source(
+        Source(
             mapOf(
                 "Test.java" to """
 public class Test {
+    public Test(int first, double second) {
+        if (first > 0) {
+            System.out.println("Here");
+        }
+    }
     int add(int i, int j) {
         return i + j;
     }
 }
 """.trim()
             )
-        ).complexity()
-        complexityResults.lookup("Test.int add(int,int)", "Test.java").complexity shouldBe 1
+        ).complexity().also {
+            it.lookup("Test.int add(int,int)", "Test.java").complexity shouldBe 1
+            it.lookup("Test.Test(int,double)", "Test.java").complexity shouldBe 2
+        }
     }
     "should fail properly on parse errors" {
         shouldThrow<ComplexityFailed> {
@@ -46,7 +54,7 @@ public class Test
         }
     }
     "should calculate complexity for simple conditional statements" {
-        val complexityResults = Source(
+        Source(
             mapOf(
                 "Test.java" to """
 public class Test {
@@ -60,11 +68,12 @@ public class Test {
 }
 """.trim()
             )
-        ).complexity()
-        complexityResults.lookup("Test.int chooser(int,int)", "Test.java").complexity shouldBe 2
+        ).complexity().also {
+            it.lookup("Test.int chooser(int,int)", "Test.java").complexity shouldBe 2
+        }
     }
     "should calculate complexity for complex conditional statements" {
-        val complexityResults = Source(
+        Source(
             mapOf(
                 "Test.java" to """
 public class Test {
@@ -82,11 +91,12 @@ public class Test {
 }
 """.trim()
             )
-        ).complexity()
-        complexityResults.lookup("Test.int chooser(int,int)", "Test.java").complexity shouldBe 4
+        ).complexity().also {
+            it.lookup("Test.int chooser(int,int)", "Test.java").complexity shouldBe 4
+        }
     }
     "should calculate complexity for old switch statements" {
-        val complexityResults = Source(
+        Source(
             mapOf(
                 "Test.java" to """
 public class Test {
@@ -102,11 +112,12 @@ public class Test {
 }
 """.trim()
             )
-        ).complexity()
-        complexityResults.lookup("Test.int chooser(int)", "Test.java").complexity shouldBe 4
+        ).complexity().also {
+            it.lookup("Test.int chooser(int)", "Test.java").complexity shouldBe 4
+        }
     }
     "should calculate complexity for new switch statements" {
-        val complexityResults = Source(
+        Source(
             mapOf(
                 "Test.java" to """
 public class Test {
@@ -126,8 +137,9 @@ public class Test {
 }
 """.trim()
             )
-        ).complexity()
-        complexityResults.lookup("Test.int chooser(int)", "Test.java").complexity shouldBe 5
+        ).complexity().also {
+            it.lookup("Test.int chooser(int)", "Test.java").complexity shouldBe 5
+        }
     }
     "should calculate complexity for classes in snippets" {
         Source.fromSnippet(
@@ -136,14 +148,18 @@ class Example {
   int value = 0;
 }
             """.trim()
-        ).complexity()
+        ).complexity().also {
+            it.lookup("Example", "").complexity shouldBe 0
+        }
     }
     "should not fail on records in snippets" {
         Source.fromSnippet(
             """
 record Example(int value) { };
             """.trim()
-        ).complexity()
+        ).complexity().also {
+            it.lookup("Example", "").complexity shouldBe 0
+        }
     }
     "should not fail on records with contents" {
         Source.fromSnippet(
@@ -154,7 +170,10 @@ record Example(int value) {
   }
 };
             """.trim()
-        ).complexity()
+        ).complexity().also {
+            it.lookup("Example", "").complexity shouldBe 1
+            it.lookup("Example.int it()", "").complexity shouldBe 1
+        }
     }
     "should not fail on interfaces" {
         Source.fromSnippet(
@@ -163,7 +182,9 @@ interface Simple {
   int simple(int first);
 }
             """.trim()
-        ).complexity()
+        ).complexity().also {
+            it.lookup("Simple", "").complexity shouldBe 0
+        }
     }
     "should not fail on anonymous classes" {
         Source.fromSnippet(
@@ -176,7 +197,9 @@ Test test = new Test() {
   public void test() { }
 };
             """.trim()
-        ).complexity()
+        ).complexity().also {
+            it.lookup(".", "").complexity shouldBe 2
+        }
     }
     "should not fail on generic methods" {
         Source.fromSnippet(
@@ -185,7 +208,9 @@ Test test = new Test() {
   return null;
 }
             """.trim()
-        ).complexity()
+        ).complexity().also {
+            it.lookup(".T max(T[])", "").complexity shouldBe 1
+        }
     }
     "should not fail on lambda expressions with body" {
         Source.fromSnippet(
@@ -194,7 +219,9 @@ Thread thread = new Thread(() -> {
   System.out.println("Blah");
 });
             """.trim()
-        ).complexity()
+        ).complexity().also {
+            it.lookup(".", "").complexity shouldBe 2
+        }
     }
     "should not fail on lambda expressions without body" {
         Source.fromSnippet(
@@ -205,7 +232,9 @@ interface Modify {
 Modify first = (v) -> v + 1;
 System.out.println(first.getClass());
             """.trim()
-        ).complexity()
+        ).complexity().also {
+            it.lookup(".", "").complexity shouldBe 2
+        }
     }
     "should not fail on class declarations" {
         Source.fromSnippet(
@@ -216,6 +245,8 @@ public class Example {
     System.out.println("ran");
   }
 }""".trim()
-        ).complexity()
+        ).complexity().also {
+            it.lookup("Example", "").complexity shouldBe 1
+        }
     }
 })

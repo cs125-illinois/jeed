@@ -12,9 +12,9 @@ int j;
 i = 4;
 """.trim()
         ).features().also {
-            it.lookup("").features.localVariableDeclarations shouldBe 2
-            it.lookup("").features.variableAssignments shouldBe 2
-            it.lookup("").features.variableReassignments shouldBe 1
+            it.lookup(".").features.localVariableDeclarations shouldBe 2
+            it.lookup(".").features.variableAssignments shouldBe 2
+            it.lookup(".").features.variableReassignments shouldBe 1
         }
     }
 })
