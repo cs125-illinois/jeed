@@ -138,6 +138,21 @@ public class Example {
             mutations[9].check(contents, ">>>", "<<")
         }
     }
+    "it should mutate plus separately" {
+        Source.fromJava(
+            """
+public class Example {
+  public static void example() {
+    int i = 0;
+    int j = 1;
+    int k = i + j;
+  }
+}"""
+        ).checkMutations<PlusToMinus> { mutations, contents ->
+            mutations shouldHaveSize 1
+            mutations[0].check(contents, "+", "-")
+        }
+    }
     "it should find conditional boundaries to mutate" {
         Source.fromJava(
             """
@@ -429,10 +444,11 @@ public class Example {
     for (int i = 0; i < first; i++) { }
     while (true) { }
     for (int i : new int[] {1, 2, 4}) { }
+    do {} while (true);
   }
 }"""
         ).checkMutations<RemoveLoop> { mutations, contents ->
-            mutations shouldHaveSize 3
+            mutations shouldHaveSize 4
             mutations[0].check(contents, "for (int i = 0; i < first; i++) { }", "")
         }
     }
@@ -449,6 +465,37 @@ public class Example {
             mutations shouldHaveSize 4
             mutations[0].check(contents, "true && ", "")
             mutations[1].check(contents, " && false", "")
+        }
+    }
+    "it should remove try correctly" {
+        Source.fromJava(
+            """
+public class Example {
+  public static int test(int first) {
+    try {
+      int value = 0;
+    } catch (Exception e) { }
+  }
+}"""
+        ).checkMutations<RemoveTry> { mutations, _ ->
+            mutations shouldHaveSize 1
+        }
+    }
+    "it should remove statements correctly" {
+        Source.fromJava(
+            """
+public class Example {
+  public static int test(int first) {
+    int i = 0;
+    i = 1;
+    i++;
+    if (i > 0) {
+      i++;
+    }
+  }
+}"""
+        ).checkMutations<RemoveStatement> { mutations, _ ->
+            mutations shouldHaveSize 3
         }
     }
     "it should remove blank lines correctly" {
@@ -481,7 +528,7 @@ public class Example {
   }
 }"""
         ).allMutations().also { mutations ->
-            mutations shouldHaveSize 4
+            mutations shouldHaveSize 5
             mutations[0].cleaned().also {
                 it["Main.java"] shouldNotContain "mutate-disable"
             }
@@ -516,16 +563,17 @@ public class Example {
   }
 }"""
         ).also { source ->
-            source.mutater(types = ALL - setOf(Mutation.Type.REMOVE_METHOD)).also { mutater ->
-                mutater.appliedMutations shouldHaveSize 0
-                val modifiedSource = mutater.apply().contents
-                source.contents shouldNotBe modifiedSource
-                mutater.appliedMutations shouldHaveSize 1
-                mutater.size shouldBe 1
-                val anotherModifiedSource = mutater.apply().contents
-                setOf(source.contents, modifiedSource, anotherModifiedSource) shouldHaveSize 3
-                mutater.size shouldBe 0
-            }
+            source.mutater(types = ALL - setOf(Mutation.Type.REMOVE_METHOD, Mutation.Type.REMOVE_STATEMENT))
+                .also { mutater ->
+                    mutater.appliedMutations shouldHaveSize 0
+                    val modifiedSource = mutater.apply().contents
+                    source.contents shouldNotBe modifiedSource
+                    mutater.appliedMutations shouldHaveSize 1
+                    mutater.size shouldBe 1
+                    val anotherModifiedSource = mutater.apply().contents
+                    setOf(source.contents, modifiedSource, anotherModifiedSource) shouldHaveSize 3
+                    mutater.size shouldBe 0
+                }
             source.mutate().also { mutatedSource ->
                 source.contents shouldNotBe mutatedSource.contents
                 mutatedSource.mutations shouldHaveSize 1
@@ -534,7 +582,12 @@ public class Example {
                 source.contents shouldNotBe mutatedSource.contents
                 mutatedSource.unappliedMutations shouldBe 0
             }
-            source.allMutations(types = ALL - setOf(Mutation.Type.REMOVE_METHOD)).also { mutatedSources ->
+            source.allMutations(
+                types = ALL - setOf(
+                    Mutation.Type.REMOVE_METHOD,
+                    Mutation.Type.REMOVE_STATEMENT
+                )
+            ).also { mutatedSources ->
                 mutatedSources shouldHaveSize 2
                 mutatedSources.map { it.contents }.toSet() shouldHaveSize 2
             }
@@ -626,6 +679,22 @@ public class Example {
             source.mutationStream().take(1024).toList().size shouldBe 1024
         }
     }
+    "it should apply all fixed mutations" {
+        Source.fromJava(
+            """
+public class Example {
+  String testStream() {
+    String test = "foobarfoobarfoobarfoobar";
+    if (test.length() > 4) {
+      return "blah";
+    }
+    return test;
+  }
+}"""
+        ).allFixedMutations(random = Random(124)).also { mutations ->
+            mutations shouldHaveSize 16
+        }
+    }
     "it should end stream mutations when out of things to mutate" {
         Source.fromJava(
             """
@@ -637,7 +706,7 @@ public class Example {
   }
 }"""
         ).also { source ->
-            source.mutationStream().take(1024).toList().size shouldBe 5
+            source.mutationStream().take(1024).toList().size shouldBe 6
         }
     }
     "it should not mutate annotations" {
@@ -665,7 +734,7 @@ public class Example {
     }
 }"""
         ).allMutations().also { mutations ->
-            mutations shouldHaveSize 5
+            mutations shouldHaveSize 7
             mutations.forEach { mutatedSource ->
                 mutatedSource.marked().checkstyle(CheckstyleArguments(failOnError = true))
             }
@@ -685,13 +754,41 @@ public class Example {
             return input.substring(0, word.length());
         } else {
             return "";
-        }   
+        }
     }
 }"""
-        ).allMutations().also { mutations ->
-            mutations shouldHaveSize 34
-            mutations.forEach { mutatedSource ->
-                mutatedSource.marked().checkstyle(CheckstyleArguments(failOnError = true))
+        ).allMutations().onEach { mutatedSource ->
+            mutatedSource.marked().checkstyle().also { errors ->
+                errors.errors.filter { it.key != "block.noStatement" } shouldHaveSize 0
+            }
+        }
+    }
+    "it should handle double marks again" {
+        Source.fromJava(
+            """
+public class Question {
+    char gameOver(char[][] board) {
+        for (int i = 0; i < 3; i++) {
+            if (board[i][0] != ' '
+                && board[i][0] == board[i][1]
+                && board[i][0] == board[i][2]) {
+                return board[i][0];
+            }
+        }
+        for (int i = 0; i < 3; i++) {
+            if (board[0][i] != ' '
+                && board[0][i] == board[1][i]
+                && board[0][i] == board[2][i]) {
+                return board[0][i];
+            }
+        }
+        return ' ';
+    }
+}
+"""
+        ).allMutations().onEach { mutatedSource ->
+            mutatedSource.marked().checkstyle().also { errors ->
+                errors.errors.filter { it.key != "block.noStatement" } shouldHaveSize 0
             }
         }
     }

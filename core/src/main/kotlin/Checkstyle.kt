@@ -27,6 +27,7 @@ data class CheckstyleArguments(
 @JsonClass(generateAdapter = true)
 class CheckstyleError(
     val severity: String,
+    val key: String?,
     location: SourceLocation,
     message: String
 ) : AlwaysLocatedSourceError(location, message)
@@ -118,8 +119,9 @@ fun Checker.processString(name: String, source: String): List<CheckstyleError> {
             results.add(
                 CheckstyleError(
                     it.severityLevel.toString(),
+                    it.key!!,
                     SourceLocation(name, it.lineNo, it.columnNo),
-                    it.violation
+                    it.violation,
                 )
             )
         }
@@ -127,6 +129,7 @@ fun Checker.processString(name: String, source: String): List<CheckstyleError> {
         results.add(
             CheckstyleError(
                 SeverityLevel.ERROR.toString(),
+                null,
                 SourceLocation(name, 1, 1),
                 e.getStackTraceAsString()
             )
@@ -136,14 +139,15 @@ fun Checker.processString(name: String, source: String): List<CheckstyleError> {
 }
 
 val defaultChecker = run {
-    ConfiguredChecker(object {}::class.java.getResource("/checkstyle/default.xml").readText())
+    object {}::class.java.getResource("/checkstyle/default.xml")?.readText()?.let { ConfiguredChecker(it) }
 }
 
 @Throws(CheckstyleFailed::class)
 fun Source.checkstyle(
     checkstyleArguments: CheckstyleArguments = CheckstyleArguments(),
-    checker: ConfiguredChecker = defaultChecker
+    checker: ConfiguredChecker? = defaultChecker
 ): CheckstyleResults {
+    require(checker != null) { "Must pass a configured checker" }
     require(type == Source.FileType.JAVA) { "Can't run checkstyle on non-Java sources" }
 
     val names = checkstyleArguments.sources ?: sources.keys
@@ -161,7 +165,7 @@ fun Source.checkstyle(
             null
         }
         if (mappedLocation != null) {
-            CheckstyleError(it.severity, mappedLocation, it.message)
+            CheckstyleError(it.severity, it.key, mappedLocation, it.message)
         } else {
             null
         }

@@ -36,7 +36,7 @@ dependencies {
     implementation("io.github.java-diff-utils:java-diff-utils:4.10")
     api("com.github.ben-manes.caffeine:caffeine:3.0.2")
 
-    testImplementation("io.kotest:kotest-runner-junit5:4.5.0")
+    testImplementation("io.kotest:kotest-runner-junit5:4.6.0")
 }
 tasks.test {
     useJUnitPlatform()
