@@ -1,12 +1,13 @@
 plugins {
-    kotlin("jvm") version "1.5.0" apply false
-    kotlin("kapt") version "1.5.0" apply false
+    kotlin("jvm") version "1.5.10" apply false
+    kotlin("kapt") version "1.5.10" apply false
     id("org.jmailen.kotlinter") version "3.4.4" apply false
     id("com.github.ben-manes.versions") version "0.38.0"
-    id("io.gitlab.arturbosch.detekt") version "1.17.0"
+    id("io.gitlab.arturbosch.detekt") version "1.17.1"
 }
 allprojects {
     repositories {
+        mavenLocal()
         mavenCentral()
         maven("https://jitpack.io")
         maven("https://maven.google.com/")
@@ -15,20 +16,12 @@ allprojects {
 }
 subprojects {
     group = "com.github.cs125-illinois.jeed"
-    version = "2021.5.4"
+    version = "2021.5.5"
     tasks.withType<Test> {
         useJUnitPlatform()
         enableAssertions = true
-        // Try to fix encoding bug on Windows
+        // Fix encoding bug on Windows
         jvmArgs("-Dfile.encoding=UTF-8")
-    }
-    configurations.all {
-        resolutionStrategy {
-            force(
-                "org.jetbrains.kotlin:kotlin-stdlib-jdk8:1.5.0",
-                "org.jetbrains.kotlin:kotlin-script-runtime:1.5.0"
-            )
-        }
     }
 }
 tasks.dependencyUpdates {
