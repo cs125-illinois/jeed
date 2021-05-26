@@ -16,6 +16,7 @@ i++;
             it.lookup(".").features.featureMap[FeatureName.LOCAL_VARIABLE_DECLARATIONS] shouldBe 2
             it.lookup(".").features.featureMap[FeatureName.VARIABLE_ASSIGNMENTS] shouldBe 2
             it.lookup(".").features.featureMap[FeatureName.VARIABLE_REASSIGNMENTS] shouldBe 1
+            it.lookup("").features.featureMap[FeatureName.METHOD] shouldBe 1
         }
     }
     "should count for loops in snippets" {
@@ -42,7 +43,7 @@ for (int i = 0; i < 10; i++) {
 """.trim()
         ).features().also {
             it.lookup(".").features.featureMap[FeatureName.FOR_LOOPS] shouldBe 2
-            it.lookup(".").features.nestedForCount shouldBe 1
+            it.lookup(".").features.featureMap[FeatureName.NESTED_FOR] shouldBe 1
         }
     }
     "should count while loops in snippets" {
@@ -57,9 +58,9 @@ while (i < 10) {
 }
 """.trim()
         ).features().also {
-            it.lookup(".").features.whileLoopCount shouldBe 2
-            it.lookup(".").features.nestedWhileCount shouldBe 1
-            it.lookup(".").features.doWhileLoopCount shouldBe 0
+            it.lookup(".").features.featureMap[FeatureName.WHILE_LOOPS] shouldBe 2
+            it.lookup(".").features.featureMap[FeatureName.NESTED_WHILE] shouldBe 1
+            it.lookup(".").features.featureMap[FeatureName.DO_WHILE_LOOPS] shouldBe 0
         }
     }
     "should count do-while loops in snippets" {
@@ -77,9 +78,9 @@ do {
 } while (i < 10);
 """.trim()
         ).features().also {
-            it.lookup(".").features.doWhileLoopCount shouldBe 2
-            it.lookup(".").features.nestedDoWhileCount shouldBe 1
-            it.lookup(".").features.whileLoopCount shouldBe 0
+            it.lookup(".").features.featureMap[FeatureName.DO_WHILE_LOOPS] shouldBe 2
+            it.lookup(".").features.featureMap[FeatureName.NESTED_DO_WHILE] shouldBe 1
+            it.lookup(".").features.featureMap[FeatureName.WHILE_LOOPS] shouldBe 0
         }
     }
     "should count simple if-else statements in snippets" {
@@ -93,8 +94,8 @@ if (i < 5) {
 }
 """.trim()
         ).features().also {
-            it.lookup(".").features.ifCount shouldBe 1
-            it.lookup(".").features.elseCount shouldBe 1
+            it.lookup(".").features.featureMap[FeatureName.IF_STATEMENTS] shouldBe 1
+            it.lookup(".").features.featureMap[FeatureName.ELSE_STATEMENTS] shouldBe 1
         }
     }
     "should count a chain of if-else statements in snippets" {
@@ -112,9 +113,9 @@ if (i < 5) {
 }
 """.trim()
         ).features().also {
-            it.lookup(".").features.ifCount shouldBe 1
-            it.lookup(".").features.elseCount shouldBe 1
-            it.lookup(".").features.elseIfCount shouldBe 2
+            it.lookup(".").features.featureMap[FeatureName.IF_STATEMENTS] shouldBe 1
+            it.lookup(".").features.featureMap[FeatureName.ELSE_STATEMENTS] shouldBe 1
+            it.lookup(".").features.featureMap[FeatureName.ELSE_IF] shouldBe 2
         }
     }
     "should count nested if statements in snippets" {
@@ -134,8 +135,8 @@ if (i < 15) {
 }
 """.trim()
         ).features().also {
-            it.lookup(".").features.ifCount shouldBe 4
-            it.lookup(".").features.nestedIfCount shouldBe 3
+            it.lookup(".").features.featureMap[FeatureName.IF_STATEMENTS] shouldBe 4
+            it.lookup(".").features.featureMap[FeatureName.NESTED_IF] shouldBe 3
         }
     }
 })

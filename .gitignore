@@ -28,6 +28,8 @@ test-output/
 .idea/**/dynamic.xml
 .idea/**/uiDesigner.xml
 .idea/**/dbnavigator.xml
+.idea/jarRepositories.xml
+/local.properties
 
 # Gradle
 .idea/**/gradle.xml

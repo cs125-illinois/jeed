@@ -14,16 +14,15 @@ enum class FeatureName {
     WHILE_LOOPS,
     NESTED_WHILE,
     DO_WHILE_LOOPS,
+    NESTED_DO_WHILE,
     IF_STATEMENTS,
     ELSE_STATEMENTS,
     ELSE_IF,
-    NESTED_IF
+    NESTED_IF,
+    METHOD
 }
 
 data class Features(
-    var localVariableDeclarations: Int = 0,
-    var variableAssignments: Int = 0,
-    var variableReassignments: Int = 0,
     var forLoopCount: Int = 0,
     var whileLoopCount: Int = 0,
     var doWhileLoopCount: Int = 0,
@@ -34,17 +33,14 @@ data class Features(
     var nestedForCount: Int = 0,
     var nestedWhileCount: Int = 0,
     var nestedDoWhileCount: Int = 0,
-    var featureMap: MutableMap<FeatureName, Int> = mutableMapOf()
+    var featureMap: MutableMap<FeatureName, Int> = FeatureName.values().associate { it to 0 }.toMutableMap()
 ) {
-    init {
+    operator fun plus(other: Features):Features {
+        val map = mutableMapOf<FeatureName, Int>()
         for (key in FeatureName.values()) {
-            featureMap[key] = 0
+            map[key] = featureMap[key]!! + other.featureMap[key]!!
         }
-    }
-    operator fun plus(other: Features) = Features(
-        localVariableDeclarations + other.localVariableDeclarations,
-        variableAssignments + other.variableAssignments,
-        variableReassignments + other.variableReassignments,
+        return Features(
         forLoopCount + other.forLoopCount,
         whileLoopCount + other.whileLoopCount,
         doWhileLoopCount + other.doWhileLoopCount,
@@ -54,8 +50,9 @@ data class Features(
         nestedIfCount + other.nestedIfCount,
         nestedForCount + other.nestedForCount,
         nestedWhileCount + other.nestedWhileCount,
-        nestedDoWhileCount + other.nestedDoWhileCount
-    )
+        nestedDoWhileCount + other.nestedDoWhileCount,
+            map
+    )}
 }
 
 sealed class FeatureValue(
@@ -198,6 +195,7 @@ private class FeatureListener(val source: Source, entry: Map.Entry<String, Strin
     }
 
     override fun enterMethodDeclaration(ctx: JavaParser.MethodDeclarationContext) {
+        count(FeatureName.METHOD, 1)
         val parameters = ctx.formalParameters().formalParameterList()?.formalParameter()?.joinToString(",") {
             it.typeType().text
         } ?: ""
@@ -238,8 +236,11 @@ private class FeatureListener(val source: Source, entry: Map.Entry<String, Strin
 
     private val seenIfStarts = mutableSetOf<Int>()
 
+    private val currentFeatureMap: MutableMap<FeatureName, Int>
+        get() = currentFeatures.features.featureMap
+
     private fun count(feature: FeatureName, amount: Int) {
-        currentFeatures.features.featureMap[feature] = currentFeatures.features.featureMap.getOrDefault(feature, 0) + amount
+        currentFeatureMap[feature] = (currentFeatureMap[feature] ?: 0) + amount
     }
 
     override fun enterStatement(ctx: JavaParser.StatementContext) {
@@ -255,7 +256,7 @@ private class FeatureListener(val source: Source, entry: Map.Entry<String, Strin
         ctx.WHILE()?.also {
             // Only increment whileLoopCount if it's not a do-while loop
             if (ctx.DO() != null) {
-                currentFeatures.features.doWhileLoopCount++
+                count(FeatureName.DO_WHILE_LOOPS, 1)
                 if (ctx.statement(0) != null) {
                     val statement = ctx.statement(0).block().blockStatement()
                     for (block in statement) {
@@ -315,12 +316,19 @@ private class FeatureListener(val source: Source, entry: Map.Entry<String, Strin
             val statement = ctx.statement(0).block().blockStatement()
             for (block in statement) {
                 block.statement()?.FOR()?.also {
-                    currentFeatures.features.nestedForCount++
+                    count(FeatureName.NESTED_FOR, 1)
                 }
-                block.statement()?.FOR()?.also {
+                block.statement()?.IF()?.also {
                     seenIfStarts += block.statement().start.startIndex
-                    currentFeatures.features.nestedIfCount++
-                    currentFeatures.features.ifCount++
+                    count(FeatureName.IF_STATEMENTS, 1)
+                    count(FeatureName.NESTED_IF, 1)
+                }
+                block.statement()?.WHILE()?.also {
+                    if (block.statement().DO() != null) {
+                        count(FeatureName.NESTED_DO_WHILE, 1)
+                    } else {
+                        count(FeatureName.NESTED_WHILE, 1)
+                    }
                 }
             }
         }
