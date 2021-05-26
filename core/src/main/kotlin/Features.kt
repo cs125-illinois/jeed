@@ -281,20 +281,6 @@ private class FeatureListener(val source: Source, entry: Map.Entry<String, Strin
             }
         }
         ctx.IF()?.also {
-            // Check for nested if statements regardless if statement has been seen before
-            if (ctx.statement(0) != null) {
-                val statement = ctx.statement(0).block().blockStatement()
-                for (block in statement) {
-                    if (block.statement() == null) continue
-                    if (block.statement().IF() != null) {
-                        // Count nested if
-                        seenIfStarts += block.statement().start.startIndex
-                        currentFeatures.features.nestedIfCount++
-                        currentFeatures.features.ifCount++
-                    }
-                }
-            }
-
             // Check for else-if chains
             val outerIfStart = ctx.start.startIndex
             if (outerIfStart !in seenIfStarts) {
@@ -330,6 +316,11 @@ private class FeatureListener(val source: Source, entry: Map.Entry<String, Strin
             for (block in statement) {
                 block.statement()?.FOR()?.also {
                     currentFeatures.features.nestedForCount++
+                }
+                block.statement()?.FOR()?.also {
+                    seenIfStarts += block.statement().start.startIndex
+                    currentFeatures.features.nestedIfCount++
+                    currentFeatures.features.ifCount++
                 }
             }
         }
