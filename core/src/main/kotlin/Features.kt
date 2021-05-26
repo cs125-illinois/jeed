@@ -231,9 +231,12 @@ private class FeatureListener(val source: Source, entry: Map.Entry<String, Strin
 
     override fun enterLocalVariableDeclaration(ctx: JavaParser.LocalVariableDeclarationContext) {
         count(FeatureName.LOCAL_VARIABLE_DECLARATIONS, ctx.variableDeclarators().variableDeclarator().size)
-        count(FeatureName.VARIABLE_ASSIGNMENTS, ctx.variableDeclarators().variableDeclarator().filter {
-            it.variableInitializer() != null
-        }.size)
+        count(
+            FeatureName.VARIABLE_ASSIGNMENTS,
+            ctx.variableDeclarators().variableDeclarator().filter {
+                it.variableInitializer() != null
+            }.size
+        )
     }
 
     private val seenIfStarts = mutableSetOf<Int>()
@@ -307,7 +310,6 @@ private class FeatureListener(val source: Source, entry: Map.Entry<String, Strin
                     // Count else block
                     check(ctx.ELSE() != null)
                     currentFeatures.features.elseCount++
-
                 } else if (ctx.statement().size >= 2) {
                     var statement = ctx.statement(1)
                     println(statement.text)
