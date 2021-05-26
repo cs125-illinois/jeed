@@ -148,9 +148,6 @@
         <!-- Checks for common coding problems               -->
         <!-- See http://checkstyle.sf.net/config_coding.html -->
         <module name="AvoidInlineConditionals"/>
-        <!-- Jeed: allow empty statements for loop list walking.
-        <module name="EmptyStatement"/>
-        -->
         <module name="EqualsHashCode"/>
         <module name="HiddenField"/>
         <module name="IllegalInstantiation"/>

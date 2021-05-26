@@ -11,7 +11,7 @@ import io.kotest.matchers.shouldNot
 
 class TestCheckstyle : StringSpec({
     "should retrieve the indentation level properly" {
-        defaultChecker.indentation shouldBe 4
+        defaultChecker!!.indentation shouldBe 4
     }
     "should check strings without errors" {
         val checkstyleResult = Source.fromSnippet(
