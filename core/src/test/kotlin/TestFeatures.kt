@@ -21,7 +21,7 @@ i++;
     }
     "should count for loops in snippets" {
         Source.fromSnippet(
-                """
+            """
 for (int i = 0; i < 10; i++) {
     System.out.println(i);
 }
@@ -34,7 +34,7 @@ for (int i = 0; i < 10; i++) {
     }
     "should count nested for loops in snippets" {
         Source.fromSnippet(
-                """
+            """
 for (int i = 0; i < 10; i++) {
     for (int j = 0; j < 10; j++) {
         System.out.println(i + j);
@@ -48,7 +48,7 @@ for (int i = 0; i < 10; i++) {
     }
     "should count while loops in snippets" {
         Source.fromSnippet(
-                """
+            """
 int i = 0;
 while (i < 10) {
     while (j < 10) {
@@ -65,7 +65,7 @@ while (i < 10) {
     }
     "should count do-while loops in snippets" {
         Source.fromSnippet(
-                """
+            """
 int i = 0;
 do {
     System.out.println(i);
@@ -85,7 +85,7 @@ do {
     }
     "should count simple if-else statements in snippets" {
         Source.fromSnippet(
-                """
+            """
 int i = 0;
 if (i < 5) {
     i++;
@@ -100,7 +100,7 @@ if (i < 5) {
     }
     "should count a chain of if-else statements in snippets" {
         Source.fromSnippet(
-                """
+            """
 int i = 0;
 if (i < 5) {
     i++;
@@ -120,7 +120,7 @@ if (i < 5) {
     }
     "should count nested if statements in snippets" {
         Source.fromSnippet(
-                """
+            """
 int i = 0;
 if (i < 15) {
     if (i < 10) {

@@ -7,7 +7,6 @@ plugins {
 }
 allprojects {
     repositories {
-        mavenLocal()
         mavenCentral()
         maven("https://jitpack.io")
         maven("https://maven.google.com/")
@@ -16,7 +15,7 @@ allprojects {
 }
 subprojects {
     group = "com.github.cs125-illinois.jeed"
-    version = "2021.5.5"
+    version = "2021.5.6"
     tasks.withType<Test> {
         useJUnitPlatform()
         enableAssertions = true
