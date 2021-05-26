@@ -10,11 +10,132 @@ class TestFeatures : StringSpec({
 int i = 0;
 int j;
 i = 4;
+i++;
 """.trim()
         ).features().also {
-            it.lookup(".").features.localVariableDeclarations shouldBe 2
-            it.lookup(".").features.variableAssignments shouldBe 2
-            it.lookup(".").features.variableReassignments shouldBe 1
+            it.lookup(".").features.featureMap[FeatureName.LOCAL_VARIABLE_DECLARATIONS] shouldBe 2
+            it.lookup(".").features.featureMap[FeatureName.VARIABLE_ASSIGNMENTS] shouldBe 2
+            it.lookup(".").features.featureMap[FeatureName.VARIABLE_REASSIGNMENTS] shouldBe 1
+        }
+    }
+    "should count for loops in snippets" {
+        Source.fromSnippet(
+                """
+for (int i = 0; i < 10; i++) {
+    System.out.println(i);
+}
+""".trim()
+        ).features().also {
+            it.lookup(".").features.featureMap[FeatureName.FOR_LOOPS] shouldBe 1
+            it.lookup(".").features.featureMap[FeatureName.VARIABLE_ASSIGNMENTS] shouldBe 1
+            it.lookup(".").features.featureMap[FeatureName.LOCAL_VARIABLE_DECLARATIONS] shouldBe 1
+        }
+    }
+    "should count nested for loops in snippets" {
+        Source.fromSnippet(
+                """
+for (int i = 0; i < 10; i++) {
+    for (int j = 0; j < 10; j++) {
+        System.out.println(i + j);
+    }
+}
+""".trim()
+        ).features().also {
+            it.lookup(".").features.featureMap[FeatureName.FOR_LOOPS] shouldBe 2
+            it.lookup(".").features.nestedForCount shouldBe 1
+        }
+    }
+    "should count while loops in snippets" {
+        Source.fromSnippet(
+                """
+int i = 0;
+while (i < 10) {
+    while (j < 10) {
+        j++;
+    }
+    i++;
+}
+""".trim()
+        ).features().also {
+            it.lookup(".").features.whileLoopCount shouldBe 2
+            it.lookup(".").features.nestedWhileCount shouldBe 1
+            it.lookup(".").features.doWhileLoopCount shouldBe 0
+        }
+    }
+    "should count do-while loops in snippets" {
+        Source.fromSnippet(
+                """
+int i = 0;
+do {
+    System.out.println(i);
+    i++;
+    
+    int j = 0;
+    do {
+        j++;
+    } while (j < 10);
+} while (i < 10);
+""".trim()
+        ).features().also {
+            it.lookup(".").features.doWhileLoopCount shouldBe 2
+            it.lookup(".").features.nestedDoWhileCount shouldBe 1
+            it.lookup(".").features.whileLoopCount shouldBe 0
+        }
+    }
+    "should count simple if-else statements in snippets" {
+        Source.fromSnippet(
+                """
+int i = 0;
+if (i < 5) {
+    i++;
+} else {
+    i--;
+}
+""".trim()
+        ).features().also {
+            it.lookup(".").features.ifCount shouldBe 1
+            it.lookup(".").features.elseCount shouldBe 1
+        }
+    }
+    "should count a chain of if-else statements in snippets" {
+        Source.fromSnippet(
+                """
+int i = 0;
+if (i < 5) {
+    i++;
+} else if (i < 10) {
+    i--;
+} else if (i < 15) {
+    i++;
+} else {
+    i--;
+}
+""".trim()
+        ).features().also {
+            it.lookup(".").features.ifCount shouldBe 1
+            it.lookup(".").features.elseCount shouldBe 1
+            it.lookup(".").features.elseIfCount shouldBe 2
+        }
+    }
+    "should count nested if statements in snippets" {
+        Source.fromSnippet(
+                """
+int i = 0;
+if (i < 15) {
+    if (i < 10) {
+        i--;
+        if (i < 5) {
+            i++;
+        }
+    }
+    if (i > 10) {
+        i--;
+    }
+}
+""".trim()
+        ).features().also {
+            it.lookup(".").features.ifCount shouldBe 4
+            it.lookup(".").features.nestedIfCount shouldBe 3
         }
     }
 })
