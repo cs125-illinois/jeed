@@ -1,6 +1,22 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <project version="4">
+  <component name="CheckStyle-IDEA-workspace">
+    <option name="configuration">
+      <map>
+        <entry key="last-active-plugin-version" value="5.18.3" />
+      </map>
+    </option>
+  </component>
+  <component name="EntryPointsManager">
+    <list size="2">
+      <item index="0" class="java.lang.String" itemvalue="com.squareup.moshi.FromJson" />
+      <item index="1" class="java.lang.String" itemvalue="com.squareup.moshi.ToJson" />
+    </list>
+  </component>
   <component name="ExternalStorageConfigurationManager" enabled="true" />
+  <component name="JavaScriptSettings">
+    <option name="languageLevel" value="ES6" />
+  </component>
   <component name="ProjectRootManager" version="2" languageLevel="JDK_16" default="true" project-jdk-name="16" project-jdk-type="JavaSDK" />
   <component name="SuppressKotlinCodeStyleNotification">
     <option name="disableForAll" value="true" />
