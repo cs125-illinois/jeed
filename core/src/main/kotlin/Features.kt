@@ -23,36 +23,17 @@ enum class FeatureName {
 }
 
 data class Features(
-    var forLoopCount: Int = 0,
-    var whileLoopCount: Int = 0,
-    var doWhileLoopCount: Int = 0,
-    var ifCount: Int = 0,
-    var elseCount: Int = 0,
-    var elseIfCount: Int = 0,
-    var nestedIfCount: Int = 0,
-    var nestedForCount: Int = 0,
-    var nestedWhileCount: Int = 0,
-    var nestedDoWhileCount: Int = 0,
     var featureMap: MutableMap<FeatureName, Int> = FeatureName.values().associate { it to 0 }.toMutableMap()
 ) {
-    operator fun plus(other: Features):Features {
+    operator fun plus(other: Features): Features {
         val map = mutableMapOf<FeatureName, Int>()
         for (key in FeatureName.values()) {
             map[key] = featureMap[key]!! + other.featureMap[key]!!
         }
         return Features(
-        forLoopCount + other.forLoopCount,
-        whileLoopCount + other.whileLoopCount,
-        doWhileLoopCount + other.doWhileLoopCount,
-        ifCount + other.ifCount,
-        elseCount + other.elseCount,
-        elseIfCount + other.elseIfCount,
-        nestedIfCount + other.nestedIfCount,
-        nestedForCount + other.nestedForCount,
-        nestedWhileCount + other.nestedWhileCount,
-        nestedDoWhileCount + other.nestedDoWhileCount,
             map
-    )}
+        )
+    }
 }
 
 sealed class FeatureValue(
@@ -260,28 +241,8 @@ private class FeatureListener(val source: Source, entry: Map.Entry<String, Strin
             // Only increment whileLoopCount if it's not a do-while loop
             if (ctx.DO() != null) {
                 count(FeatureName.DO_WHILE_LOOPS, 1)
-                if (ctx.statement(0) != null) {
-                    val statement = ctx.statement(0).block().blockStatement()
-                    for (block in statement) {
-                        if (block.statement() == null) continue
-                        if (block.statement().DO() != null && block.statement().WHILE() != null) {
-                            // Count nested do-while loop
-                            currentFeatures.features.nestedDoWhileCount++
-                        }
-                    }
-                }
             } else {
-                currentFeatures.features.whileLoopCount++
-                if (ctx.statement(0) != null) {
-                    val statement = ctx.statement(0).block().blockStatement()
-                    for (block in statement) {
-                        if (block.statement() == null) continue
-                        if (block.statement().WHILE() != null) {
-                            // Count nested while loop
-                            currentFeatures.features.nestedWhileCount++
-                        }
-                    }
-                }
+                count(FeatureName.WHILE_LOOPS, 1)
             }
         }
         ctx.IF()?.also {
@@ -289,14 +250,14 @@ private class FeatureListener(val source: Source, entry: Map.Entry<String, Strin
             val outerIfStart = ctx.start.startIndex
             if (outerIfStart !in seenIfStarts) {
                 // Count if block
-                currentFeatures.features.ifCount++
+                count(FeatureName.IF_STATEMENTS, 1)
                 seenIfStarts += outerIfStart
                 check(ctx.statement().isNotEmpty())
 
                 if (ctx.statement().size == 2 && ctx.statement(1).block() != null) {
                     // Count else block
                     check(ctx.ELSE() != null)
-                    currentFeatures.features.elseCount++
+                    count(FeatureName.ELSE_STATEMENTS, 1)
                 } else if (ctx.statement().size >= 2) {
                     var statement = ctx.statement(1)
                     println(statement.text)
@@ -304,9 +265,9 @@ private class FeatureListener(val source: Source, entry: Map.Entry<String, Strin
                         if (statement.IF() != null) {
                             // If statement contains an IF, it is part of a chain
                             seenIfStarts += statement.start.startIndex
-                            currentFeatures.features.elseIfCount++
+                            count(FeatureName.ELSE_IF, 1)
                         } else {
-                            currentFeatures.features.elseCount++
+                            count(FeatureName.ELSE_STATEMENTS, 1)
                         }
                         statement = statement.statement(1)
                     }
