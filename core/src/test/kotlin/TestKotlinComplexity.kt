@@ -329,6 +329,22 @@ class PingPonger constructor(private var state: String) {
         }
     }
 
+    "should calculate complexity for an entire file" {
+        Source(
+            mapOf(
+                "TestKt.kt" to """
+fun test() {}
+fun me(first: Int, second: Int) = if (first > second) {
+  "me"
+} else {
+  "you"
+}""".trim()
+            )
+        ).complexity().also {
+            it.lookupFile("TestKt.kt") shouldBe 3
+        }
+    }
+
 //     "should work for snippets" {
 //         Source.fromSnippet(
 //             """
