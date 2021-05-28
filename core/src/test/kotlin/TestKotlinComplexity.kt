@@ -13,7 +13,7 @@ fun main(first: Int, second: String, third: Blah?): Int {
 }
 """.trim()
         ).complexity().also {
-            it.lookup("fun main(Int,String,Blah?): Int", "Main.kt").complexity shouldBe 1
+            it.lookup("main(Int,String,Blah?): Int", "Main.kt").complexity shouldBe 1
         }
     }
 
@@ -31,7 +31,7 @@ public class Test(var first: Int, var second: Int) {
                 """.trim()
             )
         ).complexity().also {
-            it.lookup("Test.fun add(Int,Int): Int", "Test.kt").complexity shouldBe 2
+            it.lookup("Test.add(Int,Int): Int", "Test.kt").complexity shouldBe 2
             it.lookup("Test.Test(Int,Int)", "Test.kt").complexity shouldBe 1
         }
     }
@@ -48,7 +48,7 @@ public class Test(var first: Int, var second: Int) {
                 """.trim()
             )
         ).complexity().also {
-            it.lookup("Test.fun add(Int,Int): Int", "Test.kt").complexity shouldBe 1
+            it.lookup("Test.add(Int,Int): Int", "Test.kt").complexity shouldBe 1
             it.lookup("Test.Test(Int,Int)", "Test.kt").complexity shouldBe 1
         }
     }
@@ -68,7 +68,7 @@ public class Test() {
                 """.trim()
             )
         ).complexity().also {
-            it.lookup("Test.fun conditional(Int): Int", "Test.kt").complexity shouldBe 2
+            it.lookup("Test.conditional(Int): Int", "Test.kt").complexity shouldBe 2
         }
     }
 
@@ -100,7 +100,7 @@ public class Test() {
                 """.trim()
             )
         ).complexity().also {
-            it.lookup("Test.fun conditional(Int): Int", "Test.kt").complexity shouldBe 6
+            it.lookup("Test.conditional(Int): Int", "Test.kt").complexity shouldBe 6
         }
     }
 
@@ -122,7 +122,7 @@ public class Test() {
                 """.trim()
             )
         ).complexity().also {
-            it.lookup("Test.fun conditional(Int): Int", "Test.kt").complexity shouldBe 5
+            it.lookup("Test.conditional(Int): Int", "Test.kt").complexity shouldBe 5
         }
     }
 
@@ -161,7 +161,7 @@ fun main() {
 }
 """.trim()
         ).complexity().also {
-            it.lookup("fun main()", "Main.kt").complexity shouldBe 4
+            it.lookup("main()", "Main.kt").complexity shouldBe 4
         }
     }
 
@@ -180,7 +180,7 @@ fun main() {
 }
 """.trim()
         ).complexity().also {
-            it.lookup("fun main()", "Main.kt").complexity shouldBe 3
+            it.lookup("main()", "Main.kt").complexity shouldBe 3
         }
     }
 
@@ -207,7 +207,7 @@ class Test : Testing {
 }
 """.trim()
         ).complexity().also {
-            it.lookup("Test.fun toTest(Tester,Tester): Tester", "Main.kt").complexity shouldBe 1
+            it.lookup("Test.toTest(Tester,Tester): Tester", "Main.kt").complexity shouldBe 1
         } // ask geoff about this
     }
 
@@ -220,7 +220,7 @@ fun <T> main(j: T): List<T> {
 }
 """.trim()
         ).complexity().also {
-            it.lookup("fun main(T): List<T>", "Main.kt").complexity shouldBe 1
+            it.lookup("main(T): List<T>", "Main.kt").complexity shouldBe 1
         }
     }
 
@@ -238,7 +238,7 @@ fun toTest(): Testing {
 
 """.trim()
         ).complexity().also {
-            it.lookup("fun toTest(): Testing", "Main.kt").complexity shouldBe 2
+            it.lookup("toTest(): Testing", "Main.kt").complexity shouldBe 2
         }
     }
 
@@ -329,16 +329,33 @@ class PingPonger constructor(private var state: String) {
         }
     }
 
-//     "should work for snippets" {
-//         Source.fromSnippet(
-//             """
-// fun test(first: Int, second: String, third: Blah?): Int {
-//   return
-// }""".trim(),
-//             SnippetArguments(fileType = Source.FileType.KOTLIN)
-//         ).complexity().also {
-//             it.lookup("").complexity shouldBe 2
-//         }
-//     }
-})
+    "should work for snippets" {
+        Source.fromSnippet(
+            """
+fun test(first: Int, second: String, third: Blah?): Int {
+  return
+}""".trim(),
+            SnippetArguments(fileType = Source.FileType.KOTLIN)
+        ).complexity().also {
+            it.lookup(".").complexity shouldBe 1
+            it.lookup("").complexity shouldBe 2
+        }
+    }
 
+    "nested function" {
+        Source.fromSnippet(
+            """
+fun test(first: Int, second: String, third: Blah?): Int {
+  var i = 1
+  fun main(first: Double, second: String): Int {
+    return
+  }
+}""".trim(),
+            SnippetArguments(fileType = Source.FileType.KOTLIN)
+        ).complexity().also {
+            it.lookup(".").complexity shouldBe 1
+            it.lookup("").complexity shouldBe 3
+            it.lookup("test(Int,String,Blah?): Int.main(Double,String): Int").complexity shouldBe 1
+        }
+    }
+})
