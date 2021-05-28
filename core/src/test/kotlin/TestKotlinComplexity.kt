@@ -374,5 +374,22 @@ fun me(first: Int, second: Int) = if (first > second) {
             it.lookupFile("TestKt.kt") shouldBe 3
         }
     }
-
+    "should calculate complexity for an if-expression" {
+        Source(
+            mapOf(
+                "TestKt.kt" to """
+fun areSameLength(first: String?, second: String?): Boolean {
+  return if (first == null || second == null) {
+    false
+  } else {
+    first.length == second.length
+  }
+}
+""".trim()
+            )
+        ).complexity().also {
+            it.lookup("areSameLength(String?,String?): Boolean", "TestKt.kt").complexity shouldBe 3
+            it.lookupFile("TestKt.kt") shouldBe 3
+        }
+    }
 })

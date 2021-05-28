@@ -93,9 +93,8 @@ class KotlinComplexityListener(val source: Source, entry: Map.Entry<String, Stri
     }
 
     override fun enterPrimaryConstructor(ctx: KotlinParser.PrimaryConstructorContext) {
-        val parameters = ctx.classParameters().classParameter().map { it.type().text }.joinToString(",")
+        val parameters = ctx.classParameters().classParameter().joinToString(",") { it.type().text }
         val fullName = "$currentClass($parameters)"
-
         enterMethodOrConstructor(
             fullName,
             Location(ctx.start.line, ctx.start.charPositionInLine),
@@ -108,20 +107,9 @@ class KotlinComplexityListener(val source: Source, entry: Map.Entry<String, Stri
     }
 
     override fun enterSecondaryConstructor(ctx: KotlinParser.SecondaryConstructorContext) {
-        val regexToExtractParameters = """:( )?[a-zA-Z0-9. <>]*(\?)?[,)=]""".toRegex()
-        val parameters = ctx.functionValueParameters().functionValueParameter().map { it.parameter().type().text }.joinToString(",")
-        println("enterSecondaryConstructor")
-        println(parameters)
-
-        val cleanedParameters = regexToExtractParameters.findAll(ctx.text).joinToString {
-            it.value
-        }.replace(":", "")
-            .replace(" ", "")
-            .replace(")", "")
-            .replace("=", "")
-            .replace("[,]+".toRegex(), ",")
-        val fullName = "$currentClass($cleanedParameters)"
-
+        val parameters =
+            ctx.functionValueParameters().functionValueParameter().joinToString(",") { it.parameter().type().text }
+        val fullName = "$currentClass($parameters)"
         enterMethodOrConstructor(
             fullName,
             Location(ctx.start.line, ctx.start.charPositionInLine),

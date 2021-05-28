@@ -67,7 +67,8 @@ class ComplexityResults(val source: Source, val results: Map<String, Map<String,
                 rootComplexity
             }
         } else {
-            resultSource[components.removeAt(0)]
+            val component = components.removeAt(0)
+            resultSource[component] ?: error("Couldn't find path $component")
         } as ComplexityValue
 
         for (component in components) {
