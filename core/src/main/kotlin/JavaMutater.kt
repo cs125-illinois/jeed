@@ -38,7 +38,9 @@ val OTHER = setOf(
     Mutation.Type.REMOVE_LOOP,
     Mutation.Type.REMOVE_AND_OR,
     Mutation.Type.REMOVE_TRY,
-    Mutation.Type.REMOVE_STATEMENT
+    Mutation.Type.REMOVE_STATEMENT,
+    Mutation.Type.REMOVE_PLUS,
+    Mutation.Type.REMOVE_BINARY
 )
 val ALL = PITEST + OTHER
 
@@ -93,7 +95,8 @@ sealed class Mutation(val type: Type, var location: Location, val original: Stri
         INCREMENT_DECREMENT, INVERT_NEGATION, MATH,
         PRIMITIVE_RETURN, TRUE_RETURN, FALSE_RETURN, NULL_RETURN, PLUS_TO_MINUS,
         REMOVE_ASSERT, REMOVE_METHOD,
-        NEGATE_IF, NEGATE_WHILE, REMOVE_IF, REMOVE_LOOP, REMOVE_AND_OR, REMOVE_TRY, REMOVE_STATEMENT
+        NEGATE_IF, NEGATE_WHILE, REMOVE_IF, REMOVE_LOOP, REMOVE_AND_OR, REMOVE_TRY, REMOVE_STATEMENT,
+        REMOVE_PLUS, REMOVE_BINARY
     }
 
     var modified: String? = null
@@ -252,6 +255,35 @@ sealed class Mutation(val type: Type, var location: Location, val original: Stri
             }
         }
 
+        private fun JavaParser.ExpressionContext.locationPair(): Pair<Location, Location> {
+            check(expression().size == 2)
+            val front = expression(0)
+            val back = expression(1)
+            val frontLocation = Location(
+                front.start.startIndex,
+                back.start.startIndex - 1,
+                currentPath,
+                lines
+                    .filterIndexed { index, _ ->
+                        index >= front.start.line - 1 && index <= back.start.line - 1
+                    }
+                    .joinToString("\n"),
+                front.start.line
+            )
+            val backLocation = Location(
+                front.stop.stopIndex + 1,
+                back.stop.stopIndex,
+                currentPath,
+                lines
+                    .filterIndexed { index, _ ->
+                        index >= front.stop.line - 1 && index <= back.stop.line - 1
+                    }
+                    .joinToString("\n"),
+                front.start.line
+            )
+            return Pair(frontLocation, backLocation)
+        }
+
         override fun enterExpression(ctx: JavaParser.ExpressionContext) {
             ctx.prefix?.toLocation()?.also { location ->
                 val contents = parsedSource.contents(location)
@@ -276,6 +308,11 @@ sealed class Mutation(val type: Type, var location: Location, val original: Stri
                         if (MutateMath.matches(contents)) {
                             mutations.add(MutateMath(location, contents))
                         }
+                        if (RemoveBinary.matches(contents)) {
+                            val (frontLocation, backLocation) = ctx.locationPair()
+                            mutations.add(RemoveBinary(frontLocation, parsedSource.contents(frontLocation)))
+                            mutations.add(RemoveBinary(backLocation, parsedSource.contents(backLocation)))
+                        }
                     }
                 }
             }
@@ -288,6 +325,11 @@ sealed class Mutation(val type: Type, var location: Location, val original: Stri
                 val contents = parsedSource.contents(location)
                 if (MutateMath.matches(contents)) {
                     mutations.add(MutateMath(location, contents))
+                }
+                if (RemoveBinary.matches(contents)) {
+                    val (frontLocation, backLocation) = ctx.locationPair()
+                    mutations.add(RemoveBinary(frontLocation, parsedSource.contents(frontLocation)))
+                    mutations.add(RemoveBinary(backLocation, parsedSource.contents(backLocation)))
                 }
             }
 
@@ -310,33 +352,19 @@ sealed class Mutation(val type: Type, var location: Location, val original: Stri
                 }
                 @Suppress("ComplexCondition")
                 if (contents == "&&" || contents == "||") {
-                    check(ctx.expression().size == 2)
-                    val front = ctx.expression(0)
-                    val back = ctx.expression(1)
-                    val frontLocation = Location(
-                        front.start.startIndex,
-                        back.start.startIndex - 1,
-                        currentPath,
-                        lines
-                            .filterIndexed { index, _ ->
-                                index >= front.start.line - 1 && index <= back.start.line - 1
-                            }
-                            .joinToString("\n"),
-                        front.start.line
-                    )
-                    val backLocation = Location(
-                        front.stop.stopIndex + 1,
-                        back.stop.stopIndex,
-                        currentPath,
-                        lines
-                            .filterIndexed { index, _ ->
-                                index >= front.stop.line - 1 && index <= back.stop.line - 1
-                            }
-                            .joinToString("\n"),
-                        front.start.line
-                    )
+                    val (frontLocation, backLocation) = ctx.locationPair()
                     mutations.add(RemoveAndOr(frontLocation, parsedSource.contents(frontLocation)))
                     mutations.add(RemoveAndOr(backLocation, parsedSource.contents(backLocation)))
+                }
+                if (RemovePlus.matches(contents)) {
+                    val (frontLocation, backLocation) = ctx.locationPair()
+                    mutations.add(RemovePlus(frontLocation, parsedSource.contents(frontLocation)))
+                    mutations.add(RemovePlus(backLocation, parsedSource.contents(backLocation)))
+                }
+                if (RemoveBinary.matches(contents)) {
+                    val (frontLocation, backLocation) = ctx.locationPair()
+                    mutations.add(RemoveBinary(frontLocation, parsedSource.contents(frontLocation)))
+                    mutations.add(RemoveBinary(backLocation, parsedSource.contents(backLocation)))
                 }
             }
         }
@@ -995,4 +1023,37 @@ class RemoveStatement(
     override val fixedCount = true
 
     override fun applyMutation(random: Random): String = ""
+}
+
+class RemovePlus(
+    location: Location,
+    original: String
+) : Mutation(Type.REMOVE_PLUS, location, original) {
+    override val preservesLength = false
+    override val estimatedCount = 1
+    override val mightNotCompile = true
+    override val fixedCount = true
+
+    override fun applyMutation(random: Random): String = ""
+
+    companion object {
+        fun matches(contents: String) = contents == "+"
+    }
+}
+
+class RemoveBinary(
+    location: Location,
+    original: String
+) : Mutation(Type.REMOVE_BINARY, location, original) {
+    override val preservesLength = false
+    override val estimatedCount = 1
+    override val mightNotCompile = false
+    override val fixedCount = true
+
+    override fun applyMutation(random: Random): String = ""
+
+    companion object {
+        private val BINARY = setOf("-", "*", "/", "%", "&", "|", "^", "<<", ">>", ">>>")
+        fun matches(contents: String) = BINARY.contains(contents)
+    }
 }

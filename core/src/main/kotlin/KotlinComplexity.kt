@@ -1,9 +1,13 @@
-package edu.illinois.cs.cs125.jeed.core // ktlint-disable filename
+// ktlint-disable filename
+@file:Suppress("MatchingDeclarationName")
+
+package edu.illinois.cs.cs125.jeed.core
 
 import edu.illinois.cs.cs125.jeed.core.antlr.KotlinParser
 import edu.illinois.cs.cs125.jeed.core.antlr.KotlinParserBaseListener
 import org.antlr.v4.runtime.tree.ParseTreeWalker
 
+@Suppress("TooManyFunctions")
 class KotlinComplexityListener(val source: Source, entry: Map.Entry<String, String>) :
     KotlinParserBaseListener() {
     private val fileName = entry.key

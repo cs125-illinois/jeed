@@ -358,4 +358,21 @@ fun test(first: Int, second: String, third: Blah?): Int {
             it.lookup("test(Int,String,Blah?): Int.main(Double,String): Int").complexity shouldBe 1
         }
     }
+
+    "should calculate complexity for an entire file" {
+        Source(
+            mapOf(
+                "TestKt.kt" to """
+fun test() {}
+fun me(first: Int, second: Int) = if (first > second) {
+  "me"
+} else {
+  "you"
+}""".trim()
+            )
+        ).complexity().also {
+            it.lookupFile("TestKt.kt") shouldBe 3
+        }
+    }
+
 })
