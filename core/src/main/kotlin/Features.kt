@@ -24,7 +24,12 @@ enum class FeatureName {
     COMPLEX_CONDITIONAL,
     TRY_BLOCK,
     ASSERT,
-    SWITCH
+    SWITCH,
+    UNARY_OPERATORS,
+    ARITHMETIC_OPERATORS,
+    BITWISE_OPERATORS,
+    ASSIGNMENT_OPERATORS,
+    TERNARY_OPERATOR
 }
 
 data class Features(
@@ -265,7 +270,6 @@ private class FeatureListener(val source: Source, entry: Map.Entry<String, Strin
                     count(FeatureName.ELSE_STATEMENTS, 1)
                 } else if (ctx.statement().size >= 2) {
                     var statement = ctx.statement(1)
-                    println(statement.text)
                     while (statement != null) {
                         if (statement.IF() != null) {
                             // If statement contains an IF, it is part of a chain
@@ -315,6 +319,20 @@ private class FeatureListener(val source: Source, entry: Map.Entry<String, Strin
         when (ctx.bop?.text) {
             "<", ">", "<=", ">=" -> count(FeatureName.CONDITIONAL, 1)
             "&&", "||" -> count(FeatureName.COMPLEX_CONDITIONAL, 1)
+            "+", "-", "*", "/", "%" -> count(FeatureName.ARITHMETIC_OPERATORS, 1)
+            "&", "|", "^" -> count(FeatureName.BITWISE_OPERATORS, 1)
+            "+=", "-=", "*=", "/=", "%=" -> count(FeatureName.ASSIGNMENT_OPERATORS, 1)
+            "?" -> count(FeatureName.TERNARY_OPERATOR, 1)
+        }
+        when (ctx.prefix?.text) {
+            "++", "--" -> count(FeatureName.UNARY_OPERATORS, 1)
+            "~" -> count(FeatureName.BITWISE_OPERATORS, 1)
+        }
+        when (ctx.postfix?.text) {
+            "++", "--" -> count(FeatureName.UNARY_OPERATORS, 1)
+        }
+        if (ctx.bop == null && (ctx.text.contains("<<") || ctx.text.contains(">>"))) {
+            count(FeatureName.BITWISE_OPERATORS, 1)
         }
     }
 

@@ -183,4 +183,32 @@ try {
             it.lookup(".").features.featureMap[FeatureName.SWITCH] shouldBe 1
         }
     }
+    "should count operators in snippets" {
+        Source.fromSnippet(
+            """
+int i = 0;
+int j = 0;
+if (i < 5) {
+    i += 5;
+    j = i - 1;
+} else if (i < 10) {
+    i++;
+    j = j & i;
+} else if (i < 15) {
+    i--;
+    j = j % i;
+} else {
+    i -= 5;
+    j = i < j ? i : j;
+}
+j = j << 2;
+""".trim()
+        ).features().also {
+            it.lookup(".").features.featureMap[FeatureName.UNARY_OPERATORS] shouldBe 2
+            it.lookup(".").features.featureMap[FeatureName.ARITHMETIC_OPERATORS] shouldBe 2
+            it.lookup(".").features.featureMap[FeatureName.BITWISE_OPERATORS] shouldBe 2
+            it.lookup(".").features.featureMap[FeatureName.ASSIGNMENT_OPERATORS] shouldBe 2
+            it.lookup(".").features.featureMap[FeatureName.TERNARY_OPERATOR] shouldBe 1
+        }
+    }
 })
