@@ -498,6 +498,45 @@ public class Example {
             mutations shouldHaveSize 3
         }
     }
+    "it should remove plus correctly" {
+        Source.fromJava(
+            """
+public class Example {
+  public static int test(int first) {
+    int i = 1 + 2;
+    i = 3 + 4;
+  }
+}"""
+        ).checkMutations<RemovePlus> { mutations, contents ->
+            mutations shouldHaveSize 4
+            mutations[0].check(contents, "1 + ", "")
+            mutations[1].check(contents, " + 2", "")
+        }
+    }
+    "it should remove binary operators" {
+        Source.fromJava(
+            """
+public class Example {
+  public static void example() {
+    int i = 0;
+    int j = 1;
+    int k = i + j;
+    k = i - j;
+    k = i * j;
+    k = i / j;
+    int l = i % 10;
+    l = i & j;
+    l = j | i;
+    l = j ^ i;
+    l = i << 2;
+    l = i >> 2;
+    k = i >>> j;
+  }
+}"""
+        ).checkMutations<RemoveBinary> { mutations, _ ->
+            mutations shouldHaveSize 20
+        }
+    }
     "it should remove blank lines correctly" {
         val source = Source.fromJava(
             """
@@ -734,7 +773,7 @@ public class Example {
     }
 }"""
         ).allMutations().also { mutations ->
-            mutations shouldHaveSize 7
+            mutations shouldHaveSize 9
             mutations.forEach { mutatedSource ->
                 mutatedSource.marked().checkstyle(CheckstyleArguments(failOnError = true))
             }

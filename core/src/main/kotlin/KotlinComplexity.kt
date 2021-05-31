@@ -1,21 +1,22 @@
-package edu.illinois.cs.cs125.jeed.core // ktlint-disable filename
+// ktlint-disable filename
+@file:Suppress("MatchingDeclarationName")
+
+package edu.illinois.cs.cs125.jeed.core
 
 import edu.illinois.cs.cs125.jeed.core.antlr.KotlinParser
 import edu.illinois.cs.cs125.jeed.core.antlr.KotlinParserBaseListener
 import org.antlr.v4.runtime.tree.ParseTreeWalker
 
+@Suppress("TooManyFunctions")
 class KotlinComplexityListener(val source: Source, entry: Map.Entry<String, String>) :
     KotlinParserBaseListener() {
     private val fileName = entry.key
     private var currentClass = ""
 
-    // What is this notation? - constant get for index 0 whenever currentComplexity is called?
     private val currentComplexity: ComplexityValue
         get() = complexityStack[0]
 
     var results: MutableMap<String, ComplexityValue> = mutableMapOf()
-    // Track top-level methods and top-level methods in top-level class declarations
-    // No need to track anything deeper than that
 
     private var complexityStack: MutableList<ComplexityValue> = mutableListOf()
 
@@ -38,16 +39,13 @@ class KotlinComplexityListener(val source: Source, entry: Map.Entry<String, Stri
     private fun enterMethodOrConstructor(name: String, start: Location, end: Location) {
         val locatedMethod =
             if (source is Snippet &&
-                source.looseCodeMethodName == name &&
-                (complexityStack.getOrNull(0) as? ClassComplexity)?.name == ""
+                source.looseCodeMethodName == name
             ) {
-                MethodComplexity("", source.snippetRange).also {
-                    it.complexity = 0
-                }
+                MethodComplexity("", source.snippetRange)
             } else {
                 MethodComplexity(
                     name,
-                    SourceRange(name, source.mapLocation(name, start), source.mapLocation(name, end))
+                    SourceRange(fileName, source.mapLocation(fileName, start), source.mapLocation(fileName, end))
                 )
             }
         if (complexityStack.isNotEmpty()) {
@@ -95,17 +93,8 @@ class KotlinComplexityListener(val source: Source, entry: Map.Entry<String, Stri
     }
 
     override fun enterPrimaryConstructor(ctx: KotlinParser.PrimaryConstructorContext) {
-        val regexToExtractParameters = """:( )?[a-zA-Z0-9. <>]*(\?)?[,)=]""".toRegex()
-
-        val cleanedParameters = regexToExtractParameters.findAll(ctx.text).joinToString {
-            it.value
-        }.replace(":", "")
-            .replace(" ", "")
-            .replace(")", "")
-            .replace("=", "")
-            .replace("[,]+".toRegex(), ",")
-        val fullName = "$currentClass($cleanedParameters)"
-
+        val parameters = ctx.classParameters().classParameter().joinToString(",") { it.type().text }
+        val fullName = "$currentClass($parameters)"
         enterMethodOrConstructor(
             fullName,
             Location(ctx.start.line, ctx.start.charPositionInLine),
@@ -113,22 +102,14 @@ class KotlinComplexityListener(val source: Source, entry: Map.Entry<String, Stri
         )
     }
 
-    override fun exitPrimaryConstructor(ctx: KotlinParser.PrimaryConstructorContext?) {
+    override fun exitPrimaryConstructor(ctx: KotlinParser.PrimaryConstructorContext) {
         exitMethodOrConstructor()
     }
 
     override fun enterSecondaryConstructor(ctx: KotlinParser.SecondaryConstructorContext) {
-        val regexToExtractParameters = """:( )?[a-zA-Z0-9. <>]*(\?)?[,)=]""".toRegex()
-
-        val cleanedParameters = regexToExtractParameters.findAll(ctx.text).joinToString {
-            it.value
-        }.replace(":", "")
-            .replace(" ", "")
-            .replace(")", "")
-            .replace("=", "")
-            .replace("[,]+".toRegex(), ",")
-        val fullName = "$currentClass($cleanedParameters)"
-
+        val parameters =
+            ctx.functionValueParameters().functionValueParameter().joinToString(",") { it.parameter().type().text }
+        val fullName = "$currentClass($parameters)"
         enterMethodOrConstructor(
             fullName,
             Location(ctx.start.line, ctx.start.charPositionInLine),
@@ -136,7 +117,7 @@ class KotlinComplexityListener(val source: Source, entry: Map.Entry<String, Stri
         )
     }
 
-    override fun exitSecondaryConstructor(ctx: KotlinParser.SecondaryConstructorContext?) {
+    override fun exitSecondaryConstructor(ctx: KotlinParser.SecondaryConstructorContext) {
         exitMethodOrConstructor()
     }
 
@@ -155,7 +136,7 @@ class KotlinComplexityListener(val source: Source, entry: Map.Entry<String, Stri
                 it.last().text
             }
         }
-        val longName = "fun $name($parameters)${returnType?.let { ": $returnType" } ?: ""}"
+        val longName = "$name($parameters)${returnType?.let { ": $returnType" } ?: ""}"
 
         enterMethodOrConstructor(
             longName,
@@ -223,19 +204,19 @@ class KotlinComplexityListener(val source: Source, entry: Map.Entry<String, Stri
     }
 
     // when, only the individual conditions with the ->, called for each ->
-    override fun enterWhenCondition(ctx: KotlinParser.WhenConditionContext?) {
+    override fun enterWhenCondition(ctx: KotlinParser.WhenConditionContext) {
         require(complexityStack.isNotEmpty())
         currentComplexity.complexity++
     }
 
     // catch block
-    override fun enterCatchBlock(ctx: KotlinParser.CatchBlockContext?) {
+    override fun enterCatchBlock(ctx: KotlinParser.CatchBlockContext) {
         require(complexityStack.isNotEmpty())
         currentComplexity.complexity++
     }
 
     // do, while, and for
-    override fun enterLoopExpression(ctx: KotlinParser.LoopExpressionContext?) {
+    override fun enterLoopExpression(ctx: KotlinParser.LoopExpressionContext) {
         require(complexityStack.isNotEmpty())
         currentComplexity.complexity++
     }

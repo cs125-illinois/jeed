@@ -67,7 +67,8 @@ class ComplexityResults(val source: Source, val results: Map<String, Map<String,
                 rootComplexity
             }
         } else {
-            resultSource[components.removeAt(0)]
+            val component = components.removeAt(0)
+            resultSource[component] ?: error("Couldn't find path $component")
         } as ComplexityValue
 
         for (component in components) {
@@ -75,6 +76,9 @@ class ComplexityResults(val source: Source, val results: Map<String, Map<String,
         }
         return currentComplexity
     }
+
+    fun lookupFile(filename: String) =
+        results[filename]?.values?.sumOf { it.complexity } ?: error("results does not contain filename \"$filename\"")
 }
 
 @Throws(ComplexityFailed::class)

@@ -271,7 +271,6 @@ class Request(
             }
 
             if (tasks.contains(Task.complexity)) {
-                check(actualSource.type == Source.FileType.JAVA) { "can't run complexity on non-Java sources" }
                 response.completed.complexity = FlatComplexityResults(actualSource.complexity())
                 response.completedTasks.add(Task.complexity)
             }

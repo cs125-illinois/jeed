@@ -377,6 +377,38 @@ public class Main {
                 }
             }
         }
+        "should accept good Kotlin complexity request" {
+            withTestApplication(Application::jeed) {
+                handleRequest(HttpMethod.Post, "/") {
+                    addHeader("content-type", "application/json")
+                    setBody(
+                        """
+{
+"label": "test",
+"sources": [
+  {
+    "path": "Main.kt",
+    "contents": "
+class Main {
+    fun main() {
+      println(\"Here\");
+    }
+}"
+  }
+],
+"tasks": [ "complexity" ]
+}""".trim()
+                    )
+                }.apply {
+                    response.shouldHaveStatus(HttpStatusCode.OK.value)
+                    Request.mongoCollection?.countDocuments() shouldBe 1
+
+                    val jeedResponse = Response.from(response.content)
+                    jeedResponse.completedTasks.size shouldBe 1
+                    jeedResponse.failedTasks.size shouldBe 0
+                }
+            }
+        }
         "should handle snippet error" {
             withTestApplication(Application::jeed) {
                 handleRequest(HttpMethod.Post, "/") {
