@@ -19,7 +19,12 @@ enum class FeatureName {
     ELSE_STATEMENTS,
     ELSE_IF,
     NESTED_IF,
-    METHOD
+    METHOD,
+    CONDITIONAL,
+    COMPLEX_CONDITIONAL,
+    TRY_BLOCK,
+    ASSERT,
+    SWITCH
 }
 
 data class Features(
@@ -274,6 +279,15 @@ private class FeatureListener(val source: Source, entry: Map.Entry<String, Strin
                 }
             }
         }
+        ctx.TRY()?.also {
+            count(FeatureName.TRY_BLOCK, 1)
+        }
+        ctx.ASSERT()?.also {
+            count(FeatureName.ASSERT, 1)
+        }
+        ctx.SWITCH()?.also {
+            count(FeatureName.SWITCH, 1)
+        }
         // Count nested statements
         if (ctx.statement(0) != null) {
             val statement = ctx.statement(0).block().blockStatement()
@@ -294,6 +308,13 @@ private class FeatureListener(val source: Source, entry: Map.Entry<String, Strin
                     }
                 }
             }
+        }
+    }
+
+    override fun enterExpression(ctx: JavaParser.ExpressionContext) {
+        when (ctx.bop?.text) {
+            "<", ">", "<=", ">=" -> count(FeatureName.CONDITIONAL, 1)
+            "&&", "||" -> count(FeatureName.COMPLEX_CONDITIONAL, 1)
         }
     }
 

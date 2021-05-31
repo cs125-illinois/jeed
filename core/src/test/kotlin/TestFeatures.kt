@@ -139,4 +139,48 @@ if (i < 15) {
             it.lookup(".").features.featureMap[FeatureName.NESTED_IF] shouldBe 3
         }
     }
+    "should count conditional expressions and complex conditionals in snippets" {
+        Source.fromSnippet(
+            """
+int i = 0;
+if (i < 5 || i > 15) {
+    if (i < 0) {
+        i--;
+    }
+} else if (i > 5 && i < 15) {
+    i++;
+} else {
+    i--;
+}
+""".trim()
+        ).features().also {
+            it.lookup(".").features.featureMap[FeatureName.CONDITIONAL] shouldBe 5
+            it.lookup(".").features.featureMap[FeatureName.COMPLEX_CONDITIONAL] shouldBe 2
+        }
+    }
+    "should count try blocks, switch statements, and assertions in snippets" {
+        Source.fromSnippet(
+            """
+int i = 0;
+try {
+    assert i > -1;
+    switch(i) {
+        case 0:
+            System.out.println("zero");
+            break;
+        case 1:
+            System.out.println("one");
+            break;
+        default:
+            System.out.println("not zero or one");
+    }
+} catch (Exception e) { }
+        
+""".trim()
+        ).features().also {
+            it.lookup(".").features.featureMap[FeatureName.TRY_BLOCK] shouldBe 1
+            it.lookup(".").features.featureMap[FeatureName.ASSERT] shouldBe 1
+            it.lookup(".").features.featureMap[FeatureName.SWITCH] shouldBe 1
+        }
+    }
 })
