@@ -14,48 +14,39 @@ enum class FeatureName {
     WHILE_LOOPS,
     NESTED_WHILE,
     DO_WHILE_LOOPS,
+    NESTED_DO_WHILE,
     IF_STATEMENTS,
     ELSE_STATEMENTS,
     ELSE_IF,
-    NESTED_IF
+    NESTED_IF,
+    METHOD,
+    CONDITIONAL,
+    COMPLEX_CONDITIONAL,
+    TRY_BLOCK,
+    ASSERT,
+    SWITCH,
+    UNARY_OPERATORS,
+    ARITHMETIC_OPERATORS,
+    BITWISE_OPERATORS,
+    ASSIGNMENT_OPERATORS,
+    TERNARY_OPERATOR,
+    NEW_KEYWORD,
+    ARRAY_ACCESS,
+    ARRAY_LITERAL
 }
 
 data class Features(
-    var localVariableDeclarations: Int = 0,
-    var variableAssignments: Int = 0,
-    var variableReassignments: Int = 0,
-    var forLoopCount: Int = 0,
-    var whileLoopCount: Int = 0,
-    var doWhileLoopCount: Int = 0,
-    var ifCount: Int = 0,
-    var elseCount: Int = 0,
-    var elseIfCount: Int = 0,
-    var nestedIfCount: Int = 0,
-    var nestedForCount: Int = 0,
-    var nestedWhileCount: Int = 0,
-    var nestedDoWhileCount: Int = 0,
-    var featureMap: MutableMap<FeatureName, Int> = mutableMapOf()
+    var featureMap: MutableMap<FeatureName, Int> = FeatureName.values().associate { it to 0 }.toMutableMap()
 ) {
-    init {
+    operator fun plus(other: Features): Features {
+        val map = mutableMapOf<FeatureName, Int>()
         for (key in FeatureName.values()) {
-            featureMap[key] = 0
+            map[key] = featureMap[key]!! + other.featureMap[key]!!
         }
+        return Features(
+            map
+        )
     }
-    operator fun plus(other: Features) = Features(
-        localVariableDeclarations + other.localVariableDeclarations,
-        variableAssignments + other.variableAssignments,
-        variableReassignments + other.variableReassignments,
-        forLoopCount + other.forLoopCount,
-        whileLoopCount + other.whileLoopCount,
-        doWhileLoopCount + other.doWhileLoopCount,
-        ifCount + other.ifCount,
-        elseCount + other.elseCount,
-        elseIfCount + other.elseIfCount,
-        nestedIfCount + other.nestedIfCount,
-        nestedForCount + other.nestedForCount,
-        nestedWhileCount + other.nestedWhileCount,
-        nestedDoWhileCount + other.nestedDoWhileCount
-    )
 }
 
 sealed class FeatureValue(
@@ -198,6 +189,7 @@ private class FeatureListener(val source: Source, entry: Map.Entry<String, Strin
     }
 
     override fun enterMethodDeclaration(ctx: JavaParser.MethodDeclarationContext) {
+        count(FeatureName.METHOD, 1)
         val parameters = ctx.formalParameters().formalParameterList()?.formalParameter()?.joinToString(",") {
             it.typeType().text
         } ?: ""
@@ -237,12 +229,21 @@ private class FeatureListener(val source: Source, entry: Map.Entry<String, Strin
                 it.variableInitializer() != null
             }.size
         )
+        count(
+            FeatureName.ARRAY_LITERAL,
+            ctx.variableDeclarators().variableDeclarator().filter {
+                it.variableInitializer()?.arrayInitializer() != null
+            }.size
+        )
     }
 
     private val seenIfStarts = mutableSetOf<Int>()
 
+    private val currentFeatureMap: MutableMap<FeatureName, Int>
+        get() = currentFeatures.features.featureMap
+
     private fun count(feature: FeatureName, amount: Int) {
-        currentFeatures.features.featureMap[feature] = currentFeatures.features.featureMap.getOrDefault(feature, 0) + amount
+        currentFeatureMap[feature] = (currentFeatureMap[feature] ?: 0) + amount
     }
 
     override fun enterStatement(ctx: JavaParser.StatementContext) {
@@ -258,82 +259,98 @@ private class FeatureListener(val source: Source, entry: Map.Entry<String, Strin
         ctx.WHILE()?.also {
             // Only increment whileLoopCount if it's not a do-while loop
             if (ctx.DO() != null) {
-                currentFeatures.features.doWhileLoopCount++
-                if (ctx.statement(0) != null) {
-                    val statement = ctx.statement(0).block().blockStatement()
-                    for (block in statement) {
-                        if (block.statement() == null) continue
-                        if (block.statement().DO() != null && block.statement().WHILE() != null) {
-                            // Count nested do-while loop
-                            currentFeatures.features.nestedDoWhileCount++
-                        }
-                    }
-                }
+                count(FeatureName.DO_WHILE_LOOPS, 1)
             } else {
-                currentFeatures.features.whileLoopCount++
-                if (ctx.statement(0) != null) {
-                    val statement = ctx.statement(0).block().blockStatement()
-                    for (block in statement) {
-                        if (block.statement() == null) continue
-                        if (block.statement().WHILE() != null) {
-                            // Count nested while loop
-                            currentFeatures.features.nestedWhileCount++
-                        }
-                    }
-                }
+                count(FeatureName.WHILE_LOOPS, 1)
             }
         }
         ctx.IF()?.also {
-            // Check for nested if statements regardless if statement has been seen before
-            if (ctx.statement(0) != null) {
-                val statement = ctx.statement(0).block().blockStatement()
-                for (block in statement) {
-                    if (block.statement() == null) continue
-                    if (block.statement().IF() != null) {
-                        // Count nested if
-                        seenIfStarts += block.statement().start.startIndex
-                        currentFeatures.features.nestedIfCount++
-                        currentFeatures.features.ifCount++
-                    }
-                }
-            }
-
             // Check for else-if chains
             val outerIfStart = ctx.start.startIndex
             if (outerIfStart !in seenIfStarts) {
                 // Count if block
-                currentFeatures.features.ifCount++
+                count(FeatureName.IF_STATEMENTS, 1)
                 seenIfStarts += outerIfStart
                 check(ctx.statement().isNotEmpty())
 
                 if (ctx.statement().size == 2 && ctx.statement(1).block() != null) {
                     // Count else block
                     check(ctx.ELSE() != null)
-                    currentFeatures.features.elseCount++
+                    count(FeatureName.ELSE_STATEMENTS, 1)
                 } else if (ctx.statement().size >= 2) {
                     var statement = ctx.statement(1)
-                    println(statement.text)
                     while (statement != null) {
                         if (statement.IF() != null) {
                             // If statement contains an IF, it is part of a chain
                             seenIfStarts += statement.start.startIndex
-                            currentFeatures.features.elseIfCount++
+                            count(FeatureName.ELSE_IF, 1)
                         } else {
-                            currentFeatures.features.elseCount++
+                            count(FeatureName.ELSE_STATEMENTS, 1)
                         }
                         statement = statement.statement(1)
                     }
                 }
             }
         }
+        ctx.TRY()?.also {
+            count(FeatureName.TRY_BLOCK, 1)
+        }
+        ctx.ASSERT()?.also {
+            count(FeatureName.ASSERT, 1)
+        }
+        ctx.SWITCH()?.also {
+            count(FeatureName.SWITCH, 1)
+        }
         // Count nested statements
         if (ctx.statement(0) != null) {
             val statement = ctx.statement(0).block().blockStatement()
             for (block in statement) {
                 block.statement()?.FOR()?.also {
-                    currentFeatures.features.nestedForCount++
+                    count(FeatureName.NESTED_FOR, 1)
+                }
+                block.statement()?.IF()?.also {
+                    seenIfStarts += block.statement().start.startIndex
+                    count(FeatureName.IF_STATEMENTS, 1)
+                    count(FeatureName.NESTED_IF, 1)
+                }
+                block.statement()?.WHILE()?.also {
+                    if (block.statement().DO() != null) {
+                        count(FeatureName.NESTED_DO_WHILE, 1)
+                    } else {
+                        count(FeatureName.NESTED_WHILE, 1)
+                    }
                 }
             }
+        }
+    }
+
+    override fun enterExpression(ctx: JavaParser.ExpressionContext) {
+        when (ctx.bop?.text) {
+            "<", ">", "<=", ">=", "==", "!=" -> count(FeatureName.CONDITIONAL, 1)
+            "&&", "||" -> count(FeatureName.COMPLEX_CONDITIONAL, 1)
+            "+", "-", "*", "/", "%" -> count(FeatureName.ARITHMETIC_OPERATORS, 1)
+            "&", "|", "^" -> count(FeatureName.BITWISE_OPERATORS, 1)
+            "+=", "-=", "*=", "/=", "%=" -> count(FeatureName.ASSIGNMENT_OPERATORS, 1)
+            "?" -> count(FeatureName.TERNARY_OPERATOR, 1)
+        }
+        when (ctx.prefix?.text) {
+            "++", "--" -> count(FeatureName.UNARY_OPERATORS, 1)
+            "~" -> count(FeatureName.BITWISE_OPERATORS, 1)
+        }
+        when (ctx.postfix?.text) {
+            "++", "--" -> count(FeatureName.UNARY_OPERATORS, 1)
+        }
+        if (ctx.bop == null) {
+            if (ctx.text.contains("<<") || ctx.text.contains(">>")) {
+                count(FeatureName.BITWISE_OPERATORS, 1)
+            }
+            if (ctx.expression().size != 0 && (ctx.text.contains("[") || ctx.text.contains("]"))) {
+                count(FeatureName.ARRAY_ACCESS, 1)
+                println(ctx.text)
+            }
+        }
+        ctx.NEW()?.also {
+            count(FeatureName.NEW_KEYWORD, 1)
         }
     }
 

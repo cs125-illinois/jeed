@@ -16,6 +16,7 @@ i++;
             it.lookup(".").features.featureMap[FeatureName.LOCAL_VARIABLE_DECLARATIONS] shouldBe 2
             it.lookup(".").features.featureMap[FeatureName.VARIABLE_ASSIGNMENTS] shouldBe 2
             it.lookup(".").features.featureMap[FeatureName.VARIABLE_REASSIGNMENTS] shouldBe 1
+            it.lookup("").features.featureMap[FeatureName.METHOD] shouldBe 1
         }
     }
     "should count for loops in snippets" {
@@ -42,7 +43,7 @@ for (int i = 0; i < 10; i++) {
 """.trim()
         ).features().also {
             it.lookup(".").features.featureMap[FeatureName.FOR_LOOPS] shouldBe 2
-            it.lookup(".").features.nestedForCount shouldBe 1
+            it.lookup(".").features.featureMap[FeatureName.NESTED_FOR] shouldBe 1
         }
     }
     "should count while loops in snippets" {
@@ -57,9 +58,9 @@ while (i < 10) {
 }
 """.trim()
         ).features().also {
-            it.lookup(".").features.whileLoopCount shouldBe 2
-            it.lookup(".").features.nestedWhileCount shouldBe 1
-            it.lookup(".").features.doWhileLoopCount shouldBe 0
+            it.lookup(".").features.featureMap[FeatureName.WHILE_LOOPS] shouldBe 2
+            it.lookup(".").features.featureMap[FeatureName.NESTED_WHILE] shouldBe 1
+            it.lookup(".").features.featureMap[FeatureName.DO_WHILE_LOOPS] shouldBe 0
         }
     }
     "should count do-while loops in snippets" {
@@ -77,9 +78,9 @@ do {
 } while (i < 10);
 """.trim()
         ).features().also {
-            it.lookup(".").features.doWhileLoopCount shouldBe 2
-            it.lookup(".").features.nestedDoWhileCount shouldBe 1
-            it.lookup(".").features.whileLoopCount shouldBe 0
+            it.lookup(".").features.featureMap[FeatureName.DO_WHILE_LOOPS] shouldBe 2
+            it.lookup(".").features.featureMap[FeatureName.NESTED_DO_WHILE] shouldBe 1
+            it.lookup(".").features.featureMap[FeatureName.WHILE_LOOPS] shouldBe 0
         }
     }
     "should count simple if-else statements in snippets" {
@@ -93,8 +94,8 @@ if (i < 5) {
 }
 """.trim()
         ).features().also {
-            it.lookup(".").features.ifCount shouldBe 1
-            it.lookup(".").features.elseCount shouldBe 1
+            it.lookup(".").features.featureMap[FeatureName.IF_STATEMENTS] shouldBe 1
+            it.lookup(".").features.featureMap[FeatureName.ELSE_STATEMENTS] shouldBe 1
         }
     }
     "should count a chain of if-else statements in snippets" {
@@ -112,9 +113,9 @@ if (i < 5) {
 }
 """.trim()
         ).features().also {
-            it.lookup(".").features.ifCount shouldBe 1
-            it.lookup(".").features.elseCount shouldBe 1
-            it.lookup(".").features.elseIfCount shouldBe 2
+            it.lookup(".").features.featureMap[FeatureName.IF_STATEMENTS] shouldBe 1
+            it.lookup(".").features.featureMap[FeatureName.ELSE_STATEMENTS] shouldBe 1
+            it.lookup(".").features.featureMap[FeatureName.ELSE_IF] shouldBe 2
         }
     }
     "should count nested if statements in snippets" {
@@ -134,8 +135,95 @@ if (i < 15) {
 }
 """.trim()
         ).features().also {
-            it.lookup(".").features.ifCount shouldBe 4
-            it.lookup(".").features.nestedIfCount shouldBe 3
+            it.lookup(".").features.featureMap[FeatureName.IF_STATEMENTS] shouldBe 4
+            it.lookup(".").features.featureMap[FeatureName.NESTED_IF] shouldBe 3
+        }
+    }
+    "should count conditional expressions and complex conditionals in snippets" {
+        Source.fromSnippet(
+            """
+int i = 0;
+if (i < 5 || i > 15) {
+    if (i < 0) {
+        i--;
+    }
+} else if (i > 5 && i < 15) {
+    i++;
+} else {
+    i--;
+}
+""".trim()
+        ).features().also {
+            it.lookup(".").features.featureMap[FeatureName.CONDITIONAL] shouldBe 5
+            it.lookup(".").features.featureMap[FeatureName.COMPLEX_CONDITIONAL] shouldBe 2
+        }
+    }
+    "should count try blocks, switch statements, and assertions in snippets" {
+        Source.fromSnippet(
+            """
+int i = 0;
+try {
+    assert i > -1;
+    switch(i) {
+        case 0:
+            System.out.println("zero");
+            break;
+        case 1:
+            System.out.println("one");
+            break;
+        default:
+            System.out.println("not zero or one");
+    }
+} catch (Exception e) { }
+        
+""".trim()
+        ).features().also {
+            it.lookup(".").features.featureMap[FeatureName.TRY_BLOCK] shouldBe 1
+            it.lookup(".").features.featureMap[FeatureName.ASSERT] shouldBe 1
+            it.lookup(".").features.featureMap[FeatureName.SWITCH] shouldBe 1
+        }
+    }
+    "should count operators in snippets" {
+        Source.fromSnippet(
+            """
+int i = 0;
+int j = 0;
+if (i < 5) {
+    i += 5;
+    j = i - 1;
+} else if (i < 10) {
+    i++;
+    j = j & i;
+} else if (i < 15) {
+    i--;
+    j = j % i;
+} else {
+    i -= 5;
+    j = i < j ? i : j;
+}
+j = j << 2;
+""".trim()
+        ).features().also {
+            it.lookup(".").features.featureMap[FeatureName.UNARY_OPERATORS] shouldBe 2
+            it.lookup(".").features.featureMap[FeatureName.ARITHMETIC_OPERATORS] shouldBe 2
+            it.lookup(".").features.featureMap[FeatureName.BITWISE_OPERATORS] shouldBe 2
+            it.lookup(".").features.featureMap[FeatureName.ASSIGNMENT_OPERATORS] shouldBe 2
+            it.lookup(".").features.featureMap[FeatureName.TERNARY_OPERATOR] shouldBe 1
+        }
+    }
+    "should count the new keyword and array accesses in snippets" {
+        Source.fromSnippet(
+            """
+int[] arr = new int[3];
+arr[0 + 0] = 5;
+arr[1] = 10;
+arr[2] = arr[0] + arr[1];
+int[] nums = {1, 2, 4};
+""".trim()
+        ).features().also {
+            it.lookup(".").features.featureMap[FeatureName.NEW_KEYWORD] shouldBe 1
+            it.lookup(".").features.featureMap[FeatureName.ARRAY_ACCESS] shouldBe 5
+            it.lookup(".").features.featureMap[FeatureName.ARRAY_LITERAL] shouldBe 1
         }
     }
 })
