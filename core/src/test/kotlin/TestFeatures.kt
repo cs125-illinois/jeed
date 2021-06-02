@@ -211,4 +211,19 @@ j = j << 2;
             it.lookup(".").features.featureMap[FeatureName.TERNARY_OPERATOR] shouldBe 1
         }
     }
+    "should count the new keyword and array accesses in snippets" {
+        Source.fromSnippet(
+            """
+int[] arr = new int[3];
+arr[0 + 0] = 5;
+arr[1] = 10;
+arr[2] = arr[0] + arr[1];
+int[] nums = {1, 2, 4};
+""".trim()
+        ).features().also {
+            it.lookup(".").features.featureMap[FeatureName.NEW_KEYWORD] shouldBe 1
+            it.lookup(".").features.featureMap[FeatureName.ARRAY_ACCESS] shouldBe 5
+            it.lookup(".").features.featureMap[FeatureName.ARRAY_LITERAL] shouldBe 1
+        }
+    }
 })

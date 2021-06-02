@@ -29,7 +29,10 @@ enum class FeatureName {
     ARITHMETIC_OPERATORS,
     BITWISE_OPERATORS,
     ASSIGNMENT_OPERATORS,
-    TERNARY_OPERATOR
+    TERNARY_OPERATOR,
+    NEW_KEYWORD,
+    ARRAY_ACCESS,
+    ARRAY_LITERAL
 }
 
 data class Features(
@@ -226,6 +229,12 @@ private class FeatureListener(val source: Source, entry: Map.Entry<String, Strin
                 it.variableInitializer() != null
             }.size
         )
+        count(
+            FeatureName.ARRAY_LITERAL,
+            ctx.variableDeclarators().variableDeclarator().filter {
+                it.variableInitializer()?.arrayInitializer() != null
+            }.size
+        )
     }
 
     private val seenIfStarts = mutableSetOf<Int>()
@@ -317,7 +326,7 @@ private class FeatureListener(val source: Source, entry: Map.Entry<String, Strin
 
     override fun enterExpression(ctx: JavaParser.ExpressionContext) {
         when (ctx.bop?.text) {
-            "<", ">", "<=", ">=" -> count(FeatureName.CONDITIONAL, 1)
+            "<", ">", "<=", ">=", "==", "!=" -> count(FeatureName.CONDITIONAL, 1)
             "&&", "||" -> count(FeatureName.COMPLEX_CONDITIONAL, 1)
             "+", "-", "*", "/", "%" -> count(FeatureName.ARITHMETIC_OPERATORS, 1)
             "&", "|", "^" -> count(FeatureName.BITWISE_OPERATORS, 1)
@@ -331,8 +340,17 @@ private class FeatureListener(val source: Source, entry: Map.Entry<String, Strin
         when (ctx.postfix?.text) {
             "++", "--" -> count(FeatureName.UNARY_OPERATORS, 1)
         }
-        if (ctx.bop == null && (ctx.text.contains("<<") || ctx.text.contains(">>"))) {
-            count(FeatureName.BITWISE_OPERATORS, 1)
+        if (ctx.bop == null) {
+            if (ctx.text.contains("<<") || ctx.text.contains(">>")) {
+                count(FeatureName.BITWISE_OPERATORS, 1)
+            }
+            if (ctx.expression().size != 0 && (ctx.text.contains("[") || ctx.text.contains("]"))) {
+                count(FeatureName.ARRAY_ACCESS, 1)
+                println(ctx.text)
+            }
+        }
+        ctx.NEW()?.also {
+            count(FeatureName.NEW_KEYWORD, 1)
         }
     }
 
