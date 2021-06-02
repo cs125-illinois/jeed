@@ -108,19 +108,8 @@ class KotlinComplexityListener(val source: Source, entry: Map.Entry<String, Stri
     }
 
     override fun enterSecondaryConstructor(ctx: KotlinParser.SecondaryConstructorContext) {
-        val regexToExtractParameters = """:( )?[a-zA-Z0-9. <>]*(\?)?[,)=]""".toRegex()
         val parameters = ctx.functionValueParameters().functionValueParameter().map { it.parameter().type().text }.joinToString(",")
-        println("enterSecondaryConstructor")
-        println(parameters)
-
-        val cleanedParameters = regexToExtractParameters.findAll(ctx.text).joinToString {
-            it.value
-        }.replace(":", "")
-            .replace(" ", "")
-            .replace(")", "")
-            .replace("=", "")
-            .replace("[,]+".toRegex(), ",")
-        val fullName = "$currentClass($cleanedParameters)"
+        val fullName = "$currentClass($parameters)"
 
         enterMethodOrConstructor(
             fullName,
@@ -148,7 +137,7 @@ class KotlinComplexityListener(val source: Source, entry: Map.Entry<String, Stri
                 it.last().text
             }
         }
-        val longName = "$name($parameters)${returnType?.let { ": $returnType" } ?: ""}"
+        val longName = "$name($parameters)${returnType?.let { ":$returnType" } ?: ""}"
 
         enterMethodOrConstructor(
             longName,
@@ -215,7 +204,7 @@ class KotlinComplexityListener(val source: Source, entry: Map.Entry<String, Stri
         currentComplexity.complexity++
     }
 
-    // when, only the individual conditions with the ->, called for each ->
+    // when, called for each ->, except the default one
     override fun enterWhenCondition(ctx: KotlinParser.WhenConditionContext) {
         require(complexityStack.isNotEmpty())
         currentComplexity.complexity++
@@ -229,6 +218,20 @@ class KotlinComplexityListener(val source: Source, entry: Map.Entry<String, Stri
 
     // do, while, and for
     override fun enterLoopExpression(ctx: KotlinParser.LoopExpressionContext) {
+        require(complexityStack.isNotEmpty())
+        currentComplexity.complexity++
+    }
+
+    // ?.
+    override fun enterMemberAccessOperator(ctx: KotlinParser.MemberAccessOperatorContext) {
+        if (ctx.text != "?.") return
+        require(complexityStack.isNotEmpty())
+        currentComplexity.complexity++
+    }
+
+    // !!.
+    override fun enterPostfixUnaryOperation(ctx: KotlinParser.PostfixUnaryOperationContext) {
+        if (ctx.text != "!!") return
         require(complexityStack.isNotEmpty())
         currentComplexity.complexity++
     }
