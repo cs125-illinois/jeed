@@ -11,6 +11,7 @@ enum class FeatureName {
     VARIABLE_REASSIGNMENTS,
     FOR_LOOPS,
     NESTED_FOR,
+    ENHANCED_FOR,
     WHILE_LOOPS,
     NESTED_WHILE,
     DO_WHILE_LOOPS,
@@ -32,7 +33,10 @@ enum class FeatureName {
     TERNARY_OPERATOR,
     NEW_KEYWORD,
     ARRAY_ACCESS,
-    ARRAY_LITERAL
+    ARRAY_LITERAL,
+    STRING,
+    NULL,
+    MULTIDIMENSIONAL_ARRAYS
 }
 
 data class Features(
@@ -235,6 +239,12 @@ private class FeatureListener(val source: Source, entry: Map.Entry<String, Strin
                 it.variableInitializer()?.arrayInitializer() != null
             }.size
         )
+        if (ctx.typeType().classOrInterfaceType()?.text == "String") {
+            count(FeatureName.STRING, 1)
+        }
+        if (ctx.typeType().text.contains("[][]")) {
+            count(FeatureName.MULTIDIMENSIONAL_ARRAYS, 1)
+        }
     }
 
     private val seenIfStarts = mutableSetOf<Int>()
@@ -255,6 +265,11 @@ private class FeatureListener(val source: Source, entry: Map.Entry<String, Strin
         }
         ctx.FOR()?.also {
             count(FeatureName.FOR_LOOPS, 1)
+            if (ctx.forControl().enhancedForControl() != null) {
+                count(FeatureName.ENHANCED_FOR, 1)
+                // Is this the best way to do this?
+                count(FeatureName.LOCAL_VARIABLE_DECLARATIONS, 1)
+            }
         }
         ctx.WHILE()?.also {
             // Only increment whileLoopCount if it's not a do-while loop
@@ -339,6 +354,9 @@ private class FeatureListener(val source: Source, entry: Map.Entry<String, Strin
         }
         when (ctx.postfix?.text) {
             "++", "--" -> count(FeatureName.UNARY_OPERATORS, 1)
+        }
+        if (ctx.text == "null") {
+            count(FeatureName.NULL, 1)
         }
         if (ctx.bop == null) {
             if (ctx.text.contains("<<") || ctx.text.contains(">>")) {

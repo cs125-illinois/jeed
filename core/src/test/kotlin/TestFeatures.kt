@@ -25,11 +25,16 @@ i++;
 for (int i = 0; i < 10; i++) {
     System.out.println(i);
 }
+int[] arr = new int[10];
+for (int num : arr) {
+    num++;
+}
 """.trim()
         ).features().also {
-            it.lookup(".").features.featureMap[FeatureName.FOR_LOOPS] shouldBe 1
-            it.lookup(".").features.featureMap[FeatureName.VARIABLE_ASSIGNMENTS] shouldBe 1
-            it.lookup(".").features.featureMap[FeatureName.LOCAL_VARIABLE_DECLARATIONS] shouldBe 1
+            it.lookup(".").features.featureMap[FeatureName.FOR_LOOPS] shouldBe 2
+            it.lookup(".").features.featureMap[FeatureName.VARIABLE_ASSIGNMENTS] shouldBe 2
+            it.lookup(".").features.featureMap[FeatureName.LOCAL_VARIABLE_DECLARATIONS] shouldBe 3
+            it.lookup(".").features.featureMap[FeatureName.ENHANCED_FOR] shouldBe 1
         }
     }
     "should count nested for loops in snippets" {
@@ -224,6 +229,27 @@ int[] nums = {1, 2, 4};
             it.lookup(".").features.featureMap[FeatureName.NEW_KEYWORD] shouldBe 1
             it.lookup(".").features.featureMap[FeatureName.ARRAY_ACCESS] shouldBe 5
             it.lookup(".").features.featureMap[FeatureName.ARRAY_LITERAL] shouldBe 1
+        }
+    }
+    "should count strings and null in snippets" {
+        Source.fromSnippet(
+            """
+String first = "Hello, world!";
+String second = null;
+""".trim()
+        ).features().also {
+            it.lookup(".").features.featureMap[FeatureName.STRING] shouldBe 2
+            it.lookup(".").features.featureMap[FeatureName.NULL] shouldBe 1
+        }
+    }
+    "should count multidimensional arrays in snippets" {
+        Source.fromSnippet(
+            """
+int[][] array = new int[5][5];
+char[][] array1 = new char[10][10];
+""".trim()
+        ).features().also {
+            it.lookup(".").features.featureMap[FeatureName.MULTIDIMENSIONAL_ARRAYS] shouldBe 2
         }
     }
 })
