@@ -21,6 +21,7 @@ enum class FeatureName {
     ELSE_IF,
     NESTED_IF,
     METHOD,
+    CLASS,
     CONDITIONAL,
     COMPLEX_CONDITIONAL,
     TRY_BLOCK,
@@ -36,7 +37,16 @@ enum class FeatureName {
     ARRAY_LITERAL,
     STRING,
     NULL,
-    MULTIDIMENSIONAL_ARRAYS
+    MULTIDIMENSIONAL_ARRAYS,
+    TYPE_INFERENCE,
+    CONSTRUCTOR,
+    GETTER,
+    SETTER,
+    STATIC_METHOD,
+    EXTENDS_KEYWORD,
+    SUPER,
+    VISIBILITY_MODIFIERS,
+    THIS
 }
 
 data class Features(
@@ -162,6 +172,29 @@ private class FeatureListener(val source: Source, entry: Map.Entry<String, Strin
             Location(ctx.start.line, ctx.start.charPositionInLine),
             Location(ctx.stop.line, ctx.stop.charPositionInLine)
         )
+        count(FeatureName.CLASS, 1)
+        count(
+            FeatureName.STATIC_METHOD,
+            ctx.classBody().classBodyDeclaration().filter { declaration ->
+                declaration.modifier().any {
+                    it.classOrInterfaceModifier().STATIC() != null
+                }
+            }.size
+        )
+        count(
+            FeatureName.VISIBILITY_MODIFIERS,
+            ctx.classBody().classBodyDeclaration().filter { declaration ->
+                declaration.modifier().any {
+                    when(it.text) {
+                        "public", "private", "protected" -> true
+                        else -> false
+                    }
+                }
+            }.size
+        )
+        ctx.EXTENDS()?.also {
+            count(FeatureName.EXTENDS_KEYWORD, 1)
+        }
     }
 
     override fun exitClassDeclaration(ctx: JavaParser.ClassDeclarationContext) {
@@ -193,7 +226,6 @@ private class FeatureListener(val source: Source, entry: Map.Entry<String, Strin
     }
 
     override fun enterMethodDeclaration(ctx: JavaParser.MethodDeclarationContext) {
-        count(FeatureName.METHOD, 1)
         val parameters = ctx.formalParameters().formalParameterList()?.formalParameter()?.joinToString(",") {
             it.typeType().text
         } ?: ""
@@ -202,6 +234,21 @@ private class FeatureListener(val source: Source, entry: Map.Entry<String, Strin
             Location(ctx.start.line, ctx.start.charPositionInLine),
             Location(ctx.stop.line, ctx.stop.charPositionInLine)
         )
+        count(FeatureName.METHOD, 1)
+        if (ctx.IDENTIFIER().text.startsWith("get")) {
+            count(FeatureName.GETTER, 1)
+        }
+        if (ctx.IDENTIFIER().text.startsWith("set")) {
+            count(FeatureName.SETTER, 1)
+        }
+        // Count classes declared inside methods
+        count(
+            FeatureName.CLASS,
+            ctx.methodBody().block().blockStatement().filter {
+                it.localTypeDeclaration()?.classDeclaration() != null
+            }.size
+        )
+
     }
 
     override fun exitMethodDeclaration(ctx: JavaParser.MethodDeclarationContext) {
@@ -219,6 +266,7 @@ private class FeatureListener(val source: Source, entry: Map.Entry<String, Strin
             Location(ctx.start.line, ctx.start.charPositionInLine),
             Location(ctx.stop.line, ctx.stop.charPositionInLine),
         )
+        count(FeatureName.CONSTRUCTOR, 1)
     }
 
     override fun exitConstructorDeclaration(ctx: JavaParser.ConstructorDeclarationContext?) {
@@ -244,6 +292,9 @@ private class FeatureListener(val source: Source, entry: Map.Entry<String, Strin
         }
         if (ctx.typeType().text.contains("[][]")) {
             count(FeatureName.MULTIDIMENSIONAL_ARRAYS, 1)
+        }
+        if (ctx.typeType().text.contains("var")) {
+            count(FeatureName.TYPE_INFERENCE, 1)
         }
     }
 
@@ -369,6 +420,12 @@ private class FeatureListener(val source: Source, entry: Map.Entry<String, Strin
         }
         ctx.NEW()?.also {
             count(FeatureName.NEW_KEYWORD, 1)
+        }
+        ctx.primary()?.THIS()?.also {
+            count(FeatureName.THIS, 1)
+        }
+        ctx.methodCall()?.SUPER()?.also {
+            count(FeatureName.SUPER, 1)
         }
     }
 

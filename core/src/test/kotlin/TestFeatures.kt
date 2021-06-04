@@ -252,4 +252,86 @@ char[][] array1 = new char[10][10];
             it.lookup(".").features.featureMap[FeatureName.MULTIDIMENSIONAL_ARRAYS] shouldBe 2
         }
     }
+    "should count use of type inference in snippets" {
+        Source.fromSnippet(
+            """
+var first = 0;
+var second = "Hello, world!";
+""".trim()
+        ).features().also {
+            it.lookup(".").features.featureMap[FeatureName.TYPE_INFERENCE] shouldBe 2
+        }
+    }
+    "should count methods and classes" {
+        Source.fromSnippet(
+            """
+System.out.println("Hello, world!");
+""".trim()
+        ).features().also {
+            it.lookup("").features.featureMap[FeatureName.METHOD] shouldBe 1
+            it.lookup("").features.featureMap[FeatureName.CLASS] shouldBe 1
+        }
+    }
+    "should count constructors, methods, getters, setters, visibility modifiers, and static methods in classes" {
+        Source(
+            mapOf(
+                "Test.java" to """
+public class Test {
+    private int number;
+    
+    public Test(int setNumber) {
+        number = setNumber;
+    }
+    
+    void setNumber(int setNumber) {
+        number = setNumber;
+    }
+    
+    int getNumber() {
+        return number;
+    }
+    
+    static int add(int i, int j) {
+        number = i + j;
+        return number;
+    }
+    
+    class InnerClass { }
+    
+}
+""".trim()
+            )
+        ).features().also {
+            it.lookup("Test", "Test.java").features.featureMap[FeatureName.CLASS] shouldBe 2
+            it.lookup("Test", "Test.java").features.featureMap[FeatureName.CONSTRUCTOR] shouldBe 1
+            it.lookup("Test", "Test.java").features.featureMap[FeatureName.METHOD] shouldBe 3
+            it.lookup("Test", "Test.java").features.featureMap[FeatureName.GETTER] shouldBe 1
+            it.lookup("Test", "Test.java").features.featureMap[FeatureName.SETTER] shouldBe 1
+            it.lookup("Test", "Test.java").features.featureMap[FeatureName.STATIC_METHOD] shouldBe 1
+            it.lookup("Test", "Test.java").features.featureMap[FeatureName.VISIBILITY_MODIFIERS] shouldBe 2
+        }
+    }
+    "should count the extends keyword, the super constructor, and the 'this' keyword in classes" {
+        Source.fromSnippet(
+            """
+public class Person {
+    private int age;
+    public Person(int setAge) {
+        this.age = setAge;
+    }
+}
+public class Student extends Person {
+    private String school;
+    public Student(int setAge, String setSchool) {
+        super(setAge);
+        this.school = setSchool;
+    }
+}
+""".trim()
+        ).features().also {
+            it.lookup("Student").features.featureMap[FeatureName.EXTENDS_KEYWORD] shouldBe 1
+            it.lookup("Student").features.featureMap[FeatureName.SUPER] shouldBe 1
+            it.lookup("Student").features.featureMap[FeatureName.THIS] shouldBe 1
+        }
+    }
 })
