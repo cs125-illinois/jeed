@@ -13,7 +13,7 @@ fun main(first: Int, second: String, third: Blah?): Int {
 }
 """.trim()
         ).complexity().also {
-            it.lookup("main(Int,String,Blah?): Int", "Main.kt").complexity shouldBe 1
+            it.lookup("main(Int,String,Blah?):Int", "Main.kt").complexity shouldBe 1
         }
     }
 
@@ -31,7 +31,7 @@ public class Test(var first: Int, var second: Int) {
                 """.trim()
             )
         ).complexity().also {
-            it.lookup("Test.add(Int,Int): Int", "Test.kt").complexity shouldBe 2
+            it.lookup("Test.add(Int,Int):Int", "Test.kt").complexity shouldBe 2
             it.lookup("Test.Test(Int,Int)", "Test.kt").complexity shouldBe 1
         }
     }
@@ -48,7 +48,7 @@ public class Test(var first: Int, var second: Int) {
                 """.trim()
             )
         ).complexity().also {
-            it.lookup("Test.add(Int,Int): Int", "Test.kt").complexity shouldBe 1
+            it.lookup("Test.add(Int,Int):Int", "Test.kt").complexity shouldBe 1
             it.lookup("Test.Test(Int,Int)", "Test.kt").complexity shouldBe 1
         }
     }
@@ -68,7 +68,7 @@ public class Test() {
                 """.trim()
             )
         ).complexity().also {
-            it.lookup("Test.conditional(Int): Int", "Test.kt").complexity shouldBe 2
+            it.lookup("Test.conditional(Int):Int", "Test.kt").complexity shouldBe 2
         }
     }
 
@@ -100,7 +100,7 @@ public class Test() {
                 """.trim()
             )
         ).complexity().also {
-            it.lookup("Test.conditional(Int): Int", "Test.kt").complexity shouldBe 6
+            it.lookup("Test.conditional(Int):Int", "Test.kt").complexity shouldBe 6
         }
     }
 
@@ -122,7 +122,29 @@ public class Test() {
                 """.trim()
             )
         ).complexity().also {
-            it.lookup("Test.conditional(Int): Int", "Test.kt").complexity shouldBe 5
+            it.lookup("Test.conditional(Int):Int", "Test.kt").complexity shouldBe 5
+        }
+    }
+
+    "should work for when ranges" {
+        Source(
+            mapOf(
+                "TestKt.kt" to """
+fun main() {
+    val age = 40
+    when (age) {
+        in 0..14 -> println("children")
+        in 15..24 -> println("youth")
+        in 25..64 -> println("adults")
+        in 65..120 -> println("seniors")
+        in 120..130 -> println("unlikely age")
+        else -> println("wrong age value")
+    }
+}
+""".trim()
+            )
+        ).complexity().also {
+            it.lookupFile("TestKt.kt") shouldBe 6
         }
     }
 
@@ -207,8 +229,8 @@ class Test : Testing {
 }
 """.trim()
         ).complexity().also {
-            it.lookup("Test.toTest(Tester,Tester): Tester", "Main.kt").complexity shouldBe 1
-        } // ask geoff about this
+            it.lookup("Test.toTest(Tester,Tester):Tester", "Main.kt").complexity shouldBe 1
+        }
     }
 
     "should work with generics" {
@@ -220,7 +242,7 @@ fun <T> main(j: T): List<T> {
 }
 """.trim()
         ).complexity().also {
-            it.lookup("main(T): List<T>", "Main.kt").complexity shouldBe 1
+            it.lookup("main(T):List<T>", "Main.kt").complexity shouldBe 1
         }
     }
 
@@ -238,7 +260,7 @@ fun toTest(): Testing {
 
 """.trim()
         ).complexity().also {
-            it.lookup("toTest(): Testing", "Main.kt").complexity shouldBe 2
+            it.lookup("toTest():Testing", "Main.kt").complexity shouldBe 2
         }
     }
 
@@ -342,7 +364,7 @@ fun test(first: Int, second: String, third: Blah?): Int {
         }
     }
 
-    "nested function" {
+    "should work with nested function" {
         Source.fromSnippet(
             """
 fun test(first: Int, second: String, third: Blah?): Int {
@@ -355,7 +377,7 @@ fun test(first: Int, second: String, third: Blah?): Int {
         ).complexity().also {
             it.lookup(".").complexity shouldBe 1
             it.lookup("").complexity shouldBe 3
-            it.lookup("test(Int,String,Blah?): Int.main(Double,String): Int").complexity shouldBe 1
+            it.lookup("test(Int,String,Blah?):Int.main(Double,String):Int").complexity shouldBe 1
         }
     }
 
@@ -374,6 +396,151 @@ fun me(first: Int, second: Int) = if (first > second) {
             it.lookupFile("TestKt.kt") shouldBe 3
         }
     }
+
+    "should work for if used as expression" {
+        Source.fromSnippet(
+            """
+fun test(first: Int, second: String, third: Blah?): Int {
+  val max = if (a > b) {
+    a
+  } else {
+    b
+  }
+}""".trim(),
+            SnippetArguments(fileType = Source.FileType.KOTLIN)
+        ).complexity().also {
+            it.lookup(".").complexity shouldBe 1
+            it.lookup("").complexity shouldBe 3
+        }
+    }
+
+    "should work for when used as expression" {
+        Source(
+            mapOf(
+                "TestKt.kt" to """
+fun main() {
+    val dayOfWeek: DayOfWeek = LocalDate.now().dayOfWeek
+    val msg:String = when (dayOfWeek) {
+        DayOfWeek.MONDAY -> "It is monday"
+        DayOfWeek.TUESDAY -> "It is tuesday"
+        DayOfWeek.WEDNESDAY -> "It is wednesday"
+        DayOfWeek.THURSDAY -> "It is thursday"
+        DayOfWeek.FRIDAY -> "It is friday"
+        DayOfWeek.SATURDAY -> "It is saturday"
+        DayOfWeek.SUNDAY -> "It is sunday"
+        else -> "Invalid day of week"
+    }
+}""".trim()
+            )
+        ).complexity().also {
+            it.lookupFile("TestKt.kt") shouldBe 8
+        }
+    }
+
+    "should work for try used as expression" {
+        Source(
+            mapOf(
+                "TestKt.kt" to """
+fun main() {
+    val example: String = try {
+      "example"
+    } catch (e: IllegalArgumentException) {
+      "error"
+    } catch (e: Exception) {
+      "bad error"
+    }
+}""".trim()
+            )
+        ).complexity().also {
+            it.lookupFile("TestKt.kt") shouldBe 3
+        }
+    }
+
+    "should work for single null-coalescing" {
+        Source(
+            mapOf(
+                "TestKt.kt" to """
+fun main() {
+  person?.department = managersPool.getRandomDepartment()
+}""".trim()
+            )
+        ).complexity().also {
+            it.lookupFile("TestKt.kt") shouldBe 2
+        }
+    }
+
+    "should work for multiple null-coalescing" {
+        Source(
+            mapOf(
+                "TestKt.kt" to """
+fun main() {
+  person?.department?.head = managersPool.getManager()
+}""".trim()
+            )
+        ).complexity().also {
+            it.lookupFile("TestKt.kt") shouldBe 3
+        }
+    }
+
+    "should work for single null-asserting" {
+        Source(
+            mapOf(
+                "TestKt.kt" to """
+fun main() {
+  person!!.department = departments.getRandomDepartment()
+}""".trim()
+            )
+        ).complexity().also {
+            it.lookupFile("TestKt.kt") shouldBe 2
+        }
+    }
+
+    "should work for multiple null-asserting" {
+        Source(
+            mapOf(
+                "TestKt.kt" to """
+fun main() {
+  person!!.department!!.head = managersPool.getManager()
+}""".trim()
+            )
+        ).complexity().also {
+            it.lookupFile("TestKt.kt") shouldBe 3
+        }
+    }
+
+    "should work with scope functions - .let{}" {
+        Source.fromKotlin(
+            """
+fun main() {
+    val numbers = mutableListOf("one", "two", "three", "four", "five")
+    numbers.map { it.length }.filter { it > 3 }.let { 
+        if (it > 4) {
+          println("More than 4")
+        }
+        println("Less than 4")
+    } 
+}
+            """.trim()
+        ).complexity().also {
+            it.lookup("main()", "Main.kt").complexity shouldBe 5
+        }
+    }
+
+    "should work with scope functions - .also{}" {
+        Source.fromKotlin(
+            """
+fun main() {
+    val numbers = mutableListOf("one", "two", "three")
+    numbers
+        .also { println("The list elements before adding new one: " + it) }
+        .add("four")
+}
+            """.trim()
+        ).complexity().also {
+            it.lookup("main()", "Main.kt").complexity shouldBe 2
+        }
+    }
+
     "should calculate complexity for an if-expression" {
         Source(
             mapOf(
@@ -388,7 +555,7 @@ fun areSameLength(first: String?, second: String?): Boolean {
 """.trim()
             )
         ).complexity().also {
-            it.lookup("areSameLength(String?,String?): Boolean", "TestKt.kt").complexity shouldBe 3
+            it.lookup("areSameLength(String?,String?):Boolean", "TestKt.kt").complexity shouldBe 3
             it.lookupFile("TestKt.kt") shouldBe 3
         }
     }
