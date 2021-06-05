@@ -307,7 +307,7 @@ public class Test {
             it.lookup("Test", "Test.java").features.featureMap[FeatureName.METHOD] shouldBe 3
             it.lookup("Test", "Test.java").features.featureMap[FeatureName.GETTER] shouldBe 1
             it.lookup("Test", "Test.java").features.featureMap[FeatureName.SETTER] shouldBe 1
-            it.lookup("Test", "Test.java").features.featureMap[FeatureName.STATIC_METHOD] shouldBe 1
+            it.lookup("Test", "Test.java").features.featureMap[FeatureName.STATIC] shouldBe 1
             it.lookup("Test", "Test.java").features.featureMap[FeatureName.VISIBILITY_MODIFIERS] shouldBe 2
         }
     }
@@ -329,9 +329,107 @@ public class Student extends Person {
 }
 """.trim()
         ).features().also {
-            it.lookup("Student").features.featureMap[FeatureName.EXTENDS_KEYWORD] shouldBe 1
+            it.lookup("Student").features.featureMap[FeatureName.EXTENDS] shouldBe 1
             it.lookup("Student").features.featureMap[FeatureName.SUPER] shouldBe 1
             it.lookup("Student").features.featureMap[FeatureName.THIS] shouldBe 1
+        }
+    }
+    "should count instanceof and casting" {
+        Source.fromSnippet(
+            """
+double temperature = 72.5;
+String name = "Geoff";
+if (name instanceof String) {
+    int rounded = (int) temperature;
+}
+""".trim()
+        ).features().also {
+            it.lookup(".").features.featureMap[FeatureName.INSTANCEOF] shouldBe 1
+            it.lookup(".").features.featureMap[FeatureName.CASTING] shouldBe 1
+        }
+    }
+    "should count override annotation and import statements" {
+        Source(
+            mapOf(
+                "Test.java" to """
+import java.util.Random;
+
+public class Test {
+    private int number;
+    
+    public Test(int setNumber) {
+        number = setNumber;
+    }
+    
+    @Override
+    String toString() {
+        return "String";
+    }
+}
+""".trim()
+            )
+        ).features().also {
+            it.lookup("Test", "Test.java").features.featureMap[FeatureName.OVERRIDE] shouldBe 1
+            // it.lookup("Test", "Test.java").features.featureMap[FeatureName.IMPORT] shouldBe 1
+        }
+    }
+    "should count reference equality" {
+        Source.fromSnippet(
+            """
+String first = "Hello";
+String second = "World";
+boolean third = first == second;
+""".trim()
+        ).features().also {
+            it.lookup(".").features.featureMap[FeatureName.REFERENCE_EQUALITY] shouldBe 1
+        }
+    }
+    "should count interfaces and classes that implement interfaces" {
+        Source.fromSnippet(
+            """
+public interface Test {
+    int add(int x, int y);
+    int subtract(int x, int y);
+}
+
+public class Calculator implements Test {
+    int add(int x, int y) {
+        return x + y;
+    }
+    
+    int subtract(int x, int y) {
+        return x - y;
+    }
+}
+""".trim()
+        ).features().also {
+            it.lookup("Test").features.featureMap[FeatureName.INTERFACE] shouldBe 1
+            // it.lookup("Test").features.featureMap[FeatureName.METHOD] shouldBe 2
+            it.lookup("Calculator").features.featureMap[FeatureName.IMPLEMENTS] shouldBe 1
+        }
+    }
+    "should count final and abstract methods" {
+        Source.fromSnippet(
+            """
+public abstract class Test {
+    abstract int add(int x, int y);
+    abstract int subtract(int x, int y);
+}
+public class Calculator implements Test {
+    final int count;
+    
+    final int add(int x, int y) {
+        return x + y;
+    }
+    
+    int subtract(int x, int y) {
+        return x - y;
+    }
+}
+""".trim()
+        ).features().also {
+            it.lookup("Test").features.featureMap[FeatureName.ABSTRACT] shouldBe 2
+            it.lookup("Calculator").features.featureMap[FeatureName.FINAL] shouldBe 2
         }
     }
 })

@@ -42,11 +42,20 @@ enum class FeatureName {
     CONSTRUCTOR,
     GETTER,
     SETTER,
-    STATIC_METHOD,
-    EXTENDS_KEYWORD,
+    STATIC,
+    EXTENDS,
     SUPER,
     VISIBILITY_MODIFIERS,
-    THIS
+    THIS,
+    INSTANCEOF,
+    CASTING,
+    OVERRIDE,
+    IMPORT,
+    REFERENCE_EQUALITY,
+    INTERFACE,
+    IMPLEMENTS,
+    FINAL,
+    ABSTRACT
 }
 
 data class Features(
@@ -166,6 +175,15 @@ private class FeatureListener(val source: Source, entry: Map.Entry<String, Strin
         currentFeatures.features += lastFeatures.features
     }
 
+    /*override fun enterCompilationUnit(ctx: JavaParser.CompilationUnitContext) {
+        count(
+            FeatureName.IMPORT,
+            ctx.importDeclaration().filter {
+                it.IMPORT() != null
+            }.size
+        )
+    }*/
+
     override fun enterClassDeclaration(ctx: JavaParser.ClassDeclarationContext) {
         enterClassOrInterface(
             ctx.IDENTIFIER().text,
@@ -174,10 +192,26 @@ private class FeatureListener(val source: Source, entry: Map.Entry<String, Strin
         )
         count(FeatureName.CLASS, 1)
         count(
-            FeatureName.STATIC_METHOD,
+            FeatureName.STATIC,
             ctx.classBody().classBodyDeclaration().filter { declaration ->
                 declaration.modifier().any {
                     it.classOrInterfaceModifier().STATIC() != null
+                }
+            }.size
+        )
+        count(
+            FeatureName.FINAL,
+            ctx.classBody().classBodyDeclaration().filter { declaration ->
+                declaration.modifier().any {
+                    it.classOrInterfaceModifier().FINAL() != null
+                }
+            }.size
+        )
+        count(
+            FeatureName.ABSTRACT,
+            ctx.classBody().classBodyDeclaration().filter { declaration ->
+                declaration.modifier().any {
+                    it.classOrInterfaceModifier().ABSTRACT() != null
                 }
             }.size
         )
@@ -192,8 +226,19 @@ private class FeatureListener(val source: Source, entry: Map.Entry<String, Strin
                 }
             }.size
         )
+        count(
+            FeatureName.OVERRIDE,
+            ctx.classBody().classBodyDeclaration().filter { declaration ->
+                declaration.modifier().any {
+                    it?.text == "@Override"
+                }
+            }.size
+        )
         ctx.EXTENDS()?.also {
-            count(FeatureName.EXTENDS_KEYWORD, 1)
+            count(FeatureName.EXTENDS, 1)
+        }
+        ctx.IMPLEMENTS()?.also {
+            count(FeatureName.IMPLEMENTS, 1)
         }
     }
 
@@ -207,6 +252,7 @@ private class FeatureListener(val source: Source, entry: Map.Entry<String, Strin
             Location(ctx.start.line, ctx.start.charPositionInLine),
             Location(ctx.stop.line, ctx.stop.charPositionInLine)
         )
+        count(FeatureName.INTERFACE, 1)
     }
 
     override fun exitInterfaceDeclaration(ctx: JavaParser.InterfaceDeclarationContext?) {
@@ -242,13 +288,14 @@ private class FeatureListener(val source: Source, entry: Map.Entry<String, Strin
             count(FeatureName.SETTER, 1)
         }
         // Count classes declared inside methods
-        count(
-            FeatureName.CLASS,
-            ctx.methodBody().block().blockStatement().filter {
-                it.localTypeDeclaration()?.classDeclaration() != null
-            }.size
-        )
-
+        ctx.methodBody().block()?.blockStatement()?.filter {
+            it.localTypeDeclaration()?.classDeclaration() != null
+        }?.size?.let {
+            count(
+                FeatureName.CLASS,
+                it
+            )
+        }
     }
 
     override fun exitMethodDeclaration(ctx: JavaParser.MethodDeclarationContext) {
@@ -273,6 +320,8 @@ private class FeatureListener(val source: Source, entry: Map.Entry<String, Strin
         exitMethodOrConstructor()
     }
 
+    private val seenObjectIdentifiers = mutableSetOf<String>()
+
     override fun enterLocalVariableDeclaration(ctx: JavaParser.LocalVariableDeclarationContext) {
         count(FeatureName.LOCAL_VARIABLE_DECLARATIONS, ctx.variableDeclarators().variableDeclarator().size)
         count(
@@ -295,6 +344,15 @@ private class FeatureListener(val source: Source, entry: Map.Entry<String, Strin
         }
         if (ctx.typeType().text.contains("var")) {
             count(FeatureName.TYPE_INFERENCE, 1)
+        }
+        // Check if variable is an object
+        when (ctx.typeType().classOrInterfaceType()?.text) {
+            "char", "boolean", "int", "double", "long", "byte", "short", "float" -> { }
+            else -> {
+                for (declarator in ctx.variableDeclarators().variableDeclarator()) {
+                    seenObjectIdentifiers += declarator.variableDeclaratorId().IDENTIFIER().text
+                }
+            }
         }
     }
 
@@ -398,6 +456,7 @@ private class FeatureListener(val source: Source, entry: Map.Entry<String, Strin
             "&", "|", "^" -> count(FeatureName.BITWISE_OPERATORS, 1)
             "+=", "-=", "*=", "/=", "%=" -> count(FeatureName.ASSIGNMENT_OPERATORS, 1)
             "?" -> count(FeatureName.TERNARY_OPERATOR, 1)
+            "instanceof" -> count(FeatureName.INSTANCEOF, 1)
         }
         when (ctx.prefix?.text) {
             "++", "--" -> count(FeatureName.UNARY_OPERATORS, 1)
@@ -416,6 +475,16 @@ private class FeatureListener(val source: Source, entry: Map.Entry<String, Strin
             if (ctx.expression().size != 0 && (ctx.text.contains("[") || ctx.text.contains("]"))) {
                 count(FeatureName.ARRAY_ACCESS, 1)
                 println(ctx.text)
+            }
+        }
+        if (ctx.text.startsWith("(" + ctx.typeType()?.text + ")")) {
+            count(FeatureName.CASTING, 1)
+        }
+        if (ctx.bop?.text == "==" || ctx.bop?.text == "!=") {
+            // Check if both expressions are objects, i.e. references are being compared
+            if (seenObjectIdentifiers.contains(ctx.expression(0).text)
+                && seenObjectIdentifiers.contains(ctx.expression(1).text)) {
+                count(FeatureName.REFERENCE_EQUALITY, 1)
             }
         }
         ctx.NEW()?.also {
