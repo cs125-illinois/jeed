@@ -163,7 +163,7 @@ if (i < 5 || i > 15) {
             it.lookup(".").features.featureMap[FeatureName.COMPLEX_CONDITIONAL] shouldBe 2
         }
     }
-    "should count try blocks, switch statements, and assertions in snippets" {
+    "should count try blocks, switch statements, finally blocks, and assertions in snippets" {
         Source.fromSnippet(
             """
 int i = 0;
@@ -179,13 +179,16 @@ try {
         default:
             System.out.println("not zero or one");
     }
-} catch (Exception e) { }
+} catch (Exception e) {
+    System.out.println("Oops");
+} finally { }
         
 """.trim()
         ).features().also {
             it.lookup(".").features.featureMap[FeatureName.TRY_BLOCK] shouldBe 1
             it.lookup(".").features.featureMap[FeatureName.ASSERT] shouldBe 1
             it.lookup(".").features.featureMap[FeatureName.SWITCH] shouldBe 1
+            it.lookup(".").features.featureMap[FeatureName.FINALLY] shouldBe 1
         }
     }
     "should count operators in snippets" {
@@ -231,15 +234,18 @@ int[] nums = {1, 2, 4};
             it.lookup(".").features.featureMap[FeatureName.ARRAY_LITERAL] shouldBe 1
         }
     }
-    "should count strings and null in snippets" {
+    "should count strings, streams, and null in snippets" {
         Source.fromSnippet(
             """
+import java.util.stream.Stream;
 String first = "Hello, world!";
 String second = null;
+Stream<String> stream;
 """.trim()
         ).features().also {
             it.lookup(".").features.featureMap[FeatureName.STRING] shouldBe 2
             it.lookup(".").features.featureMap[FeatureName.NULL] shouldBe 1
+            it.lookup(".").features.featureMap[FeatureName.STREAM] shouldBe 1
         }
     }
     "should count multidimensional arrays in snippets" {
@@ -430,6 +436,83 @@ public class Calculator implements Test {
         ).features().also {
             it.lookup("Test").features.featureMap[FeatureName.ABSTRACT] shouldBe 2
             it.lookup("Calculator").features.featureMap[FeatureName.FINAL] shouldBe 2
+        }
+    }
+    "should count anonymous classes" {
+        Source.fromSnippet(
+            """
+public class Person {
+  public String getType() {
+    return "Person";
+  }
+}
+Person student = new Person() {
+  @Override
+  public String getType() {
+    return "Student";
+  }
+};
+""".trim()
+        ).features().also {
+            it.lookup(".").features.featureMap[FeatureName.ANONYMOUS_CLASSES] shouldBe 1
+        }
+    }
+    "should count lambda expressions" {
+        Source.fromSnippet(
+            """
+interface Modify {
+  int modify(int value);
+}
+
+Modify first = (value) -> value + 1;
+Modify second = (value) -> value - 10;
+""".trim()
+        ).features().also {
+            it.lookup(".").features.featureMap[FeatureName.LAMBDA_EXPRESSIONS] shouldBe 2
+        }
+    }
+    "should count throwing exceptions" {
+        Source.fromSnippet(
+            """
+void container(int setSize) throws IllegalArgumentException {
+    if (setSize <= 0) {
+      throw new IllegalArgumentException("Container size must be positive");
+    }
+    values = new int[setSize];
+}
+""".trim()
+        ).features().also {
+            it.lookup("").features.featureMap[FeatureName.THROW] shouldBe 1
+            it.lookup("").features.featureMap[FeatureName.THROWS] shouldBe 2 // main method for snippets also throws exception
+        }
+    }
+    "should count generic classes" {
+        Source(
+            mapOf(
+                "Counter.java" to """
+public class Counter<T> {
+  private T value;
+  private int count;
+  public Counter(T setValue) {
+    if (setValue == null) {
+      throw new IllegalArgumentException();
+    }
+    value = setValue;
+    count = 0;
+  }
+  public void add(T newValue) {
+    if (value.equals(newValue)) {
+      count++;
+    }
+  }
+  public int getCount() {
+    return count;
+  }
+}
+""".trim()
+            )
+        ).features().also {
+            it.lookup("Counter", "Counter.java").features.featureMap[FeatureName.GENERIC_CLASS] shouldBe 1
         }
     }
 })

@@ -55,7 +55,14 @@ enum class FeatureName {
     INTERFACE,
     IMPLEMENTS,
     FINAL,
-    ABSTRACT
+    ABSTRACT,
+    ANONYMOUS_CLASSES,
+    LAMBDA_EXPRESSIONS,
+    THROW,
+    FINALLY,
+    THROWS,
+    GENERIC_CLASS,
+    STREAM
 }
 
 data class Features(
@@ -240,6 +247,9 @@ private class FeatureListener(val source: Source, entry: Map.Entry<String, Strin
         ctx.IMPLEMENTS()?.also {
             count(FeatureName.IMPLEMENTS, 1)
         }
+        ctx.typeParameters()?.also {
+            count(FeatureName.GENERIC_CLASS, 1)
+        }
     }
 
     override fun exitClassDeclaration(ctx: JavaParser.ClassDeclarationContext) {
@@ -287,6 +297,9 @@ private class FeatureListener(val source: Source, entry: Map.Entry<String, Strin
         if (ctx.IDENTIFIER().text.startsWith("set")) {
             count(FeatureName.SETTER, 1)
         }
+        ctx.THROWS()?.also {
+            count(FeatureName.THROWS, 1)
+        }
         // Count classes declared inside methods
         ctx.methodBody().block()?.blockStatement()?.filter {
             it.localTypeDeclaration()?.classDeclaration() != null
@@ -314,6 +327,9 @@ private class FeatureListener(val source: Source, entry: Map.Entry<String, Strin
             Location(ctx.stop.line, ctx.stop.charPositionInLine),
         )
         count(FeatureName.CONSTRUCTOR, 1)
+        ctx.THROWS()?.also {
+            count(FeatureName.THROWS, 1)
+        }
     }
 
     override fun exitConstructorDeclaration(ctx: JavaParser.ConstructorDeclarationContext?) {
@@ -336,8 +352,11 @@ private class FeatureListener(val source: Source, entry: Map.Entry<String, Strin
                 it.variableInitializer()?.arrayInitializer() != null
             }.size
         )
-        if (ctx.typeType().classOrInterfaceType()?.text == "String") {
+        if (ctx.typeType().classOrInterfaceType()?.IDENTIFIER(0)?.text == "String") {
             count(FeatureName.STRING, 1)
+        }
+        if (ctx.typeType().classOrInterfaceType()?.IDENTIFIER(0)?.text == "Stream") {
+            count(FeatureName.STREAM, 1)
         }
         if (ctx.typeType().text.contains("[][]")) {
             count(FeatureName.MULTIDIMENSIONAL_ARRAYS, 1)
@@ -418,12 +437,18 @@ private class FeatureListener(val source: Source, entry: Map.Entry<String, Strin
         }
         ctx.TRY()?.also {
             count(FeatureName.TRY_BLOCK, 1)
+            ctx.finallyBlock()?.also {
+                count(FeatureName.FINALLY, 1)
+            }
         }
         ctx.ASSERT()?.also {
             count(FeatureName.ASSERT, 1)
         }
         ctx.SWITCH()?.also {
             count(FeatureName.SWITCH, 1)
+        }
+        ctx.THROW()?.also {
+            count(FeatureName.THROW, 1)
         }
         // Count nested statements
         if (ctx.statement(0) != null) {
@@ -495,6 +520,12 @@ private class FeatureListener(val source: Source, entry: Map.Entry<String, Strin
         }
         ctx.methodCall()?.SUPER()?.also {
             count(FeatureName.SUPER, 1)
+        }
+        ctx.creator()?.classCreatorRest()?.classBody()?.also {
+            count(FeatureName.ANONYMOUS_CLASSES, 1)
+        }
+        ctx.lambdaExpression()?.also {
+            count(FeatureName.LAMBDA_EXPRESSIONS, 1)
         }
     }
 
