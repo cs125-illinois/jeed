@@ -19,7 +19,7 @@ dependencies {
     implementation(kotlin("stdlib"))
     implementation(kotlin("reflect"))
 
-    implementation("io.ktor:ktor-server-netty:1.5.4")
+    implementation("io.ktor:ktor-server-netty:1.6.0")
     implementation("org.mongodb:mongodb-driver:3.12.8")
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-core:1.5.0-RC-native-mt")
     implementation("com.squareup.moshi:moshi-kotlin-codegen:1.12.0")
@@ -27,7 +27,7 @@ dependencies {
     implementation("ch.qos.logback:logback-classic:1.2.3")
     implementation("com.uchuhimo:konf-core:1.1.2")
     implementation("com.uchuhimo:konf-yaml:1.1.2")
-    implementation("io.github.microutils:kotlin-logging:2.0.6")
+    implementation("io.github.microutils:kotlin-logging:2.0.8")
     implementation("com.google.api-client:google-api-client:1.31.5")
     implementation("com.github.cs125-illinois:libcs1:2021.5.7")
 
