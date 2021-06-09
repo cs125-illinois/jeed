@@ -228,7 +228,7 @@ private class FeatureListener(val source: Source, entry: Map.Entry<String, Strin
             FeatureName.VISIBILITY_MODIFIERS,
             ctx.classBody().classBodyDeclaration().filter { declaration ->
                 declaration.modifier().any {
-                    when(it.text) {
+                    when (it.text) {
                         "public", "private", "protected" -> true
                         else -> false
                     }
@@ -510,8 +510,9 @@ private class FeatureListener(val source: Source, entry: Map.Entry<String, Strin
         }
         if (ctx.bop?.text == "==" || ctx.bop?.text == "!=") {
             // Check if both expressions are objects, i.e. references are being compared
-            if (seenObjectIdentifiers.contains(ctx.expression(0).text)
-                && seenObjectIdentifiers.contains(ctx.expression(1).text)) {
+            if (seenObjectIdentifiers.contains(ctx.expression(0).text) &&
+                seenObjectIdentifiers.contains(ctx.expression(1).text)
+            ) {
                 count(FeatureName.REFERENCE_EQUALITY, 1)
             }
         }

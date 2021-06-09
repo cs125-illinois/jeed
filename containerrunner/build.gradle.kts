@@ -12,9 +12,9 @@ plugins {
 }
 dependencies {
     implementation("ch.qos.logback:logback-classic:1.2.3")
-    implementation("io.github.microutils:kotlin-logging:2.0.6")
+    implementation("io.github.microutils:kotlin-logging:2.0.8")
     implementation("com.github.ajalt:clikt:2.8.0")
-    implementation("io.github.classgraph:classgraph:4.8.105")
+    implementation("io.github.classgraph:classgraph:4.8.108")
 }
 application {
     @Suppress("DEPRECATION")
