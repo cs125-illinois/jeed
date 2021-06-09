@@ -116,6 +116,15 @@ class MethodFeatures(
     features: Features = Features(),
 ) : FeatureValue(name, range, methods, classes, features)
 
+@JsonClass(generateAdapter = true)
+class UnitFeatures(
+    name: String,
+    range: SourceRange,
+    methods: MutableMap<String, LocatedClassOrMethod> = mutableMapOf(),
+    classes: MutableMap<String, LocatedClassOrMethod> = mutableMapOf(),
+    features: Features = Features(),
+) : FeatureValue(name, range, methods, classes, features)
+
 @Suppress("TooManyFunctions")
 private class FeatureListener(val source: Source, entry: Map.Entry<String, String>) : JavaParserBaseListener() {
     @Suppress("unused")
@@ -125,7 +134,7 @@ private class FeatureListener(val source: Source, entry: Map.Entry<String, Strin
     private var featureStack: MutableList<FeatureValue> = mutableListOf()
     private val currentFeatures: FeatureValue
         get() = featureStack[0]
-    var results: MutableMap<String, ClassFeatures> = mutableMapOf()
+    var results: MutableMap<String, UnitFeatures> = mutableMapOf()
 
     private fun enterClassOrInterface(name: String, start: Location, end: Location) {
         val locatedClass = if (source is Snippet && name == source.wrappedClassName) {
@@ -169,10 +178,6 @@ private class FeatureListener(val source: Source, entry: Map.Entry<String, Strin
         assert(lastFeatures is ClassFeatures)
         if (featureStack.isNotEmpty()) {
             currentFeatures.features += lastFeatures.features
-        } else {
-            val topLevelFeatures = lastFeatures as ClassFeatures
-            assert(!results.keys.contains(topLevelFeatures.name))
-            results[topLevelFeatures.name] = topLevelFeatures
         }
     }
 
@@ -184,22 +189,39 @@ private class FeatureListener(val source: Source, entry: Map.Entry<String, Strin
         currentFeatures.features += lastFeatures.features
     }
 
-    /*override fun enterCompilationUnit(ctx: JavaParser.CompilationUnitContext) {
+    override fun enterCompilationUnit(ctx: JavaParser.CompilationUnitContext) {
+        val unitFeatures = UnitFeatures(
+            filename,
+            SourceRange(
+                filename,
+                Location(ctx.start.line, ctx.start.charPositionInLine),
+                Location(ctx.stop.line, ctx.stop.charPositionInLine)
+            )
+        )
+        assert(featureStack.isEmpty())
+        featureStack.add(0, unitFeatures)
         count(
             FeatureName.IMPORT,
             ctx.importDeclaration().filter {
                 it.IMPORT() != null
             }.size
         )
-    }*/
+    }
+
+    override fun exitCompilationUnit(ctx: JavaParser.CompilationUnitContext) {
+        assert(featureStack.size == 1)
+        val topLevelFeatures = featureStack.removeAt(0) as UnitFeatures
+        assert(!results.keys.contains(topLevelFeatures.name))
+        results[topLevelFeatures.name] = topLevelFeatures
+    }
 
     override fun enterClassDeclaration(ctx: JavaParser.ClassDeclarationContext) {
+        count(FeatureName.CLASS, 1)
         enterClassOrInterface(
             ctx.IDENTIFIER().text,
             Location(ctx.start.line, ctx.start.charPositionInLine),
             Location(ctx.stop.line, ctx.stop.charPositionInLine)
         )
-        count(FeatureName.CLASS, 1)
         count(
             FeatureName.STATIC,
             ctx.classBody().classBodyDeclaration().filter { declaration ->
@@ -538,7 +560,7 @@ private class FeatureListener(val source: Source, entry: Map.Entry<String, Strin
     }
 }
 
-class FeaturesResults(val source: Source, val results: Map<String, Map<String, ClassFeatures>>) {
+class FeaturesResults(val source: Source, val results: Map<String, Map<String, UnitFeatures>>) {
     @Suppress("ReturnCount")
     fun lookup(path: String, filename: String = ""): FeatureValue {
         val components = path.split(".").toMutableList()
@@ -548,20 +570,25 @@ class FeaturesResults(val source: Source, val results: Map<String, Map<String, C
         }
         val resultSource = results[filename] ?: error("results does not contain key $filename")
 
+        val unitFeatures = resultSource[filename] ?: error("missing UnitFeatures")
+        if (path == "") {
+            return unitFeatures
+        }
+
         var currentFeatures = if (source is Snippet) {
-            val rootFeatures = resultSource[""] ?: error("")
+            val rootFeatures = unitFeatures.classes[""] as? FeatureValue ?: error("")
             if (path.isEmpty()) {
                 return rootFeatures
             } else if (path == ".") {
                 return rootFeatures.methods[""] as FeatureValue
             }
-            if (resultSource[components[0]] != null) {
-                resultSource[components.removeAt(0)]
+            if (unitFeatures.classes[components[0]] != null) {
+                unitFeatures.classes[components.removeAt(0)]
             } else {
                 rootFeatures
             }
         } else {
-            resultSource[components.removeAt(0)]
+            unitFeatures.classes[components.removeAt(0)]
         } as FeatureValue
 
         for (component in components) {

@@ -308,7 +308,7 @@ public class Test {
 """.trim()
             )
         ).features().also {
-            it.lookup("Test", "Test.java").features.featureMap[FeatureName.CLASS] shouldBe 2
+            it.lookup("", "Test.java").features.featureMap[FeatureName.CLASS] shouldBe 2
             it.lookup("Test", "Test.java").features.featureMap[FeatureName.CONSTRUCTOR] shouldBe 1
             it.lookup("Test", "Test.java").features.featureMap[FeatureName.METHOD] shouldBe 3
             it.lookup("Test", "Test.java").features.featureMap[FeatureName.GETTER] shouldBe 1
@@ -376,7 +376,7 @@ public class Test {
             )
         ).features().also {
             it.lookup("Test", "Test.java").features.featureMap[FeatureName.OVERRIDE] shouldBe 1
-            // it.lookup("Test", "Test.java").features.featureMap[FeatureName.IMPORT] shouldBe 1
+            it.lookup("", "Test.java").features.featureMap[FeatureName.IMPORT] shouldBe 1
         }
     }
     "should count reference equality" {
@@ -533,7 +533,7 @@ public class Test {
 """.trim()
             )
         ).features().also {
-            it.lookup("Test", "Test.java").features.featureMap[FeatureName.CLASS] shouldBe 2
+            it.lookup("", "Test.java").features.featureMap[FeatureName.CLASS] shouldBe 2
         }
     }
     "should correctly create a code skeleton for snippets" {
