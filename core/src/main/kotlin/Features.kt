@@ -66,7 +66,8 @@ enum class FeatureName {
 }
 
 data class Features(
-    var featureMap: MutableMap<FeatureName, Int> = FeatureName.values().associate { it to 0 }.toMutableMap()
+    var featureMap: MutableMap<FeatureName, Int> = FeatureName.values().associate { it to 0 }.toMutableMap(),
+    var skeleton: String = ""
 ) {
     operator fun plus(other: Features): Features {
         val map = mutableMapOf<FeatureName, Int>()
@@ -74,7 +75,8 @@ data class Features(
             map[key] = featureMap[key]!! + other.featureMap[key]!!
         }
         return Features(
-            map
+            map,
+            skeleton + " " + other.skeleton
         )
     }
 }
@@ -300,15 +302,6 @@ private class FeatureListener(val source: Source, entry: Map.Entry<String, Strin
         ctx.THROWS()?.also {
             count(FeatureName.THROWS, 1)
         }
-        // Count classes declared inside methods
-        ctx.methodBody().block()?.blockStatement()?.filter {
-            it.localTypeDeclaration()?.classDeclaration() != null
-        }?.size?.let {
-            count(
-                FeatureName.CLASS,
-                it
-            )
-        }
     }
 
     override fun exitMethodDeclaration(ctx: JavaParser.MethodDeclarationContext) {
@@ -385,6 +378,7 @@ private class FeatureListener(val source: Source, entry: Map.Entry<String, Strin
     }
 
     override fun enterStatement(ctx: JavaParser.StatementContext) {
+        //println(ctx.text)
         ctx.statementExpression?.also {
             if (it.bop?.text == "=") {
                 count(FeatureName.VARIABLE_ASSIGNMENTS, 1)
@@ -392,10 +386,10 @@ private class FeatureListener(val source: Source, entry: Map.Entry<String, Strin
             }
         }
         ctx.FOR()?.also {
+            currentFeatures.features.skeleton += "for "
             count(FeatureName.FOR_LOOPS, 1)
             if (ctx.forControl().enhancedForControl() != null) {
                 count(FeatureName.ENHANCED_FOR, 1)
-                // Is this the best way to do this?
                 count(FeatureName.LOCAL_VARIABLE_DECLARATIONS, 1)
             }
         }
@@ -404,6 +398,7 @@ private class FeatureListener(val source: Source, entry: Map.Entry<String, Strin
             if (ctx.DO() != null) {
                 count(FeatureName.DO_WHILE_LOOPS, 1)
             } else {
+                currentFeatures.features.skeleton += "while "
                 count(FeatureName.WHILE_LOOPS, 1)
             }
         }
@@ -411,6 +406,7 @@ private class FeatureListener(val source: Source, entry: Map.Entry<String, Strin
             // Check for else-if chains
             val outerIfStart = ctx.start.startIndex
             if (outerIfStart !in seenIfStarts) {
+                currentFeatures.features.skeleton += "if "
                 // Count if block
                 count(FeatureName.IF_STATEMENTS, 1)
                 seenIfStarts += outerIfStart
@@ -451,24 +447,32 @@ private class FeatureListener(val source: Source, entry: Map.Entry<String, Strin
             count(FeatureName.THROW, 1)
         }
         // Count nested statements
-        if (ctx.statement(0) != null) {
+        ctx.statement(0)?.also {
             val statement = ctx.statement(0).block().blockStatement()
+            var hasNesting = 0
             for (block in statement) {
-                block.statement()?.FOR()?.also {
+                val blockStatement = block.statement()
+                blockStatement?.FOR()?.also {
+                    hasNesting = 1
                     count(FeatureName.NESTED_FOR, 1)
                 }
-                block.statement()?.IF()?.also {
-                    seenIfStarts += block.statement().start.startIndex
-                    count(FeatureName.IF_STATEMENTS, 1)
+                blockStatement?.IF()?.also {
+                    hasNesting = 1
                     count(FeatureName.NESTED_IF, 1)
                 }
-                block.statement()?.WHILE()?.also {
+                blockStatement?.WHILE()?.also {
+                    hasNesting = 1
                     if (block.statement().DO() != null) {
                         count(FeatureName.NESTED_DO_WHILE, 1)
                     } else {
                         count(FeatureName.NESTED_WHILE, 1)
                     }
                 }
+            }
+            if (hasNesting == 1){
+                currentFeatures.features.skeleton += "{ "
+            } else if (hasNesting == 0) {
+                currentFeatures.features.skeleton += "} "
             }
         }
     }
@@ -499,7 +503,6 @@ private class FeatureListener(val source: Source, entry: Map.Entry<String, Strin
             }
             if (ctx.expression().size != 0 && (ctx.text.contains("[") || ctx.text.contains("]"))) {
                 count(FeatureName.ARRAY_ACCESS, 1)
-                println(ctx.text)
             }
         }
         if (ctx.text.startsWith("(" + ctx.typeType()?.text + ")")) {

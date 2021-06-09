@@ -515,4 +515,49 @@ public class Counter<T> {
             it.lookup("Counter", "Counter.java").features.featureMap[FeatureName.GENERIC_CLASS] shouldBe 1
         }
     }
+    "should count classes declared inside methods" {
+        Source(
+            mapOf(
+                "Test.java" to """
+public class Test {
+    private int number;
+    
+    public Test(int setNumber) {
+        number = setNumber;
+    }
+    
+    void makeClass() {
+        class Class { }
+    }
+}
+""".trim()
+            )
+        ).features().also {
+            it.lookup("Test", "Test.java").features.featureMap[FeatureName.CLASS] shouldBe 2
+        }
+    }
+    "should correctly create a code skeleton for snippets" {
+        Source.fromSnippet(
+            """
+int i = 0;
+if (i < 15) {
+    for (int j = 0; j < 10; j++) {
+        i--;
+        if (i < 5) {
+            i++;
+        } else {
+            i--;
+        }
+    }
+    while (i > 10) {
+        i--;
+    }
+} else {
+    System.out.println("Hello, world!");
+}
+""".trim()
+        ).features().also {
+            it.lookup("").features.skeleton.trim() shouldBe "if { for { if else } while } else"
+        }
+    }
 })
