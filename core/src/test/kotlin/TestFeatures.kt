@@ -313,7 +313,7 @@ public class Test {
             it.lookup("Test", "Test.java").features.featureMap[FeatureName.METHOD] shouldBe 3
             it.lookup("Test", "Test.java").features.featureMap[FeatureName.GETTER] shouldBe 1
             it.lookup("Test", "Test.java").features.featureMap[FeatureName.SETTER] shouldBe 1
-            it.lookup("Test", "Test.java").features.featureMap[FeatureName.STATIC] shouldBe 1
+            it.lookup("Test", "Test.java").features.featureMap[FeatureName.STATIC_METHOD] shouldBe 1
             it.lookup("Test", "Test.java").features.featureMap[FeatureName.VISIBILITY_MODIFIERS] shouldBe 2
         }
     }
@@ -434,8 +434,8 @@ public class Calculator implements Test {
 }
 """.trim()
         ).features().also {
-            it.lookup("Test").features.featureMap[FeatureName.ABSTRACT] shouldBe 2
-            it.lookup("Calculator").features.featureMap[FeatureName.FINAL] shouldBe 2
+            it.lookup("Test").features.featureMap[FeatureName.ABSTRACT_METHOD] shouldBe 2
+            it.lookup("Calculator").features.featureMap[FeatureName.FINAL_METHOD] shouldBe 1
         }
     }
     "should count anonymous classes" {
@@ -558,6 +558,32 @@ if (i < 15) {
 """.trim()
         ).features().also {
             it.lookup("").features.skeleton.trim() shouldBe "if { for { if else } while } else"
+        }
+    }
+    "should count final classes" {
+        Source(
+            mapOf(
+                "Test.java" to """
+public final class Test {
+    private int number;
+    
+    public Test(int setNumber) {
+        number = setNumber;
+    }
+    
+    public final class First { }
+    public abstract class AbstractFirst { }
+    
+    public void makeClass() {
+        public final class Second { }
+        public abstract class AbstractSecond { }
+    }
+}
+""".trim()
+            )
+        ).features().also {
+            it.lookup("", "Test.java").features.featureMap[FeatureName.FINAL_CLASS] shouldBe 3
+            it.lookup("", "Test.java").features.featureMap[FeatureName.ABSTRACT_CLASS] shouldBe 2
         }
     }
 })

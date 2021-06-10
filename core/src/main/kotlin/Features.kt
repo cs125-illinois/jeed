@@ -9,60 +9,78 @@ enum class FeatureName {
     LOCAL_VARIABLE_DECLARATIONS,
     VARIABLE_ASSIGNMENTS,
     VARIABLE_REASSIGNMENTS,
-    FOR_LOOPS,
-    NESTED_FOR,
-    ENHANCED_FOR,
-    WHILE_LOOPS,
-    NESTED_WHILE,
-    DO_WHILE_LOOPS,
-    NESTED_DO_WHILE,
-    IF_STATEMENTS,
-    ELSE_STATEMENTS,
-    ELSE_IF,
-    NESTED_IF,
-    METHOD,
-    CLASS,
-    CONDITIONAL,
-    COMPLEX_CONDITIONAL,
-    TRY_BLOCK,
-    ASSERT,
-    SWITCH,
+    // Operators
     UNARY_OPERATORS,
     ARITHMETIC_OPERATORS,
     BITWISE_OPERATORS,
     ASSIGNMENT_OPERATORS,
     TERNARY_OPERATOR,
-    NEW_KEYWORD,
+    CONDITIONAL,
+    COMPLEX_CONDITIONAL,
+    // If & Else
+    IF_STATEMENTS,
+    ELSE_STATEMENTS,
+    ELSE_IF,
+    // Arrays
     ARRAY_ACCESS,
     ARRAY_LITERAL,
-    STRING,
-    NULL,
     MULTIDIMENSIONAL_ARRAYS,
-    TYPE_INFERENCE,
+    // Loops
+    FOR_LOOPS,
+    ENHANCED_FOR,
+    WHILE_LOOPS,
+    DO_WHILE_LOOPS,
+    // Nesting
+    NESTED_IF,
+    NESTED_FOR,
+    NESTED_WHILE,
+    NESTED_DO_WHILE,
+    // Methods
+    METHOD,
     CONSTRUCTOR,
     GETTER,
     SETTER,
-    STATIC,
+    // Strings & null
+    STRING,
+    NULL,
+    // Type handling
+    CASTING,
+    TYPE_INFERENCE,
+    INSTANCEOF,
+    // Class & Interface
+    CLASS,
+    IMPLEMENTS,
+    INTERFACE,
+    // Polymorphism
     EXTENDS,
     SUPER,
-    VISIBILITY_MODIFIERS,
-    THIS,
-    INSTANCEOF,
-    CASTING,
     OVERRIDE,
-    IMPORT,
+    // Exceptions
+    TRY_BLOCK,
+    FINALLY,
+    ASSERT,
+    THROW,
+    THROWS,
+    // Objects
+    NEW_KEYWORD,
+    THIS,
     REFERENCE_EQUALITY,
-    INTERFACE,
-    IMPLEMENTS,
-    FINAL,
-    ABSTRACT,
+    // Modifiers
+    VISIBILITY_MODIFIERS,
+    STATIC_METHOD,
+    FINAL_METHOD,
+    ABSTRACT_METHOD,
+    FINAL_CLASS,
+    ABSTRACT_CLASS,
+    // Import
+    IMPORT,
+    // Misc.
     ANONYMOUS_CLASSES,
     LAMBDA_EXPRESSIONS,
-    THROW,
-    FINALLY,
-    THROWS,
     GENERIC_CLASS,
-    STREAM
+    SWITCH,
+    STREAM,
+    ENUM
 }
 
 data class Features(
@@ -206,6 +224,22 @@ private class FeatureListener(val source: Source, entry: Map.Entry<String, Strin
                 it.IMPORT() != null
             }.size
         )
+        count(
+            FeatureName.FINAL_CLASS,
+            ctx.typeDeclaration().filter { declaration ->
+                declaration.classOrInterfaceModifier().any {
+                    it.FINAL() != null
+                }
+            }.size
+        )
+        count(
+            FeatureName.ABSTRACT_CLASS,
+            ctx.typeDeclaration().filter { declaration ->
+                declaration.classOrInterfaceModifier().any {
+                    it.ABSTRACT() != null
+                }
+            }.size
+        )
     }
 
     override fun exitCompilationUnit(ctx: JavaParser.CompilationUnitContext) {
@@ -223,26 +257,29 @@ private class FeatureListener(val source: Source, entry: Map.Entry<String, Strin
             Location(ctx.stop.line, ctx.stop.charPositionInLine)
         )
         count(
-            FeatureName.STATIC,
+            FeatureName.STATIC_METHOD,
             ctx.classBody().classBodyDeclaration().filter { declaration ->
                 declaration.modifier().any {
-                    it.classOrInterfaceModifier().STATIC() != null
+                    it.classOrInterfaceModifier().STATIC() != null &&
+                        declaration.memberDeclaration().methodDeclaration() != null
                 }
             }.size
         )
         count(
-            FeatureName.FINAL,
+            FeatureName.FINAL_METHOD,
             ctx.classBody().classBodyDeclaration().filter { declaration ->
                 declaration.modifier().any {
-                    it.classOrInterfaceModifier().FINAL() != null
+                    it.classOrInterfaceModifier().FINAL() != null &&
+                        declaration.memberDeclaration().methodDeclaration() != null
                 }
             }.size
         )
         count(
-            FeatureName.ABSTRACT,
+            FeatureName.ABSTRACT_METHOD,
             ctx.classBody().classBodyDeclaration().filter { declaration ->
                 declaration.modifier().any {
-                    it.classOrInterfaceModifier().ABSTRACT() != null
+                    it.classOrInterfaceModifier().ABSTRACT() != null &&
+                        declaration.memberDeclaration().methodDeclaration() != null
                 }
             }.size
         )
@@ -262,6 +299,24 @@ private class FeatureListener(val source: Source, entry: Map.Entry<String, Strin
             ctx.classBody().classBodyDeclaration().filter { declaration ->
                 declaration.modifier().any {
                     it?.text == "@Override"
+                }
+            }.size
+        )
+        count(
+            FeatureName.FINAL_CLASS,
+            ctx.classBody().classBodyDeclaration().filter { declaration ->
+                declaration.modifier().any {
+                    it.classOrInterfaceModifier().FINAL() != null &&
+                        declaration.memberDeclaration().classDeclaration() != null
+                }
+            }.size
+        )
+        count(
+            FeatureName.ABSTRACT_CLASS,
+            ctx.classBody().classBodyDeclaration().filter { declaration ->
+                declaration.modifier().any {
+                    it.classOrInterfaceModifier().ABSTRACT() != null &&
+                        declaration.memberDeclaration().classDeclaration() != null
                 }
             }.size
         )
@@ -324,6 +379,22 @@ private class FeatureListener(val source: Source, entry: Map.Entry<String, Strin
         ctx.THROWS()?.also {
             count(FeatureName.THROWS, 1)
         }
+        count(
+            FeatureName.FINAL_CLASS,
+            ctx.methodBody().block()?.blockStatement()?.filter { statement ->
+                statement.localTypeDeclaration()?.classOrInterfaceModifier()?.any {
+                    it.FINAL() != null && statement.localTypeDeclaration().classDeclaration() != null
+                } ?: false
+            }?.size ?: 0
+        )
+        count(
+            FeatureName.ABSTRACT_CLASS,
+            ctx.methodBody().block()?.blockStatement()?.filter { statement ->
+                statement.localTypeDeclaration()?.classOrInterfaceModifier()?.any {
+                    it.ABSTRACT() != null && statement.localTypeDeclaration().classDeclaration() != null
+                } ?: false
+            }?.size ?: 0
+        )
     }
 
     override fun exitMethodDeclaration(ctx: JavaParser.MethodDeclarationContext) {
@@ -400,7 +471,7 @@ private class FeatureListener(val source: Source, entry: Map.Entry<String, Strin
     }
 
     override fun enterStatement(ctx: JavaParser.StatementContext) {
-        //println(ctx.text)
+        // println(ctx.text)
         ctx.statementExpression?.also {
             if (it.bop?.text == "=") {
                 count(FeatureName.VARIABLE_ASSIGNMENTS, 1)
@@ -491,7 +562,7 @@ private class FeatureListener(val source: Source, entry: Map.Entry<String, Strin
                     }
                 }
             }
-            if (hasNesting == 1){
+            if (hasNesting == 1) {
                 currentFeatures.features.skeleton += "{ "
             } else if (hasNesting == 0) {
                 currentFeatures.features.skeleton += "} "
