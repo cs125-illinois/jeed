@@ -240,6 +240,17 @@ private class FeatureListener(val source: Source, entry: Map.Entry<String, Strin
                 }
             }.size
         )
+        count(
+            FeatureName.VISIBILITY_MODIFIERS,
+            ctx.typeDeclaration().filter { declaration ->
+                declaration.classOrInterfaceModifier().any {
+                    when (it.text) {
+                        "public", "private", "protected" -> true
+                        else -> false
+                    }
+                }
+            }.size
+        )
     }
 
     override fun exitCompilationUnit(ctx: JavaParser.CompilationUnitContext) {
@@ -342,9 +353,60 @@ private class FeatureListener(val source: Source, entry: Map.Entry<String, Strin
             Location(ctx.stop.line, ctx.stop.charPositionInLine)
         )
         count(FeatureName.INTERFACE, 1)
+        count(
+            FeatureName.STATIC_METHOD,
+            ctx.interfaceBody().interfaceBodyDeclaration().filter { declaration ->
+                declaration.modifier().any {
+                    it.classOrInterfaceModifier().STATIC() != null &&
+                        declaration.interfaceMemberDeclaration().interfaceMethodDeclaration() != null
+                }
+            }.size
+        )
+        count(
+            FeatureName.FINAL_METHOD,
+            ctx.interfaceBody().interfaceBodyDeclaration().filter { declaration ->
+                declaration.modifier().any {
+                    it.classOrInterfaceModifier().FINAL() != null &&
+                        declaration.interfaceMemberDeclaration().interfaceMethodDeclaration() != null
+                }
+            }.size
+        )
+        count(
+            FeatureName.ABSTRACT_METHOD,
+            ctx.interfaceBody().interfaceBodyDeclaration().filter { declaration ->
+                declaration.modifier().any {
+                    it.classOrInterfaceModifier().ABSTRACT() != null &&
+                        declaration.interfaceMemberDeclaration().interfaceMethodDeclaration() != null
+                }
+            }.size
+        )
+        count(
+            FeatureName.VISIBILITY_MODIFIERS,
+            ctx.interfaceBody().interfaceBodyDeclaration().filter { declaration ->
+                declaration.modifier().any {
+                    when (it.text) {
+                        "public", "private", "protected" -> true
+                        else -> false
+                    }
+                }
+            }.size
+        )
     }
 
     override fun exitInterfaceDeclaration(ctx: JavaParser.InterfaceDeclarationContext?) {
+        exitClassOrInterface()
+    }
+
+    override fun enterEnumDeclaration(ctx: JavaParser.EnumDeclarationContext) {
+        enterClassOrInterface(
+            ctx.IDENTIFIER().text,
+            Location(ctx.start.line, ctx.start.charPositionInLine),
+            Location(ctx.stop.line, ctx.stop.charPositionInLine)
+        )
+        count(FeatureName.ENUM, 1)
+    }
+
+    override fun exitEnumDeclaration(ctx: JavaParser.EnumDeclarationContext) {
         exitClassOrInterface()
     }
 
@@ -398,6 +460,22 @@ private class FeatureListener(val source: Source, entry: Map.Entry<String, Strin
     }
 
     override fun exitMethodDeclaration(ctx: JavaParser.MethodDeclarationContext) {
+        exitMethodOrConstructor()
+    }
+
+    override fun enterInterfaceMethodDeclaration(ctx: JavaParser.InterfaceMethodDeclarationContext) {
+        val parameters = ctx.formalParameters().formalParameterList()?.formalParameter()?.joinToString(",") {
+            it.typeType().text
+        } ?: ""
+        enterMethodOrConstructor(
+            "${ctx.typeTypeOrVoid().text} ${ctx.IDENTIFIER().text}($parameters)",
+            Location(ctx.start.line, ctx.start.charPositionInLine),
+            Location(ctx.stop.line, ctx.stop.charPositionInLine)
+        )
+        count(FeatureName.METHOD, 1)
+    }
+
+    override fun exitInterfaceMethodDeclaration(ctx: JavaParser.InterfaceMethodDeclarationContext) {
         exitMethodOrConstructor()
     }
 

@@ -586,4 +586,37 @@ public final class Test {
             it.lookup("", "Test.java").features.featureMap[FeatureName.ABSTRACT_CLASS] shouldBe 2
         }
     }
+    "should count interface methods" {
+        Source(
+            mapOf(
+                "Test.java" to """
+public interface Test {
+    private final int add(int x, int y);
+    private static int subtract(int x, int y);
+}
+                """.trim()
+            )
+        ).features().also {
+            it.lookup("", "Test.java").features.featureMap[FeatureName.INTERFACE] shouldBe 1
+            it.lookup("", "Test.java").features.featureMap[FeatureName.METHOD] shouldBe 2
+            it.lookup("", "Test.java").features.featureMap[FeatureName.STATIC_METHOD] shouldBe 1
+            it.lookup("", "Test.java").features.featureMap[FeatureName.FINAL_METHOD] shouldBe 1
+            it.lookup("", "Test.java").features.featureMap[FeatureName.VISIBILITY_MODIFIERS] shouldBe 3
+        }
+    }
+    "should count enum classes" {
+        Source(
+            mapOf(
+                "Test.java" to """
+public enum Test {
+    FIRST,
+    SECOND,
+    THIRD
+}
+                """.trim()
+            )
+        ).features().also {
+            it.lookup("", "Test.java").features.featureMap[FeatureName.ENUM] shouldBe 1
+        }
+    }
 })
