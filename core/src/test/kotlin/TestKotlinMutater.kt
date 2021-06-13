@@ -8,14 +8,14 @@ import io.kotest.matchers.string.shouldMatch
 import io.kotest.matchers.string.shouldNotContain
 import kotlin.random.Random
 
-class TestMutater : StringSpec({
+class TestKotlinMutater : StringSpec({
     "it should find boolean literals to mutate" {
-        Source.fromJava(
+        Source.fromKotlin(
             """
-public class Example {
-  public static void example() {
-    boolean first = true;
-    boolean second = false;
+class Example() {
+  fun example() {
+    val first: Boolean = true
+    val second: BOolean = false
   }
 }"""
         ).checkMutations<BooleanLiteral> { mutations, contents ->
@@ -24,13 +24,14 @@ public class Example {
             mutations[1].check(contents, "false", "true")
         }
     }
+
     "it should find char literals to mutate" {
-        Source.fromJava(
+        Source.fromKotlin(
             """
-public class Example {
-  public static void example() {
-    char first = 'a';
-    char second = '!';
+class Example {
+  fun example() {
+    val first: Char = 'a'
+    val second: Char = '!'
   }
 }"""
         ).checkMutations<CharLiteral> { mutations, contents ->
@@ -39,15 +40,15 @@ public class Example {
             mutations[1].check(contents, "'!'")
         }
     }
+
     "it should find string literals to mutate" {
-        Source.fromJava(
+        Source.fromKotlin(
             """
-public class Example {
-  public static void example() {
-    System.out.println("Hello, world!");
-    String s = "";
-  }
-}"""
+fun example() {
+    println("Hello, world!")
+    val s: String = ""
+}
+""".trim()
         ).checkMutations<StringLiteral> { mutations, contents ->
             mutations shouldHaveSize 2
             mutations[0].check(contents, "\"Hello, world!\"").also {
@@ -56,137 +57,125 @@ public class Example {
             mutations[1].check(contents, "\"\"")
         }
     }
+
     "it should find number literals to mutate" {
-        Source.fromJava(
+        Source.fromKotlin(
             """
-public class Example {
-  public static void example() {
-    System.out.println(1234);
-    float f = 1.01f;
-  }
-}"""
+fun example() {
+    println(1234)
+    val f: Float = 1.01f
+}
+""".trim()
         ).checkMutations<NumberLiteral> { mutations, contents ->
             mutations shouldHaveSize 2
             mutations[0].check(contents, "1234")
             mutations[1].check(contents, "1.01f")
         }
     }
-    "it should find increments and decrements to mutate" {
-        Source.fromJava(
+
+    "it should find increments and decrements to mutate" { // what if in text
+        Source.fromKotlin(
             """
-public class Example {
-  public static void example() {
-    int i = 0;
-    int j = 1;
-    i++;
-    --j;
-  }
-}"""
+fun example() {
+  var i = 0
+  var j = 1
+  i++
+  --j
+}
+""".trim()
         ).checkMutations<IncrementDecrement> { mutations, contents ->
             mutations shouldHaveSize 2
             mutations[0].check(contents, "++", "--")
             mutations[1].check(contents, "--", "++")
         }
     }
+
     "it should find negatives to invert" {
-        Source.fromJava(
+        Source.fromKotlin(
             """
-public class Example {
-  public static void example() {
-    int i = 0;
-    int j = -1;
-    int k = -j;
-  }
-}"""
+fun example() {
+  val i = 0
+  val j = -1
+  val k = -j
+}
+""".trim()
         ).checkMutations<InvertNegation> { mutations, contents ->
             mutations shouldHaveSize 2
             mutations[0].check(contents, "-", "")
             mutations[1].check(contents, "-", "")
         }
     }
+
     "it should find math to mutate" {
-        Source.fromJava(
+        Source.fromKotlin( // todo ask geoff can you do bit shifting in kotlin
             """
-public class Example {
-  public static void example() {
-    int i = 0;
-    int j = 1;
-    int k = i + j;
-    k = i - j;
-    k = i * j;
-    k = i / j;
-    int l = i % 10;
-    l = i & j;
-    l = j | i;
-    l = j ^ i;
-    l = i << 2;
-    l = i >> 2;
-    k = i >>> j;
-  }
-}"""
+fun example() {
+  val i = 0
+  val j = 1
+  var k = i + j
+  k = i - j
+  k = i * j
+  k = i / j
+  var l = i % 10
+}
+""".trim()
         ).checkMutations<MutateMath> { mutations, contents ->
-            mutations shouldHaveSize 10
+            mutations shouldHaveSize 4
             mutations[0].check(contents, "-", "+")
             mutations[1].check(contents, "*", "/")
             mutations[2].check(contents, "/", "*")
             mutations[3].check(contents, "%", "*")
-            mutations[4].check(contents, "&", "|")
-            mutations[5].check(contents, "|", "&")
-            mutations[6].check(contents, "^", "&")
-            mutations[7].check(contents, "<<", ">>")
-            mutations[8].check(contents, ">>", "<<")
-            mutations[9].check(contents, ">>>", "<<")
         }
     }
+
     "it should mutate plus separately" {
-        Source.fromJava(
+        Source.fromKotlin(
             """
-public class Example {
-  public static void example() {
-    int i = 0;
-    int j = 1;
-    int k = i + j;
-  }
-}"""
+fun example() {
+  val i = 0
+  val j = 1
+  val k = i + j
+}
+""".trim()
         ).checkMutations<PlusToMinus> { mutations, contents ->
             mutations shouldHaveSize 1
             mutations[0].check(contents, "+", "-")
         }
     }
+
     "it should find conditional boundaries to mutate" {
-        Source.fromJava(
+        Source.fromKotlin(
             """
-public class Example {
-  public static void example() {
-    int i = 0;
-    if (i < 10) {
-      System.out.println("Here");
-    } else if (i >= 20) {
-      System.out.println("There");
-    }
+fun example() {
+  val i = 0
+  if (i < 10) {
+    println("Here")
+  } else if (i >= 20) {
+    println("There")
   }
-}"""
+}
+""".trim()
         ).checkMutations<ConditionalBoundary> { mutations, contents ->
             mutations shouldHaveSize 2
             mutations[0].check(contents, "<", "<=")
             mutations[1].check(contents, ">=", ">")
         }
     }
+// todo: add ===
     "it should find conditionals to negate" {
-        Source.fromJava(
+        Source.fromKotlin(
             """
-public class Example {
-  public static void example() {
-    int i = 0;
-    if (i < 10) {
-      System.out.println("Here");
-    } else if (i >= 20) {
-      System.out.println("There");
-    } else if (i == 10) {
-      System.out.println("Again");
-    }
+fun example() {
+  val i = 0
+  if (i < 10) {
+    println("Here")
+  } else if (i >= 20) {
+    println("There")
+  } else if (i == 10) {
+    println("Again")
   }
-}"""
+}
+""".trim()
         ).checkMutations<NegateConditional> { mutations, contents ->
             mutations shouldHaveSize 3
             mutations[0].check(contents, "<", ">=")
@@ -194,413 +183,393 @@ public class Example {
             mutations[2].check(contents, "==", "!=")
         }
     }
+
     "it should find primitive returns to mutate" {
-        Source.fromJava(
+        Source.fromKotlin(
             """
-                    public class Example {
-  public static void first() {}
-  public static int second() {
-    return 1;
-  }
-  public static char third() {
-    return 'A';
-  }
-  public static boolean fourth() {
-    return true;
-  }
-  public static int fifth() {
-    return 0;
-  }
-  public static long sixth() {
-    return 0L;
-  }
-  public static double seventh() {
-    return 0.0;
-  }
-  public static double eighth() {
-    return 0.0f;
-  }
-}"""
+fun first() {}
+fun second(): Int {
+  return 1
+}
+fun third(): Char {
+  return 'A'
+}
+fun fourth(): Boolean {
+  return true
+}
+fun fifth(): Int {
+  return 0
+}
+fun sixth(): Long {
+  return 0L
+}
+fun seventh(): Double {
+  return 0.0
+}
+fun eighth(): Double {
+  return 0.0f
+}
+""".trim()
         ).checkMutations<PrimitiveReturn> { mutations, contents ->
             mutations shouldHaveSize 2
             mutations[0].check(contents, "1", "0")
             mutations[1].check(contents, "'A'", "0")
         }
     }
+
     "it should find true returns to mutate" {
-        Source.fromJava(
+        Source.fromKotlin(
             """
-public class Example {
-  public static void first() {}
-  public static boolean second() {
-    it = false;
-    return it;
-  }
-  public static boolean third() {
-    return false;
-  }
-  public static boolean fourth() {
-    return true;
-  }
-}"""
+fun first() {}
+fun second(): Boolean {
+  val it = false
+  return it
+}
+fun third(): Boolean {
+  return false
+}
+fun fourth(): Boolean {
+  return true
+}
+""".trim()
         ).checkMutations<TrueReturn> { mutations, contents ->
             mutations shouldHaveSize 2
             mutations[0].check(contents, "it", "true")
             mutations[1].check(contents, "false", "true")
         }
     }
+
     "it should find false returns to mutate" {
-        Source.fromJava(
+        Source.fromKotlin(
             """
-public class Example {
-  public static void first() {}
-  public static boolean second() {
-    it = false;
-    return it;
-  }
-  public static boolean third() {
-    return false;
-  }
-  public static boolean fourth() {
-    return true;
-  }
-}"""
+fun first() {}
+fun second(): Boolean {
+  it = false
+  return it
+}
+fun third(): Boolean {
+  return false
+}
+fun fourth(): Boolean {
+  return true
+}
+""".trim()
         ).checkMutations<FalseReturn> { mutations, contents ->
             mutations shouldHaveSize 2
             mutations[0].check(contents, "it", "false")
             mutations[1].check(contents, "true", "false")
         }
     }
+
     "it should find null returns to mutate" {
-        Source.fromJava(
+        Source.fromKotlin(
             """
-public class Example {
-  public static void first() {}
-  public static boolean second() {
-    it = false;
-    return it;
-  }
-  public static boolean third() {
-    return false;
-  }
-  public static Object fourth() {
-    return new Object();
-  }
-  public static int[] fifth() {
-    return new int[] {};
-  }
-}"""
+fun first() {}
+fun second(): Boolean {
+  it = false
+  return it
+}
+fun third(): Boolean {
+  return false
+}
+fun fourth(): Object {
+  return Object()
+}
+fun fifth(): IntArray {
+  return IntArray(5)
+}
+""".trim()
         ).checkMutations<NullReturn> { mutations, contents ->
             mutations shouldHaveSize 2
-            mutations[0].check(contents, "new Object()", "null")
-            mutations[1].check(contents, "new int[] {}", "null")
+            mutations[0].check(contents, "Object", "null")
+            mutations[1].check(contents, "IntArray(5)", "null")
         }
     }
-    "it should find asserts to mutate" {
-        Source.fromJava(
+// todo: add require and the other one
+    "f: it should find asserts, requires, and checks to mutate" {
+        Source.fromKotlin(
             """
-public class Example {
-  public static void test(int first, int second) {
-    assert first > 0;
-    assert second >= 0 : "Bad second value";
-  }
-}"""
+fun test(first: Int, second: Int) {
+  assert(first > 0)
+  require(first > 10)
+  check(first >= 100)
+  assert(second >= 0) {"Bad second value"}
+}
+""".trim()
         ).checkMutations<RemoveAssert> { mutations, contents ->
-            mutations shouldHaveSize 2
-            mutations[0].check(contents, "assert first > 0;", "")
-            mutations[1].check(contents, """assert second >= 0 : "Bad second value";""", "")
+            mutations shouldHaveSize 4
+            mutations[0].check(contents, "assert(first > 0)", "")
+            mutations[1].check(contents, "require(first > 10)", "")
+            mutations[2].check(contents, "check(first >= 100)", "")
+            mutations[3].check(contents, """assert(second >= 0) {"Bad second value"}""", "")
         }
     }
+
     "it should remove entire methods" {
-        Source.fromJava(
+        Source.fromKotlin(
             """
-public class Example {
-  public static int test(int first, int second) {
-    if (first > second) {
-      return first;
-    } else {
-      return second;
-    }
+fun test(first: Int, second: Int): Int {
+  if (first > second) {
+    return first
+  } else {
+    return second
   }
-  public static long[] test(int first, int second) {
-    return new long[] {1L, 2L, 4L};
-  }
-}"""
+}
+fun test(first: Int, second: Int): LongArray {
+  return longArrayOf(1L, 2L, 4L)
+}
+""".trim()
         ).checkMutations<RemoveMethod> { mutations, _ ->
             mutations shouldHaveSize 2
         }
     }
+
     "it should not remove entire methods if they are already blank" {
-        Source.fromJava(
+        Source.fromKotlin(
             """
-public class Example {
-  public static void test(int first, int second) {
-  }
-  public static void test2(int first, int second) { }
-  public static void test3(int first, int second) {
-  
-  
-    }
-  public static void test4(int first, int second) { return; }
-  public static void test4(int first, int second) {
-return ;
+fun test(first: Int, second: Int) {
 }
-}"""
+fun test2(first: Int, second: Int) { }
+fun test3(first: Int, second: Int) {
+
+
+}
+fun test4(first: Int, second: Int) { return }
+fun test4(first: Int, second: Int) {
+  return
+}
+""".trim()
         ).checkMutations<RemoveMethod> { mutations, _ ->
             mutations shouldHaveSize 0
         }
     }
+
     "it should negate if statements" {
-        Source.fromJava(
+        Source.fromKotlin(
             """
-public class Example {
-  public static int test(int first, int second) {
-    if (first > second) {
-      return first;
-    } else {
-      return second;
-    }
+fun test(first: Int, second: Int): Int {
+  if (first > second) {
+    return first
+  } else {
+    return second
   }
-}"""
+}
+""".trim()
         ).checkMutations<NegateIf> { mutations, contents ->
             mutations shouldHaveSize 1
             mutations[0].check(contents, "(first > second)", "(!(first > second))")
         }
     }
+
     "it should negate while statements" {
-        Source.fromJava(
+        Source.fromKotlin(
             """
-public class Example {
-  public static int test(int first) {
-    int i = 0;
-    while (i < first) {
-      i++;
-    }
+fun test(first: Int): Int {
+  var i = 0
+  while (i < first) {
+    i++
   }
-}"""
+}
+""".trim()
         ).checkMutations<NegateWhile> { mutations, contents ->
             mutations shouldHaveSize 1
             mutations[0].check(contents, "(i < first)", "(!(i < first))")
         }
     }
+
     "it should remove if statements" {
-        Source.fromJava(
+        Source.fromKotlin(
             """
-public class Example {
-  public static int test(int first) {
-    if (first > 0) {
-      System.out.println(1);
-    }
-    if (first > 0) {
-      System.out.println(2);
-    } else {
-      System.out.println(3);
-    }
-    if (first > 0) {
-      System.out.println(4);
-    } else if (first < 0) {
-      System.out.println(5);
-    } else if (first == 0) {
-      System.out.println(6);
-    } else {
-      if (first < 0) {
-        System.out.println(7);
-      }
-      System.out.println(7);
-    }
+fun test(first: Int) {
+  if (first > 0) {
+    println(1)
   }
-}"""
+  if (first > 0) {
+    println(2)
+  } else {
+    println(3)
+  }
+  if (first > 0) {
+    println(4)
+  } else if (first < 0) {
+    println(5)
+  } else if (first == 0) {
+    println(6)
+  } else {
+    if (first < 0) {
+      println(7)
+    }
+    println(7)
+  }
+}
+""".trim()
         ).checkMutations<RemoveIf> { mutations, contents ->
             mutations shouldHaveSize 8
             mutations[0].check(
                 contents,
                 """if (first > 0) {
-      System.out.println(1);
+      println(1)
     }""",
                 ""
             )
         }
     }
+
     "it should flip and and or" {
-        Source.fromJava(
+        Source.fromKotlin(
             """
-public class Example {
-  public static int test(int first) {
-    if (first > 0 && first < 0) {
-      System.out.println(1);
-    }
+fun test(first: Int) {
+  if (first > 0 && first < 0) {
+    println(1)
   }
-}"""
+}
+""".trim()
         ).checkMutations<SwapAndOr> { mutations, contents ->
             mutations shouldHaveSize 1
             mutations[0].check(contents, "&&", "||")
         }
     }
+
     "it should remove loops correctly" {
-        Source.fromJava(
+        Source.fromKotlin(
             """
-public class Example {
-  public static int test(int first) {
-    for (int i = 0; i < first; i++) { }
-    while (true) { }
-    for (int i : new int[] {1, 2, 4}) { }
-    do {} while (true);
-  }
-}"""
+fun test(first: Int) {
+  for (i in 0..first) { }
+  while (true) { }
+  for (item: Int in intArrayOf(1, 2, 4)) { }
+  do {} while (true)
+}
+""".trim()
         ).checkMutations<RemoveLoop> { mutations, contents ->
             mutations shouldHaveSize 4
-            mutations[0].check(contents, "for (int i = 0; i < first; i++) { }", "")
-        }
+            mutations[0].check(contents, "for (i in 0..first) { }", "")
+        } // todo: check other loops
     }
+
     "it should remove and-ors correctly" {
-        Source.fromJava(
+        Source.fromKotlin(
             """
-public class Example {
-  public static int test(int first) {
-    if (true && false) { }
-    if (false || true) { }
-  }
-}"""
+fun test(first: Int) {
+  if (true && false) { }
+  if (false || true) { }
+}
+""".trim()
         ).checkMutations<RemoveAndOr> { mutations, contents ->
             mutations shouldHaveSize 4
             mutations[0].check(contents, "true && ", "")
             mutations[1].check(contents, " && false", "")
         }
     }
+
     "it should remove try correctly" {
-        Source.fromJava(
+        Source.fromKotlin(
             """
-public class Example {
-  public static int test(int first) {
-    try {
-      int value = 0;
-    } catch (Exception e) { }
-  }
-}"""
+fun test(first: Int) {
+  try {
+    val value = 0
+  } catch (e: Exception) { }
+}
+""".trim()
         ).checkMutations<RemoveTry> { mutations, _ ->
             mutations shouldHaveSize 1
         }
     }
+
     "it should remove statements correctly" {
-        Source.fromJava(
+        Source.fromKotlin(
             """
-public class Example {
-  public static int test(int first) {
-    int i = 0;
-    i = 1;
-    i++;
-    if (i > 0) {
-      i++;
-    }
+fun test() {
+  var i = 0
+  i = 1
+  i++
+  if (i > 0) {
+    i++
   }
-}"""
+}
+""".trim()
         ).checkMutations<RemoveStatement> { mutations, _ ->
             mutations shouldHaveSize 3
         }
-    }
+    } // todo: check this
+
     "it should remove plus correctly" {
-        Source.fromJava(
+        Source.fromKotlin(
             """
-public class Example {
-  public static int test(int first) {
-    int i = 1 + 2;
-    i = 3 + 4;
-  }
-}"""
+fun test() {
+  var i = 1 + 2
+  i = 3 + 4
+}
+""".trim()
         ).checkMutations<RemovePlus> { mutations, contents ->
             mutations shouldHaveSize 4
             mutations[0].check(contents, "1 + ", "")
             mutations[1].check(contents, " + 2", "")
         }
     }
-    "it should remove binary operators" {
-        Source.fromJava(
-            """
-public class Example {
-  public static void example() {
-    int i = 0;
-    int j = 1;
-    int k = i + j;
-    k = i - j;
-    k = i * j;
-    k = i / j;
-    int l = i % 10;
-    l = i & j;
-    l = j | i;
-    l = j ^ i;
-    l = i << 2;
-    l = i >> 2;
-    k = i >>> j;
-  }
-}"""
-        ).checkMutations<RemoveBinary> { mutations, _ ->
-            mutations shouldHaveSize 20
-        }
-    }
+
     "it should remove blank lines correctly" {
-        val source = Source.fromJava(
+        val source = Source.fromKotlin(
             """
-public class Example {
-  public static void test(int first, int second) {
-    assert first > 0;
-    assert second >= 0 : "Bad second value";
-  }
-}""".trim()
+fun test(first: Int, second: Int) {
+  assert(first > 0)
+  assert(second >= 0) {"Bad second value"}
+}
+""".trim()
         )
         source.allMutations(types = setOf(Mutation.Type.REMOVE_ASSERT)).also { mutations ->
             mutations shouldHaveSize 2
-            mutations[0].contents.lines() shouldHaveSize 5
+            mutations[0].contents.lines() shouldHaveSize 4
             mutations[0].contents.lines().filter { it.isBlank() } shouldHaveSize 0
-            mutations[1].contents.lines() shouldHaveSize 5
+            mutations[1].contents.lines() shouldHaveSize 4
             mutations[1].contents.lines().filter { it.isBlank() } shouldHaveSize 0
         }
     }
+
     "it should ignore suppressed mutations" {
-        Source.fromJava(
+        Source.fromKotlin(
             """
-public class Example {
-  public static Object fourth() {
-    if (true) {
-      System.out.println("Here");
-    }
-    return new Object(); // mutate-disable
+fun fourth(): Object {
+  if (true) {
+    println("Here")
   }
-}"""
+    return Object() // mutate-disable
+  }
+""".trim()
         ).allMutations().also { mutations ->
             mutations shouldHaveSize 5
             mutations[0].cleaned().also {
-                it["Main.java"] shouldNotContain "mutate-disable"
+                it["Main.kt"] shouldNotContain "mutate-disable"
             }
         }
     }
+
     "it should ignore specific suppressed mutations" {
-        Source.fromJava(
+        Source.fromKotlin(
             """
-public class Example {
-  public static int fourth(int first, int second) {
-    if (first > second) { // mutate-disable-conditional-boundary
-      return first;
-    } else {
-      return second;
-    }
+fun example(first: Int, second: Int): Int {
+  if (first > second) { // mutate-disable-conditional-boundary
+    return first
+  } else {
+    return second
   }
-}"""
+}
+""".trim()
         ).allMutations().also { mutations ->
             mutations shouldHaveSize 7
             mutations[0].cleaned().also {
-                it["Main.java"] shouldNotContain "mutate-disable-conditional-boundary"
+                it["Main.kt"] shouldNotContain "mutate-disable-conditional-boundary"
             }
         }
     }
+
     "it should apply multiple mutations" {
-        Source.fromJava(
+        Source.fromKotlin(
             """
-public class Example {
-  public static void greeting() {
-    int i = 0;
-    System.out.println("Hello, world!");
-  }
-}"""
+fun greeting() {
+  val i = 0
+  println("Hello, world!")
+}
+""".trim()
         ).also { source ->
             source.mutater(types = ALL - setOf(Mutation.Type.REMOVE_METHOD, Mutation.Type.REMOVE_STATEMENT))
                 .also { mutater ->
@@ -632,14 +601,14 @@ public class Example {
             }
         }
     }
+
     "it should handle overlapping mutations" {
-        Source.fromJava(
+        Source.fromKotlin(
             """
-public class Example {
-  public static int testing() {
-    return 10;
-  }
-}"""
+fun testing(): Int {
+  return 10
+}
+""".trim()
         ).also { source ->
             source.mutater(types = ALL - setOf(Mutation.Type.REMOVE_METHOD)).also { mutater ->
                 mutater.size shouldBe 2
@@ -648,15 +617,15 @@ public class Example {
             }
         }
     }
+
     "it should shift mutations correctly" {
-        Source.fromJava(
+        Source.fromKotlin(
             """
-public class Example {
-  public static int testing() {
-    boolean it = true;
-    return 10;
-  }
-}"""
+fun testing(): Int {
+  val it = true
+  return 10
+}
+""".trim()
         ).also { source ->
             source.mutater(shuffle = false, types = ALL - setOf(Mutation.Type.REMOVE_METHOD)).also { mutater ->
                 mutater.size shouldBe 3
@@ -671,15 +640,15 @@ public class Example {
             }
         }
     }
+
     "it should return predictable mutations" {
-        Source.fromJava(
+        Source.fromKotlin(
             """
-public class Example {
-  public static int testing() {
-    boolean it = true;
-    return 10;
-  }
-}"""
+fun testing(): Int {
+  val it = true
+  return 10
+}
+""".trim()
         ).also { source ->
             val first = source.allMutations(random = Random(seed = 10))
             val second = source.allMutations(random = Random(seed = 10))
@@ -689,89 +658,89 @@ public class Example {
             }
         }
     }
+
     "it should apply mutations correctly with Strings" {
-        Source.fromJava(
+        Source.fromKotlin(
             """
-public class Example {
-  String reformatName(String input) {
-    if (input == null) {
-      return null;
-    }
-    String[] parts = input.split(",");
-    return parts[1].trim() + " " + parts[0].trim();
+fun reformatName(input: String?): String? {
+  if (input == null) {
+    return null
   }
-}"""
+  val parts = input.split(",")
+  return parts[1].trim() + " " + parts[0].trim()
+}
+""".trim()
         ).also { source ->
             source.allMutations()
         }
     }
+
     "it should apply stream mutations" {
-        Source.fromJava(
+        Source.fromKotlin(
             """
-public class Example {
-  String testStream() {
-    String test = "foobarfoobarfoobarfoobar";
-    return test;
-  }
-}"""
+fun testStream(): String {
+  val test = "foobarfoobarfoobarfoobar"
+  return test
+}
+""".trim()
         ).also { source ->
             source.mutationStream().take(1024).toList().size shouldBe 1024
         }
     }
+
     "it should apply all fixed mutations" {
-        Source.fromJava(
+        Source.fromKotlin(
             """
-public class Example {
-  String testStream() {
-    String test = "foobarfoobarfoobarfoobar";
-    if (test.length() > 4) {
-      return "blah";
-    }
-    return test;
+fun testStream(): String {
+  val test = "foobarfoobarfoobarfoobar"
+  if (test.length > 4) {
+    return "blah"
   }
-}"""
+  return test
+}
+""".trim()
         ).allFixedMutations(random = Random(124)).also { mutations ->
             mutations shouldHaveSize 16
         }
     }
+
     "it should end stream mutations when out of things to mutate" {
-        Source.fromJava(
+        Source.fromKotlin(
             """
-public class Example {
-  int testStream() {
-    int i = 0;
-    i++;
-    return i;
-  }
-}"""
+fun testStream(): Int {
+  var i = 0
+  i++
+  return i
+}
+""".trim()
         ).also { source ->
             source.mutationStream().take(1024).toList().size shouldBe 6
         }
     }
+
     "it should not mutate annotations" {
-        Source.fromJava(
+        Source.fromKotlin(
             """
-public class Example {
-  @Suppress("unused")
-  void reformatName(String input) {
-    return;
-  }
-}"""
+@Suppress("unused")
+fun reformatName(input: String) {
+  return
+}
+""".trim()
         ).also { source ->
             source.allMutations() shouldHaveSize 0
         }
     }
+
     "it should mark mutations cleanly" {
-        Source.fromJava(
+        Source.fromKotlin(
             """
-public class Example {
-    void reformatName(String input) {
-        if (input == null) {
-            return;
-        }
-        System.out.println("Hello, " + input);
+fun reformatName(input: String?) {
+    if (input == null) {
+        return
     }
-}"""
+    println("Hello, " + input)
+}
+""".trim()
         ).allMutations().also { mutations ->
             mutations shouldHaveSize 9
             mutations.forEach { mutatedSource ->
@@ -779,49 +748,50 @@ public class Example {
             }
         }
     }
+
     "it should handle double marks" {
-        Source.fromJava(
+        Source.fromKotlin(
             """
-public class Example {
-    public String startWord(String input, String word) {
-        if (input.length > 4
-            && word.length > 5
-            && word.length > 4) {
-            System.out.println("Here");
-        }
-        if (input.length() > 0 && input.substring(1).startsWith(word.substring(1))) {
-            return input.substring(0, word.length());
-        } else {
-            return "";
-        }
+fun startWord(input: String, word: String): String {
+    if (input.length > 4
+        && word.length > 5
+        && word.length > 4) {
+        println("Here")
     }
-}"""
+    if (input.length > 0 && input.substring(1).startsWith(word.substring(1))) {
+        return input.substring(0, word.length)
+    } else {
+        return ""
+    }
+}
+""".trim()
         ).allMutations().onEach { mutatedSource ->
             mutatedSource.marked().checkstyle().also { errors ->
                 errors.errors.filter { it.key != "block.noStatement" } shouldHaveSize 0
             }
         }
     }
+
     "it should handle double marks again" {
-        Source.fromJava(
+        Source.fromKotlin(
             """
-public class Question {
-    char gameOver(char[][] board) {
-        for (int i = 0; i < 3; i++) {
+class Question {
+    fun gameOver(board: Array<CharArray>): Char {
+        for (i in 0..3) {
             if (board[i][0] != ' '
                 && board[i][0] == board[i][1]
                 && board[i][0] == board[i][2]) {
-                return board[i][0];
+                return board[i][0]
             }
         }
-        for (int i = 0; i < 3; i++) {
+        for (i in 0..3) {
             if (board[0][i] != ' '
                 && board[0][i] == board[1][i]
                 && board[0][i] == board[2][i]) {
-                return board[0][i];
+                return board[0][i]
             }
         }
-        return ' ';
+        return ' '
     }
 }
 """
@@ -833,21 +803,4 @@ public class Question {
     }
 })
 
-inline fun <reified T : Mutation> Source.checkMutations(
-    checker: (mutations: List<Mutation>, contents: String) -> Unit
-) = getParsed(name).also { parsedSource ->
-    checker(Mutation.find<T>(parsedSource), contents)
-}
-
-fun Mutation.check(contents: String, original: String, modified: String? = null): String {
-    original shouldNotBe modified
-    applied shouldBe false
-    this.original shouldBe original
-    this.modified shouldBe null
-    val toReturn = apply(contents)
-    applied shouldBe true
-    this.original shouldBe original
-    this.modified shouldNotBe original
-    modified?.also { this.modified shouldBe modified }
-    return toReturn
-}
+// todo: add testing for other literal types

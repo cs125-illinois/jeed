@@ -4,6 +4,8 @@ import io.kotest.assertions.throwables.shouldThrow
 import io.kotest.core.spec.style.StringSpec
 import io.kotest.matchers.shouldBe
 
+// todo: add assert, require, and the other one
+
 class TestKotlinComplexity : StringSpec({
     "should compute complexity for Kotlin top-level method" {
         Source.fromKotlin(
@@ -557,6 +559,23 @@ fun areSameLength(first: String?, second: String?): Boolean {
         ).complexity().also {
             it.lookup("areSameLength(String?,String?):Boolean", "TestKt.kt").complexity shouldBe 3
             it.lookupFile("TestKt.kt") shouldBe 3
+        }
+    }
+
+    "should work for 2 top level methods" {
+        Source.fromKotlin(
+            """
+fun main(first: Int, second: String, third: Blah?): Int {
+  return
+}
+fun main2(first: Int, second: String, third: Blah?): Int {
+  return
+}
+""".trim()
+        ).complexity().also {
+            it.lookup("main(Int,String,Blah?):Int", "Main.kt").complexity shouldBe 1
+            it.lookup("main2(Int,String,Blah?):Int", "Main.kt").complexity shouldBe 1
+            it.lookupFile("Main.kt") shouldBe 2
         }
     }
 })

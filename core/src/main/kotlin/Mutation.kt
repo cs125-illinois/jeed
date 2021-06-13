@@ -4,13 +4,14 @@ package edu.illinois.cs.cs125.jeed.core
 
 import edu.illinois.cs.cs125.jeed.core.antlr.JavaParser
 import edu.illinois.cs.cs125.jeed.core.antlr.JavaParserBaseListener
+import edu.illinois.cs.cs125.jeed.core.antlr.KotlinParser
+import edu.illinois.cs.cs125.jeed.core.antlr.KotlinParserBaseListener
 import org.antlr.v4.runtime.ParserRuleContext
 import org.antlr.v4.runtime.Token
 import org.antlr.v4.runtime.tree.ParseTreeWalker
 import org.antlr.v4.runtime.tree.TerminalNode
 import org.jetbrains.kotlin.backend.common.pop
 import java.util.Objects
-import kotlin.math.pow
 import kotlin.random.Random
 
 val PITEST = setOf(
@@ -47,7 +48,7 @@ val ALL = PITEST + OTHER
 fun Mutation.Type.suppressionComment() = "mutate-disable-" + mutationName()
 fun Mutation.Type.mutationName() = name.lowercase().replace("_", "-")
 
-sealed class Mutation(val type: Type, var location: Location, val original: String) {
+sealed class Mutation(val mutationType: Type, var location: Location, val original: String) {
     data class Location(
         val start: Int,
         val end: Int,
@@ -119,7 +120,7 @@ sealed class Mutation(val type: Type, var location: Location, val original: Stri
 
         modified = applyMutation(random)
 
-        check(modified != original) { "Mutation did not change the input: $type" }
+        check(modified != original) { "Mutation did not change the input: $mutationType" }
         return (prefix + modified + postfix).lines().filterIndexed { index, s ->
             if (index + 1 != location.startLine) {
                 true
@@ -135,27 +136,27 @@ sealed class Mutation(val type: Type, var location: Location, val original: Stri
     abstract val mightNotCompile: Boolean
     abstract val fixedCount: Boolean
 
-    override fun toString(): String = "$type: $location ($original)"
+    override fun toString(): String = "$mutationType: $location ($original)"
 
     override fun equals(other: Any?) = when {
         this === other -> true
         javaClass != other?.javaClass -> false
         else -> {
             other as Mutation
-            type == other.type && location == other.location && original == other.original
+            mutationType == other.mutationType && location == other.location && original == other.original
         }
     }
 
-    override fun hashCode() = Objects.hash(type, location, original)
+    override fun hashCode() = Objects.hash(mutationType, location, original)
 
     @Suppress("ComplexMethod", "LongMethod", "TooManyFunctions")
-    class Listener(private val parsedSource: Source.ParsedSource) : JavaParserBaseListener() {
+    class JavaMutationListener(private val parsedSource: Source.ParsedSource) : JavaParserBaseListener() {
         val lines = parsedSource.contents.lines()
         val mutations: MutableList<Mutation> = mutableListOf()
-
+        private val fileType = Source.FileType.JAVA
         private val currentPath: MutableList<Location.SourcePath> = mutableListOf()
         override fun enterClassDeclaration(ctx: JavaParser.ClassDeclarationContext) {
-            currentPath.add(Location.SourcePath(Location.SourcePath.Type.CLASS, ctx.IDENTIFIER()!!.text))
+            currentPath.add(Location.SourcePath(Location.SourcePath.Type.CLASS, ctx.IDENTIFIER().text))
         }
 
         override fun exitClassDeclaration(ctx: JavaParser.ClassDeclarationContext) {
@@ -434,6 +435,402 @@ sealed class Mutation(val type: Type, var location: Location, val original: Stri
                 ctx.expression()?.firstOrNull()?.toLocation()?.also { location ->
                     val contents = parsedSource.contents(location)
                     currentReturnType?.also { returnType ->
+                        if (PrimitiveReturn.matches(contents, returnType, fileType)) {
+                            mutations.add(PrimitiveReturn(location, parsedSource.contents(location)))
+                        }
+                        if (TrueReturn.matches(contents, returnType)) {
+                            mutations.add(TrueReturn(location, parsedSource.contents(location)))
+                        }
+                        if (FalseReturn.matches(contents, returnType)) {
+                            mutations.add(FalseReturn(location, parsedSource.contents(location)))
+                        }
+                        if (NullReturn.matches(contents, returnType, fileType)) {
+                            mutations.add(NullReturn(location, parsedSource.contents(location)))
+                        }
+                    } ?: error("Should have recorded a return type at this point")
+                }
+            }
+            ctx.WHILE()?.also {
+                ctx.parExpression().toLocation().also { location ->
+                    mutations.add(NegateWhile(location, parsedSource.contents(location)))
+                }
+                if (ctx.DO() == null) {
+                    mutations.add(RemoveLoop(ctx.toLocation(), parsedSource.contents(ctx.toLocation())))
+                }
+            }
+            ctx.FOR()?.also {
+                mutations.add(RemoveLoop(ctx.toLocation(), parsedSource.contents(ctx.toLocation())))
+            }
+            ctx.DO()?.also {
+                mutations.add(RemoveLoop(ctx.toLocation(), parsedSource.contents(ctx.toLocation())))
+            }
+            ctx.TRY()?.also {
+                mutations.add(RemoveTry(ctx.toLocation(), parsedSource.contents(ctx.toLocation())))
+            }
+            ctx.statementExpression?.also {
+                mutations.add(RemoveStatement(ctx.toLocation(), parsedSource.contents(ctx.toLocation())))
+            }
+        }
+
+        init {
+            ParseTreeWalker.DEFAULT.walk(this, parsedSource.tree)
+        }
+    }
+
+    @Suppress("ComplexMethod", "LongMethod", "TooManyFunctions")
+    class KotlinMutationListener(private val parsedSource: Source.ParsedSource) : KotlinParserBaseListener() {
+        val lines = parsedSource.contents.lines()
+        val mutations: MutableList<Mutation> = mutableListOf()
+        private val fileType = Source.FileType.KOTLIN
+
+        private val currentPath: MutableList<Location.SourcePath> = mutableListOf()
+        override fun enterClassDeclaration(ctx: KotlinParser.ClassDeclarationContext) {
+            currentPath.add(Location.SourcePath(Location.SourcePath.Type.CLASS, ctx.simpleIdentifier().text))
+        }
+
+        override fun exitClassDeclaration(ctx: KotlinParser.ClassDeclarationContext) {
+            currentPath.last().also {
+                check(it.type == Location.SourcePath.Type.CLASS)
+                check(it.name == ctx.simpleIdentifier()!!.text)
+            }
+            currentPath.pop()
+        }
+
+        private val returnTypeStack: MutableList<String> = mutableListOf()
+        private val currentReturnType: String?
+            get() = returnTypeStack.lastOrNull()
+
+        override fun enterFunctionDeclaration(ctx: KotlinParser.FunctionDeclarationContext) {
+            val returnType = ctx.type().let {
+                if (it.isEmpty()) {
+                    ""
+                } else {
+                    check(it.last().start.startIndex > ctx.identifier().start.startIndex) {
+                        "Couldn't find method return type"
+                    }
+                    it.last().text
+                }
+            }
+            returnTypeStack.add(returnType)
+        }
+
+        override fun exitFunctionDeclaration(ctx: KotlinParser.FunctionDeclarationContext) {
+            check(returnTypeStack.isNotEmpty()) { "Return type stack should not be empty" }
+            returnTypeStack.pop()
+        }
+
+        override fun enterFunctionBody(ctx: KotlinParser.FunctionBodyContext) {
+            check(currentReturnType != null)
+            println(currentReturnType)
+            println("enterFunctionBody: " + ctx.text)
+            val methodLocation = ctx.block().toLocation()
+            val methodContents = parsedSource.contents(methodLocation)
+            if (RemoveMethod.matches(methodContents, currentReturnType!!)) {
+                mutations.add(RemoveMethod(methodLocation, methodContents, currentReturnType!!))
+            }
+            ctx.block().statements().statement().filter { it.start.text == "return" }.forEach {
+                val returnValue = it.stop.text
+                val returnLocation = it.stop.toLocation()
+
+                if (PrimitiveReturn.matches(returnValue, currentReturnType!!, fileType)) {
+                    mutations.add(PrimitiveReturn(returnLocation, returnValue))
+                }
+                if (TrueReturn.matches(returnValue, currentReturnType!!)) {
+                    mutations.add(TrueReturn(returnLocation, returnValue))
+                }
+                if (FalseReturn.matches(returnValue, currentReturnType!!)) {
+                    mutations.add(FalseReturn(returnLocation, returnValue))
+                }
+                if (NullReturn.matches(returnValue, currentReturnType!!, fileType)) {
+                    mutations.add(NullReturn(returnLocation, returnValue)) // todo: fix this
+                }
+            }
+        }
+
+        override fun enterStatement(ctx: KotlinParser.StatementContext) {
+            if (ctx.start.text == "assert" ||
+                ctx.start.text == "check" ||
+                ctx.start.text == "require"
+            ) {
+                mutations.add(RemoveAssert(ctx.toLocation(), ctx.text))
+            }
+        }
+
+        override fun enterStatements(ctx: KotlinParser.StatementsContext) {
+            println("enterStatements: " + ctx.text)
+        }
+
+        private var insideAnnotation = false
+        override fun enterAnnotation(ctx: KotlinParser.AnnotationContext?) {
+            insideAnnotation = true
+        }
+
+        override fun exitAnnotation(ctx: KotlinParser.AnnotationContext?) {
+            insideAnnotation = false
+        }
+
+        private fun ParserRuleContext.toLocation() =
+            Location(
+                start.startIndex,
+                stop.stopIndex,
+                currentPath,
+                lines.filterIndexed { index, _ -> index >= start.line - 1 && index <= stop.line - 1 }
+                    .joinToString("\n"),
+                start.line
+            )
+
+        private fun Token.toLocation() = Location(startIndex, stopIndex, currentPath, lines[line - 1], line)
+        private fun List<TerminalNode>.toLocation() =
+            Location(
+                first().symbol.startIndex,
+                last().symbol.stopIndex,
+                currentPath,
+                lines.filterIndexed { index, _ -> index >= first().symbol.line - 1 && index <= last().symbol.line - 1 }
+                    .joinToString("\n"),
+                first().symbol.line
+            )
+
+        override fun enterLiteralConstant(ctx: KotlinParser.LiteralConstantContext) {
+            if (insideAnnotation) {
+                return
+            }
+            ctx.BooleanLiteral()?.also {
+                ctx.toLocation().also { location ->
+                    mutations.add(BooleanLiteral(location, parsedSource.contents(location)))
+                }
+            }
+            ctx.IntegerLiteral()?.also {
+                ctx.toLocation().also { location ->
+                    mutations.add(NumberLiteral(location, parsedSource.contents(location)))
+                }
+            }
+            ctx.stringLiteral()?.also {
+                ctx.toLocation().also { location ->
+                    mutations.add(StringLiteral(location, parsedSource.contents(location)))
+                }
+            }
+            ctx.HexLiteral()?.also {
+                ctx.toLocation().also { location ->
+                    mutations.add(NumberLiteral(location, parsedSource.contents(location), 16))
+                }
+            }
+            ctx.BinLiteral()?.also {
+                ctx.toLocation().also { location ->
+                    mutations.add(NumberLiteral(location, parsedSource.contents(location), 2))
+                }
+            }
+            ctx.CharacterLiteral()?.also {
+                ctx.toLocation().also { location ->
+                    mutations.add(CharLiteral(location, parsedSource.contents(location)))
+                }
+            }
+            // reals are doubles and floats
+            ctx.RealLiteral()?.also {
+                ctx.toLocation().also { location ->
+                    mutations.add(NumberLiteral(location, parsedSource.contents(location)))
+                }
+            }
+            ctx.LongLiteral()?.also {
+                ctx.toLocation().also { location ->
+                    mutations.add(NumberLiteral(location, parsedSource.contents(location)))
+                }
+            }
+            ctx.NullLiteral()?.also {
+                // println("null literal: " + ctx.text)
+                ctx.toLocation().also { location ->
+                    // todo: null literals
+                }
+            }
+        }
+
+        /*
+        private fun KotlinParser.ExpressionContext.locationPair(): Pair<Location, Location> {
+            val front = start
+            val back = stop
+            val frontLocation = Location(
+                start.startIndex,
+                start.startIndex - 1,
+                currentPath,
+                lines
+                    .filterIndexed { index, _ ->
+                        index >= front.line - 1 && index <= back.line - 1
+                    }
+                    .joinToString("\n"),
+                front.line
+            )
+            val backLocation = Location(
+                front.stopIndex + 1,
+                back.stopIndex,
+                currentPath,
+                lines
+                    .filterIndexed { index, _ ->
+                        index >= front.line - 1 && index <= back.line - 1
+                    }
+                    .joinToString("\n"),
+                front.line
+            )
+            return Pair(frontLocation, backLocation)
+        }
+         */
+
+        override fun enterExpression(ctx: KotlinParser.ExpressionContext) {
+
+            //
+            // // I'm not sure why you can't write this like the other ones, but it fails with a cast to kotlin.Unit
+            // // exception
+            // @Suppress("MagicNumber")
+            // if (ctx.GT() != null && (ctx.GT().size == 2 || ctx.GT().size == 3)) {
+            //     val location = ctx.GT().toLocation()
+            //     val contents = parsedSource.contents(location)
+            //     if (RemoveBinary.matches(contents)) {
+            //         val (frontLocation, backLocation) = ctx.locationPair()
+            //         mutations.add(RemoveBinary(frontLocation, parsedSource.contents(frontLocation)))
+            //         mutations.add(RemoveBinary(backLocation, parsedSource.contents(backLocation)))
+            //     }
+            // }
+            //
+            //     @Suppress("ComplexCondition")
+            //     if (contents == "&&" || contents == "||") {
+            //         val (frontLocation, backLocation) = ctx.locationPair()
+            //         mutations.add(RemoveAndOr(frontLocation, parsedSource.contents(frontLocation)))
+            //         mutations.add(RemoveAndOr(backLocation, parsedSource.contents(backLocation)))
+            //     }
+            //     if (RemovePlus.matches(contents)) {
+            //         val (frontLocation, backLocation) = ctx.locationPair()
+            //         mutations.add(RemovePlus(frontLocation, parsedSource.contents(frontLocation)))
+            //         mutations.add(RemovePlus(backLocation, parsedSource.contents(backLocation)))
+            //     }
+            // }
+        }
+
+        override fun enterConditionalExpression(ctx: KotlinParser.ConditionalExpressionContext) {
+        }
+
+        override fun enterPrefixUnaryOperation(ctx: KotlinParser.PrefixUnaryOperationContext) {
+            if (IncrementDecrement.matches(ctx.text)) {
+                mutations.add(IncrementDecrement(ctx.toLocation(), ctx.text))
+            }
+            if (InvertNegation.matches(ctx.text)) {
+                mutations.add(InvertNegation(ctx.toLocation(), ctx.text))
+            }
+        }
+
+        override fun enterPostfixUnaryOperation(ctx: KotlinParser.PostfixUnaryOperationContext) {
+            if (IncrementDecrement.matches(ctx.text)) {
+                mutations.add(IncrementDecrement(ctx.toLocation(), ctx.text))
+            }
+        }
+
+        override fun enterComparisonOperator(ctx: KotlinParser.ComparisonOperatorContext) {
+            if (ConditionalBoundary.matches(ctx.text)) {
+                mutations.add(ConditionalBoundary(ctx.toLocation(), ctx.text))
+            }
+            if (NegateConditional.matches(ctx.text)) {
+                mutations.add(NegateConditional(ctx.toLocation(), ctx.text))
+            }
+        }
+
+        override fun enterMultiplicativeOperation(ctx: KotlinParser.MultiplicativeOperationContext) {
+            if (MutateMath.matches(ctx.text)) {
+                mutations.add(MutateMath(ctx.toLocation(), ctx.text))
+            }
+        }
+
+        override fun enterAdditiveOperator(ctx: KotlinParser.AdditiveOperatorContext) {
+            if (PlusToMinus.matches(ctx.text)) {
+                mutations.add(PlusToMinus(ctx.toLocation(), ctx.text))
+            }
+            if (MutateMath.matches(ctx.text)) {
+                mutations.add(MutateMath(ctx.toLocation(), ctx.text))
+            }
+        }
+
+        override fun enterEqualityOperation(ctx: KotlinParser.EqualityOperationContext) {
+            if (NegateConditional.matches(ctx.text)) {
+                mutations.add(NegateConditional(ctx.toLocation(), ctx.text))
+            }
+        }
+
+        override fun enterDisjunction(ctx: KotlinParser.DisjunctionContext) {
+            if (SwapAndOr.matches(ctx.DISJ().joinToString())) {
+                require(ctx.DISJ().size == 1) { "Disjunction list has an invalid size" }
+                mutations.add(SwapAndOr(ctx.DISJ().toLocation(), ctx.DISJ().joinToString()))
+            }
+        }
+
+        override fun enterConjunction(ctx: KotlinParser.ConjunctionContext) {
+            if (SwapAndOr.matches(ctx.CONJ().joinToString())) {
+                require(ctx.CONJ().size == 1) { "Conjunction list has an invalid size" }
+                mutations.add(SwapAndOr(ctx.CONJ().toLocation(), ctx.CONJ().joinToString()))
+            }
+        }
+
+        private val seenIfStarts = mutableSetOf<Int>()
+
+        /*
+        override fun enterStatement(ctx: KotlinParser.StatementContext) {
+            ctx.StatementContext()?.also {
+                val outerLocation = ctx.toLocation()
+                if (outerLocation.start !in seenIfStarts) {
+                    // Add entire if
+                    mutations.add(RemoveIf(outerLocation, parsedSource.contents(outerLocation)))
+                    seenIfStarts += outerLocation.start
+                    check(ctx.statement().isNotEmpty())
+                    if (ctx.statement().size == 2 && ctx.statement(1).block() != null) {
+                        // Add else branch (2)
+                        check(ctx.ELSE() != null)
+                        val start = ctx.ELSE().symbol
+                        val end = ctx.statement(1).block().stop
+                        val elseLocation =
+                            Location(
+                                start.startIndex,
+                                end.stopIndex,
+                                currentPath,
+                                lines.filterIndexed { index, _ -> index >= start.line - 1 && index <= end.line - 1 }
+                                    .joinToString("\n"),
+                                start.line
+                            )
+                        mutations.add(RemoveIf(elseLocation, parsedSource.contents(elseLocation)))
+                    } else if (ctx.statement().size >= 2) {
+                        var statement = ctx.statement(1)
+                        var previousMarker = ctx.ELSE()
+                        check(previousMarker != null)
+                        while (statement != null) {
+                            if (statement.IF() != null) {
+                                seenIfStarts += statement.toLocation().start
+                            }
+                            val end = statement.statement(0) ?: statement.block()
+                            val currentLocation =
+                                Location(
+                                    previousMarker.symbol.startIndex,
+                                    end.stop.stopIndex,
+                                    currentPath,
+                                    lines
+                                        .filterIndexed { index, _ ->
+                                            index >= previousMarker.symbol.line - 1 && index <= end.stop.line - 1
+                                        }
+                                        .joinToString("\n"),
+                                    previousMarker.symbol.line
+                                )
+                            mutations.add(RemoveIf(currentLocation, parsedSource.contents(currentLocation)))
+                            previousMarker = statement.ELSE()
+                            statement = statement.statement(1)
+                        }
+                    }
+                }
+                ctx.parExpression().toLocation().also { location ->
+                    mutations.add(NegateIf(location, parsedSource.contents(location)))
+                }
+            }
+            ctx.ASSERT()?.also {
+                ctx.toLocation().also { location ->
+                    mutations.add(RemoveAssert(location, parsedSource.contents(location)))
+                }
+            }
+            ctx.RETURN()?.also {
+                ctx.expression()?.firstOrNull()?.toLocation()?.also { location ->
+                    val contents = parsedSource.contents(location)
+                    currentReturnType?.also { returnType ->
                         if (PrimitiveReturn.matches(contents, returnType)) {
                             mutations.add(PrimitiveReturn(location, parsedSource.contents(location)))
                         }
@@ -470,6 +867,7 @@ sealed class Mutation(val type: Type, var location: Location, val original: Stri
                 mutations.add(RemoveStatement(ctx.toLocation(), parsedSource.contents(ctx.toLocation())))
             }
         }
+        */
 
         init {
             ParseTreeWalker.DEFAULT.walk(this, parsedSource.tree)
@@ -477,583 +875,10 @@ sealed class Mutation(val type: Type, var location: Location, val original: Stri
     }
 
     companion object {
-        inline fun <reified T : Mutation> find(parsedSource: Source.ParsedSource): List<T> =
-            Listener(parsedSource).mutations.filterIsInstance<T>()
-    }
-}
-
-class BooleanLiteral(
-    location: Location,
-    original: String
-) : Mutation(Type.BOOLEAN_LITERAL, location, original) {
-    override val preservesLength = false
-    override val estimatedCount = 1
-    override val mightNotCompile = false
-    override val fixedCount = true
-
-    override fun applyMutation(random: Random): String {
-        return when (original) {
-            "true" -> "false"
-            "false" -> "true"
-            else -> error("${this.javaClass.name} didn't find expected text")
-        }
-    }
-}
-
-val ALPHANUMERIC_CHARS = (('a'..'z') + ('A'..'Z') + ('0'..'9')).toSet()
-
-class CharLiteral(
-    location: Location,
-    original: String
-) : Mutation(Type.CHAR_LITERAL, location, original) {
-    override val preservesLength = true
-    override val estimatedCount = ALPHANUMERIC_CHARS.size - 1
-    override val mightNotCompile = false
-    override val fixedCount = false
-
-    private val character = original.removeSurrounding("'").also {
-        check(it.length == 1) { "Character didn't have the correct length: $original" }
-    }.first()
-
-    override fun applyMutation(random: Random): String =
-        ALPHANUMERIC_CHARS.filter { it != character }.shuffled(random).first().let { "'$it'" }
-}
-
-val NUMERIC_CHARS = ('0'..'9').toSet()
-
-val ALPHANUMERIC_CHARS_AND_SPACE = (('a'..'z') + ('A'..'Z') + ('0'..'9') + (' ')).toSet()
-
-class StringLiteral(location: Location, original: String) : Mutation(Type.STRING_LITERAL, location, original) {
-    override val preservesLength = true
-    private val string = original.removeSurrounding("\"")
-    override val estimatedCount = ALPHANUMERIC_CHARS_AND_SPACE.size.toDouble().pow(string.length).toInt() - 1
-    override val mightNotCompile = false
-    override val fixedCount = false
-
-    @Suppress("NestedBlockDepth")
-    override fun applyMutation(random: Random): String {
-        return if (string.isEmpty()) {
-            " "
-        } else {
-            string.toCharArray().let { characters ->
-                val position = random.nextInt(characters.size).let {
-                    // Avoid adding invalid escapes
-                    if (it > 0 && characters[it - 1] == '\\') {
-                        it - 1
-                    } else {
-                        it
-                    }
-                }
-                characters[position] =
-                    (ALPHANUMERIC_CHARS_AND_SPACE.filter { it != characters[position] }).shuffled(random).first()
-                characters.joinToString("")
+        inline fun <reified T : Mutation> find(parsedSource: Source.ParsedSource, fileType: Source.FileType): List<T> =
+            when (fileType) {
+                Source.FileType.JAVA -> JavaMutationListener(parsedSource).mutations.filterIsInstance<T>()
+                Source.FileType.KOTLIN -> KotlinMutationListener(parsedSource).mutations.filterIsInstance<T>()
             }
-        }.let {
-            "\"$it\""
-        }
-    }
-}
-
-class NumberLiteral(
-    location: Location,
-    original: String,
-    private val base: Int = 10
-) : Mutation(Type.NUMBER_LITERAL, location, original) {
-    override val preservesLength = true
-    override val mightNotCompile = false
-    override val fixedCount = false
-
-    private val numberPositions = original
-        .toCharArray()
-        .mapIndexed { index, c -> Pair(index, c) }
-        .filter { it.second in NUMERIC_CHARS }
-        .map { it.first }.also {
-            check(it.isNotEmpty()) { "No numeric characters in numeric literal" }
-        }
-    override val estimatedCount = numberPositions.size * 2
-
-    override fun applyMutation(random: Random): String {
-        val position = numberPositions.shuffled(random).first()
-        return original.toCharArray().also { characters ->
-            val direction = random.nextBoolean()
-            val randomValue = if (direction) {
-                Math.floorMod(characters[position].toString().toInt() + 1, base)
-            } else {
-                Math.floorMod(characters[position].toString().toInt() - 1 + base, base)
-            }.let {
-                @Suppress("MagicNumber")
-                // Avoid adding leading zeros
-                if (position == 0 && it == 0) {
-                    if (direction) {
-                        1
-                    } else {
-                        9
-                    }
-                } else {
-                    it
-                }
-            }
-            // Sadder than it needs to be, since int <-> char conversions in Kotlin use ASCII values
-            characters[position] = randomValue.toString().toCharArray()[0]
-        }.let { String(it) }
-    }
-}
-
-class IncrementDecrement(
-    location: Location,
-    original: String
-) : Mutation(Type.INCREMENT_DECREMENT, location, original) {
-    override val preservesLength = true
-    override val estimatedCount = 1
-    override val mightNotCompile = false
-    override val fixedCount = true
-
-    override fun applyMutation(random: Random): String {
-        return when (original) {
-            INC -> DEC
-            DEC -> INC
-            else -> error("${javaClass.name} didn't find the expected text")
-        }
-    }
-
-    companion object {
-        fun matches(contents: String) = contents in setOf(INC, DEC)
-
-        private const val INC = "++"
-        private const val DEC = "--"
-    }
-}
-
-class InvertNegation(
-    location: Location,
-    original: String
-) : Mutation(Type.INVERT_NEGATION, location, original) {
-    override val preservesLength = false
-    override val estimatedCount = 1
-    override val mightNotCompile = false
-    override val fixedCount = true
-
-    override fun applyMutation(random: Random): String = ""
-
-    companion object {
-        fun matches(contents: String) = contents == "-"
-    }
-}
-
-class MutateMath(
-    location: Location,
-    original: String
-) : Mutation(Type.MATH, location, original) {
-    override val preservesLength = false
-    override val estimatedCount = 1
-    override val mightNotCompile = false
-    override val fixedCount = true
-
-    override fun applyMutation(random: Random): String = when (original) {
-        SUBTRACT -> ADD
-        MULTIPLY -> DIVIDE
-        DIVIDE -> MULTIPLY
-        REMAINDER -> MULTIPLY
-        BITWISE_AND -> BITWISE_OR
-        BITWISE_OR -> BITWISE_AND
-        BITWISE_XOR -> BITWISE_AND
-        LEFT_SHIFT -> RIGHT_SHIFT
-        RIGHT_SHIFT -> LEFT_SHIFT
-        UNSIGNED_RIGHT_SHIFT -> LEFT_SHIFT
-        else -> error("${javaClass.name} didn't find the expected text")
-    }
-
-    companion object {
-        const val ADD = "+"
-        const val SUBTRACT = "-"
-        const val MULTIPLY = "*"
-        const val DIVIDE = "/"
-        const val REMAINDER = "%"
-        const val BITWISE_AND = "&"
-        const val BITWISE_OR = "|"
-        const val BITWISE_XOR = "^"
-        const val LEFT_SHIFT = "<<"
-        const val RIGHT_SHIFT = ">>"
-        const val UNSIGNED_RIGHT_SHIFT = ">>>"
-
-        fun matches(contents: String) = contents in setOf(
-            SUBTRACT, MULTIPLY, DIVIDE, REMAINDER,
-            BITWISE_AND, BITWISE_OR, BITWISE_XOR,
-            LEFT_SHIFT, RIGHT_SHIFT, UNSIGNED_RIGHT_SHIFT
-        )
-    }
-}
-
-class PlusToMinus(
-    location: Location,
-    original: String
-) : Mutation(Type.PLUS_TO_MINUS, location, original) {
-    override val preservesLength = false
-    override val estimatedCount = 1
-    override val mightNotCompile = true
-    override val fixedCount = true
-
-    override fun applyMutation(random: Random) = "-"
-
-    companion object {
-        fun matches(contents: String) = contents == "+"
-    }
-}
-
-object Conditionals {
-    const val EQ = "=="
-    const val NE = "!="
-    const val LT = "<"
-    const val LTE = "<="
-    const val GT = ">"
-    const val GTE = ">="
-}
-
-class ConditionalBoundary(
-    location: Location,
-    original: String
-) : Mutation(Type.CONDITIONAL_BOUNDARY, location, original) {
-    override val preservesLength = false
-    override val estimatedCount = 1
-    override val mightNotCompile = false
-    override val fixedCount = true
-
-    override fun applyMutation(random: Random): String {
-        return when (original) {
-            Conditionals.LT -> Conditionals.LTE
-            Conditionals.LTE -> Conditionals.LT
-            Conditionals.GT -> Conditionals.GTE
-            Conditionals.GTE -> Conditionals.GT
-            else -> error("${javaClass.name} didn't find the expected text")
-        }
-    }
-
-    companion object {
-        fun matches(contents: String) = contents in setOf(
-            Conditionals.LT,
-            Conditionals.LTE,
-            Conditionals.GT,
-            Conditionals.GTE
-        )
-    }
-}
-
-class NegateConditional(
-    location: Location,
-    original: String
-) : Mutation(Type.NEGATE_CONDITIONAL, location, original) {
-    override val preservesLength = false
-    override val estimatedCount = 1
-    override val mightNotCompile = false
-    override val fixedCount = true
-
-    override fun applyMutation(random: Random): String {
-        return when (original) {
-            Conditionals.EQ -> Conditionals.NE
-            Conditionals.NE -> Conditionals.EQ
-            Conditionals.LTE -> Conditionals.GT
-            Conditionals.GT -> Conditionals.LTE
-            Conditionals.GTE -> Conditionals.LT
-            Conditionals.LT -> Conditionals.GTE
-            else -> error("${javaClass.name} didn't find the expected text")
-        }
-    }
-
-    companion object {
-        fun matches(contents: String) = contents in setOf(
-            Conditionals.EQ,
-            Conditionals.NE,
-            Conditionals.LT,
-            Conditionals.LTE,
-            Conditionals.GT,
-            Conditionals.GTE
-        )
-    }
-}
-
-class SwapAndOr(
-    location: Location,
-    original: String
-) : Mutation(Type.SWAP_AND_OR, location, original) {
-    override val preservesLength = true
-    override val estimatedCount = 1
-    override val mightNotCompile = false
-    override val fixedCount = true
-
-    override fun applyMutation(random: Random): String {
-        return when (original) {
-            "&&" -> "||"
-            "||" -> "&&"
-            else -> error("${javaClass.name} didn't find the expected text")
-        }
-    }
-
-    companion object {
-        fun matches(contents: String) = contents in setOf("&&", "||")
-    }
-}
-
-private val primitiveTypes = setOf("byte", "short", "int", "long", "float", "double", "char", "boolean")
-
-class PrimitiveReturn(
-    location: Location,
-    original: String
-) : Mutation(Type.PRIMITIVE_RETURN, location, original) {
-    override val preservesLength = false
-    override val estimatedCount = 1
-    override val mightNotCompile = false
-    override val fixedCount = true
-
-    override fun applyMutation(random: Random): String = "0"
-
-    companion object {
-        private val zeros = setOf("0", "0L", "0.0", "0.0f")
-        fun matches(contents: String, returnType: String) =
-            contents !in zeros && returnType in (primitiveTypes - "boolean")
-    }
-}
-
-class TrueReturn(
-    location: Location,
-    original: String
-) : Mutation(Type.TRUE_RETURN, location, original) {
-    override val preservesLength = false
-    override val estimatedCount = 1
-    override val mightNotCompile = false
-    override val fixedCount = true
-
-    override fun applyMutation(random: Random): String = "true"
-
-    companion object {
-        fun matches(contents: String, returnType: String) =
-            contents != "true" && returnType in setOf("boolean", "Boolean")
-    }
-}
-
-class FalseReturn(
-    location: Location,
-    original: String
-) : Mutation(Type.FALSE_RETURN, location, original) {
-    override val preservesLength = false
-    override val estimatedCount = 1
-    override val mightNotCompile = false
-    override val fixedCount = true
-
-    override fun applyMutation(random: Random): String = "false"
-
-    companion object {
-        fun matches(contents: String, returnType: String) =
-            contents != "false" && returnType in setOf("boolean", "Boolean")
-    }
-}
-
-class NullReturn(
-    location: Location,
-    original: String
-) : Mutation(Type.NULL_RETURN, location, original) {
-    override val preservesLength = false
-    override val estimatedCount = 1
-    override val mightNotCompile = false
-    override val fixedCount = true
-
-    override fun applyMutation(random: Random): String = "null"
-
-    companion object {
-        @Suppress("DEPRECATION")
-        fun matches(contents: String, returnType: String) = contents != "null" &&
-            (returnType == returnType.capitalize() || returnType.endsWith("[]"))
-    }
-}
-
-class RemoveAssert(
-    location: Location,
-    original: String
-) : Mutation(Type.REMOVE_ASSERT, location, original) {
-    override val preservesLength = false
-    override val estimatedCount = 1
-    override val mightNotCompile = false
-    override val fixedCount = true
-
-    override fun applyMutation(random: Random): String = ""
-}
-
-class RemoveMethod(
-    location: Location,
-    original: String,
-    private val returnType: String
-) : Mutation(Type.REMOVE_METHOD, location, original) {
-    override val preservesLength = false
-    override val estimatedCount = 1
-    override val mightNotCompile = false
-    override val fixedCount = true
-
-    private val prefix = getPrefix(original)
-    private val postfix = getPostfix(original)
-
-    override fun applyMutation(random: Random) = forReturnType(returnType).let {
-        "$prefix$it;$postfix"
-    }
-
-    companion object {
-        @Suppress("DEPRECATION")
-        private fun forReturnType(returnType: String) = when {
-            returnType == "String" -> "return \"\""
-            returnType == returnType.capitalize() || returnType.endsWith("[]") -> "return null"
-            returnType == "void" -> "return"
-            returnType == "byte" -> "return 0"
-            returnType == "short" -> "return 0"
-            returnType == "int" -> "return 0"
-            returnType == "long" -> "return 0L"
-            returnType == "char" -> "return '0'"
-            returnType == "boolean" -> "return false"
-            returnType == "float" -> "return 0.0f"
-            returnType == "double" -> "return 0.0"
-            else -> error("Bad return type: $returnType")
-        }
-
-        private fun getPrefix(content: String): String {
-            var prefix = ""
-            var seenBrace = false
-            for (char in content.toCharArray()) {
-                if (seenBrace && !char.isWhitespace()) {
-                    break
-                }
-                if (char == '{') {
-                    seenBrace = true
-                }
-                prefix += char
-            }
-            return prefix
-        }
-
-        private fun getPostfix(content: String): String {
-            var postfix = ""
-            var seenBrace = false
-            for (char in content.toCharArray().reversed()) {
-                if (seenBrace && !char.isWhitespace()) {
-                    break
-                }
-                if (char == '}') {
-                    seenBrace = true
-                }
-                postfix += char
-            }
-            return postfix.reversed()
-        }
-
-        fun matches(contents: String, returnType: String) = contents.removePrefix(getPrefix(contents)).let {
-            it.removeSuffix(getPostfix(it))
-        }.let {
-            it.isNotBlank() && it.trim().removeSuffix(";").trim() != forReturnType(returnType)
-        }
-    }
-}
-
-class NegateIf(location: Location, original: String) : Mutation(Type.NEGATE_IF, location, original) {
-    override val preservesLength = false
-    override val estimatedCount = 1
-    override val mightNotCompile = false
-    override val fixedCount = true
-    override fun applyMutation(random: Random) = "(!$original)"
-}
-
-class NegateWhile(location: Location, original: String) : Mutation(Type.NEGATE_WHILE, location, original) {
-    override val preservesLength = false
-    override val estimatedCount = 1
-    override val mightNotCompile = false
-    override val fixedCount = true
-    override fun applyMutation(random: Random) = "(!$original)"
-}
-
-class RemoveIf(
-    location: Location,
-    original: String
-) : Mutation(Type.REMOVE_IF, location, original) {
-    override val preservesLength = false
-    override val estimatedCount = 1
-    override val mightNotCompile = true
-    override val fixedCount = true
-
-    override fun applyMutation(random: Random): String = ""
-}
-
-class RemoveLoop(
-    location: Location,
-    original: String
-) : Mutation(Type.REMOVE_LOOP, location, original) {
-    override val preservesLength = false
-    override val estimatedCount = 1
-    override val mightNotCompile = false
-    override val fixedCount = true
-
-    override fun applyMutation(random: Random): String = ""
-}
-
-class RemoveAndOr(
-    location: Location,
-    original: String
-) : Mutation(Type.REMOVE_AND_OR, location, original) {
-    override val preservesLength = false
-    override val estimatedCount = 1
-    override val mightNotCompile = false
-    override val fixedCount = true
-
-    override fun applyMutation(random: Random): String = ""
-}
-
-class RemoveTry(
-    location: Location,
-    original: String
-) : Mutation(Type.REMOVE_TRY, location, original) {
-    override val preservesLength = false
-    override val estimatedCount = 1
-    override val mightNotCompile = false
-    override val fixedCount = true
-
-    override fun applyMutation(random: Random): String = ""
-}
-
-class RemoveStatement(
-    location: Location,
-    original: String
-) : Mutation(Type.REMOVE_STATEMENT, location, original) {
-    override val preservesLength = false
-    override val estimatedCount = 1
-    override val mightNotCompile = false
-    override val fixedCount = true
-
-    override fun applyMutation(random: Random): String = ""
-}
-
-class RemovePlus(
-    location: Location,
-    original: String
-) : Mutation(Type.REMOVE_PLUS, location, original) {
-    override val preservesLength = false
-    override val estimatedCount = 1
-    override val mightNotCompile = true
-    override val fixedCount = true
-
-    override fun applyMutation(random: Random): String = ""
-
-    companion object {
-        fun matches(contents: String) = contents == "+"
-    }
-}
-
-class RemoveBinary(
-    location: Location,
-    original: String
-) : Mutation(Type.REMOVE_BINARY, location, original) {
-    override val preservesLength = false
-    override val estimatedCount = 1
-    override val mightNotCompile = false
-    override val fixedCount = true
-
-    override fun applyMutation(random: Random): String = ""
-
-    companion object {
-        private val BINARY = setOf("-", "*", "/", "%", "&", "|", "^", "<<", ">>", ">>>")
-        fun matches(contents: String) = BINARY.contains(contents)
     }
 }
