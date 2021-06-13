@@ -9,64 +9,83 @@ enum class FeatureName {
     LOCAL_VARIABLE_DECLARATIONS,
     VARIABLE_ASSIGNMENTS,
     VARIABLE_REASSIGNMENTS,
-    FOR_LOOPS,
-    NESTED_FOR,
-    ENHANCED_FOR,
-    WHILE_LOOPS,
-    NESTED_WHILE,
-    DO_WHILE_LOOPS,
-    NESTED_DO_WHILE,
-    IF_STATEMENTS,
-    ELSE_STATEMENTS,
-    ELSE_IF,
-    NESTED_IF,
-    METHOD,
-    CLASS,
-    CONDITIONAL,
-    COMPLEX_CONDITIONAL,
-    TRY_BLOCK,
-    ASSERT,
-    SWITCH,
+    // Operators
     UNARY_OPERATORS,
     ARITHMETIC_OPERATORS,
     BITWISE_OPERATORS,
     ASSIGNMENT_OPERATORS,
     TERNARY_OPERATOR,
-    NEW_KEYWORD,
+    CONDITIONAL,
+    COMPLEX_CONDITIONAL,
+    // If & Else
+    IF_STATEMENTS,
+    ELSE_STATEMENTS,
+    ELSE_IF,
+    // Arrays
     ARRAY_ACCESS,
     ARRAY_LITERAL,
-    STRING,
-    NULL,
     MULTIDIMENSIONAL_ARRAYS,
-    TYPE_INFERENCE,
+    // Loops
+    FOR_LOOPS,
+    ENHANCED_FOR,
+    WHILE_LOOPS,
+    DO_WHILE_LOOPS,
+    // Nesting
+    NESTED_IF,
+    NESTED_FOR,
+    NESTED_WHILE,
+    NESTED_DO_WHILE,
+    // Methods
+    METHOD,
     CONSTRUCTOR,
     GETTER,
     SETTER,
-    STATIC,
+    // Strings & null
+    STRING,
+    NULL,
+    // Type handling
+    CASTING,
+    TYPE_INFERENCE,
+    INSTANCEOF,
+    // Class & Interface
+    CLASS,
+    IMPLEMENTS,
+    INTERFACE,
+    // Polymorphism
     EXTENDS,
     SUPER,
-    VISIBILITY_MODIFIERS,
-    THIS,
-    INSTANCEOF,
-    CASTING,
     OVERRIDE,
-    IMPORT,
+    // Exceptions
+    TRY_BLOCK,
+    FINALLY,
+    ASSERT,
+    THROW,
+    THROWS,
+    // Objects
+    NEW_KEYWORD,
+    THIS,
     REFERENCE_EQUALITY,
-    INTERFACE,
-    IMPLEMENTS,
-    FINAL,
-    ABSTRACT,
+    // Modifiers
+    VISIBILITY_MODIFIERS,
+    STATIC_METHOD,
+    FINAL_METHOD,
+    ABSTRACT_METHOD,
+    FINAL_CLASS,
+    ABSTRACT_CLASS,
+    // Import
+    IMPORT,
+    // Misc.
     ANONYMOUS_CLASSES,
     LAMBDA_EXPRESSIONS,
-    THROW,
-    FINALLY,
-    THROWS,
     GENERIC_CLASS,
-    STREAM
+    SWITCH,
+    STREAM,
+    ENUM
 }
 
 data class Features(
-    var featureMap: MutableMap<FeatureName, Int> = FeatureName.values().associate { it to 0 }.toMutableMap()
+    var featureMap: MutableMap<FeatureName, Int> = FeatureName.values().associate { it to 0 }.toMutableMap(),
+    var skeleton: String = ""
 ) {
     operator fun plus(other: Features): Features {
         val map = mutableMapOf<FeatureName, Int>()
@@ -74,7 +93,8 @@ data class Features(
             map[key] = featureMap[key]!! + other.featureMap[key]!!
         }
         return Features(
-            map
+            map,
+            skeleton + " " + other.skeleton
         )
     }
 }
@@ -114,6 +134,15 @@ class MethodFeatures(
     features: Features = Features(),
 ) : FeatureValue(name, range, methods, classes, features)
 
+@JsonClass(generateAdapter = true)
+class UnitFeatures(
+    name: String,
+    range: SourceRange,
+    methods: MutableMap<String, LocatedClassOrMethod> = mutableMapOf(),
+    classes: MutableMap<String, LocatedClassOrMethod> = mutableMapOf(),
+    features: Features = Features(),
+) : FeatureValue(name, range, methods, classes, features)
+
 @Suppress("TooManyFunctions")
 private class FeatureListener(val source: Source, entry: Map.Entry<String, String>) : JavaParserBaseListener() {
     @Suppress("unused")
@@ -123,7 +152,7 @@ private class FeatureListener(val source: Source, entry: Map.Entry<String, Strin
     private var featureStack: MutableList<FeatureValue> = mutableListOf()
     private val currentFeatures: FeatureValue
         get() = featureStack[0]
-    var results: MutableMap<String, ClassFeatures> = mutableMapOf()
+    var results: MutableMap<String, UnitFeatures> = mutableMapOf()
 
     private fun enterClassOrInterface(name: String, start: Location, end: Location) {
         val locatedClass = if (source is Snippet && name == source.wrappedClassName) {
@@ -167,10 +196,6 @@ private class FeatureListener(val source: Source, entry: Map.Entry<String, Strin
         assert(lastFeatures is ClassFeatures)
         if (featureStack.isNotEmpty()) {
             currentFeatures.features += lastFeatures.features
-        } else {
-            val topLevelFeatures = lastFeatures as ClassFeatures
-            assert(!results.keys.contains(topLevelFeatures.name))
-            results[topLevelFeatures.name] = topLevelFeatures
         }
     }
 
@@ -182,43 +207,90 @@ private class FeatureListener(val source: Source, entry: Map.Entry<String, Strin
         currentFeatures.features += lastFeatures.features
     }
 
-    /*override fun enterCompilationUnit(ctx: JavaParser.CompilationUnitContext) {
+    override fun enterCompilationUnit(ctx: JavaParser.CompilationUnitContext) {
+        val unitFeatures = UnitFeatures(
+            filename,
+            SourceRange(
+                filename,
+                Location(ctx.start.line, ctx.start.charPositionInLine),
+                Location(ctx.stop.line, ctx.stop.charPositionInLine)
+            )
+        )
+        assert(featureStack.isEmpty())
+        featureStack.add(0, unitFeatures)
         count(
             FeatureName.IMPORT,
             ctx.importDeclaration().filter {
                 it.IMPORT() != null
             }.size
         )
-    }*/
+        count(
+            FeatureName.FINAL_CLASS,
+            ctx.typeDeclaration().filter { declaration ->
+                declaration.classOrInterfaceModifier().any {
+                    it.FINAL() != null
+                }
+            }.size
+        )
+        count(
+            FeatureName.ABSTRACT_CLASS,
+            ctx.typeDeclaration().filter { declaration ->
+                declaration.classOrInterfaceModifier().any {
+                    it.ABSTRACT() != null
+                }
+            }.size
+        )
+        count(
+            FeatureName.VISIBILITY_MODIFIERS,
+            ctx.typeDeclaration().filter { declaration ->
+                declaration.classOrInterfaceModifier().any {
+                    when (it.text) {
+                        "public", "private", "protected" -> true
+                        else -> false
+                    }
+                }
+            }.size
+        )
+    }
+
+    override fun exitCompilationUnit(ctx: JavaParser.CompilationUnitContext) {
+        assert(featureStack.size == 1)
+        val topLevelFeatures = featureStack.removeAt(0) as UnitFeatures
+        assert(!results.keys.contains(topLevelFeatures.name))
+        results[topLevelFeatures.name] = topLevelFeatures
+    }
 
     override fun enterClassDeclaration(ctx: JavaParser.ClassDeclarationContext) {
+        count(FeatureName.CLASS, 1)
         enterClassOrInterface(
             ctx.IDENTIFIER().text,
             Location(ctx.start.line, ctx.start.charPositionInLine),
             Location(ctx.stop.line, ctx.stop.charPositionInLine)
         )
-        count(FeatureName.CLASS, 1)
         count(
-            FeatureName.STATIC,
+            FeatureName.STATIC_METHOD,
             ctx.classBody().classBodyDeclaration().filter { declaration ->
                 declaration.modifier().any {
-                    it.classOrInterfaceModifier().STATIC() != null
+                    it.classOrInterfaceModifier().STATIC() != null &&
+                        declaration.memberDeclaration().methodDeclaration() != null
                 }
             }.size
         )
         count(
-            FeatureName.FINAL,
+            FeatureName.FINAL_METHOD,
             ctx.classBody().classBodyDeclaration().filter { declaration ->
                 declaration.modifier().any {
-                    it.classOrInterfaceModifier().FINAL() != null
+                    it.classOrInterfaceModifier().FINAL() != null &&
+                        declaration.memberDeclaration().methodDeclaration() != null
                 }
             }.size
         )
         count(
-            FeatureName.ABSTRACT,
+            FeatureName.ABSTRACT_METHOD,
             ctx.classBody().classBodyDeclaration().filter { declaration ->
                 declaration.modifier().any {
-                    it.classOrInterfaceModifier().ABSTRACT() != null
+                    it.classOrInterfaceModifier().ABSTRACT() != null &&
+                        declaration.memberDeclaration().methodDeclaration() != null
                 }
             }.size
         )
@@ -238,6 +310,24 @@ private class FeatureListener(val source: Source, entry: Map.Entry<String, Strin
             ctx.classBody().classBodyDeclaration().filter { declaration ->
                 declaration.modifier().any {
                     it?.text == "@Override"
+                }
+            }.size
+        )
+        count(
+            FeatureName.FINAL_CLASS,
+            ctx.classBody().classBodyDeclaration().filter { declaration ->
+                declaration.modifier().any {
+                    it.classOrInterfaceModifier().FINAL() != null &&
+                        declaration.memberDeclaration().classDeclaration() != null
+                }
+            }.size
+        )
+        count(
+            FeatureName.ABSTRACT_CLASS,
+            ctx.classBody().classBodyDeclaration().filter { declaration ->
+                declaration.modifier().any {
+                    it.classOrInterfaceModifier().ABSTRACT() != null &&
+                        declaration.memberDeclaration().classDeclaration() != null
                 }
             }.size
         )
@@ -263,9 +353,60 @@ private class FeatureListener(val source: Source, entry: Map.Entry<String, Strin
             Location(ctx.stop.line, ctx.stop.charPositionInLine)
         )
         count(FeatureName.INTERFACE, 1)
+        count(
+            FeatureName.STATIC_METHOD,
+            ctx.interfaceBody().interfaceBodyDeclaration().filter { declaration ->
+                declaration.modifier().any {
+                    it.classOrInterfaceModifier().STATIC() != null &&
+                        declaration.interfaceMemberDeclaration().interfaceMethodDeclaration() != null
+                }
+            }.size
+        )
+        count(
+            FeatureName.FINAL_METHOD,
+            ctx.interfaceBody().interfaceBodyDeclaration().filter { declaration ->
+                declaration.modifier().any {
+                    it.classOrInterfaceModifier().FINAL() != null &&
+                        declaration.interfaceMemberDeclaration().interfaceMethodDeclaration() != null
+                }
+            }.size
+        )
+        count(
+            FeatureName.ABSTRACT_METHOD,
+            ctx.interfaceBody().interfaceBodyDeclaration().filter { declaration ->
+                declaration.modifier().any {
+                    it.classOrInterfaceModifier().ABSTRACT() != null &&
+                        declaration.interfaceMemberDeclaration().interfaceMethodDeclaration() != null
+                }
+            }.size
+        )
+        count(
+            FeatureName.VISIBILITY_MODIFIERS,
+            ctx.interfaceBody().interfaceBodyDeclaration().filter { declaration ->
+                declaration.modifier().any {
+                    when (it.text) {
+                        "public", "private", "protected" -> true
+                        else -> false
+                    }
+                }
+            }.size
+        )
     }
 
     override fun exitInterfaceDeclaration(ctx: JavaParser.InterfaceDeclarationContext?) {
+        exitClassOrInterface()
+    }
+
+    override fun enterEnumDeclaration(ctx: JavaParser.EnumDeclarationContext) {
+        enterClassOrInterface(
+            ctx.IDENTIFIER().text,
+            Location(ctx.start.line, ctx.start.charPositionInLine),
+            Location(ctx.stop.line, ctx.stop.charPositionInLine)
+        )
+        count(FeatureName.ENUM, 1)
+    }
+
+    override fun exitEnumDeclaration(ctx: JavaParser.EnumDeclarationContext) {
         exitClassOrInterface()
     }
 
@@ -300,18 +441,41 @@ private class FeatureListener(val source: Source, entry: Map.Entry<String, Strin
         ctx.THROWS()?.also {
             count(FeatureName.THROWS, 1)
         }
-        // Count classes declared inside methods
-        ctx.methodBody().block()?.blockStatement()?.filter {
-            it.localTypeDeclaration()?.classDeclaration() != null
-        }?.size?.let {
-            count(
-                FeatureName.CLASS,
-                it
-            )
-        }
+        count(
+            FeatureName.FINAL_CLASS,
+            ctx.methodBody().block()?.blockStatement()?.filter { statement ->
+                statement.localTypeDeclaration()?.classOrInterfaceModifier()?.any {
+                    it.FINAL() != null && statement.localTypeDeclaration().classDeclaration() != null
+                } ?: false
+            }?.size ?: 0
+        )
+        count(
+            FeatureName.ABSTRACT_CLASS,
+            ctx.methodBody().block()?.blockStatement()?.filter { statement ->
+                statement.localTypeDeclaration()?.classOrInterfaceModifier()?.any {
+                    it.ABSTRACT() != null && statement.localTypeDeclaration().classDeclaration() != null
+                } ?: false
+            }?.size ?: 0
+        )
     }
 
     override fun exitMethodDeclaration(ctx: JavaParser.MethodDeclarationContext) {
+        exitMethodOrConstructor()
+    }
+
+    override fun enterInterfaceMethodDeclaration(ctx: JavaParser.InterfaceMethodDeclarationContext) {
+        val parameters = ctx.formalParameters().formalParameterList()?.formalParameter()?.joinToString(",") {
+            it.typeType().text
+        } ?: ""
+        enterMethodOrConstructor(
+            "${ctx.typeTypeOrVoid().text} ${ctx.IDENTIFIER().text}($parameters)",
+            Location(ctx.start.line, ctx.start.charPositionInLine),
+            Location(ctx.stop.line, ctx.stop.charPositionInLine)
+        )
+        count(FeatureName.METHOD, 1)
+    }
+
+    override fun exitInterfaceMethodDeclaration(ctx: JavaParser.InterfaceMethodDeclarationContext) {
         exitMethodOrConstructor()
     }
 
@@ -385,6 +549,7 @@ private class FeatureListener(val source: Source, entry: Map.Entry<String, Strin
     }
 
     override fun enterStatement(ctx: JavaParser.StatementContext) {
+        // println(ctx.text)
         ctx.statementExpression?.also {
             if (it.bop?.text == "=") {
                 count(FeatureName.VARIABLE_ASSIGNMENTS, 1)
@@ -392,10 +557,10 @@ private class FeatureListener(val source: Source, entry: Map.Entry<String, Strin
             }
         }
         ctx.FOR()?.also {
+            currentFeatures.features.skeleton += "for "
             count(FeatureName.FOR_LOOPS, 1)
             if (ctx.forControl().enhancedForControl() != null) {
                 count(FeatureName.ENHANCED_FOR, 1)
-                // Is this the best way to do this?
                 count(FeatureName.LOCAL_VARIABLE_DECLARATIONS, 1)
             }
         }
@@ -404,6 +569,7 @@ private class FeatureListener(val source: Source, entry: Map.Entry<String, Strin
             if (ctx.DO() != null) {
                 count(FeatureName.DO_WHILE_LOOPS, 1)
             } else {
+                currentFeatures.features.skeleton += "while "
                 count(FeatureName.WHILE_LOOPS, 1)
             }
         }
@@ -411,6 +577,7 @@ private class FeatureListener(val source: Source, entry: Map.Entry<String, Strin
             // Check for else-if chains
             val outerIfStart = ctx.start.startIndex
             if (outerIfStart !in seenIfStarts) {
+                currentFeatures.features.skeleton += "if "
                 // Count if block
                 count(FeatureName.IF_STATEMENTS, 1)
                 seenIfStarts += outerIfStart
@@ -451,24 +618,32 @@ private class FeatureListener(val source: Source, entry: Map.Entry<String, Strin
             count(FeatureName.THROW, 1)
         }
         // Count nested statements
-        if (ctx.statement(0) != null) {
+        ctx.statement(0)?.also {
             val statement = ctx.statement(0).block().blockStatement()
+            var hasNesting = 0
             for (block in statement) {
-                block.statement()?.FOR()?.also {
+                val blockStatement = block.statement()
+                blockStatement?.FOR()?.also {
+                    hasNesting = 1
                     count(FeatureName.NESTED_FOR, 1)
                 }
-                block.statement()?.IF()?.also {
-                    seenIfStarts += block.statement().start.startIndex
-                    count(FeatureName.IF_STATEMENTS, 1)
+                blockStatement?.IF()?.also {
+                    hasNesting = 1
                     count(FeatureName.NESTED_IF, 1)
                 }
-                block.statement()?.WHILE()?.also {
+                blockStatement?.WHILE()?.also {
+                    hasNesting = 1
                     if (block.statement().DO() != null) {
                         count(FeatureName.NESTED_DO_WHILE, 1)
                     } else {
                         count(FeatureName.NESTED_WHILE, 1)
                     }
                 }
+            }
+            if (hasNesting == 1) {
+                currentFeatures.features.skeleton += "{ "
+            } else if (hasNesting == 0) {
+                currentFeatures.features.skeleton += "} "
             }
         }
     }
@@ -499,7 +674,6 @@ private class FeatureListener(val source: Source, entry: Map.Entry<String, Strin
             }
             if (ctx.expression().size != 0 && (ctx.text.contains("[") || ctx.text.contains("]"))) {
                 count(FeatureName.ARRAY_ACCESS, 1)
-                println(ctx.text)
             }
         }
         if (ctx.text.startsWith("(" + ctx.typeType()?.text + ")")) {
@@ -535,7 +709,7 @@ private class FeatureListener(val source: Source, entry: Map.Entry<String, Strin
     }
 }
 
-class FeaturesResults(val source: Source, val results: Map<String, Map<String, ClassFeatures>>) {
+class FeaturesResults(val source: Source, val results: Map<String, Map<String, UnitFeatures>>) {
     @Suppress("ReturnCount")
     fun lookup(path: String, filename: String = ""): FeatureValue {
         val components = path.split(".").toMutableList()
@@ -545,20 +719,25 @@ class FeaturesResults(val source: Source, val results: Map<String, Map<String, C
         }
         val resultSource = results[filename] ?: error("results does not contain key $filename")
 
+        val unitFeatures = resultSource[filename] ?: error("missing UnitFeatures")
+        if (path == "") {
+            return unitFeatures
+        }
+
         var currentFeatures = if (source is Snippet) {
-            val rootFeatures = resultSource[""] ?: error("")
+            val rootFeatures = unitFeatures.classes[""] as? FeatureValue ?: error("")
             if (path.isEmpty()) {
                 return rootFeatures
             } else if (path == ".") {
                 return rootFeatures.methods[""] as FeatureValue
             }
-            if (resultSource[components[0]] != null) {
-                resultSource[components.removeAt(0)]
+            if (unitFeatures.classes[components[0]] != null) {
+                unitFeatures.classes[components.removeAt(0)]
             } else {
                 rootFeatures
             }
         } else {
-            resultSource[components.removeAt(0)]
+            unitFeatures.classes[components.removeAt(0)]
         } as FeatureValue
 
         for (component in components) {
