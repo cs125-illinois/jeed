@@ -85,6 +85,9 @@ enum class FeatureName {
 
 data class Features(
     var featureMap: MutableMap<FeatureName, Int> = FeatureName.values().associate { it to 0 }.toMutableMap(),
+    var importList: MutableList<String> = arrayListOf(),
+    var typeList: MutableList<String> = arrayListOf(),
+    var identifierList: MutableList<String> = arrayListOf(),
     var skeleton: String = ""
 ) {
     operator fun plus(other: Features): Features {
@@ -92,8 +95,14 @@ data class Features(
         for (key in FeatureName.values()) {
             map[key] = featureMap[key]!! + other.featureMap[key]!!
         }
+        importList.addAll(other.importList)
+        typeList.addAll(other.typeList)
+        identifierList.addAll(other.identifierList)
         return Features(
             map,
+            importList,
+            typeList,
+            identifierList,
             skeleton + " " + other.skeleton
         )
     }
@@ -251,6 +260,9 @@ private class FeatureListener(val source: Source, entry: Map.Entry<String, Strin
                 }
             }.size
         )
+        for (import in ctx.importDeclaration()) {
+            currentFeatures.features.importList.add(import.qualifiedName().text)
+        }
     }
 
     override fun exitCompilationUnit(ctx: JavaParser.CompilationUnitContext) {
@@ -457,6 +469,7 @@ private class FeatureListener(val source: Source, entry: Map.Entry<String, Strin
                 } ?: false
             }?.size ?: 0
         )
+
     }
 
     override fun exitMethodDeclaration(ctx: JavaParser.MethodDeclarationContext) {
@@ -529,13 +542,17 @@ private class FeatureListener(val source: Source, entry: Map.Entry<String, Strin
             count(FeatureName.TYPE_INFERENCE, 1)
         }
         // Check if variable is an object
-        when (ctx.typeType().classOrInterfaceType()?.text) {
-            "char", "boolean", "int", "double", "long", "byte", "short", "float" -> { }
-            else -> {
-                for (declarator in ctx.variableDeclarators().variableDeclarator()) {
-                    seenObjectIdentifiers += declarator.variableDeclaratorId().IDENTIFIER().text
-                }
+        ctx.typeType().classOrInterfaceType()?.also {
+            for (declarator in ctx.variableDeclarators().variableDeclarator()) {
+                seenObjectIdentifiers += declarator.variableDeclaratorId().IDENTIFIER().text
             }
+            currentFeatures.features.typeList.add(it.text)
+        }
+        ctx.typeType().primitiveType()?.also {
+            currentFeatures.features.typeList.add(it.text)
+        }
+        for (declarator in ctx.variableDeclarators().variableDeclarator()) {
+            currentFeatures.features.identifierList.add(declarator.variableDeclaratorId().IDENTIFIER().text)
         }
     }
 

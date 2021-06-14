@@ -619,4 +619,32 @@ public enum Test {
             it.lookup("", "Test.java").features.featureMap[FeatureName.ENUM] shouldBe 1
         }
     }
+    "should correctly create a list of types and identifiers in snippets" {
+        Source.fromSnippet(
+            """
+int i = 0;
+double j = 5.0;
+boolean foo = true;
+String string = "Hello, world!";
+
+""".trim()
+        ).features().also {
+            it.lookup(".").features.typeList shouldBe arrayListOf("int", "double", "boolean", "String")
+            it.lookup(".").features.identifierList shouldBe arrayListOf("i", "j", "foo", "string")
+        }
+    }
+    "should correctly create a list of import statements" {
+        Source(
+            mapOf(
+                "Test.java" to """
+import java.util.List;
+import java.util.ArrayList;
+                    
+public class Test { }
+                """.trim()
+            )
+        ).features().also {
+            it.lookup("", "Test.java").features.importList shouldBe arrayListOf("java.util.List", "java.util.ArrayList")
+        }
+    }
 })
