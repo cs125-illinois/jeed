@@ -308,12 +308,12 @@ public class Test {
 """.trim()
             )
         ).features().also {
-            it.lookup("Test", "Test.java").features.featureMap[FeatureName.CLASS] shouldBe 2
+            it.lookup("", "Test.java").features.featureMap[FeatureName.CLASS] shouldBe 2
             it.lookup("Test", "Test.java").features.featureMap[FeatureName.CONSTRUCTOR] shouldBe 1
             it.lookup("Test", "Test.java").features.featureMap[FeatureName.METHOD] shouldBe 3
             it.lookup("Test", "Test.java").features.featureMap[FeatureName.GETTER] shouldBe 1
             it.lookup("Test", "Test.java").features.featureMap[FeatureName.SETTER] shouldBe 1
-            it.lookup("Test", "Test.java").features.featureMap[FeatureName.STATIC] shouldBe 1
+            it.lookup("Test", "Test.java").features.featureMap[FeatureName.STATIC_METHOD] shouldBe 1
             it.lookup("Test", "Test.java").features.featureMap[FeatureName.VISIBILITY_MODIFIERS] shouldBe 2
         }
     }
@@ -376,7 +376,7 @@ public class Test {
             )
         ).features().also {
             it.lookup("Test", "Test.java").features.featureMap[FeatureName.OVERRIDE] shouldBe 1
-            // it.lookup("Test", "Test.java").features.featureMap[FeatureName.IMPORT] shouldBe 1
+            it.lookup("", "Test.java").features.featureMap[FeatureName.IMPORT] shouldBe 1
         }
     }
     "should count reference equality" {
@@ -434,8 +434,8 @@ public class Calculator implements Test {
 }
 """.trim()
         ).features().also {
-            it.lookup("Test").features.featureMap[FeatureName.ABSTRACT] shouldBe 2
-            it.lookup("Calculator").features.featureMap[FeatureName.FINAL] shouldBe 2
+            it.lookup("Test").features.featureMap[FeatureName.ABSTRACT_METHOD] shouldBe 2
+            it.lookup("Calculator").features.featureMap[FeatureName.FINAL_METHOD] shouldBe 1
         }
     }
     "should count anonymous classes" {
@@ -513,6 +513,110 @@ public class Counter<T> {
             )
         ).features().also {
             it.lookup("Counter", "Counter.java").features.featureMap[FeatureName.GENERIC_CLASS] shouldBe 1
+        }
+    }
+    "should count classes declared inside methods" {
+        Source(
+            mapOf(
+                "Test.java" to """
+public class Test {
+    private int number;
+    
+    public Test(int setNumber) {
+        number = setNumber;
+    }
+    
+    void makeClass() {
+        class Class { }
+    }
+}
+""".trim()
+            )
+        ).features().also {
+            it.lookup("", "Test.java").features.featureMap[FeatureName.CLASS] shouldBe 2
+        }
+    }
+    "should correctly create a code skeleton for snippets" {
+        Source.fromSnippet(
+            """
+int i = 0;
+if (i < 15) {
+    for (int j = 0; j < 10; j++) {
+        i--;
+        if (i < 5) {
+            i++;
+        } else {
+            i--;
+        }
+    }
+    while (i > 10) {
+        i--;
+    }
+} else {
+    System.out.println("Hello, world!");
+}
+""".trim()
+        ).features().also {
+            it.lookup("").features.skeleton.trim() shouldBe "if { for { if else } while } else"
+        }
+    }
+    "should count final classes" {
+        Source(
+            mapOf(
+                "Test.java" to """
+public final class Test {
+    private int number;
+    
+    public Test(int setNumber) {
+        number = setNumber;
+    }
+    
+    public final class First { }
+    public abstract class AbstractFirst { }
+    
+    public void makeClass() {
+        public final class Second { }
+        public abstract class AbstractSecond { }
+    }
+}
+""".trim()
+            )
+        ).features().also {
+            it.lookup("", "Test.java").features.featureMap[FeatureName.FINAL_CLASS] shouldBe 3
+            it.lookup("", "Test.java").features.featureMap[FeatureName.ABSTRACT_CLASS] shouldBe 2
+        }
+    }
+    "should count interface methods" {
+        Source(
+            mapOf(
+                "Test.java" to """
+public interface Test {
+    private final int add(int x, int y);
+    private static int subtract(int x, int y);
+}
+                """.trim()
+            )
+        ).features().also {
+            it.lookup("", "Test.java").features.featureMap[FeatureName.INTERFACE] shouldBe 1
+            it.lookup("", "Test.java").features.featureMap[FeatureName.METHOD] shouldBe 2
+            it.lookup("", "Test.java").features.featureMap[FeatureName.STATIC_METHOD] shouldBe 1
+            it.lookup("", "Test.java").features.featureMap[FeatureName.FINAL_METHOD] shouldBe 1
+            it.lookup("", "Test.java").features.featureMap[FeatureName.VISIBILITY_MODIFIERS] shouldBe 3
+        }
+    }
+    "should count enum classes" {
+        Source(
+            mapOf(
+                "Test.java" to """
+public enum Test {
+    FIRST,
+    SECOND,
+    THIRD
+}
+                """.trim()
+            )
+        ).features().also {
+            it.lookup("", "Test.java").features.featureMap[FeatureName.ENUM] shouldBe 1
         }
     }
 })
