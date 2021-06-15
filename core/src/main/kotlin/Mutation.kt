@@ -48,7 +48,12 @@ val ALL = PITEST + OTHER
 fun Mutation.Type.suppressionComment() = "mutate-disable-" + mutationName()
 fun Mutation.Type.mutationName() = name.lowercase().replace("_", "-")
 
-sealed class Mutation(val mutationType: Type, var location: Location, val original: String) {
+sealed class Mutation(
+    val mutationType: Type,
+    var location: Location,
+    val original: String,
+    val fileType: Source.FileType
+) {
     data class Location(
         val start: Int,
         val end: Int,
@@ -186,7 +191,7 @@ sealed class Mutation(val mutationType: Type, var location: Location, val origin
                 val location = ctx.block().toLocation()
                 val contents = parsedSource.contents(location)
                 if (RemoveMethod.matches(contents, currentReturnType!!)) {
-                    mutations.add(RemoveMethod(location, contents, currentReturnType!!))
+                    mutations.add(RemoveMethod(location, contents, currentReturnType!!, fileType))
                 }
             }
         }
@@ -227,30 +232,30 @@ sealed class Mutation(val mutationType: Type, var location: Location, val origin
             }
             ctx.BOOL_LITERAL()?.also {
                 ctx.toLocation().also { location ->
-                    mutations.add(BooleanLiteral(location, parsedSource.contents(location)))
+                    mutations.add(BooleanLiteral(location, parsedSource.contents(location), fileType))
                 }
             }
             ctx.CHAR_LITERAL()?.also {
                 ctx.toLocation().also { location ->
-                    mutations.add(CharLiteral(location, parsedSource.contents(location)))
+                    mutations.add(CharLiteral(location, parsedSource.contents(location), fileType))
                 }
             }
             ctx.STRING_LITERAL()?.also {
                 ctx.toLocation().also { location ->
-                    mutations.add(StringLiteral(location, parsedSource.contents(location)))
+                    mutations.add(StringLiteral(location, parsedSource.contents(location), fileType))
                 }
             }
             ctx.integerLiteral()?.also { integerLiteral ->
                 integerLiteral.DECIMAL_LITERAL()?.also {
                     ctx.toLocation().also { location ->
-                        mutations.add(NumberLiteral(location, parsedSource.contents(location)))
+                        mutations.add(NumberLiteral(location, parsedSource.contents(location), fileType))
                     }
                 }
             }
             ctx.floatLiteral()?.also { floatLiteral ->
                 floatLiteral.FLOAT_LITERAL()?.also {
                     ctx.toLocation().also { location ->
-                        mutations.add(NumberLiteral(location, parsedSource.contents(location)))
+                        mutations.add(NumberLiteral(location, parsedSource.contents(location), fileType))
                     }
                 }
             }
@@ -289,16 +294,16 @@ sealed class Mutation(val mutationType: Type, var location: Location, val origin
             ctx.prefix?.toLocation()?.also { location ->
                 val contents = parsedSource.contents(location)
                 if (IncrementDecrement.matches(contents)) {
-                    mutations.add(IncrementDecrement(location, contents))
+                    mutations.add(IncrementDecrement(location, contents, fileType))
                 }
                 if (InvertNegation.matches(contents)) {
-                    mutations.add(InvertNegation(location, contents))
+                    mutations.add(InvertNegation(location, contents, fileType))
                 }
             }
             ctx.postfix?.toLocation()?.also { location ->
                 val contents = parsedSource.contents(location)
                 if (IncrementDecrement.matches(contents)) {
-                    mutations.add(IncrementDecrement(location, contents))
+                    mutations.add(IncrementDecrement(location, contents, fileType))
                 }
             }
 
@@ -307,12 +312,12 @@ sealed class Mutation(val mutationType: Type, var location: Location, val origin
                     tokens.toLocation().also { location ->
                         val contents = parsedSource.contents(location)
                         if (MutateMath.matches(contents)) {
-                            mutations.add(MutateMath(location, contents))
+                            mutations.add(MutateMath(location, contents, fileType))
                         }
                         if (RemoveBinary.matches(contents)) {
                             val (frontLocation, backLocation) = ctx.locationPair()
-                            mutations.add(RemoveBinary(frontLocation, parsedSource.contents(frontLocation)))
-                            mutations.add(RemoveBinary(backLocation, parsedSource.contents(backLocation)))
+                            mutations.add(RemoveBinary(frontLocation, parsedSource.contents(frontLocation), fileType))
+                            mutations.add(RemoveBinary(backLocation, parsedSource.contents(backLocation), fileType))
                         }
                     }
                 }
@@ -325,47 +330,47 @@ sealed class Mutation(val mutationType: Type, var location: Location, val origin
                 val location = ctx.GT().toLocation()
                 val contents = parsedSource.contents(location)
                 if (MutateMath.matches(contents)) {
-                    mutations.add(MutateMath(location, contents))
+                    mutations.add(MutateMath(location, contents, fileType))
                 }
                 if (RemoveBinary.matches(contents)) {
                     val (frontLocation, backLocation) = ctx.locationPair()
-                    mutations.add(RemoveBinary(frontLocation, parsedSource.contents(frontLocation)))
-                    mutations.add(RemoveBinary(backLocation, parsedSource.contents(backLocation)))
+                    mutations.add(RemoveBinary(frontLocation, parsedSource.contents(frontLocation), fileType))
+                    mutations.add(RemoveBinary(backLocation, parsedSource.contents(backLocation), fileType))
                 }
             }
 
             ctx.bop?.toLocation()?.also { location ->
                 val contents = parsedSource.contents(location)
                 if (ConditionalBoundary.matches(contents)) {
-                    mutations.add(ConditionalBoundary(location, contents))
+                    mutations.add(ConditionalBoundary(location, contents, fileType))
                 }
                 if (NegateConditional.matches(contents)) {
-                    mutations.add(NegateConditional(location, contents))
+                    mutations.add(NegateConditional(location, contents, fileType))
                 }
                 if (MutateMath.matches(contents)) {
-                    mutations.add(MutateMath(location, contents))
+                    mutations.add(MutateMath(location, contents, fileType))
                 }
                 if (PlusToMinus.matches(contents)) {
-                    mutations.add(PlusToMinus(location, contents))
+                    mutations.add(PlusToMinus(location, contents, fileType))
                 }
                 if (SwapAndOr.matches(contents)) {
-                    mutations.add(SwapAndOr(location, contents))
+                    mutations.add(SwapAndOr(location, contents, fileType))
                 }
                 @Suppress("ComplexCondition")
                 if (contents == "&&" || contents == "||") {
                     val (frontLocation, backLocation) = ctx.locationPair()
-                    mutations.add(RemoveAndOr(frontLocation, parsedSource.contents(frontLocation)))
-                    mutations.add(RemoveAndOr(backLocation, parsedSource.contents(backLocation)))
+                    mutations.add(RemoveAndOr(frontLocation, parsedSource.contents(frontLocation), fileType))
+                    mutations.add(RemoveAndOr(backLocation, parsedSource.contents(backLocation), fileType))
                 }
                 if (RemovePlus.matches(contents)) {
                     val (frontLocation, backLocation) = ctx.locationPair()
-                    mutations.add(RemovePlus(frontLocation, parsedSource.contents(frontLocation)))
-                    mutations.add(RemovePlus(backLocation, parsedSource.contents(backLocation)))
+                    mutations.add(RemovePlus(frontLocation, parsedSource.contents(frontLocation), fileType))
+                    mutations.add(RemovePlus(backLocation, parsedSource.contents(backLocation), fileType))
                 }
                 if (RemoveBinary.matches(contents)) {
                     val (frontLocation, backLocation) = ctx.locationPair()
-                    mutations.add(RemoveBinary(frontLocation, parsedSource.contents(frontLocation)))
-                    mutations.add(RemoveBinary(backLocation, parsedSource.contents(backLocation)))
+                    mutations.add(RemoveBinary(frontLocation, parsedSource.contents(frontLocation), fileType))
+                    mutations.add(RemoveBinary(backLocation, parsedSource.contents(backLocation), fileType))
                 }
             }
         }
@@ -373,11 +378,12 @@ sealed class Mutation(val mutationType: Type, var location: Location, val origin
         private val seenIfStarts = mutableSetOf<Int>()
 
         override fun enterStatement(ctx: JavaParser.StatementContext) {
+            println("java enterStatement ${ctx.text}")
             ctx.IF()?.also {
                 val outerLocation = ctx.toLocation()
                 if (outerLocation.start !in seenIfStarts) {
                     // Add entire if
-                    mutations.add(RemoveIf(outerLocation, parsedSource.contents(outerLocation)))
+                    mutations.add(RemoveIf(outerLocation, parsedSource.contents(outerLocation), fileType))
                     seenIfStarts += outerLocation.start
                     check(ctx.statement().isNotEmpty())
                     if (ctx.statement().size == 2 && ctx.statement(1).block() != null) {
@@ -394,7 +400,7 @@ sealed class Mutation(val mutationType: Type, var location: Location, val origin
                                     .joinToString("\n"),
                                 start.line
                             )
-                        mutations.add(RemoveIf(elseLocation, parsedSource.contents(elseLocation)))
+                        mutations.add(RemoveIf(elseLocation, parsedSource.contents(elseLocation), fileType))
                     } else if (ctx.statement().size >= 2) {
                         var statement = ctx.statement(1)
                         var previousMarker = ctx.ELSE()
@@ -416,19 +422,19 @@ sealed class Mutation(val mutationType: Type, var location: Location, val origin
                                         .joinToString("\n"),
                                     previousMarker.symbol.line
                                 )
-                            mutations.add(RemoveIf(currentLocation, parsedSource.contents(currentLocation)))
+                            mutations.add(RemoveIf(currentLocation, parsedSource.contents(currentLocation), fileType))
                             previousMarker = statement.ELSE()
                             statement = statement.statement(1)
                         }
                     }
                 }
                 ctx.parExpression().toLocation().also { location ->
-                    mutations.add(NegateIf(location, parsedSource.contents(location)))
+                    mutations.add(NegateIf(location, parsedSource.contents(location), fileType))
                 }
             }
             ctx.ASSERT()?.also {
                 ctx.toLocation().also { location ->
-                    mutations.add(RemoveAssert(location, parsedSource.contents(location)))
+                    mutations.add(RemoveAssert(location, parsedSource.contents(location), fileType))
                 }
             }
             ctx.RETURN()?.also {
@@ -436,39 +442,39 @@ sealed class Mutation(val mutationType: Type, var location: Location, val origin
                     val contents = parsedSource.contents(location)
                     currentReturnType?.also { returnType ->
                         if (PrimitiveReturn.matches(contents, returnType, fileType)) {
-                            mutations.add(PrimitiveReturn(location, parsedSource.contents(location)))
+                            mutations.add(PrimitiveReturn(location, parsedSource.contents(location), fileType))
                         }
                         if (TrueReturn.matches(contents, returnType)) {
-                            mutations.add(TrueReturn(location, parsedSource.contents(location)))
+                            mutations.add(TrueReturn(location, parsedSource.contents(location), fileType))
                         }
                         if (FalseReturn.matches(contents, returnType)) {
-                            mutations.add(FalseReturn(location, parsedSource.contents(location)))
+                            mutations.add(FalseReturn(location, parsedSource.contents(location), fileType))
                         }
                         if (NullReturn.matches(contents, returnType, fileType)) {
-                            mutations.add(NullReturn(location, parsedSource.contents(location)))
+                            mutations.add(NullReturn(location, parsedSource.contents(location), fileType))
                         }
                     } ?: error("Should have recorded a return type at this point")
                 }
             }
             ctx.WHILE()?.also {
                 ctx.parExpression().toLocation().also { location ->
-                    mutations.add(NegateWhile(location, parsedSource.contents(location)))
+                    mutations.add(NegateWhile(location, parsedSource.contents(location), fileType))
                 }
                 if (ctx.DO() == null) {
-                    mutations.add(RemoveLoop(ctx.toLocation(), parsedSource.contents(ctx.toLocation())))
+                    mutations.add(RemoveLoop(ctx.toLocation(), parsedSource.contents(ctx.toLocation()), fileType))
                 }
             }
             ctx.FOR()?.also {
-                mutations.add(RemoveLoop(ctx.toLocation(), parsedSource.contents(ctx.toLocation())))
+                mutations.add(RemoveLoop(ctx.toLocation(), parsedSource.contents(ctx.toLocation()), fileType))
             }
             ctx.DO()?.also {
-                mutations.add(RemoveLoop(ctx.toLocation(), parsedSource.contents(ctx.toLocation())))
+                mutations.add(RemoveLoop(ctx.toLocation(), parsedSource.contents(ctx.toLocation()), fileType))
             }
             ctx.TRY()?.also {
-                mutations.add(RemoveTry(ctx.toLocation(), parsedSource.contents(ctx.toLocation())))
+                mutations.add(RemoveTry(ctx.toLocation(), parsedSource.contents(ctx.toLocation()), fileType))
             }
             ctx.statementExpression?.also {
-                mutations.add(RemoveStatement(ctx.toLocation(), parsedSource.contents(ctx.toLocation())))
+                mutations.add(RemoveStatement(ctx.toLocation(), parsedSource.contents(ctx.toLocation()), fileType))
             }
         }
 
@@ -521,43 +527,44 @@ sealed class Mutation(val mutationType: Type, var location: Location, val origin
 
         override fun enterFunctionBody(ctx: KotlinParser.FunctionBodyContext) {
             check(currentReturnType != null)
-            println(currentReturnType)
-            println("enterFunctionBody: " + ctx.text)
             val methodLocation = ctx.block().toLocation()
             val methodContents = parsedSource.contents(methodLocation)
             if (RemoveMethod.matches(methodContents, currentReturnType!!)) {
-                mutations.add(RemoveMethod(methodLocation, methodContents, currentReturnType!!))
+                mutations.add(RemoveMethod(methodLocation, methodContents, currentReturnType!!, fileType))
             }
             ctx.block().statements().statement().filter { it.start.text == "return" }.forEach {
-                val returnValue = it.stop.text
-                val returnLocation = it.stop.toLocation()
+                val returnToken = it.blockLevelExpression().expression().disjunction(0).conjunction(0)
+                    .equalityComparison(0).comparison(0).namedInfix(0).elvisExpression(0)
+                    .infixFunctionCall(0).rangeExpression(0).additiveExpression(0)
+                    .multiplicativeExpression(0).typeRHS(0).prefixUnaryExpression(0)
+                    .postfixUnaryExpression().atomicExpression().jumpExpression().expression() ?: return
+                val returnLocation = returnToken.toLocation()
 
-                if (PrimitiveReturn.matches(returnValue, currentReturnType!!, fileType)) {
-                    mutations.add(PrimitiveReturn(returnLocation, returnValue))
+                if (PrimitiveReturn.matches(returnToken.text, currentReturnType!!, fileType)) {
+                    mutations.add(PrimitiveReturn(returnLocation, parsedSource.contents(returnLocation), fileType))
                 }
-                if (TrueReturn.matches(returnValue, currentReturnType!!)) {
-                    mutations.add(TrueReturn(returnLocation, returnValue))
+                if (TrueReturn.matches(returnToken.text, currentReturnType!!)) {
+                    mutations.add(TrueReturn(returnLocation, parsedSource.contents(returnLocation), fileType))
                 }
-                if (FalseReturn.matches(returnValue, currentReturnType!!)) {
-                    mutations.add(FalseReturn(returnLocation, returnValue))
+                if (FalseReturn.matches(returnToken.text, currentReturnType!!)) {
+                    mutations.add(FalseReturn(returnLocation, parsedSource.contents(returnLocation), fileType))
                 }
-                if (NullReturn.matches(returnValue, currentReturnType!!, fileType)) {
-                    mutations.add(NullReturn(returnLocation, returnValue)) // todo: fix this
+                if (NullReturn.matches(returnToken.text, currentReturnType!!, fileType)) {
+                    mutations.add(NullReturn(returnLocation, parsedSource.contents(returnLocation), fileType))
                 }
             }
         }
 
         override fun enterStatement(ctx: KotlinParser.StatementContext) {
+            println("enterStatement: ${ctx.text}")
+            val statementLocation = ctx.toLocation()
             if (ctx.start.text == "assert" ||
                 ctx.start.text == "check" ||
                 ctx.start.text == "require"
             ) {
-                mutations.add(RemoveAssert(ctx.toLocation(), ctx.text))
+                mutations.add(RemoveAssert(statementLocation, parsedSource.contents(statementLocation), fileType))
             }
-        }
-
-        override fun enterStatements(ctx: KotlinParser.StatementsContext) {
-            println("enterStatements: " + ctx.text)
+            mutations.add(RemoveStatement(statementLocation, parsedSource.contents(statementLocation), fileType))
         }
 
         private var insideAnnotation = false
@@ -596,43 +603,43 @@ sealed class Mutation(val mutationType: Type, var location: Location, val origin
             }
             ctx.BooleanLiteral()?.also {
                 ctx.toLocation().also { location ->
-                    mutations.add(BooleanLiteral(location, parsedSource.contents(location)))
+                    mutations.add(BooleanLiteral(location, parsedSource.contents(location), fileType))
                 }
             }
             ctx.IntegerLiteral()?.also {
                 ctx.toLocation().also { location ->
-                    mutations.add(NumberLiteral(location, parsedSource.contents(location)))
+                    mutations.add(NumberLiteral(location, parsedSource.contents(location), fileType))
                 }
             }
             ctx.stringLiteral()?.also {
                 ctx.toLocation().also { location ->
-                    mutations.add(StringLiteral(location, parsedSource.contents(location)))
+                    mutations.add(StringLiteral(location, parsedSource.contents(location), fileType))
                 }
             }
             ctx.HexLiteral()?.also {
                 ctx.toLocation().also { location ->
-                    mutations.add(NumberLiteral(location, parsedSource.contents(location), 16))
+                    mutations.add(NumberLiteral(location, parsedSource.contents(location), fileType, 16))
                 }
             }
             ctx.BinLiteral()?.also {
                 ctx.toLocation().also { location ->
-                    mutations.add(NumberLiteral(location, parsedSource.contents(location), 2))
+                    mutations.add(NumberLiteral(location, parsedSource.contents(location), fileType, 2))
                 }
             }
             ctx.CharacterLiteral()?.also {
                 ctx.toLocation().also { location ->
-                    mutations.add(CharLiteral(location, parsedSource.contents(location)))
+                    mutations.add(CharLiteral(location, parsedSource.contents(location), fileType))
                 }
             }
             // reals are doubles and floats
             ctx.RealLiteral()?.also {
                 ctx.toLocation().also { location ->
-                    mutations.add(NumberLiteral(location, parsedSource.contents(location)))
+                    mutations.add(NumberLiteral(location, parsedSource.contents(location), fileType))
                 }
             }
             ctx.LongLiteral()?.also {
                 ctx.toLocation().also { location ->
-                    mutations.add(NumberLiteral(location, parsedSource.contents(location)))
+                    mutations.add(NumberLiteral(location, parsedSource.contents(location), fileType))
                 }
             }
             ctx.NullLiteral()?.also {
@@ -643,231 +650,147 @@ sealed class Mutation(val mutationType: Type, var location: Location, val origin
             }
         }
 
-        /*
-        private fun KotlinParser.ExpressionContext.locationPair(): Pair<Location, Location> {
-            val front = start
-            val back = stop
-            val frontLocation = Location(
-                start.startIndex,
-                start.startIndex - 1,
-                currentPath,
-                lines
-                    .filterIndexed { index, _ ->
-                        index >= front.line - 1 && index <= back.line - 1
-                    }
-                    .joinToString("\n"),
-                front.line
-            )
-            val backLocation = Location(
-                front.stopIndex + 1,
-                back.stopIndex,
-                currentPath,
-                lines
-                    .filterIndexed { index, _ ->
-                        index >= front.line - 1 && index <= back.line - 1
-                    }
-                    .joinToString("\n"),
-                front.line
-            )
-            return Pair(frontLocation, backLocation)
-        }
-         */
-
-        override fun enterExpression(ctx: KotlinParser.ExpressionContext) {
-
-            //
-            // // I'm not sure why you can't write this like the other ones, but it fails with a cast to kotlin.Unit
-            // // exception
-            // @Suppress("MagicNumber")
-            // if (ctx.GT() != null && (ctx.GT().size == 2 || ctx.GT().size == 3)) {
-            //     val location = ctx.GT().toLocation()
-            //     val contents = parsedSource.contents(location)
-            //     if (RemoveBinary.matches(contents)) {
-            //         val (frontLocation, backLocation) = ctx.locationPair()
-            //         mutations.add(RemoveBinary(frontLocation, parsedSource.contents(frontLocation)))
-            //         mutations.add(RemoveBinary(backLocation, parsedSource.contents(backLocation)))
-            //     }
-            // }
-            //
-            //     @Suppress("ComplexCondition")
-            //     if (contents == "&&" || contents == "||") {
-            //         val (frontLocation, backLocation) = ctx.locationPair()
-            //         mutations.add(RemoveAndOr(frontLocation, parsedSource.contents(frontLocation)))
-            //         mutations.add(RemoveAndOr(backLocation, parsedSource.contents(backLocation)))
-            //     }
-            //     if (RemovePlus.matches(contents)) {
-            //         val (frontLocation, backLocation) = ctx.locationPair()
-            //         mutations.add(RemovePlus(frontLocation, parsedSource.contents(frontLocation)))
-            //         mutations.add(RemovePlus(backLocation, parsedSource.contents(backLocation)))
-            //     }
-            // }
+        override fun enterIfExpression(ctx: KotlinParser.IfExpressionContext) {
+            println("enterIfExpression: ${ctx.text}")
+            val conditionalLocation = ctx.parenthesizedExpression().toLocation()
+            mutations.add(NegateIf(conditionalLocation, parsedSource.contents(conditionalLocation), fileType))
         }
 
-        override fun enterConditionalExpression(ctx: KotlinParser.ConditionalExpressionContext) {
+        override fun enterLoopExpression(ctx: KotlinParser.LoopExpressionContext) {
+            val location = ctx.toLocation()
+            mutations.add(RemoveLoop(location, parsedSource.contents(location), fileType))
+        }
+
+        override fun enterDoWhileExpression(ctx: KotlinParser.DoWhileExpressionContext) {
+            val location = ctx.parenthesizedExpression().toLocation()
+            mutations.add(NegateWhile(location, parsedSource.contents(location), fileType))
+        }
+
+        override fun enterWhileExpression(ctx: KotlinParser.WhileExpressionContext) {
+            val location = ctx.parenthesizedExpression().toLocation()
+            mutations.add(NegateWhile(location, parsedSource.contents(location), fileType))
+        }
+
+        override fun enterTryExpression(ctx: KotlinParser.TryExpressionContext) {
+            val location = ctx.toLocation()
+            mutations.add(RemoveTry(location, parsedSource.contents(location), fileType))
         }
 
         override fun enterPrefixUnaryOperation(ctx: KotlinParser.PrefixUnaryOperationContext) {
             if (IncrementDecrement.matches(ctx.text)) {
-                mutations.add(IncrementDecrement(ctx.toLocation(), ctx.text))
+                mutations.add(IncrementDecrement(ctx.toLocation(), ctx.text, fileType))
             }
             if (InvertNegation.matches(ctx.text)) {
-                mutations.add(InvertNegation(ctx.toLocation(), ctx.text))
+                mutations.add(InvertNegation(ctx.toLocation(), ctx.text, fileType))
             }
         }
 
         override fun enterPostfixUnaryOperation(ctx: KotlinParser.PostfixUnaryOperationContext) {
             if (IncrementDecrement.matches(ctx.text)) {
-                mutations.add(IncrementDecrement(ctx.toLocation(), ctx.text))
+                mutations.add(IncrementDecrement(ctx.toLocation(), ctx.text, fileType))
             }
         }
 
         override fun enterComparisonOperator(ctx: KotlinParser.ComparisonOperatorContext) {
             if (ConditionalBoundary.matches(ctx.text)) {
-                mutations.add(ConditionalBoundary(ctx.toLocation(), ctx.text))
+                mutations.add(ConditionalBoundary(ctx.toLocation(), ctx.text, fileType))
             }
             if (NegateConditional.matches(ctx.text)) {
-                mutations.add(NegateConditional(ctx.toLocation(), ctx.text))
+                mutations.add(NegateConditional(ctx.toLocation(), ctx.text, fileType))
             }
         }
 
         override fun enterMultiplicativeOperation(ctx: KotlinParser.MultiplicativeOperationContext) {
             if (MutateMath.matches(ctx.text)) {
-                mutations.add(MutateMath(ctx.toLocation(), ctx.text))
+                mutations.add(MutateMath(ctx.toLocation(), ctx.text, fileType))
             }
         }
 
         override fun enterAdditiveOperator(ctx: KotlinParser.AdditiveOperatorContext) {
             if (PlusToMinus.matches(ctx.text)) {
-                mutations.add(PlusToMinus(ctx.toLocation(), ctx.text))
+                mutations.add(PlusToMinus(ctx.toLocation(), ctx.text, fileType))
             }
             if (MutateMath.matches(ctx.text)) {
-                mutations.add(MutateMath(ctx.toLocation(), ctx.text))
+                mutations.add(MutateMath(ctx.toLocation(), ctx.text, fileType))
             }
         }
 
         override fun enterEqualityOperation(ctx: KotlinParser.EqualityOperationContext) {
             if (NegateConditional.matches(ctx.text)) {
-                mutations.add(NegateConditional(ctx.toLocation(), ctx.text))
+                mutations.add(NegateConditional(ctx.toLocation(), ctx.text, fileType))
             }
         }
 
         override fun enterDisjunction(ctx: KotlinParser.DisjunctionContext) {
             if (SwapAndOr.matches(ctx.DISJ().joinToString())) {
                 require(ctx.DISJ().size == 1) { "Disjunction list has an invalid size" }
-                mutations.add(SwapAndOr(ctx.DISJ().toLocation(), ctx.DISJ().joinToString()))
+                mutations.add(SwapAndOr(ctx.DISJ().toLocation(), ctx.DISJ().joinToString(), fileType))
+                val (frontLocation, backLocation) = ctx.locationPair()
+                mutations.add(RemoveAndOr(frontLocation, parsedSource.contents(frontLocation), fileType))
+                mutations.add(RemoveAndOr(backLocation, parsedSource.contents(backLocation), fileType))
             }
         }
 
         override fun enterConjunction(ctx: KotlinParser.ConjunctionContext) {
             if (SwapAndOr.matches(ctx.CONJ().joinToString())) {
                 require(ctx.CONJ().size == 1) { "Conjunction list has an invalid size" }
-                mutations.add(SwapAndOr(ctx.CONJ().toLocation(), ctx.CONJ().joinToString()))
+                mutations.add(SwapAndOr(ctx.CONJ().toLocation(), ctx.CONJ().joinToString(), fileType))
+                val (frontLocation, backLocation) = ctx.locationPair()
+                mutations.add(RemoveAndOr(frontLocation, parsedSource.contents(frontLocation), fileType))
+                mutations.add(RemoveAndOr(backLocation, parsedSource.contents(backLocation), fileType))
             }
+        }
+
+        override fun enterAdditiveExpression(ctx: KotlinParser.AdditiveExpressionContext) {
+            if (ctx.additiveOperator().size != 0) {
+                val (frontLocation, backLocation) = ctx.locationPair()
+                mutations.add(RemovePlus(frontLocation, parsedSource.contents(frontLocation), fileType))
+                mutations.add(RemovePlus(backLocation, parsedSource.contents(backLocation), fileType))
+            }
+        }
+
+        private fun <T : ParserRuleContext> locationPairHelper(front: T, back: T): Pair<Location, Location> {
+            val frontLocation = Location(
+                front.start.startIndex,
+                back.start.startIndex - 1,
+                currentPath,
+                lines
+                    .filterIndexed { index, _ ->
+                        index >= front.start.line - 1 && index <= back.start.line - 1
+                    }
+                    .joinToString("\n"),
+                front.start.line
+            )
+            val backLocation = Location(
+                front.stop.stopIndex + 1,
+                back.stop.stopIndex,
+                currentPath,
+                lines
+                    .filterIndexed { index, _ ->
+                        index >= front.stop.line - 1 && index <= back.stop.line - 1
+                    }
+                    .joinToString("\n"),
+                front.start.line
+            )
+            return Pair(frontLocation, backLocation)
+        }
+
+        private fun KotlinParser.AdditiveExpressionContext.locationPair(): Pair<Location, Location> {
+            check(multiplicativeExpression().size == 2)
+            return locationPairHelper<KotlinParser.MultiplicativeExpressionContext>(multiplicativeExpression(0), multiplicativeExpression(1))
+        }
+
+        private fun KotlinParser.ConjunctionContext.locationPair(): Pair<Location, Location> {
+            check(equalityComparison().size == 2)
+            return locationPairHelper<KotlinParser.EqualityComparisonContext>(equalityComparison(0), equalityComparison(1))
+        }
+
+        private fun KotlinParser.DisjunctionContext.locationPair(): Pair<Location, Location> {
+            check(conjunction().size == 2)
+            return locationPairHelper<KotlinParser.ConjunctionContext>(conjunction(0), conjunction(1))
         }
 
         private val seenIfStarts = mutableSetOf<Int>()
-
-        /*
-        override fun enterStatement(ctx: KotlinParser.StatementContext) {
-            ctx.StatementContext()?.also {
-                val outerLocation = ctx.toLocation()
-                if (outerLocation.start !in seenIfStarts) {
-                    // Add entire if
-                    mutations.add(RemoveIf(outerLocation, parsedSource.contents(outerLocation)))
-                    seenIfStarts += outerLocation.start
-                    check(ctx.statement().isNotEmpty())
-                    if (ctx.statement().size == 2 && ctx.statement(1).block() != null) {
-                        // Add else branch (2)
-                        check(ctx.ELSE() != null)
-                        val start = ctx.ELSE().symbol
-                        val end = ctx.statement(1).block().stop
-                        val elseLocation =
-                            Location(
-                                start.startIndex,
-                                end.stopIndex,
-                                currentPath,
-                                lines.filterIndexed { index, _ -> index >= start.line - 1 && index <= end.line - 1 }
-                                    .joinToString("\n"),
-                                start.line
-                            )
-                        mutations.add(RemoveIf(elseLocation, parsedSource.contents(elseLocation)))
-                    } else if (ctx.statement().size >= 2) {
-                        var statement = ctx.statement(1)
-                        var previousMarker = ctx.ELSE()
-                        check(previousMarker != null)
-                        while (statement != null) {
-                            if (statement.IF() != null) {
-                                seenIfStarts += statement.toLocation().start
-                            }
-                            val end = statement.statement(0) ?: statement.block()
-                            val currentLocation =
-                                Location(
-                                    previousMarker.symbol.startIndex,
-                                    end.stop.stopIndex,
-                                    currentPath,
-                                    lines
-                                        .filterIndexed { index, _ ->
-                                            index >= previousMarker.symbol.line - 1 && index <= end.stop.line - 1
-                                        }
-                                        .joinToString("\n"),
-                                    previousMarker.symbol.line
-                                )
-                            mutations.add(RemoveIf(currentLocation, parsedSource.contents(currentLocation)))
-                            previousMarker = statement.ELSE()
-                            statement = statement.statement(1)
-                        }
-                    }
-                }
-                ctx.parExpression().toLocation().also { location ->
-                    mutations.add(NegateIf(location, parsedSource.contents(location)))
-                }
-            }
-            ctx.ASSERT()?.also {
-                ctx.toLocation().also { location ->
-                    mutations.add(RemoveAssert(location, parsedSource.contents(location)))
-                }
-            }
-            ctx.RETURN()?.also {
-                ctx.expression()?.firstOrNull()?.toLocation()?.also { location ->
-                    val contents = parsedSource.contents(location)
-                    currentReturnType?.also { returnType ->
-                        if (PrimitiveReturn.matches(contents, returnType)) {
-                            mutations.add(PrimitiveReturn(location, parsedSource.contents(location)))
-                        }
-                        if (TrueReturn.matches(contents, returnType)) {
-                            mutations.add(TrueReturn(location, parsedSource.contents(location)))
-                        }
-                        if (FalseReturn.matches(contents, returnType)) {
-                            mutations.add(FalseReturn(location, parsedSource.contents(location)))
-                        }
-                        if (NullReturn.matches(contents, returnType)) {
-                            mutations.add(NullReturn(location, parsedSource.contents(location)))
-                        }
-                    } ?: error("Should have recorded a return type at this point")
-                }
-            }
-            ctx.WHILE()?.also {
-                ctx.parExpression().toLocation().also { location ->
-                    mutations.add(NegateWhile(location, parsedSource.contents(location)))
-                }
-                if (ctx.DO() == null) {
-                    mutations.add(RemoveLoop(ctx.toLocation(), parsedSource.contents(ctx.toLocation())))
-                }
-            }
-            ctx.FOR()?.also {
-                mutations.add(RemoveLoop(ctx.toLocation(), parsedSource.contents(ctx.toLocation())))
-            }
-            ctx.DO()?.also {
-                mutations.add(RemoveLoop(ctx.toLocation(), parsedSource.contents(ctx.toLocation())))
-            }
-            ctx.TRY()?.also {
-                mutations.add(RemoveTry(ctx.toLocation(), parsedSource.contents(ctx.toLocation())))
-            }
-            ctx.statementExpression?.also {
-                mutations.add(RemoveStatement(ctx.toLocation(), parsedSource.contents(ctx.toLocation())))
-            }
-        }
-        */
 
         init {
             ParseTreeWalker.DEFAULT.walk(this, parsedSource.tree)

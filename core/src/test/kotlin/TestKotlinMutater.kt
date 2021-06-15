@@ -281,12 +281,12 @@ fun fifth(): IntArray {
 """.trim()
         ).checkMutations<NullReturn> { mutations, contents ->
             mutations shouldHaveSize 2
-            mutations[0].check(contents, "Object", "null")
+            mutations[0].check(contents, "Object()", "null")
             mutations[1].check(contents, "IntArray(5)", "null")
         }
     }
-// todo: add require and the other one
-    "f: it should find asserts, requires, and checks to mutate" {
+// todo: rename mutation
+    "it should find asserts, requires, and checks to mutate" {
         Source.fromKotlin(
             """
 fun test(first: Int, second: Int) {
@@ -375,7 +375,7 @@ fun test(first: Int): Int {
             mutations shouldHaveSize 1
             mutations[0].check(contents, "(i < first)", "(!(i < first))")
         }
-    }
+    } // todo: check do while
 
     "it should remove if statements" {
         Source.fromKotlin(
@@ -445,7 +445,7 @@ fun test(first: Int) {
             mutations[0].check(contents, "for (i in 0..first) { }", "")
         } // todo: check other loops
     }
-
+// todo: check and-ors for while loops
     "it should remove and-ors correctly" {
         Source.fromKotlin(
             """
@@ -458,6 +458,8 @@ fun test(first: Int) {
             mutations shouldHaveSize 4
             mutations[0].check(contents, "true && ", "")
             mutations[1].check(contents, " && false", "")
+            mutations[2].check(contents, "false || ", "")
+            mutations[3].check(contents, " || true", "")
         }
     }
 
@@ -504,6 +506,8 @@ fun test() {
             mutations shouldHaveSize 4
             mutations[0].check(contents, "1 + ", "")
             mutations[1].check(contents, " + 2", "")
+            mutations[2].check(contents, "3 + ", "")
+            mutations[3].check(contents, " + 4", "")
         }
     }
 
@@ -518,9 +522,9 @@ fun test(first: Int, second: Int) {
         )
         source.allMutations(types = setOf(Mutation.Type.REMOVE_ASSERT)).also { mutations ->
             mutations shouldHaveSize 2
-            mutations[0].contents.lines() shouldHaveSize 4
+            mutations[0].contents.lines() shouldHaveSize 3
             mutations[0].contents.lines().filter { it.isBlank() } shouldHaveSize 0
-            mutations[1].contents.lines() shouldHaveSize 4
+            mutations[1].contents.lines() shouldHaveSize 3
             mutations[1].contents.lines().filter { it.isBlank() } shouldHaveSize 0
         }
     }

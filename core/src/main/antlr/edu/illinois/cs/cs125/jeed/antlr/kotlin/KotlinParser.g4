@@ -494,7 +494,7 @@ conditionalExpression
     ;
 
 ifExpression
-    : IF NL* LPAREN expression RPAREN NL* controlStructureBody? SEMICOLON?
+    : IF NL* parenthesizedExpression NL* controlStructureBody? SEMICOLON?
     (NL* ELSE NL* controlStructureBody?)?
     ;
 
@@ -504,7 +504,7 @@ controlStructureBody
     ;
 
 whenExpression
-    : WHEN NL* (LPAREN expression RPAREN)? NL* LCURL NL* (whenEntry NL*)* NL* RCURL
+    : WHEN NL* (parenthesizedExpression)? NL* LCURL NL* (whenEntry NL*)* NL* RCURL
     ;
 
 whenEntry
@@ -549,11 +549,11 @@ forExpression
     ;
 
 whileExpression
-    : WHILE NL* LPAREN expression RPAREN NL* controlStructureBody?
+    : WHILE NL* parenthesizedExpression NL* controlStructureBody?
     ;
 
 doWhileExpression
-    : DO NL* controlStructureBody? NL* WHILE NL* LPAREN expression RPAREN
+    : DO NL* controlStructureBody? NL* WHILE NL* parenthesizedExpression
     ;
 
 jumpExpression

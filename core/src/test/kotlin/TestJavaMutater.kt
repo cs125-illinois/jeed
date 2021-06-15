@@ -545,7 +545,7 @@ public class Example {
     assert first > 0;
     assert second >= 0 : "Bad second value";
   }
-}""".trim()
+}""".trim() // ask geoff while this has 5 lines?
         )
         source.allMutations(types = setOf(Mutation.Type.REMOVE_ASSERT)).also { mutations ->
             mutations shouldHaveSize 2

@@ -4,7 +4,7 @@ import io.kotest.assertions.throwables.shouldThrow
 import io.kotest.core.spec.style.StringSpec
 import io.kotest.matchers.shouldBe
 
-// todo: add assert, require, and the other one
+// todo: add assert, require, and check
 
 class TestKotlinComplexity : StringSpec({
     "should compute complexity for Kotlin top-level method" {
