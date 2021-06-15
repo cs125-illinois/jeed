@@ -133,9 +133,10 @@ if (i < 15) {
         if (i < 5) {
             i++;
         }
-    }
-    if (i > 10) {
-        i--;
+    } else {
+        if (i > 10) {
+            i--;
+        }
     }
 }
 """.trim()
@@ -238,6 +239,7 @@ int[] nums = {1, 2, 4};
         Source.fromSnippet(
             """
 import java.util.stream.Stream;
+
 String first = "Hello, world!";
 String second = null;
 Stream<String> stream;
@@ -410,7 +412,7 @@ public class Calculator implements Test {
 """.trim()
         ).features().also {
             it.lookup("Test").features.featureMap[FeatureName.INTERFACE] shouldBe 1
-            // it.lookup("Test").features.featureMap[FeatureName.METHOD] shouldBe 2
+            it.lookup("Test").features.featureMap[FeatureName.METHOD] shouldBe 2
             it.lookup("Calculator").features.featureMap[FeatureName.IMPLEMENTS] shouldBe 1
         }
     }
@@ -536,30 +538,6 @@ public class Test {
             it.lookup("", "Test.java").features.featureMap[FeatureName.CLASS] shouldBe 2
         }
     }
-    "should correctly create a code skeleton for snippets" {
-        Source.fromSnippet(
-            """
-int i = 0;
-if (i < 15) {
-    for (int j = 0; j < 10; j++) {
-        i--;
-        if (i < 5) {
-            i++;
-        } else {
-            i--;
-        }
-    }
-    while (i > 10) {
-        i--;
-    }
-} else {
-    System.out.println("Hello, world!");
-}
-""".trim()
-        ).features().also {
-            it.lookup("").features.skeleton.trim() shouldBe "if { for { if else } while } else"
-        }
-    }
     "should count final classes" {
         Source(
             mapOf(
@@ -645,6 +623,66 @@ public class Test { }
             )
         ).features().also {
             it.lookup("", "Test.java").features.importList shouldBe arrayListOf("java.util.List", "java.util.ArrayList")
+        }
+    }
+    "should count recursive calls" {
+        Source.fromSnippet(
+            """
+int countArray(int index, int[] array) {
+    if (index >= array.length) {
+           return 0;
+    }
+    return array[index] + countArray(index + 1, array);
+}
+""".trim()
+        ).features().also {
+            // Why does path = "." not work???
+            it.lookup("").features.featureMap[FeatureName.RECURSION] shouldBe 1
+        }
+    }
+    "should correctly count Comparable" {
+        Source(
+            mapOf(
+                "Test.java" to """
+public class Test implements Comparable {
+    public int compareTo(Test other) {
+        return 0;
+    }
+}
+                """.trim()
+            )
+        ).features().also {
+            it.lookup("", "Test.java").features.featureMap[FeatureName.COMPARABLE] shouldBe 1
+        }
+    }
+    "should correctly create a code skeleton for snippets" {
+        Source.fromSnippet(
+            """
+int i = 0;
+if (i < 15) {
+    for (int j = 0; j < 10; j++) {
+        i--;
+        if (i < 5) {
+            i++;
+        } else {
+            i--;
+        }
+    }
+    while (i > 10) {
+        i--;
+    }
+} else {
+    System.out.println("Hello, world!");
+    do {
+        i--;
+    } while (i > 10);
+    if (true) {
+        System.out.println("True");
+    }
+}
+""".trim()
+        ).features().also {
+            it.lookup("").features.skeleton.trim() shouldBe "if { for { if else } while } else{ do while if }"
         }
     }
 })
