@@ -662,11 +662,13 @@ int i = 0;
 if (i < 15) {
     for (int j = 0; j < 10; j++) {
         i--;
-        if (i < 5) {
-            i++;
-        } else {
-            i--;
-        }
+        do {
+            if (i < 5) {
+                i++;
+            } else {
+                i--;
+            }
+        } while (i < 10);
     }
     while (i > 10) {
         i--;
@@ -682,7 +684,7 @@ if (i < 15) {
 }
 """.trim()
         ).features().also {
-            it.lookup("").features.skeleton.trim() shouldBe "if { for { if else } while } else{ do while if }"
+            it.lookup("").features.skeleton.trim() shouldBe "if { for { do { if else } while } while } else { do while if }"
         }
     }
 })

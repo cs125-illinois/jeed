@@ -560,9 +560,6 @@ private class FeatureListener(val source: Source, entry: Map.Entry<String, Strin
 
     private val seenIfStarts = mutableSetOf<Int>()
 
-    private val seenElseStatementStarts = mutableSetOf<Int>()
-    private var numNestedElse = 0
-
     private val currentFeatureMap: MutableMap<FeatureName, Int>
         get() = currentFeatures.features.featureMap
 
@@ -571,6 +568,36 @@ private class FeatureListener(val source: Source, entry: Map.Entry<String, Strin
     }
 
     override fun enterStatement(ctx: JavaParser.StatementContext) {
+        println(ctx.text)
+        if (currentFeatures.features.skeleton.isEmpty()) {
+            val skeleton = ctx.text
+            for (i in skeleton.indices) {
+                if (skeleton[i] == '{') {
+                    currentFeatures.features.skeleton += "{ "
+                } else if (skeleton[i] == '}') {
+                    currentFeatures.features.skeleton += "} "
+                }
+
+                if (i + 3 < skeleton.length && skeleton.subSequence(i, i+3) == "for") {
+                    currentFeatures.features.skeleton += "for "
+                }
+                if (i + 2 < skeleton.length && skeleton.subSequence(i, i+2) == "if") {
+                    currentFeatures.features.skeleton += "if "
+                }
+                if (i + 4 < skeleton.length && skeleton.subSequence(i, i+4) == "else") {
+                    currentFeatures.features.skeleton += "else "
+                }
+                if (i + 5 < skeleton.length && skeleton.subSequence(i, i+5) == "while") {
+                    currentFeatures.features.skeleton += "while "
+                }
+                if (i + 2 < skeleton.length && skeleton.subSequence(i, i+2) == "do") {
+                    currentFeatures.features.skeleton += "do "
+                }
+            }
+            while (currentFeatures.features.skeleton.contains("{ } ")) {
+                currentFeatures.features.skeleton = currentFeatures.features.skeleton.replace("{ } ", "")
+            }
+        }
         ctx.statementExpression?.also {
             if (it.bop?.text == "=") {
                 count(FeatureName.VARIABLE_ASSIGNMENTS, 1)
@@ -578,7 +605,6 @@ private class FeatureListener(val source: Source, entry: Map.Entry<String, Strin
             }
         }
         ctx.FOR()?.also {
-            currentFeatures.features.skeleton += "for "
             count(FeatureName.FOR_LOOPS, 1)
             if (ctx.forControl().enhancedForControl() != null) {
                 count(FeatureName.ENHANCED_FOR, 1)
@@ -588,18 +614,15 @@ private class FeatureListener(val source: Source, entry: Map.Entry<String, Strin
         ctx.WHILE()?.also {
             // Only increment whileLoopCount if it's not a do-while loop
             if (ctx.DO() != null) {
-                currentFeatures.features.skeleton += "do "
                 count(FeatureName.DO_WHILE_LOOPS, 1)
             } else {
                 count(FeatureName.WHILE_LOOPS, 1)
             }
-            currentFeatures.features.skeleton += "while "
         }
         ctx.IF()?.also {
             // Check for else-if chains
             val outerIfStart = ctx.start.startIndex
             if (outerIfStart !in seenIfStarts) {
-                currentFeatures.features.skeleton += "if "
                 // Count if block
                 count(FeatureName.IF_STATEMENTS, 1)
                 seenIfStarts += outerIfStart
@@ -609,7 +632,6 @@ private class FeatureListener(val source: Source, entry: Map.Entry<String, Strin
                     // Count else block
                     check(ctx.ELSE() != null)
                     count(FeatureName.ELSE_STATEMENTS, 1)
-                    seenElseStatementStarts += ctx.statement(1).start.startIndex
                 } else if (ctx.statement().size >= 2) {
                     var statement = ctx.statement(1)
                     while (statement != null) {
@@ -640,72 +662,28 @@ private class FeatureListener(val source: Source, entry: Map.Entry<String, Strin
         ctx.THROW()?.also {
             count(FeatureName.THROW, 1)
         }
-        if (seenElseStatementStarts.contains(ctx.start.startIndex)) {
-            seenElseStatementStarts.remove(ctx.start.startIndex)
-            currentFeatures.features.skeleton += "else "
-            var hasNesting = 0
-            for (block in ctx.block().blockStatement()) {
-                val blockStatement = block.statement()
-                blockStatement?.FOR()?.also {
-                    hasNesting = 1
-                }
-                blockStatement?.IF()?.also {
-                    hasNesting = 1
-                }
-                blockStatement?.WHILE()?.also {
-                    hasNesting = 1
-                }
-            }
-            if (hasNesting == 1) {
-                currentFeatures.features.skeleton += "{ "
-            } else if (hasNesting == 0) {
-                if (numNestedElse > 0) {
-                    currentFeatures.features.skeleton += "} "
-                    numNestedElse--
-                }
-            }
-        }
         // Count nested statements
-        val list = mutableListOf<String>()
-        var hasNesting = 0
         for (ctxStatement in ctx.statement()) {
             ctxStatement?.block()?.also {
-                hasNesting = 0
                 val statement = ctxStatement.block().blockStatement()
                 for (block in statement) {
                     val blockStatement = block.statement()
                     blockStatement?.FOR()?.also {
-                        hasNesting = 1
-                        list.add("for")
                         count(FeatureName.NESTED_FOR, 1)
                     }
                     blockStatement?.IF()?.also {
-                        hasNesting = 1
-                        list.add("if")
                         count(FeatureName.NESTED_IF, 1)
-                        blockStatement.ELSE()?.also {
-                            list.add("else")
-                            numNestedElse++
-                        }
                     }
                     blockStatement?.WHILE()?.also {
-                        hasNesting = 1
                         if (block.statement().DO() != null) {
-                            list.add("do")
                             count(FeatureName.NESTED_DO_WHILE, 1)
                         } else {
-                            list.add("while")
                             count(FeatureName.NESTED_WHILE, 1)
                         }
                     }
                 }
-                if (hasNesting == 0) {
-                    if (ctx.ELSE() == null) currentFeatures.features.skeleton += "} "
-                }
+
             }
-        }
-        if (hasNesting == 1) {
-            currentFeatures.features.skeleton += "{ "
         }
     }
 
