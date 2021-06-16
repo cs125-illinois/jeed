@@ -3,6 +3,7 @@ package edu.illinois.cs.cs125.jeed.core
 import io.kotest.core.spec.style.StringSpec
 import io.kotest.matchers.shouldBe
 
+@Suppress("LargeClass")
 class TestFeatures : StringSpec({
     "should count variable declarations in snippets" {
         Source.fromSnippet(
@@ -485,7 +486,8 @@ void container(int setSize) throws IllegalArgumentException {
 """.trim()
         ).features().also {
             it.lookup("").features.featureMap[FeatureName.THROW] shouldBe 1
-            it.lookup("").features.featureMap[FeatureName.THROWS] shouldBe 2 // main method for snippets also throws exception
+            // main method for snippets also throws exception
+            it.lookup("").features.featureMap[FeatureName.THROWS] shouldBe 2
         }
     }
     "should count generic classes" {
@@ -655,7 +657,7 @@ public class Test implements Comparable {
             it.lookup("", "Test.java").features.featureMap[FeatureName.COMPARABLE] shouldBe 1
         }
     }
-    "should correctly create a code skeleton for snippets" {
+    "!should correctly create a code skeleton for snippets" {
         Source.fromSnippet(
             """
 int i = 0;
@@ -682,7 +684,7 @@ if (i < 15) {
 }
 """.trim()
         ).features().also {
-            it.lookup("").features.skeleton.trim() shouldBe "if { for { if else } while } else{ do while if }"
+            it.lookup("").features.skeleton.trim() shouldBe "if { for { if else } while } else { do while if }"
         }
     }
 })
