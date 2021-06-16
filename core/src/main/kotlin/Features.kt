@@ -578,20 +578,26 @@ private class FeatureListener(val source: Source, entry: Map.Entry<String, Strin
                     currentFeatures.features.skeleton += "} "
                 }
 
-                if (i + 3 < skeleton.length && skeleton.subSequence(i, i+3) == "for") {
-                    currentFeatures.features.skeleton += "for "
+                if (i + 5 < skeleton.length) {
+                    if (skeleton.subSequence(i, i + 5) == "while") {
+                        currentFeatures.features.skeleton += "while "
+                    }
                 }
-                if (i + 2 < skeleton.length && skeleton.subSequence(i, i+2) == "if") {
-                    currentFeatures.features.skeleton += "if "
+                if (i + 4 < skeleton.length) {
+                    if (skeleton.subSequence(i, i + 4) == "else") {
+                        currentFeatures.features.skeleton += "else "
+                    }
                 }
-                if (i + 4 < skeleton.length && skeleton.subSequence(i, i+4) == "else") {
-                    currentFeatures.features.skeleton += "else "
+                if (i + 3 < skeleton.length) {
+                    if (skeleton.subSequence(i, i + 3) == "for") {
+                        currentFeatures.features.skeleton += "for "
+                    }
                 }
-                if (i + 5 < skeleton.length && skeleton.subSequence(i, i+5) == "while") {
-                    currentFeatures.features.skeleton += "while "
-                }
-                if (i + 2 < skeleton.length && skeleton.subSequence(i, i+2) == "do") {
-                    currentFeatures.features.skeleton += "do "
+                if (i + 2 < skeleton.length) {
+                    when (skeleton.subSequence(i, i + 2)) {
+                        "if" -> currentFeatures.features.skeleton += "if "
+                        "do" -> currentFeatures.features.skeleton += "do "
+                    }
                 }
             }
             while (currentFeatures.features.skeleton.contains("{ } ")) {
@@ -682,7 +688,6 @@ private class FeatureListener(val source: Source, entry: Map.Entry<String, Strin
                         }
                     }
                 }
-
             }
         }
     }
@@ -744,7 +749,8 @@ private class FeatureListener(val source: Source, entry: Map.Entry<String, Strin
         ctx.methodCall()?.also {
             if (featureStack[0].name.contains(ctx.methodCall()?.IDENTIFIER()?.text ?: "")) {
                 if (ctx.methodCall().expressionList().text.filter { it == ',' }.length
-                    == featureStack[0].name.filter { it == ',' }.length) {
+                    == featureStack[0].name.filter { it == ',' }.length
+                ) {
                     count(FeatureName.RECURSION, 1)
                 }
             }
