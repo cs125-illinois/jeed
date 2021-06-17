@@ -30,11 +30,14 @@ enum class FeatureName {
     ENHANCED_FOR,
     WHILE_LOOPS,
     DO_WHILE_LOOPS,
+    BREAK,
+    CONTINUE,
     // Nesting
     NESTED_IF,
     NESTED_FOR,
     NESTED_WHILE,
     NESTED_DO_WHILE,
+    NESTED_CLASS,
     // Methods
     METHOD,
     CONSTRUCTOR,
@@ -82,7 +85,10 @@ enum class FeatureName {
     STREAM,
     ENUM,
     RECURSION,
-    COMPARABLE
+    COMPARABLE,
+    RECORD,
+    BOXING_CLASSES,
+    TYPE_PARAMETERS
 }
 
 data class Features(
@@ -668,6 +674,12 @@ private class FeatureListener(val source: Source, entry: Map.Entry<String, Strin
         ctx.THROW()?.also {
             count(FeatureName.THROW, 1)
         }
+        ctx.BREAK()?.also {
+            count(FeatureName.BREAK, 1)
+        }
+        ctx.CONTINUE()?.also {
+            count(FeatureName.CONTINUE, 1)
+        }
         // Count nested statements
         for (ctxStatement in ctx.statement()) {
             ctxStatement?.block()?.also {
@@ -822,3 +834,68 @@ fun Source.features(names: Set<String> = sources.keys.toSet()): FeaturesResults 
         throw FeaturesFailed(e.errors)
     }
 }
+
+// CS 124 Specific
+private val lessonMap = mapOf(
+    FeatureName.LOCAL_VARIABLE_DECLARATIONS to 0,
+    FeatureName.VARIABLE_ASSIGNMENTS to 0,
+    FeatureName.VARIABLE_REASSIGNMENTS to 1,
+    FeatureName.ARITHMETIC_OPERATORS to 1,
+    FeatureName.ASSIGNMENT_OPERATORS to 1,
+    FeatureName.UNARY_OPERATORS to 1,
+    FeatureName.CONDITIONAL to 2,
+    FeatureName.IF_STATEMENTS to 2,
+    FeatureName.ELSE_STATEMENTS to 2,
+    FeatureName.ELSE_IF to 3,
+    FeatureName.COMPLEX_CONDITIONAL to 3,
+    FeatureName.ARRAY_ACCESS to 4,
+    FeatureName.NEW_KEYWORD to 4,
+    FeatureName.ARRAY_LITERAL to 4,
+    FeatureName.WHILE_LOOPS to 5,
+    FeatureName.FOR_LOOPS to 5,
+    FeatureName.BREAK to 6,
+    FeatureName.METHOD to 7,
+    FeatureName.ENHANCED_FOR to 8,
+    FeatureName.STRING to 9,
+    FeatureName.CASTING to 10,
+    FeatureName.NULL to 11,
+    FeatureName.MULTIDIMENSIONAL_ARRAYS to 12,
+    FeatureName.DO_WHILE_LOOPS to 13,
+    FeatureName.TYPE_INFERENCE to 14,
+    FeatureName.ASSERT to 15,
+    FeatureName.SWITCH to 15,
+    FeatureName.CONTINUE to 15,
+    FeatureName.CLASS to 16,
+    FeatureName.GETTER to 17,
+    FeatureName.SETTER to 17,
+    FeatureName.CONSTRUCTOR to 18,
+    FeatureName.VISIBILITY_MODIFIERS to 19,
+    FeatureName.RECORD to 20,
+    FeatureName.STATIC_METHOD to 21,
+    FeatureName.THIS to 21,
+    FeatureName.EXTENDS to 22,
+    FeatureName.SUPER to 22,
+    FeatureName.OVERRIDE to 22,
+    FeatureName.INSTANCEOF to 23,
+    FeatureName.REFERENCE_EQUALITY to 24,
+    FeatureName.IMPORT to 25,
+    FeatureName.FINAL_METHOD to 26,
+    FeatureName.FINAL_CLASS to 26,
+    FeatureName.INTERFACE to 27,
+    FeatureName.ABSTRACT_CLASS to 27,
+    FeatureName.ABSTRACT_METHOD to 27,
+    FeatureName.COMPARABLE to 27,
+    FeatureName.IMPLEMENTS to 28,
+    FeatureName.BOXING_CLASSES to 29,
+    FeatureName.ANONYMOUS_CLASSES to 30,
+    FeatureName.LAMBDA_EXPRESSIONS to 31,
+    FeatureName.TYPE_PARAMETERS to 32,
+    FeatureName.NESTED_CLASS to 33,
+    FeatureName.TRY_BLOCK to 34,
+    FeatureName.THROW to 35,
+    FeatureName.FINALLY to 36,
+    FeatureName.THROWS to 36,
+    FeatureName.RECURSION to 37,
+    FeatureName.GENERIC_CLASS to 38,
+    FeatureName.STREAM to 39
+)

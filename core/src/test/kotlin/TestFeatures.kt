@@ -657,7 +657,7 @@ public class Test implements Comparable {
             it.lookup("", "Test.java").features.featureMap[FeatureName.COMPARABLE] shouldBe 1
         }
     }
-    "!should correctly create a code skeleton for snippets" {
+    "should correctly create a code skeleton for snippets" {
         Source.fromSnippet(
             """
 int i = 0;
@@ -689,4 +689,36 @@ if (i < 15) {
             it.lookup("").features.skeleton.trim() shouldBe "if { for { do { if else } while } while } else { do while if }"
         }
     }
+    "should correctly count break and continue in snippets" {
+        Source.fromSnippet(
+            """
+for (int i = 0; i < 10; i++) {
+    if (i < 7) {
+        continue;
+    } else {
+        break;
+    }
+}
+""".trim()
+        ).features().also {
+            it.lookup(".").features.featureMap[FeatureName.BREAK] shouldBe 1
+            it.lookup(".").features.featureMap[FeatureName.CONTINUE] shouldBe 1
+        }
+    }
+    /*"should correctly compare two snippets" {
+        val first = Source.fromSnippet(
+            """
+int i = 0;
+char j = 'j';
+i += 4;
+""".trim()
+        ).features().lookup(".")
+        val second = Source.fromSnippet(
+            """
+int x = 0;
+int y = x + 5;
+""".trim()
+        ).features().lookup(".")
+        (first == second) shouldBe true
+    }*/
 })
