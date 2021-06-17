@@ -249,4 +249,14 @@ public class Example {
             it.lookup("Example", "").complexity shouldBe 1
         }
     }
+    "should parse empty constructors properly" {
+        Source.fromSnippet(
+            """
+public class Example {
+  public Example() { }
+}""".trim()
+        ).complexity().also {
+            it.lookup("Example", "").complexity shouldBe 1
+        }
+    }
 })
