@@ -132,9 +132,9 @@ class JavaComplexityListener(val source: Source, entry: Map.Entry<String, String
     override fun enterConstructorDeclaration(ctx: JavaParser.ConstructorDeclarationContext) {
         assert(complexityStack.isNotEmpty())
         val currentClass = currentComplexity as ClassComplexity
-        val parameters = ctx.formalParameters().formalParameterList().formalParameter().joinToString(",") {
+        val parameters = ctx.formalParameters().formalParameterList()?.formalParameter()?.joinToString(",") {
             it.typeType().text
-        }
+        } ?: ""
         enterMethodOrConstructor(
             "${currentClass.name}($parameters)",
             Location(ctx.start.line, ctx.start.charPositionInLine),
