@@ -161,8 +161,8 @@ if (i < 5 || i > 15) {
 }
 """.trim()
         ).features().also {
-            it.lookup(".").features.featureMap[FeatureName.CONDITIONAL] shouldBe 5
-            it.lookup(".").features.featureMap[FeatureName.COMPLEX_CONDITIONAL] shouldBe 2
+            it.lookup(".").features.featureMap[FeatureName.COMPARISON_OPERATORS] shouldBe 5
+            it.lookup(".").features.featureMap[FeatureName.LOGICAL_OPERATORS] shouldBe 2
         }
     }
     "should count try blocks, switch statements, finally blocks, and assertions in snippets" {
@@ -231,6 +231,7 @@ arr[2] = arr[0] + arr[1];
 int[] nums = {1, 2, 4};
 """.trim()
         ).features().also {
+            it.lookup(".").features.featureMap[FeatureName.ARRAYS] shouldBe 2
             it.lookup(".").features.featureMap[FeatureName.NEW_KEYWORD] shouldBe 1
             it.lookup(".").features.featureMap[FeatureName.ARRAY_ACCESS] shouldBe 5
             it.lookup(".").features.featureMap[FeatureName.ARRAY_LITERAL] shouldBe 1
@@ -246,7 +247,7 @@ String second = null;
 Stream<String> stream;
 """.trim()
         ).features().also {
-            it.lookup(".").features.featureMap[FeatureName.STRING] shouldBe 2
+            it.lookup(".").features.featureMap[FeatureName.STRING] shouldBe 3
             it.lookup(".").features.featureMap[FeatureName.NULL] shouldBe 1
             it.lookup(".").features.featureMap[FeatureName.STREAM] shouldBe 1
         }
@@ -265,7 +266,7 @@ char[][] array1 = new char[10][10];
         Source.fromSnippet(
             """
 var first = 0;
-var second = "Hello, world!";
+val second = "Hello, world!";
 """.trim()
         ).features().also {
             it.lookup(".").features.featureMap[FeatureName.TYPE_INFERENCE] shouldBe 2
@@ -318,6 +319,7 @@ public class Test {
             it.lookup("Test", "Test.java").features.featureMap[FeatureName.SETTER] shouldBe 1
             it.lookup("Test", "Test.java").features.featureMap[FeatureName.STATIC_METHOD] shouldBe 1
             it.lookup("Test", "Test.java").features.featureMap[FeatureName.VISIBILITY_MODIFIERS] shouldBe 2
+            it.lookup("Test", "Test.java").features.featureMap[FeatureName.NESTED_CLASS] shouldBe 1
         }
     }
     "should count the extends keyword, the super constructor, and the 'this' keyword in classes" {
@@ -682,11 +684,13 @@ if (i < 15) {
     } while (i > 10);
     if (true) {
         System.out.println("True");
+    } else {
+        i++;
     }
 }
 """.trim()
         ).features().also {
-            it.lookup("").features.skeleton.trim() shouldBe "if { for { do { if else } while } while } else { do while if }"
+            it.lookup("").features.skeleton.trim() shouldBe "if { for { do { if else } while } while } else { do while if else }"
         }
     }
     "should correctly count break and continue in snippets" {
@@ -703,6 +707,36 @@ for (int i = 0; i < 10; i++) {
         ).features().also {
             it.lookup(".").features.featureMap[FeatureName.BREAK] shouldBe 1
             it.lookup(".").features.featureMap[FeatureName.CONTINUE] shouldBe 1
+        }
+    }
+    "should correctly count modifiers on fields" {
+        Source(
+            mapOf(
+                "Test.java" to """
+public class Test {
+    static int number = 0;
+    final String string = "string";
+}
+                """.trim()
+            )
+        ).features().also {
+            it.lookup("Test", "Test.java").features.featureMap[FeatureName.STATIC_FIELD] shouldBe 1
+            it.lookup("Test", "Test.java").features.featureMap[FeatureName.FINAL_FIELD] shouldBe 1
+        }
+    }
+    "should correctly count boxing classes and type parameters" {
+        Source.fromSnippet(
+            """
+import java.util.List;
+import java.util.ArrayList;
+
+Integer first = new Integer("1");
+Boolean second = true;
+List<String> list = new ArrayList<>();
+""".trim()
+        ).features().also {
+            it.lookup(".").features.featureMap[FeatureName.BOXING_CLASSES] shouldBe 2
+            it.lookup(".").features.featureMap[FeatureName.TYPE_PARAMETERS] shouldBe 1
         }
     }
     /*"should correctly compare two snippets" {

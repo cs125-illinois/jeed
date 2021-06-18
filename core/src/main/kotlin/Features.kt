@@ -15,13 +15,14 @@ enum class FeatureName {
     BITWISE_OPERATORS,
     ASSIGNMENT_OPERATORS,
     TERNARY_OPERATOR,
-    CONDITIONAL,
-    COMPLEX_CONDITIONAL,
+    COMPARISON_OPERATORS,
+    LOGICAL_OPERATORS,
     // If & Else
     IF_STATEMENTS,
     ELSE_STATEMENTS,
     ELSE_IF,
     // Arrays
+    ARRAYS,
     ARRAY_ACCESS,
     ARRAY_LITERAL,
     MULTIDIMENSIONAL_ARRAYS,
@@ -73,6 +74,9 @@ enum class FeatureName {
     STATIC_METHOD,
     FINAL_METHOD,
     ABSTRACT_METHOD,
+    STATIC_FIELD,
+    FINAL_FIELD,
+    ABSTRACT_FIELD,
     FINAL_CLASS,
     ABSTRACT_CLASS,
     // Import
@@ -297,6 +301,15 @@ private class FeatureListener(val source: Source, entry: Map.Entry<String, Strin
             }.size
         )
         count(
+            FeatureName.STATIC_FIELD,
+            ctx.classBody().classBodyDeclaration().filter { declaration ->
+                declaration.modifier().any {
+                    it.classOrInterfaceModifier().STATIC() != null &&
+                        declaration.memberDeclaration().fieldDeclaration() != null
+                }
+            }.size
+        )
+        count(
             FeatureName.FINAL_METHOD,
             ctx.classBody().classBodyDeclaration().filter { declaration ->
                 declaration.modifier().any {
@@ -306,11 +319,29 @@ private class FeatureListener(val source: Source, entry: Map.Entry<String, Strin
             }.size
         )
         count(
+            FeatureName.FINAL_FIELD,
+            ctx.classBody().classBodyDeclaration().filter { declaration ->
+                declaration.modifier().any {
+                    it.classOrInterfaceModifier().FINAL() != null &&
+                        declaration.memberDeclaration().fieldDeclaration() != null
+                }
+            }.size
+        )
+        count(
             FeatureName.ABSTRACT_METHOD,
             ctx.classBody().classBodyDeclaration().filter { declaration ->
                 declaration.modifier().any {
                     it.classOrInterfaceModifier().ABSTRACT() != null &&
                         declaration.memberDeclaration().methodDeclaration() != null
+                }
+            }.size
+        )
+        count(
+            FeatureName.ABSTRACT_FIELD,
+            ctx.classBody().classBodyDeclaration().filter { declaration ->
+                declaration.modifier().any {
+                    it.classOrInterfaceModifier().ABSTRACT() != null &&
+                        declaration.memberDeclaration().fieldDeclaration() != null
                 }
             }.size
         )
@@ -331,6 +362,12 @@ private class FeatureListener(val source: Source, entry: Map.Entry<String, Strin
                 declaration.modifier().any {
                     it?.text == "@Override"
                 }
+            }.size
+        )
+        count(
+            FeatureName.NESTED_CLASS,
+            ctx.classBody().classBodyDeclaration().filter { declaration ->
+                declaration.memberDeclaration().classDeclaration() != null
             }.size
         )
         count(
@@ -356,7 +393,6 @@ private class FeatureListener(val source: Source, entry: Map.Entry<String, Strin
         }
         ctx.IMPLEMENTS()?.also {
             count(FeatureName.IMPLEMENTS, 1)
-            if (ctx.typeList().text.contains("Comparable")) count(FeatureName.COMPARABLE, 1)
         }
         ctx.typeParameters()?.also {
             count(FeatureName.GENERIC_CLASS, 1)
@@ -437,6 +473,7 @@ private class FeatureListener(val source: Source, entry: Map.Entry<String, Strin
             Location(ctx.start.line, ctx.start.charPositionInLine),
             Location(ctx.stop.line, ctx.stop.charPositionInLine)
         )
+        count(FeatureName.RECORD, 1)
     }
 
     override fun exitRecordDeclaration(ctx: JavaParser.RecordDeclarationContext?) {
@@ -537,30 +574,19 @@ private class FeatureListener(val source: Source, entry: Map.Entry<String, Strin
                 it.variableInitializer()?.arrayInitializer() != null
             }.size
         )
-        if (ctx.typeType().classOrInterfaceType()?.IDENTIFIER(0)?.text == "String") {
-            count(FeatureName.STRING, 1)
+        val numBrackets = ctx.typeType().text.filter { it == '[' || it == ']' }.length
+        when {
+            numBrackets > 2 -> count(FeatureName.MULTIDIMENSIONAL_ARRAYS, 1)
+            numBrackets > 0 -> count(FeatureName.ARRAYS, 1)
         }
-        if (ctx.typeType().classOrInterfaceType()?.IDENTIFIER(0)?.text == "Stream") {
-            count(FeatureName.STREAM, 1)
-        }
-        if (ctx.typeType().text.contains("[][]")) {
-            count(FeatureName.MULTIDIMENSIONAL_ARRAYS, 1)
-        }
-        if (ctx.typeType().text.contains("var")) {
-            count(FeatureName.TYPE_INFERENCE, 1)
+        for (declarator in ctx.variableDeclarators().variableDeclarator()) {
+            currentFeatures.features.identifierList.add(declarator.variableDeclaratorId().IDENTIFIER().text)
         }
         // Check if variable is an object
         ctx.typeType().classOrInterfaceType()?.also {
             for (declarator in ctx.variableDeclarators().variableDeclarator()) {
                 seenObjectIdentifiers += declarator.variableDeclaratorId().IDENTIFIER().text
             }
-            currentFeatures.features.typeList.add(it.text)
-        }
-        ctx.typeType().primitiveType()?.also {
-            currentFeatures.features.typeList.add(it.text)
-        }
-        for (declarator in ctx.variableDeclarators().variableDeclarator()) {
-            currentFeatures.features.identifierList.add(declarator.variableDeclaratorId().IDENTIFIER().text)
         }
     }
 
@@ -706,8 +732,8 @@ private class FeatureListener(val source: Source, entry: Map.Entry<String, Strin
 
     override fun enterExpression(ctx: JavaParser.ExpressionContext) {
         when (ctx.bop?.text) {
-            "<", ">", "<=", ">=", "==", "!=" -> count(FeatureName.CONDITIONAL, 1)
-            "&&", "||" -> count(FeatureName.COMPLEX_CONDITIONAL, 1)
+            "<", ">", "<=", ">=", "==", "!=" -> count(FeatureName.COMPARISON_OPERATORS, 1)
+            "&&", "||" -> count(FeatureName.LOGICAL_OPERATORS, 1)
             "+", "-", "*", "/", "%" -> count(FeatureName.ARITHMETIC_OPERATORS, 1)
             "&", "|", "^" -> count(FeatureName.BITWISE_OPERATORS, 1)
             "+=", "-=", "*=", "/=", "%=" -> count(FeatureName.ASSIGNMENT_OPERATORS, 1)
@@ -717,6 +743,7 @@ private class FeatureListener(val source: Source, entry: Map.Entry<String, Strin
         when (ctx.prefix?.text) {
             "++", "--" -> count(FeatureName.UNARY_OPERATORS, 1)
             "~" -> count(FeatureName.BITWISE_OPERATORS, 1)
+            "!" -> count(FeatureName.LOGICAL_OPERATORS, 1)
         }
         when (ctx.postfix?.text) {
             "++", "--" -> count(FeatureName.UNARY_OPERATORS, 1)
@@ -766,6 +793,49 @@ private class FeatureListener(val source: Source, entry: Map.Entry<String, Strin
                     count(FeatureName.RECURSION, 1)
                 }
             }
+        }
+    }
+
+    override fun enterTypeType(ctx: JavaParser.TypeTypeContext) {
+        ctx.primitiveType()?.also {
+            currentFeatures.features.typeList.add(it.text)
+        }
+        ctx.classOrInterfaceType()?.also {
+            currentFeatures.features.typeList.add(it.text)
+        }
+        count(
+            FeatureName.STRING,
+            ctx.classOrInterfaceType()?.IDENTIFIER()?.filter {
+                it.text == "String"
+            }?.size ?: 0
+        )
+        count(
+            FeatureName.STREAM,
+            ctx.classOrInterfaceType()?.IDENTIFIER()?.filter {
+                it.text == "Stream"
+            }?.size ?: 0
+        )
+        count(
+            FeatureName.COMPARABLE,
+            ctx.classOrInterfaceType()?.IDENTIFIER()?.filter {
+                it.text == "Comparable"
+            }?.size ?: 0
+        )
+        count(
+            FeatureName.BOXING_CLASSES,
+            ctx.classOrInterfaceType()?.IDENTIFIER()?.filter {
+                when (it.text) {
+                    "Boolean", "Byte", "Character", "Float", "Integer", "Long", "Short", "Double" -> true
+                    else -> false
+                }
+            }?.size ?: 0
+        )
+        count(
+            FeatureName.TYPE_PARAMETERS,
+            ctx.classOrInterfaceType()?.typeArguments()?.size ?: 0
+        )
+        if (ctx.text == "var" || ctx.text == "val") {
+            count(FeatureName.TYPE_INFERENCE, 1)
         }
     }
 
@@ -843,11 +913,12 @@ private val lessonMap = mapOf(
     FeatureName.ARITHMETIC_OPERATORS to 1,
     FeatureName.ASSIGNMENT_OPERATORS to 1,
     FeatureName.UNARY_OPERATORS to 1,
-    FeatureName.CONDITIONAL to 2,
+    FeatureName.COMPARISON_OPERATORS to 2,
     FeatureName.IF_STATEMENTS to 2,
     FeatureName.ELSE_STATEMENTS to 2,
     FeatureName.ELSE_IF to 3,
-    FeatureName.COMPLEX_CONDITIONAL to 3,
+    FeatureName.LOGICAL_OPERATORS to 3,
+    FeatureName.ARRAYS to 4,
     FeatureName.ARRAY_ACCESS to 4,
     FeatureName.NEW_KEYWORD to 4,
     FeatureName.ARRAY_LITERAL to 4,
