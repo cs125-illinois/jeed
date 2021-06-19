@@ -39,73 +39,64 @@ class MutatedSource(
                 }
                 val original = originalSources[name] ?: error("Didn't find original sources")
                 check(original != modified) { "Didn't find mutation" }
+
                 val originalLines = original.lines()
                 val modifiedLines = modified.lines()
-
-                val deltas = DiffUtils.diff(originalLines, modifiedLines).deltas
-                val type = if (deltas.size == 1) {
-                    deltas.first().type
-                } else {
-                    check(deltas.size == 2)
-                    check(deltas.all { it.type == DeltaType.CHANGE }) {
-                        println(deltas.map { it.type })
-                        println(deltas.first().source.lines)
-                        println(deltas.first().target.lines)
-                        println(deltas[1].source.lines)
-                        println(original)
-                        println(modified)
-                    }
-                    deltas.first().type
-                }
-                val (sourceLines, targetLines) = if (deltas.size == 1) {
-                    Pair(deltas.first().source.lines, deltas.first().target.lines)
-                } else {
-                    Pair(
-                        originalLines.subList(deltas[0].source.position, deltas[1].source.position + 1),
-                        modifiedLines.subList(deltas[0].source.position, deltas[1].source.position + 1)
-                    )
-                }
-                check(type == DeltaType.CHANGE || type == DeltaType.DELETE) {
-                    "Found invalid delta type: $type"
-                }
+                val deltas =
+                    DiffUtils.diff(originalLines, modifiedLines).deltas.sortedBy { it.source.position }.toMutableList()
                 var i = 0
                 val output = mutableListOf<String>()
                 while (i < originalLines.size) {
                     val line = originalLines[i]
-                    val nextLine = if (type == DeltaType.CHANGE && i == deltas.first().source.position) {
-                        val indentAmount = line.length - line.trimStart().length
-                        val currentIndent = " ".repeat(indentAmount)
-                        val originalContent = sourceLines.joinToString("\n") {
-                            if (it.length < indentAmount) {
-                                "$currentIndent//"
-                            } else {
-                                currentIndent + "// " + it.substring(indentAmount)
-                            }
+
+                    val indentAmount = line.length - line.trimStart().length
+                    val currentIndent = " ".repeat(indentAmount)
+
+                    val activeDelta = deltas.firstOrNull()?.let {
+                        if (it.source.position == i) {
+                            it
+                        } else {
+                            null
                         }
-                        i += sourceLines.size
-                        """
+                    }
+                    val sourceLines = activeDelta?.source?.lines
+                    val targetLines = activeDelta?.target?.lines
+                    val nextLine = when {
+                        activeDelta == null -> {
+                            i++
+                            line
+                        }
+                        activeDelta.type == DeltaType.CHANGE -> {
+                            val originalContent = sourceLines!!.joinToString("\n") {
+                                if (it.length < indentAmount) {
+                                    "$currentIndent//"
+                                } else {
+                                    currentIndent + "// " + it.substring(indentAmount)
+                                }
+                            }
+                            i += sourceLines.size
+                            deltas.removeAt(0)
+                            """
                     |$currentIndent// Modified by ${mutation.mutation.type.mutationName()}. Originally:
                     |$originalContent
-                    |${targetLines.joinToString("\n")}
+                    |${targetLines!!.joinToString("\n")}
                     """.trimMargin()
-                    } else if (type == DeltaType.DELETE && i == deltas.first().source.position) {
-                        val indentAmount = line.length - line.trimStart().length
-                        val currentIndent = " ".repeat(indentAmount)
-                        val originalContent = sourceLines.joinToString("\n") {
-                            if (it.length < indentAmount) {
-                                "$currentIndent//"
-                            } else {
-                                currentIndent + "// " + it.substring(indentAmount)
-                            }
                         }
-                        i += sourceLines.size
-                        """
+                        activeDelta.type == DeltaType.DELETE -> {
+                            val originalContent = sourceLines!!.joinToString("\n") {
+                                if (it.length < indentAmount) {
+                                    "$currentIndent//"
+                                } else {
+                                    currentIndent + "// " + it.substring(indentAmount)
+                                }
+                            }
+                            i += sourceLines.size
+                            """
                     |$currentIndent// Removed by ${mutation.mutation.type.mutationName()}. Originally:
                     |$originalContent
                     """.trimMargin()
-                    } else {
-                        i++
-                        line
+                        }
+                        else -> error("Invalid delta type: ${activeDelta.type}")
                     }
                     output += nextLine
                 }
