@@ -159,6 +159,7 @@ private fun compile(
     val errors = results.diagnostics.filter {
         it.kind == Diagnostic.Kind.ERROR || (it.kind == Diagnostic.Kind.WARNING && compilationArguments.wError)
     }.map {
+        @Suppress("SwallowedException")
         val location = try {
             getMappedLocation(it)
         } catch (e: SourceMappingException) {
@@ -171,7 +172,13 @@ private fun compile(
     }
 
     val messages = results.diagnostics.map {
-        CompilationMessage(it.kind.toString(), getMappedLocation(it), it.getMessage(Locale.US))
+        @Suppress("SwallowedException")
+        val location = try {
+            getMappedLocation(it)
+        } catch (e: SourceMappingException) {
+            null
+        }
+        CompilationMessage(it.kind.toString(), location, it.getMessage(Locale.US))
     }
 
     val actualParentClassloader = if (compilationArguments.isolatedClassLoader) {
@@ -374,7 +381,7 @@ class JeedClassLoader(private val fileManager: JeedFileManager, parentClassLoade
     override var loadedClasses: MutableSet<String> = mutableSetOf()
 
     override fun findClass(name: String): Class<*> {
-        @Suppress("UNREACHABLE_CODE", "TooGenericExceptionCaught")
+        @Suppress("UNREACHABLE_CODE", "TooGenericExceptionCaught", "SwallowedException")
         return try {
             val classFile = fileManager.getJavaFileForInput(
                 StandardLocation.CLASS_OUTPUT,
