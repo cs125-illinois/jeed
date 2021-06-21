@@ -9,6 +9,7 @@ enum class FeatureName {
     LOCAL_VARIABLE_DECLARATIONS,
     VARIABLE_ASSIGNMENTS,
     VARIABLE_REASSIGNMENTS,
+
     // Operators
     UNARY_OPERATORS,
     ARITHMETIC_OPERATORS,
@@ -17,15 +18,18 @@ enum class FeatureName {
     TERNARY_OPERATOR,
     COMPARISON_OPERATORS,
     LOGICAL_OPERATORS,
+
     // If & Else
     IF_STATEMENTS,
     ELSE_STATEMENTS,
     ELSE_IF,
+
     // Arrays
     ARRAYS,
     ARRAY_ACCESS,
     ARRAY_LITERAL,
     MULTIDIMENSIONAL_ARRAYS,
+
     // Loops
     FOR_LOOPS,
     ENHANCED_FOR,
@@ -33,42 +37,51 @@ enum class FeatureName {
     DO_WHILE_LOOPS,
     BREAK,
     CONTINUE,
+
     // Nesting
     NESTED_IF,
     NESTED_FOR,
     NESTED_WHILE,
     NESTED_DO_WHILE,
     NESTED_CLASS,
+
     // Methods
     METHOD,
     CONSTRUCTOR,
     GETTER,
     SETTER,
+
     // Strings & null
     STRING,
     NULL,
+
     // Type handling
     CASTING,
     TYPE_INFERENCE,
     INSTANCEOF,
+
     // Class & Interface
     CLASS,
     IMPLEMENTS,
     INTERFACE,
+
     // Polymorphism
     EXTENDS,
     SUPER,
     OVERRIDE,
+
     // Exceptions
     TRY_BLOCK,
     FINALLY,
     ASSERT,
     THROW,
     THROWS,
+
     // Objects
     NEW_KEYWORD,
     THIS,
     REFERENCE_EQUALITY,
+
     // Modifiers
     VISIBILITY_MODIFIERS,
     STATIC_METHOD,
@@ -79,8 +92,10 @@ enum class FeatureName {
     ABSTRACT_FIELD,
     FINAL_CLASS,
     ABSTRACT_CLASS,
+
     // Import
     IMPORT,
+
     // Misc.
     ANONYMOUS_CLASSES,
     LAMBDA_EXPRESSIONS,
@@ -95,11 +110,12 @@ enum class FeatureName {
     TYPE_PARAMETERS
 }
 
+@JsonClass(generateAdapter = true)
 data class Features(
     var featureMap: MutableMap<FeatureName, Int> = FeatureName.values().associate { it to 0 }.toMutableMap(),
-    var importList: MutableList<String> = arrayListOf(),
-    var typeList: MutableList<String> = arrayListOf(),
-    var identifierList: MutableList<String> = arrayListOf(),
+    var importList: MutableSet<String> = mutableSetOf(),
+    var typeList: MutableSet<String> = mutableSetOf(),
+    var identifierList: MutableSet<String> = mutableSetOf(),
     var skeleton: String = ""
 ) {
     operator fun plus(other: Features): Features {
@@ -125,7 +141,7 @@ sealed class FeatureValue(
     range: SourceRange,
     methods: MutableMap<String, LocatedClassOrMethod> = mutableMapOf(),
     classes: MutableMap<String, LocatedClassOrMethod> = mutableMapOf(),
-    var features: Features
+    var features: Features,
 ) : LocatedClassOrMethod(name, range, methods, classes) {
     fun lookup(name: String): FeatureValue {
         check(name.isNotEmpty())
@@ -164,7 +180,7 @@ class UnitFeatures(
     features: Features = Features(),
 ) : FeatureValue(name, range, methods, classes, features)
 
-@Suppress("TooManyFunctions")
+@Suppress("TooManyFunctions", "LargeClass", "MagicNumber", "LongMethod", "ComplexMethod")
 private class FeatureListener(val source: Source, entry: Map.Entry<String, String>) : JavaParserBaseListener() {
     @Suppress("unused")
     private val contents = entry.value
@@ -599,8 +615,8 @@ private class FeatureListener(val source: Source, entry: Map.Entry<String, Strin
         currentFeatureMap[feature] = (currentFeatureMap[feature] ?: 0) + amount
     }
 
+    @Suppress("LongMethod", "ComplexMethod", "NestedBlockDepth")
     override fun enterStatement(ctx: JavaParser.StatementContext) {
-        println(ctx.text)
         if (currentFeatures.features.skeleton.isEmpty()) {
             val skeleton = ctx.text
             for (i in skeleton.indices) {
@@ -891,6 +907,7 @@ class FeaturesFailed(errors: List<SourceError>) : JeedError(errors) {
 @Throws(FeaturesFailed::class)
 fun Source.features(names: Set<String> = sources.keys.toSet()): FeaturesResults {
     require(type == Source.FileType.JAVA) { "Can't perform feature analysis yet for Kotlin sources" }
+    @Suppress("SwallowedException")
     try {
         return FeaturesResults(
             this,
@@ -905,8 +922,8 @@ fun Source.features(names: Set<String> = sources.keys.toSet()): FeaturesResults 
     }
 }
 
-// CS 124 Specific
-private val lessonMap = mapOf(
+@Suppress("MagicNumber", "UNUSED")
+val lessonMap = mapOf(
     FeatureName.LOCAL_VARIABLE_DECLARATIONS to 0,
     FeatureName.VARIABLE_ASSIGNMENTS to 0,
     FeatureName.VARIABLE_REASSIGNMENTS to 1,
