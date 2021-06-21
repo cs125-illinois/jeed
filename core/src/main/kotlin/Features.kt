@@ -970,3 +970,31 @@ private val lessonMap = mapOf(
     FeatureName.GENERIC_CLASS to 38,
     FeatureName.STREAM to 39
 )
+
+fun generateComparator() = Comparator<FeatureValue>{ first, second ->
+    val firstFeatures = first.features.featureMap.filterValues { it > 0 }
+    val secondFeatures = second.features.featureMap.filterValues { it > 0 }
+    var firstLevel = 0
+    for (featureValue in firstFeatures.keys) {
+        firstLevel = if (lessonMap[featureValue]!! > firstLevel) {
+            lessonMap[featureValue]!!
+        } else {
+            firstLevel
+        }
+    }
+    var secondLevel = 0
+    for (featureValue in secondFeatures.keys) {
+        secondLevel = if (lessonMap[featureValue]!! > secondLevel) {
+            lessonMap[featureValue]!!
+        } else {
+            secondLevel
+        }
+    }
+    println(firstLevel)
+    println(secondLevel)
+    when {
+        firstLevel > secondLevel -> 1
+        firstLevel < secondLevel -> -1
+        else -> 0
+    }
+}

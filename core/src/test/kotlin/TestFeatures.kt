@@ -739,12 +739,13 @@ List<String> list = new ArrayList<>();
             it.lookup(".").features.featureMap[FeatureName.TYPE_PARAMETERS] shouldBe 1
         }
     }
-    /*"should correctly compare two snippets" {
+    "f: should correctly compare two snippets" {
         val first = Source.fromSnippet(
             """
 int i = 0;
 char j = 'j';
 i += 4;
+String first = "hello";
 """.trim()
         ).features().lookup(".")
         val second = Source.fromSnippet(
@@ -753,6 +754,8 @@ int x = 0;
 int y = x + 5;
 """.trim()
         ).features().lookup(".")
-        (first == second) shouldBe true
-    }*/
+        println(first.features.featureMap)
+        val comparator = generateComparator()
+        comparator.compare(first, second) shouldBe 1
+    }
 })
