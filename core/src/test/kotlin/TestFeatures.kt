@@ -752,10 +752,37 @@ String first = "hello";
             """
 int x = 0;
 int y = x + 5;
+for (int i = 0; i < 10; i++) { }
 """.trim()
         ).features().lookup(".")
-        println(first.features.featureMap)
         val comparator = generateComparator()
         comparator.compare(first, second) shouldBe 1
+    }
+    "f: should correctly compare two files" {
+        val first = Source(
+            mapOf(
+                "Test.java" to """
+public class Test {
+    int add(int x, int y) {
+        String hello = "Hello!";
+        return x + y;
+    }
+}
+                """.trim()
+            )
+        ).features().lookup("Test", "Test.java")
+        val second = Source(
+            mapOf(
+                "Test.java" to """
+public class Test {
+    String add(String x, String y) {
+        return x + y;
+    }
+}
+                """.trim()
+            )
+        ).features().lookup("Test", "Test.java")
+        val comparator = generateComparator()
+        comparator.compare(first, second) shouldBe 0
     }
 })

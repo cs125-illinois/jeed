@@ -497,14 +497,6 @@ private class FeatureListener(val source: Source, entry: Map.Entry<String, Strin
     }
 
     override fun enterMethodDeclaration(ctx: JavaParser.MethodDeclarationContext) {
-        val parameters = ctx.formalParameters().formalParameterList()?.formalParameter()?.joinToString(",") {
-            it.typeType().text
-        } ?: ""
-        enterMethodOrConstructor(
-            "${ctx.typeTypeOrVoid().text} ${ctx.IDENTIFIER().text}($parameters)",
-            Location(ctx.start.line, ctx.start.charPositionInLine),
-            Location(ctx.stop.line, ctx.stop.charPositionInLine)
-        )
         count(FeatureName.METHOD, 1)
         if (ctx.IDENTIFIER().text.startsWith("get")) {
             count(FeatureName.GETTER, 1)
@@ -530,6 +522,14 @@ private class FeatureListener(val source: Source, entry: Map.Entry<String, Strin
                     it.ABSTRACT() != null && statement.localTypeDeclaration().classDeclaration() != null
                 } ?: false
             }?.size ?: 0
+        )
+        val parameters = ctx.formalParameters().formalParameterList()?.formalParameter()?.joinToString(",") {
+            it.typeType().text
+        } ?: ""
+        enterMethodOrConstructor(
+            "${ctx.typeTypeOrVoid().text} ${ctx.IDENTIFIER().text}($parameters)",
+            Location(ctx.start.line, ctx.start.charPositionInLine),
+            Location(ctx.stop.line, ctx.stop.charPositionInLine)
         )
     }
 
@@ -1007,8 +1007,6 @@ fun generateComparator() = Comparator<FeatureValue>{ first, second ->
             secondLevel
         }
     }
-    println(firstLevel)
-    println(secondLevel)
     when {
         firstLevel > secondLevel -> 1
         firstLevel < secondLevel -> -1
