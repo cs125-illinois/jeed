@@ -14,41 +14,6 @@ import org.jetbrains.kotlin.backend.common.pop
 import java.util.Objects
 import kotlin.random.Random
 
-val PITEST = setOf(
-    Mutation.Type.BOOLEAN_LITERAL,
-    Mutation.Type.CHAR_LITERAL,
-    Mutation.Type.STRING_LITERAL,
-    Mutation.Type.NUMBER_LITERAL,
-    Mutation.Type.CONDITIONAL_BOUNDARY,
-    Mutation.Type.NEGATE_CONDITIONAL,
-    Mutation.Type.SWAP_AND_OR,
-    Mutation.Type.INCREMENT_DECREMENT,
-    Mutation.Type.INVERT_NEGATION,
-    Mutation.Type.MATH,
-    Mutation.Type.PRIMITIVE_RETURN,
-    Mutation.Type.TRUE_RETURN,
-    Mutation.Type.FALSE_RETURN,
-    Mutation.Type.NULL_RETURN,
-    Mutation.Type.PLUS_TO_MINUS
-)
-val OTHER = setOf(
-    Mutation.Type.REMOVE_RUNTIME_CHECK,
-    Mutation.Type.REMOVE_METHOD,
-    Mutation.Type.NEGATE_IF,
-    Mutation.Type.REMOVE_IF,
-    Mutation.Type.REMOVE_LOOP,
-    Mutation.Type.REMOVE_AND_OR,
-    Mutation.Type.REMOVE_TRY,
-    Mutation.Type.REMOVE_STATEMENT,
-    Mutation.Type.REMOVE_PLUS,
-    Mutation.Type.REMOVE_BINARY,
-    Mutation.Type.CHANGE_EQUALS,
-)
-val ALL = PITEST + OTHER
-
-fun Mutation.Type.suppressionComment() = "mutate-disable-" + mutationName()
-fun Mutation.Type.mutationName() = name.lowercase().replace("_", "-")
-
 sealed class Mutation(
     val mutationType: Type,
     var location: Location,
