@@ -740,11 +740,11 @@ class NullReturn(
     }
 }
 
-class RemoveAssert(
+class RemoveRuntimeCheck(
     location: Location,
     original: String,
     fileType: Source.FileType
-) : Mutation(Type.REMOVE_ASSERT, location, original, fileType) {
+) : Mutation(Type.REMOVE_RUNTIME_CHECK, location, original, fileType) {
     override val preservesLength = false
     override val estimatedCount = 1
     override val mightNotCompile = false
@@ -767,25 +767,43 @@ class RemoveMethod(
     private val prefix = getPrefix(original)
     private val postfix = getPostfix(original)
 
-    override fun applyMutation(random: Random) = forReturnType(returnType).let {
-        "$prefix$it;$postfix"
+    override fun applyMutation(random: Random) = forReturnType(returnType, fileType).let {
+        when (fileType) {
+            Source.FileType.JAVA -> "$prefix$it;$postfix"
+            Source.FileType.KOTLIN -> "$prefix$it$postfix"
+        }
     }
 
     companion object {
         @Suppress("DEPRECATION")
-        private fun forReturnType(returnType: String) = when {
-            returnType == "String" -> "return \"\""
-            returnType == returnType.capitalize() || returnType.endsWith("[]") -> "return null"
-            returnType == "void" -> "return"
-            returnType == "byte" -> "return 0"
-            returnType == "short" -> "return 0"
-            returnType == "int" -> "return 0"
-            returnType == "long" -> "return 0L"
-            returnType == "char" -> "return '0'"
-            returnType == "boolean" -> "return false"
-            returnType == "float" -> "return 0.0f"
-            returnType == "double" -> "return 0.0"
-            else -> error("Bad return type: $returnType")
+        private fun forReturnType(returnType: String, fileType: Source.FileType) = when (fileType) {
+            Source.FileType.JAVA -> when {
+                returnType == "String" -> "return \"\""
+                returnType == returnType.capitalize() || returnType.endsWith("[]") -> "return null"
+                returnType == "void" -> "return"
+                returnType == "byte" -> "return 0"
+                returnType == "short" -> "return 0"
+                returnType == "int" -> "return 0"
+                returnType == "long" -> "return 0L"
+                returnType == "char" -> "return '0'"
+                returnType == "boolean" -> "return false"
+                returnType == "float" -> "return 0.0f"
+                returnType == "double" -> "return 0.0"
+                else -> error("Bad return type: $returnType")
+            }
+            Source.FileType.KOTLIN -> when {
+                returnType.removeSuffix("?") == "String" -> "return \"\""
+                returnType.removeSuffix("?") == "" -> "return"
+                returnType.removeSuffix("?") == "Byte" -> "return 0"
+                returnType.removeSuffix("?") == "Short" -> "return 0"
+                returnType.removeSuffix("?") == "Int" -> "return 0"
+                returnType.removeSuffix("?") == "Long" -> "return 0L"
+                returnType.removeSuffix("?") == "Char" -> "return '0'"
+                returnType.removeSuffix("?") == "Boolean" -> "return false"
+                returnType.removeSuffix("?") == "Float" -> "return 0.0f"
+                returnType.removeSuffix("?") == "Double" -> "return 0.0"
+                else -> "return null"
+            }
         }
 
         private fun getPrefix(content: String): String {
@@ -817,11 +835,10 @@ class RemoveMethod(
             }
             return postfix.reversed()
         }
-
-        fun matches(contents: String, returnType: String) = contents.removePrefix(getPrefix(contents)).let {
+        fun matches(contents: String, returnType: String, fileType: Source.FileType) = contents.removePrefix(getPrefix(contents)).let {
             it.removeSuffix(getPostfix(it))
         }.let {
-            it.isNotBlank() && it.trim().removeSuffix(";").trim() != forReturnType(returnType)
+            it.isNotBlank() && it.trim().removeSuffix(";").trim() != forReturnType(returnType, fileType)
         }
     }
 }
@@ -909,9 +926,11 @@ class RemoveStatement(
 ) : Mutation(Type.REMOVE_STATEMENT, location, original, fileType) {
     override val preservesLength = false
     override val estimatedCount = 1
-    override val mightNotCompile = false
+    override val mightNotCompile = when (fileType) {
+        Source.FileType.JAVA -> false
+        Source.FileType.KOTLIN -> true
+    }
     override val fixedCount = true
-
     override fun applyMutation(random: Random): String = ""
 }
 
@@ -947,5 +966,38 @@ class RemoveBinary(
     companion object {
         private val BINARY = setOf("-", "*", "/", "%", "&", "|", "^", "<<", ">>", ">>>")
         fun matches(contents: String) = BINARY.contains(contents)
+    }
+}
+
+class ChangeEquals(
+    location: Location,
+    original: String,
+    fileType: Source.FileType,
+    private val originalEqualsType: String = "",
+    private val firstValue: String = "",
+    private val secondValue: String = ""
+) : Mutation(Type.CHANGE_EQUALS, location, original, fileType) {
+    override val preservesLength = false
+    override val estimatedCount = 1
+    override val mightNotCompile = true
+    override val fixedCount = true
+
+    override fun applyMutation(random: Random): String {
+        when (fileType) {
+            Source.FileType.KOTLIN -> {
+                return when (originalEqualsType) {
+                    "==" -> "==="
+                    "===" -> "=="
+                    else -> error("Unknown kotlin equals type: $originalEqualsType")
+                }
+            }
+            Source.FileType.JAVA -> {
+                return when (originalEqualsType) {
+                    "==" -> "($firstValue.equals($secondValue))"
+                    ".equals" -> "($firstValue == $secondValue)"
+                    else -> error("Unknown java equals type: $originalEqualsType")
+                }
+            }
+        }
     }
 }

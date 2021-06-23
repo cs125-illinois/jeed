@@ -305,7 +305,7 @@ public class Example {
     assert second >= 0 : "Bad second value";
   }
 }"""
-        ).checkMutations<RemoveAssert> { mutations, contents ->
+        ).checkMutations<RemoveRuntimeCheck> { mutations, contents ->
             mutations shouldHaveSize 2
             mutations[0].check(contents, "assert first > 0;", "")
             mutations[1].check(contents, """assert second >= 0 : "Bad second value";""", "")
@@ -537,6 +537,28 @@ public class Example {
             mutations shouldHaveSize 20
         }
     }
+
+    "it should complete the change equals mutation" {
+        Source.fromJava(
+            """
+public class Example {
+  public void equalsTester() {
+    String example1 = "test";
+    String example2 = new String("test");
+    String example3 = "test1";
+    example3 = example3.substring(0, 4);
+    System.out.println(example1 == example3);
+    System.out.println(example2.equals(example3));
+  }
+}
+""".trim()
+        ).checkMutations<ChangeEquals> { mutations, contents ->
+            mutations shouldHaveSize 2
+            mutations[0].check(contents, "example1 == example3", "(example1.equals(example3))")
+            mutations[1].check(contents, "example2.equals(example3)", "(example2 == example3)")
+        }
+    }
+
     "it should remove blank lines correctly" {
         val source = Source.fromJava(
             """
@@ -545,9 +567,9 @@ public class Example {
     assert first > 0;
     assert second >= 0 : "Bad second value";
   }
-}""".trim() // ask geoff while this has 5 lines?
+}""".trim()
         )
-        source.allMutations(types = setOf(Mutation.Type.REMOVE_ASSERT)).also { mutations ->
+        source.allMutations(types = setOf(Mutation.Type.REMOVE_RUNTIME_CHECK)).also { mutations ->
             mutations shouldHaveSize 2
             mutations[0].contents.lines() shouldHaveSize 5
             mutations[0].contents.lines().filter { it.isBlank() } shouldHaveSize 0
@@ -773,7 +795,7 @@ public class Example {
     }
 }"""
         ).allMutations().also { mutations ->
-            mutations shouldHaveSize 9
+            mutations shouldHaveSize 10
             mutations.forEach { mutatedSource ->
                 mutatedSource.marked().checkstyle(CheckstyleArguments(failOnError = true))
             }

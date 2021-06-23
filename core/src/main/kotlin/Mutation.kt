@@ -32,7 +32,7 @@ val PITEST = setOf(
     Mutation.Type.PLUS_TO_MINUS
 )
 val OTHER = setOf(
-    Mutation.Type.REMOVE_ASSERT,
+    Mutation.Type.REMOVE_RUNTIME_CHECK,
     Mutation.Type.REMOVE_METHOD,
     Mutation.Type.NEGATE_IF,
     Mutation.Type.REMOVE_IF,
@@ -41,7 +41,8 @@ val OTHER = setOf(
     Mutation.Type.REMOVE_TRY,
     Mutation.Type.REMOVE_STATEMENT,
     Mutation.Type.REMOVE_PLUS,
-    Mutation.Type.REMOVE_BINARY
+    Mutation.Type.REMOVE_BINARY,
+    Mutation.Type.CHANGE_EQUALS,
 )
 val ALL = PITEST + OTHER
 
@@ -100,9 +101,9 @@ sealed class Mutation(
         CONDITIONAL_BOUNDARY, NEGATE_CONDITIONAL, SWAP_AND_OR,
         INCREMENT_DECREMENT, INVERT_NEGATION, MATH,
         PRIMITIVE_RETURN, TRUE_RETURN, FALSE_RETURN, NULL_RETURN, PLUS_TO_MINUS,
-        REMOVE_ASSERT, REMOVE_METHOD,
+        REMOVE_RUNTIME_CHECK, REMOVE_METHOD,
         NEGATE_IF, NEGATE_WHILE, REMOVE_IF, REMOVE_LOOP, REMOVE_AND_OR, REMOVE_TRY, REMOVE_STATEMENT,
-        REMOVE_PLUS, REMOVE_BINARY
+        REMOVE_PLUS, REMOVE_BINARY, CHANGE_EQUALS
     }
 
     var modified: String? = null
@@ -190,7 +191,7 @@ sealed class Mutation(
                 check(currentReturnType != null)
                 val location = ctx.block().toLocation()
                 val contents = parsedSource.contents(location)
-                if (RemoveMethod.matches(contents, currentReturnType!!)) {
+                if (RemoveMethod.matches(contents, currentReturnType!!, fileType)) {
                     mutations.add(RemoveMethod(location, contents, currentReturnType!!, fileType))
                 }
             }
@@ -372,13 +373,40 @@ sealed class Mutation(
                     mutations.add(RemoveBinary(frontLocation, parsedSource.contents(frontLocation), fileType))
                     mutations.add(RemoveBinary(backLocation, parsedSource.contents(backLocation), fileType))
                 }
+                if (contents == "==") {
+                    mutations.add(
+                        ChangeEquals(
+                            ctx.toLocation(),
+                            parsedSource.contents(ctx.toLocation()),
+                            fileType,
+                            "==",
+                            ctx.expression(0).text,
+                            ctx.expression(1).text
+                        )
+                    )
+                }
+                if (contents == "." &&
+                    ctx.methodCall() != null &&
+                    ctx.methodCall().IDENTIFIER().text == "equals" &&
+                    ctx.methodCall().expressionList().expression().size == 1
+                ) {
+                    mutations.add(
+                        ChangeEquals(
+                            ctx.toLocation(),
+                            parsedSource.contents(ctx.toLocation()),
+                            fileType,
+                            ".equals",
+                            ctx.expression(0).text,
+                            ctx.methodCall().expressionList().expression(0).text
+                        )
+                    )
+                }
             }
         }
 
         private val seenIfStarts = mutableSetOf<Int>()
 
         override fun enterStatement(ctx: JavaParser.StatementContext) {
-            println("java enterStatement ${ctx.text}")
             ctx.IF()?.also {
                 val outerLocation = ctx.toLocation()
                 if (outerLocation.start !in seenIfStarts) {
@@ -434,7 +462,7 @@ sealed class Mutation(
             }
             ctx.ASSERT()?.also {
                 ctx.toLocation().also { location ->
-                    mutations.add(RemoveAssert(location, parsedSource.contents(location), fileType))
+                    mutations.add(RemoveRuntimeCheck(location, parsedSource.contents(location), fileType))
                 }
             }
             ctx.RETURN()?.also {
@@ -529,17 +557,15 @@ sealed class Mutation(
             check(currentReturnType != null)
             val methodLocation = ctx.block().toLocation()
             val methodContents = parsedSource.contents(methodLocation)
-            if (RemoveMethod.matches(methodContents, currentReturnType!!)) {
+            if (RemoveMethod.matches(methodContents, currentReturnType!!, fileType)) {
                 mutations.add(RemoveMethod(methodLocation, methodContents, currentReturnType!!, fileType))
             }
-            ctx.block().statements().statement().filter { it.start.text == "return" }.forEach {
-                val returnToken = it.blockLevelExpression().expression().disjunction(0).conjunction(0)
-                    .equalityComparison(0).comparison(0).namedInfix(0).elvisExpression(0)
-                    .infixFunctionCall(0).rangeExpression(0).additiveExpression(0)
-                    .multiplicativeExpression(0).typeRHS(0).prefixUnaryExpression(0)
-                    .postfixUnaryExpression().atomicExpression().jumpExpression().expression() ?: return
-                val returnLocation = returnToken.toLocation()
+        }
 
+        override fun enterJumpExpression(ctx: KotlinParser.JumpExpressionContext) {
+            if (ctx.RETURN() != null && ctx.expression() != null) {
+                val returnToken = ctx.expression()
+                val returnLocation = returnToken.toLocation()
                 if (PrimitiveReturn.matches(returnToken.text, currentReturnType!!, fileType)) {
                     mutations.add(PrimitiveReturn(returnLocation, parsedSource.contents(returnLocation), fileType))
                 }
@@ -556,15 +582,16 @@ sealed class Mutation(
         }
 
         override fun enterStatement(ctx: KotlinParser.StatementContext) {
-            println("enterStatement: ${ctx.text}")
             val statementLocation = ctx.toLocation()
             if (ctx.start.text == "assert" ||
                 ctx.start.text == "check" ||
                 ctx.start.text == "require"
             ) {
-                mutations.add(RemoveAssert(statementLocation, parsedSource.contents(statementLocation), fileType))
+                mutations.add(RemoveRuntimeCheck(statementLocation, parsedSource.contents(statementLocation), fileType))
             }
-            mutations.add(RemoveStatement(statementLocation, parsedSource.contents(statementLocation), fileType))
+            if (ctx.declaration() == null) {
+                mutations.add(RemoveStatement(statementLocation, parsedSource.contents(statementLocation), fileType))
+            }
         }
 
         private var insideAnnotation = false
@@ -586,7 +613,6 @@ sealed class Mutation(
                 start.line
             )
 
-        private fun Token.toLocation() = Location(startIndex, stopIndex, currentPath, lines[line - 1], line)
         private fun List<TerminalNode>.toLocation() =
             Location(
                 first().symbol.startIndex,
@@ -642,18 +668,39 @@ sealed class Mutation(
                     mutations.add(NumberLiteral(location, parsedSource.contents(location), fileType))
                 }
             }
-            ctx.NullLiteral()?.also {
-                // println("null literal: " + ctx.text)
-                ctx.toLocation().also { location ->
-                    // todo: null literals
-                }
-            }
         }
 
         override fun enterIfExpression(ctx: KotlinParser.IfExpressionContext) {
-            println("enterIfExpression: ${ctx.text}")
             val conditionalLocation = ctx.parenthesizedExpression().toLocation()
             mutations.add(NegateIf(conditionalLocation, parsedSource.contents(conditionalLocation), fileType))
+            if (ctx.ELSE() == null) {
+                mutations.add(RemoveIf(ctx.toLocation(), parsedSource.contents(ctx.toLocation()), fileType))
+            } else {
+                if (ctx.controlStructureBody(1).expression() == null) { // not else if, just else
+                    val location = Location(
+                        ctx.ELSE().symbol.startIndex,
+                        ctx.controlStructureBody(1).stop.stopIndex,
+                        currentPath,
+                        lines.filterIndexed { index, _ ->
+                            index >= ctx.ELSE().symbol.line - 1 && index <= ctx.controlStructureBody(1).stop.line - 1
+                        }.joinToString("\n"),
+                        ctx.ELSE().symbol.line
+                    )
+                    mutations.add(RemoveIf(location, parsedSource.contents(location), fileType))
+                    mutations.add(RemoveIf(ctx.toLocation(), parsedSource.contents(ctx.toLocation()), fileType))
+                } else { // is an else if
+                    val location = Location(
+                        ctx.start.startIndex,
+                        ctx.ELSE().symbol.stopIndex,
+                        currentPath,
+                        lines.filterIndexed { index, _ ->
+                            index >= ctx.start.line - 1 && index <= ctx.ELSE().symbol.line - 1
+                        }.joinToString("\n"),
+                        ctx.start.line
+                    )
+                    mutations.add(RemoveIf(location, parsedSource.contents(location), fileType))
+                }
+            }
         }
 
         override fun enterLoopExpression(ctx: KotlinParser.LoopExpressionContext) {
@@ -719,6 +766,26 @@ sealed class Mutation(
             if (NegateConditional.matches(ctx.text)) {
                 mutations.add(NegateConditional(ctx.toLocation(), ctx.text, fileType))
             }
+            if (ctx.text == "==") {
+                mutations.add(
+                    ChangeEquals(
+                        ctx.toLocation(),
+                        parsedSource.contents(ctx.toLocation()),
+                        fileType,
+                        "=="
+                    )
+                )
+            }
+            if (ctx.text == "===") {
+                mutations.add(
+                    ChangeEquals(
+                        ctx.toLocation(),
+                        parsedSource.contents(ctx.toLocation()),
+                        fileType,
+                        "==="
+                    )
+                )
+            }
         }
 
         override fun enterDisjunction(ctx: KotlinParser.DisjunctionContext) {
@@ -755,9 +822,7 @@ sealed class Mutation(
                 back.start.startIndex - 1,
                 currentPath,
                 lines
-                    .filterIndexed { index, _ ->
-                        index >= front.start.line - 1 && index <= back.start.line - 1
-                    }
+                    .filterIndexed { index, _ -> index >= front.start.line - 1 && index <= back.start.line - 1 }
                     .joinToString("\n"),
                 front.start.line
             )
@@ -766,9 +831,7 @@ sealed class Mutation(
                 back.stop.stopIndex,
                 currentPath,
                 lines
-                    .filterIndexed { index, _ ->
-                        index >= front.stop.line - 1 && index <= back.stop.line - 1
-                    }
+                    .filterIndexed { index, _ -> index >= front.stop.line - 1 && index <= back.stop.line - 1 }
                     .joinToString("\n"),
                 front.start.line
             )
@@ -776,21 +839,20 @@ sealed class Mutation(
         }
 
         private fun KotlinParser.AdditiveExpressionContext.locationPair(): Pair<Location, Location> {
-            check(multiplicativeExpression().size == 2)
-            return locationPairHelper<KotlinParser.MultiplicativeExpressionContext>(multiplicativeExpression(0), multiplicativeExpression(1))
+            return locationPairHelper<KotlinParser.MultiplicativeExpressionContext>(
+                multiplicativeExpression(0), multiplicativeExpression(1)
+            )
         }
 
         private fun KotlinParser.ConjunctionContext.locationPair(): Pair<Location, Location> {
-            check(equalityComparison().size == 2)
-            return locationPairHelper<KotlinParser.EqualityComparisonContext>(equalityComparison(0), equalityComparison(1))
+            return locationPairHelper<KotlinParser.EqualityComparisonContext>(
+                equalityComparison(0), equalityComparison(1)
+            )
         }
 
         private fun KotlinParser.DisjunctionContext.locationPair(): Pair<Location, Location> {
-            check(conjunction().size == 2)
             return locationPairHelper<KotlinParser.ConjunctionContext>(conjunction(0), conjunction(1))
         }
-
-        private val seenIfStarts = mutableSetOf<Int>()
 
         init {
             ParseTreeWalker.DEFAULT.walk(this, parsedSource.tree)

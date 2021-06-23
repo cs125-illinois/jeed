@@ -9,6 +9,21 @@ import io.kotest.matchers.string.shouldNotContain
 import kotlin.random.Random
 
 class TestKotlinMutater : StringSpec({
+    "it should mutate equals" {
+        Source.fromKotlin(
+            """
+fun example() {
+  if (true == true) return
+  if (false === true) return
+}
+""".trim()
+        ).checkMutations<ChangeEquals> { mutations, contents ->
+            mutations shouldHaveSize 2
+            mutations[0].check(contents, "==", "===")
+            mutations[1].check(contents, "===", "==")
+        }
+    }
+
     "it should find boolean literals to mutate" {
         Source.fromKotlin(
             """
@@ -64,12 +79,16 @@ fun example() {
 fun example() {
     println(1234)
     val f: Float = 1.01f
+    var hex: Int = 0x0F
+    val bin = 0b1001011
 }
 """.trim()
         ).checkMutations<NumberLiteral> { mutations, contents ->
-            mutations shouldHaveSize 2
+            mutations shouldHaveSize 4
             mutations[0].check(contents, "1234")
             mutations[1].check(contents, "1.01f")
+            mutations[2].check(contents, "0x0F")
+            mutations[3].check(contents, "0b1001011")
         }
     }
 
@@ -107,7 +126,7 @@ fun example() {
     }
 
     "it should find math to mutate" {
-        Source.fromKotlin( // todo ask geoff can you do bit shifting in kotlin
+        Source.fromKotlin(
             """
 fun example() {
   val i = 0
@@ -161,7 +180,7 @@ fun example() {
             mutations[1].check(contents, ">=", ">")
         }
     }
-// todo: add ===
+
     "it should find conditionals to negate" {
         Source.fromKotlin(
             """
@@ -285,7 +304,7 @@ fun fifth(): IntArray {
             mutations[1].check(contents, "IntArray(5)", "null")
         }
     }
-// todo: rename mutation
+
     "it should find asserts, requires, and checks to mutate" {
         Source.fromKotlin(
             """
@@ -296,7 +315,7 @@ fun test(first: Int, second: Int) {
   assert(second >= 0) {"Bad second value"}
 }
 """.trim()
-        ).checkMutations<RemoveAssert> { mutations, contents ->
+        ).checkMutations<RemoveRuntimeCheck> { mutations, contents ->
             mutations shouldHaveSize 4
             mutations[0].check(contents, "assert(first > 0)", "")
             mutations[1].check(contents, "require(first > 10)", "")
@@ -369,13 +388,17 @@ fun test(first: Int): Int {
   while (i < first) {
     i++
   }
+  do {
+    i++
+  } while (i > first)
 }
 """.trim()
         ).checkMutations<NegateWhile> { mutations, contents ->
-            mutations shouldHaveSize 1
+            mutations shouldHaveSize 2
             mutations[0].check(contents, "(i < first)", "(!(i < first))")
+            mutations[1].check(contents, "(i > first)", "(!(i > first))")
         }
-    } // todo: check do while
+    }
 
     "it should remove if statements" {
         Source.fromKotlin(
@@ -408,8 +431,8 @@ fun test(first: Int) {
             mutations[0].check(
                 contents,
                 """if (first > 0) {
-      println(1)
-    }""",
+    println(1)
+  }""",
                 ""
             )
         }
@@ -443,9 +466,28 @@ fun test(first: Int) {
         ).checkMutations<RemoveLoop> { mutations, contents ->
             mutations shouldHaveSize 4
             mutations[0].check(contents, "for (i in 0..first) { }", "")
-        } // todo: check other loops
+            mutations[1].check(contents, "while (true) { }", "")
+            mutations[2].check(contents, "for (item: Int in intArrayOf(1, 2, 4)) { }", "")
+            mutations[3].check(contents, "do {} while (true)", "")
+        }
     }
-// todo: check and-ors for while loops
+    "it should remove and-ors in while loops" {
+        Source.fromKotlin(
+            """
+fun test(first: Int) {
+  while (true && false) { }
+  while (false || true) { }
+}
+""".trim()
+        ).checkMutations<RemoveAndOr> { mutations, contents ->
+            mutations shouldHaveSize 4
+            mutations[0].check(contents, "true && ", "")
+            mutations[1].check(contents, " && false", "")
+            mutations[2].check(contents, "false || ", "")
+            mutations[3].check(contents, " || true", "")
+        }
+    }
+
     "it should remove and-ors correctly" {
         Source.fromKotlin(
             """
@@ -490,9 +532,9 @@ fun test() {
 }
 """.trim()
         ).checkMutations<RemoveStatement> { mutations, _ ->
-            mutations shouldHaveSize 3
+            mutations shouldHaveSize 4
         }
-    } // todo: check this
+    }
 
     "it should remove plus correctly" {
         Source.fromKotlin(
@@ -520,7 +562,7 @@ fun test(first: Int, second: Int) {
 }
 """.trim()
         )
-        source.allMutations(types = setOf(Mutation.Type.REMOVE_ASSERT)).also { mutations ->
+        source.allMutations(types = setOf(Mutation.Type.REMOVE_RUNTIME_CHECK)).also { mutations ->
             mutations shouldHaveSize 2
             mutations[0].contents.lines() shouldHaveSize 3
             mutations[0].contents.lines().filter { it.isBlank() } shouldHaveSize 0
@@ -540,7 +582,7 @@ fun fourth(): Object {
   }
 """.trim()
         ).allMutations().also { mutations ->
-            mutations shouldHaveSize 5
+            mutations shouldHaveSize 6
             mutations[0].cleaned().also {
                 it["Main.kt"] shouldNotContain "mutate-disable"
             }
@@ -559,7 +601,7 @@ fun example(first: Int, second: Int): Int {
 }
 """.trim()
         ).allMutations().also { mutations ->
-            mutations shouldHaveSize 7
+            mutations shouldHaveSize 10
             mutations[0].cleaned().also {
                 it["Main.kt"] shouldNotContain "mutate-disable-conditional-boundary"
             }
@@ -614,7 +656,7 @@ fun testing(): Int {
 }
 """.trim()
         ).also { source ->
-            source.mutater(types = ALL - setOf(Mutation.Type.REMOVE_METHOD)).also { mutater ->
+            source.mutater(types = ALL - setOf(Mutation.Type.REMOVE_METHOD, Mutation.Type.REMOVE_STATEMENT)).also { mutater ->
                 mutater.size shouldBe 2
                 mutater.apply()
                 mutater.size shouldBe 0
@@ -631,17 +673,19 @@ fun testing(): Int {
 }
 """.trim()
         ).also { source ->
-            source.mutater(shuffle = false, types = ALL - setOf(Mutation.Type.REMOVE_METHOD)).also { mutater ->
-                mutater.size shouldBe 3
-                mutater.apply()
-                mutater.size shouldBe 2
-                mutater.apply()
-                mutater.size shouldBe 0
-            }
-            source.allMutations(types = ALL - setOf(Mutation.Type.REMOVE_METHOD)).also { mutations ->
-                mutations shouldHaveSize 3
-                mutations.map { it.contents }.toSet() shouldHaveSize 3
-            }
+            source.mutater(shuffle = false, types = ALL - setOf(Mutation.Type.REMOVE_METHOD, Mutation.Type.REMOVE_STATEMENT))
+                .also { mutater ->
+                    mutater.size shouldBe 3
+                    mutater.apply()
+                    mutater.size shouldBe 2
+                    mutater.apply()
+                    mutater.size shouldBe 0
+                }
+            source.allMutations(types = ALL - setOf(Mutation.Type.REMOVE_METHOD, Mutation.Type.REMOVE_STATEMENT))
+                .also { mutations ->
+                    mutations shouldHaveSize 3
+                    mutations.map { it.contents }.toSet() shouldHaveSize 3
+                }
         }
     }
 
@@ -704,7 +748,7 @@ fun testStream(): String {
 }
 """.trim()
         ).allFixedMutations(random = Random(124)).also { mutations ->
-            mutations shouldHaveSize 16
+            mutations shouldHaveSize 19
         }
     }
 
@@ -718,7 +762,7 @@ fun testStream(): Int {
 }
 """.trim()
         ).also { source ->
-            source.mutationStream().take(1024).toList().size shouldBe 6
+            source.mutationStream().take(1024).toList().size shouldBe 7
         }
     }
 
@@ -727,7 +771,6 @@ fun testStream(): Int {
             """
 @Suppress("unused")
 fun reformatName(input: String) {
-  return
 }
 """.trim()
         ).also { source ->
@@ -746,9 +789,9 @@ fun reformatName(input: String?) {
 }
 """.trim()
         ).allMutations().also { mutations ->
-            mutations shouldHaveSize 9
+            mutations shouldHaveSize 12
             mutations.forEach { mutatedSource ->
-                mutatedSource.marked().checkstyle(CheckstyleArguments(failOnError = true))
+                mutatedSource.marked().ktLint(KtLintArguments(failOnError = true))
             }
         }
     }
@@ -757,9 +800,11 @@ fun reformatName(input: String?) {
         Source.fromKotlin(
             """
 fun startWord(input: String, word: String): String {
-    if (input.length > 4
-        && word.length > 5
-        && word.length > 4) {
+    if (
+        input.length > 4 &&
+            word.length > 5 &&
+            word.length > 4
+        ) {
         println("Here")
     }
     if (input.length > 0 && input.substring(1).startsWith(word.substring(1))) {
@@ -770,8 +815,8 @@ fun startWord(input: String, word: String): String {
 }
 """.trim()
         ).allMutations().onEach { mutatedSource ->
-            mutatedSource.marked().checkstyle().also { errors ->
-                errors.errors.filter { it.key != "block.noStatement" } shouldHaveSize 0
+            mutatedSource.marked().ktLint().also { errors ->
+                errors.errors.filter { it.ruleId != "indent" && it.ruleId != "no-trailing-spaces" } shouldHaveSize 0
             }
         }
     }
@@ -782,16 +827,20 @@ fun startWord(input: String, word: String): String {
 class Question {
     fun gameOver(board: Array<CharArray>): Char {
         for (i in 0..3) {
-            if (board[i][0] != ' '
-                && board[i][0] == board[i][1]
-                && board[i][0] == board[i][2]) {
+            if (
+                board[i][0] != ' ' &&
+                    board[i][0] == board[i][1] &&
+                    board[i][0] == board[i][2]
+                ) {
                 return board[i][0]
             }
         }
         for (i in 0..3) {
-            if (board[0][i] != ' '
-                && board[0][i] == board[1][i]
-                && board[0][i] == board[2][i]) {
+            if (
+                board[0][i] != ' ' &&
+                    board[0][i] == board[1][i] &&
+                    board[0][i] == board[2][i]
+                ) {
                 return board[0][i]
             }
         }
@@ -800,11 +849,9 @@ class Question {
 }
 """
         ).allMutations().onEach { mutatedSource ->
-            mutatedSource.marked().checkstyle().also { errors ->
-                errors.errors.filter { it.key != "block.noStatement" } shouldHaveSize 0
+            mutatedSource.marked().ktLint().also { errors ->
+                errors.errors.filter { it.ruleId != "indent" && it.ruleId != "no-trailing-spaces" } shouldHaveSize 0
             }
         }
     }
 })
-
-// todo: add testing for other literal types
