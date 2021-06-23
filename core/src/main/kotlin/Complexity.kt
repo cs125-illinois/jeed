@@ -83,6 +83,7 @@ class ComplexityResults(val source: Source, val results: Map<String, Map<String,
 
 @Throws(ComplexityFailed::class)
 fun Source.complexity(names: Set<String> = sources.keys.toSet()): ComplexityResults {
+    @Suppress("SwallowedException")
     try {
         return ComplexityResults(
             this,

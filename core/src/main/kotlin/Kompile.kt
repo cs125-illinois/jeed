@@ -139,7 +139,14 @@ private class JeedMessageCollector(val source: Source, val allWarningsAsErrors: 
                     it.path != KOTLIN_EMPTY_LOCATION -> it.path.removePrefix(System.getProperty("file.separator"))
                     else -> null
                 }
-            }?.let { source.mapLocation(SourceLocation(it, location.line, location.column)) }
+            }?.let {
+                @Suppress("SwallowedException")
+                try {
+                    source.mapLocation(SourceLocation(it, location.line, location.column))
+                } catch (e: SourceMappingException) {
+                    null
+                }
+            }
         messages.add(CompilationMessage(severity.presentableName, sourceLocation, message))
     }
 }

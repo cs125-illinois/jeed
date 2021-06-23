@@ -801,6 +801,28 @@ public class Example {
             }
         }
     }
+    "it should mark mutations cleanly part 2" {
+        Source.fromJava(
+            """
+public class Example {
+    int[] example(int[] values) {
+        int larger = values[0];
+        if (values[2] > larger) {
+            larger = values[2];
+        }
+        values[0] = larger;
+        values[1] = larger;
+        values[2] = larger;
+        return values;
+    }
+}"""
+        ).allMutations().also { mutations ->
+            mutations shouldHaveSize 16
+            mutations.forEach { mutatedSource ->
+                mutatedSource.marked()
+            }
+        }
+    }
     "it should handle double marks" {
         Source.fromJava(
             """

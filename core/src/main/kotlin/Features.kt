@@ -9,82 +9,113 @@ enum class FeatureName {
     LOCAL_VARIABLE_DECLARATIONS,
     VARIABLE_ASSIGNMENTS,
     VARIABLE_REASSIGNMENTS,
+
     // Operators
     UNARY_OPERATORS,
     ARITHMETIC_OPERATORS,
     BITWISE_OPERATORS,
     ASSIGNMENT_OPERATORS,
     TERNARY_OPERATOR,
-    CONDITIONAL,
-    COMPLEX_CONDITIONAL,
+    COMPARISON_OPERATORS,
+    LOGICAL_OPERATORS,
+
     // If & Else
     IF_STATEMENTS,
     ELSE_STATEMENTS,
     ELSE_IF,
+
     // Arrays
+    ARRAYS,
     ARRAY_ACCESS,
     ARRAY_LITERAL,
     MULTIDIMENSIONAL_ARRAYS,
+
     // Loops
     FOR_LOOPS,
     ENHANCED_FOR,
     WHILE_LOOPS,
     DO_WHILE_LOOPS,
+    BREAK,
+    CONTINUE,
+
     // Nesting
     NESTED_IF,
     NESTED_FOR,
     NESTED_WHILE,
     NESTED_DO_WHILE,
+    NESTED_CLASS,
+
     // Methods
     METHOD,
     CONSTRUCTOR,
     GETTER,
     SETTER,
+
     // Strings & null
     STRING,
     NULL,
+
     // Type handling
     CASTING,
     TYPE_INFERENCE,
     INSTANCEOF,
+
     // Class & Interface
     CLASS,
     IMPLEMENTS,
     INTERFACE,
+
     // Polymorphism
     EXTENDS,
     SUPER,
     OVERRIDE,
+
     // Exceptions
     TRY_BLOCK,
     FINALLY,
     ASSERT,
     THROW,
     THROWS,
+
     // Objects
     NEW_KEYWORD,
     THIS,
     REFERENCE_EQUALITY,
+
     // Modifiers
     VISIBILITY_MODIFIERS,
     STATIC_METHOD,
     FINAL_METHOD,
     ABSTRACT_METHOD,
+    STATIC_FIELD,
+    FINAL_FIELD,
+    ABSTRACT_FIELD,
     FINAL_CLASS,
     ABSTRACT_CLASS,
+
     // Import
     IMPORT,
+
     // Misc.
     ANONYMOUS_CLASSES,
     LAMBDA_EXPRESSIONS,
     GENERIC_CLASS,
     SWITCH,
     STREAM,
-    ENUM
+    ENUM,
+    RECURSION,
+    COMPARABLE,
+    RECORD,
+    BOXING_CLASSES,
+    TYPE_PARAMETERS
 }
 
+@JsonClass(generateAdapter = true)
 data class Features(
     var featureMap: MutableMap<FeatureName, Int> = FeatureName.values().associate { it to 0 }.toMutableMap(),
+    var importList: MutableSet<String> = mutableSetOf(),
+    var typeList: MutableSet<String> = mutableSetOf(),
+    var identifierList: MutableSet<String> = mutableSetOf(),
     var skeleton: String = ""
 ) {
     operator fun plus(other: Features): Features {
@@ -92,8 +123,14 @@ data class Features(
         for (key in FeatureName.values()) {
             map[key] = featureMap[key]!! + other.featureMap[key]!!
         }
+        importList.addAll(other.importList)
+        typeList.addAll(other.typeList)
+        identifierList.addAll(other.identifierList)
         return Features(
             map,
+            importList,
+            typeList,
+            identifierList,
             skeleton + " " + other.skeleton
         )
     }
@@ -104,7 +141,7 @@ sealed class FeatureValue(
     range: SourceRange,
     methods: MutableMap<String, LocatedClassOrMethod> = mutableMapOf(),
     classes: MutableMap<String, LocatedClassOrMethod> = mutableMapOf(),
-    var features: Features
+    var features: Features,
 ) : LocatedClassOrMethod(name, range, methods, classes) {
     fun lookup(name: String): FeatureValue {
         check(name.isNotEmpty())
@@ -143,7 +180,7 @@ class UnitFeatures(
     features: Features = Features(),
 ) : FeatureValue(name, range, methods, classes, features)
 
-@Suppress("TooManyFunctions")
+@Suppress("TooManyFunctions", "LargeClass", "MagicNumber", "LongMethod", "ComplexMethod")
 private class FeatureListener(val source: Source, entry: Map.Entry<String, String>) : JavaParserBaseListener() {
     @Suppress("unused")
     private val contents = entry.value
@@ -251,6 +288,9 @@ private class FeatureListener(val source: Source, entry: Map.Entry<String, Strin
                 }
             }.size
         )
+        for (import in ctx.importDeclaration()) {
+            currentFeatures.features.importList.add(import.qualifiedName().text)
+        }
     }
 
     override fun exitCompilationUnit(ctx: JavaParser.CompilationUnitContext) {
@@ -277,6 +317,15 @@ private class FeatureListener(val source: Source, entry: Map.Entry<String, Strin
             }.size
         )
         count(
+            FeatureName.STATIC_FIELD,
+            ctx.classBody().classBodyDeclaration().filter { declaration ->
+                declaration.modifier().any {
+                    it.classOrInterfaceModifier().STATIC() != null &&
+                        declaration.memberDeclaration().fieldDeclaration() != null
+                }
+            }.size
+        )
+        count(
             FeatureName.FINAL_METHOD,
             ctx.classBody().classBodyDeclaration().filter { declaration ->
                 declaration.modifier().any {
@@ -286,11 +335,29 @@ private class FeatureListener(val source: Source, entry: Map.Entry<String, Strin
             }.size
         )
         count(
+            FeatureName.FINAL_FIELD,
+            ctx.classBody().classBodyDeclaration().filter { declaration ->
+                declaration.modifier().any {
+                    it.classOrInterfaceModifier().FINAL() != null &&
+                        declaration.memberDeclaration().fieldDeclaration() != null
+                }
+            }.size
+        )
+        count(
             FeatureName.ABSTRACT_METHOD,
             ctx.classBody().classBodyDeclaration().filter { declaration ->
                 declaration.modifier().any {
                     it.classOrInterfaceModifier().ABSTRACT() != null &&
                         declaration.memberDeclaration().methodDeclaration() != null
+                }
+            }.size
+        )
+        count(
+            FeatureName.ABSTRACT_FIELD,
+            ctx.classBody().classBodyDeclaration().filter { declaration ->
+                declaration.modifier().any {
+                    it.classOrInterfaceModifier().ABSTRACT() != null &&
+                        declaration.memberDeclaration().fieldDeclaration() != null
                 }
             }.size
         )
@@ -311,6 +378,12 @@ private class FeatureListener(val source: Source, entry: Map.Entry<String, Strin
                 declaration.modifier().any {
                     it?.text == "@Override"
                 }
+            }.size
+        )
+        count(
+            FeatureName.NESTED_CLASS,
+            ctx.classBody().classBodyDeclaration().filter { declaration ->
+                declaration.memberDeclaration().classDeclaration() != null
             }.size
         )
         count(
@@ -416,6 +489,7 @@ private class FeatureListener(val source: Source, entry: Map.Entry<String, Strin
             Location(ctx.start.line, ctx.start.charPositionInLine),
             Location(ctx.stop.line, ctx.stop.charPositionInLine)
         )
+        count(FeatureName.RECORD, 1)
     }
 
     override fun exitRecordDeclaration(ctx: JavaParser.RecordDeclarationContext?) {
@@ -423,14 +497,6 @@ private class FeatureListener(val source: Source, entry: Map.Entry<String, Strin
     }
 
     override fun enterMethodDeclaration(ctx: JavaParser.MethodDeclarationContext) {
-        val parameters = ctx.formalParameters().formalParameterList()?.formalParameter()?.joinToString(",") {
-            it.typeType().text
-        } ?: ""
-        enterMethodOrConstructor(
-            "${ctx.typeTypeOrVoid().text} ${ctx.IDENTIFIER().text}($parameters)",
-            Location(ctx.start.line, ctx.start.charPositionInLine),
-            Location(ctx.stop.line, ctx.stop.charPositionInLine)
-        )
         count(FeatureName.METHOD, 1)
         if (ctx.IDENTIFIER().text.startsWith("get")) {
             count(FeatureName.GETTER, 1)
@@ -456,6 +522,14 @@ private class FeatureListener(val source: Source, entry: Map.Entry<String, Strin
                     it.ABSTRACT() != null && statement.localTypeDeclaration().classDeclaration() != null
                 } ?: false
             }?.size ?: 0
+        )
+        val parameters = ctx.formalParameters().formalParameterList()?.formalParameter()?.joinToString(",") {
+            it.typeType().text
+        } ?: ""
+        enterMethodOrConstructor(
+            "${ctx.typeTypeOrVoid().text} ${ctx.IDENTIFIER().text}($parameters)",
+            Location(ctx.start.line, ctx.start.charPositionInLine),
+            Location(ctx.stop.line, ctx.stop.charPositionInLine)
         )
     }
 
@@ -516,25 +590,18 @@ private class FeatureListener(val source: Source, entry: Map.Entry<String, Strin
                 it.variableInitializer()?.arrayInitializer() != null
             }.size
         )
-        if (ctx.typeType().classOrInterfaceType()?.IDENTIFIER(0)?.text == "String") {
-            count(FeatureName.STRING, 1)
+        val numBrackets = ctx.typeType().text.filter { it == '[' || it == ']' }.length
+        when {
+            numBrackets > 2 -> count(FeatureName.MULTIDIMENSIONAL_ARRAYS, 1)
+            numBrackets > 0 -> count(FeatureName.ARRAYS, 1)
         }
-        if (ctx.typeType().classOrInterfaceType()?.IDENTIFIER(0)?.text == "Stream") {
-            count(FeatureName.STREAM, 1)
-        }
-        if (ctx.typeType().text.contains("[][]")) {
-            count(FeatureName.MULTIDIMENSIONAL_ARRAYS, 1)
-        }
-        if (ctx.typeType().text.contains("var")) {
-            count(FeatureName.TYPE_INFERENCE, 1)
+        for (declarator in ctx.variableDeclarators().variableDeclarator()) {
+            currentFeatures.features.identifierList.add(declarator.variableDeclaratorId().IDENTIFIER().text)
         }
         // Check if variable is an object
-        when (ctx.typeType().classOrInterfaceType()?.text) {
-            "char", "boolean", "int", "double", "long", "byte", "short", "float" -> { }
-            else -> {
-                for (declarator in ctx.variableDeclarators().variableDeclarator()) {
-                    seenObjectIdentifiers += declarator.variableDeclaratorId().IDENTIFIER().text
-                }
+        ctx.typeType().classOrInterfaceType()?.also {
+            for (declarator in ctx.variableDeclarators().variableDeclarator()) {
+                seenObjectIdentifiers += declarator.variableDeclaratorId().IDENTIFIER().text
             }
         }
     }
@@ -548,8 +615,43 @@ private class FeatureListener(val source: Source, entry: Map.Entry<String, Strin
         currentFeatureMap[feature] = (currentFeatureMap[feature] ?: 0) + amount
     }
 
+    @Suppress("LongMethod", "ComplexMethod", "NestedBlockDepth")
     override fun enterStatement(ctx: JavaParser.StatementContext) {
-        // println(ctx.text)
+        if (currentFeatures.features.skeleton.isEmpty()) {
+            val skeleton = ctx.text
+            for (i in skeleton.indices) {
+                if (skeleton[i] == '{') {
+                    currentFeatures.features.skeleton += "{ "
+                } else if (skeleton[i] == '}') {
+                    currentFeatures.features.skeleton += "} "
+                }
+
+                if (i + 5 < skeleton.length) {
+                    if (skeleton.subSequence(i, i + 5) == "while") {
+                        currentFeatures.features.skeleton += "while "
+                    }
+                }
+                if (i + 4 < skeleton.length) {
+                    if (skeleton.subSequence(i, i + 4) == "else") {
+                        currentFeatures.features.skeleton += "else "
+                    }
+                }
+                if (i + 3 < skeleton.length) {
+                    if (skeleton.subSequence(i, i + 3) == "for") {
+                        currentFeatures.features.skeleton += "for "
+                    }
+                }
+                if (i + 2 < skeleton.length) {
+                    when (skeleton.subSequence(i, i + 2)) {
+                        "if" -> currentFeatures.features.skeleton += "if "
+                        "do" -> currentFeatures.features.skeleton += "do "
+                    }
+                }
+            }
+            while (currentFeatures.features.skeleton.contains("{ } ")) {
+                currentFeatures.features.skeleton = currentFeatures.features.skeleton.replace("{ } ", "")
+            }
+        }
         ctx.statementExpression?.also {
             if (it.bop?.text == "=") {
                 count(FeatureName.VARIABLE_ASSIGNMENTS, 1)
@@ -557,7 +659,6 @@ private class FeatureListener(val source: Source, entry: Map.Entry<String, Strin
             }
         }
         ctx.FOR()?.also {
-            currentFeatures.features.skeleton += "for "
             count(FeatureName.FOR_LOOPS, 1)
             if (ctx.forControl().enhancedForControl() != null) {
                 count(FeatureName.ENHANCED_FOR, 1)
@@ -569,7 +670,6 @@ private class FeatureListener(val source: Source, entry: Map.Entry<String, Strin
             if (ctx.DO() != null) {
                 count(FeatureName.DO_WHILE_LOOPS, 1)
             } else {
-                currentFeatures.features.skeleton += "while "
                 count(FeatureName.WHILE_LOOPS, 1)
             }
         }
@@ -577,7 +677,6 @@ private class FeatureListener(val source: Source, entry: Map.Entry<String, Strin
             // Check for else-if chains
             val outerIfStart = ctx.start.startIndex
             if (outerIfStart !in seenIfStarts) {
-                currentFeatures.features.skeleton += "if "
                 // Count if block
                 count(FeatureName.IF_STATEMENTS, 1)
                 seenIfStarts += outerIfStart
@@ -617,41 +716,40 @@ private class FeatureListener(val source: Source, entry: Map.Entry<String, Strin
         ctx.THROW()?.also {
             count(FeatureName.THROW, 1)
         }
+        ctx.BREAK()?.also {
+            count(FeatureName.BREAK, 1)
+        }
+        ctx.CONTINUE()?.also {
+            count(FeatureName.CONTINUE, 1)
+        }
         // Count nested statements
-        ctx.statement(0)?.also {
-            val statement = ctx.statement(0).block().blockStatement()
-            var hasNesting = 0
-            for (block in statement) {
-                val blockStatement = block.statement()
-                blockStatement?.FOR()?.also {
-                    hasNesting = 1
-                    count(FeatureName.NESTED_FOR, 1)
-                }
-                blockStatement?.IF()?.also {
-                    hasNesting = 1
-                    count(FeatureName.NESTED_IF, 1)
-                }
-                blockStatement?.WHILE()?.also {
-                    hasNesting = 1
-                    if (block.statement().DO() != null) {
-                        count(FeatureName.NESTED_DO_WHILE, 1)
-                    } else {
-                        count(FeatureName.NESTED_WHILE, 1)
+        for (ctxStatement in ctx.statement()) {
+            ctxStatement?.block()?.also {
+                val statement = ctxStatement.block().blockStatement()
+                for (block in statement) {
+                    val blockStatement = block.statement()
+                    blockStatement?.FOR()?.also {
+                        count(FeatureName.NESTED_FOR, 1)
+                    }
+                    blockStatement?.IF()?.also {
+                        count(FeatureName.NESTED_IF, 1)
+                    }
+                    blockStatement?.WHILE()?.also {
+                        if (block.statement().DO() != null) {
+                            count(FeatureName.NESTED_DO_WHILE, 1)
+                        } else {
+                            count(FeatureName.NESTED_WHILE, 1)
+                        }
                     }
                 }
-            }
-            if (hasNesting == 1) {
-                currentFeatures.features.skeleton += "{ "
-            } else if (hasNesting == 0) {
-                currentFeatures.features.skeleton += "} "
             }
         }
     }
 
     override fun enterExpression(ctx: JavaParser.ExpressionContext) {
         when (ctx.bop?.text) {
-            "<", ">", "<=", ">=", "==", "!=" -> count(FeatureName.CONDITIONAL, 1)
-            "&&", "||" -> count(FeatureName.COMPLEX_CONDITIONAL, 1)
+            "<", ">", "<=", ">=", "==", "!=" -> count(FeatureName.COMPARISON_OPERATORS, 1)
+            "&&", "||" -> count(FeatureName.LOGICAL_OPERATORS, 1)
             "+", "-", "*", "/", "%" -> count(FeatureName.ARITHMETIC_OPERATORS, 1)
             "&", "|", "^" -> count(FeatureName.BITWISE_OPERATORS, 1)
             "+=", "-=", "*=", "/=", "%=" -> count(FeatureName.ASSIGNMENT_OPERATORS, 1)
@@ -661,6 +759,7 @@ private class FeatureListener(val source: Source, entry: Map.Entry<String, Strin
         when (ctx.prefix?.text) {
             "++", "--" -> count(FeatureName.UNARY_OPERATORS, 1)
             "~" -> count(FeatureName.BITWISE_OPERATORS, 1)
+            "!" -> count(FeatureName.LOGICAL_OPERATORS, 1)
         }
         when (ctx.postfix?.text) {
             "++", "--" -> count(FeatureName.UNARY_OPERATORS, 1)
@@ -701,6 +800,58 @@ private class FeatureListener(val source: Source, entry: Map.Entry<String, Strin
         }
         ctx.lambdaExpression()?.also {
             count(FeatureName.LAMBDA_EXPRESSIONS, 1)
+        }
+        ctx.methodCall()?.also {
+            if (featureStack[0].name.contains(ctx.methodCall()?.IDENTIFIER()?.text ?: "")) {
+                if (ctx.methodCall().expressionList().text.filter { it == ',' }.length
+                    == featureStack[0].name.filter { it == ',' }.length
+                ) {
+                    count(FeatureName.RECURSION, 1)
+                }
+            }
+        }
+    }
+
+    override fun enterTypeType(ctx: JavaParser.TypeTypeContext) {
+        ctx.primitiveType()?.also {
+            currentFeatures.features.typeList.add(it.text)
+        }
+        ctx.classOrInterfaceType()?.also {
+            currentFeatures.features.typeList.add(it.text)
+        }
+        count(
+            FeatureName.STRING,
+            ctx.classOrInterfaceType()?.IDENTIFIER()?.filter {
+                it.text == "String"
+            }?.size ?: 0
+        )
+        count(
+            FeatureName.STREAM,
+            ctx.classOrInterfaceType()?.IDENTIFIER()?.filter {
+                it.text == "Stream"
+            }?.size ?: 0
+        )
+        count(
+            FeatureName.COMPARABLE,
+            ctx.classOrInterfaceType()?.IDENTIFIER()?.filter {
+                it.text == "Comparable"
+            }?.size ?: 0
+        )
+        count(
+            FeatureName.BOXING_CLASSES,
+            ctx.classOrInterfaceType()?.IDENTIFIER()?.filter {
+                when (it.text) {
+                    "Boolean", "Byte", "Character", "Float", "Integer", "Long", "Short", "Double" -> true
+                    else -> false
+                }
+            }?.size ?: 0
+        )
+        count(
+            FeatureName.TYPE_PARAMETERS,
+            ctx.classOrInterfaceType()?.typeArguments()?.size ?: 0
+        )
+        if (ctx.text == "var" || ctx.text == "val") {
+            count(FeatureName.TYPE_INFERENCE, 1)
         }
     }
 
@@ -756,6 +907,7 @@ class FeaturesFailed(errors: List<SourceError>) : JeedError(errors) {
 @Throws(FeaturesFailed::class)
 fun Source.features(names: Set<String> = sources.keys.toSet()): FeaturesResults {
     require(type == Source.FileType.JAVA) { "Can't perform feature analysis yet for Kotlin sources" }
+    @Suppress("SwallowedException")
     try {
         return FeaturesResults(
             this,
@@ -767,5 +919,97 @@ fun Source.features(names: Set<String> = sources.keys.toSet()): FeaturesResults 
         )
     } catch (e: JeedParsingException) {
         throw FeaturesFailed(e.errors)
+    }
+}
+
+@Suppress("MagicNumber", "UNUSED")
+val lessonMap = mapOf(
+    FeatureName.LOCAL_VARIABLE_DECLARATIONS to 0,
+    FeatureName.VARIABLE_ASSIGNMENTS to 0,
+    FeatureName.VARIABLE_REASSIGNMENTS to 1,
+    FeatureName.ARITHMETIC_OPERATORS to 1,
+    FeatureName.ASSIGNMENT_OPERATORS to 1,
+    FeatureName.UNARY_OPERATORS to 1,
+    FeatureName.COMPARISON_OPERATORS to 2,
+    FeatureName.IF_STATEMENTS to 2,
+    FeatureName.ELSE_STATEMENTS to 2,
+    FeatureName.ELSE_IF to 3,
+    FeatureName.LOGICAL_OPERATORS to 3,
+    FeatureName.ARRAYS to 4,
+    FeatureName.ARRAY_ACCESS to 4,
+    FeatureName.NEW_KEYWORD to 4,
+    FeatureName.ARRAY_LITERAL to 4,
+    FeatureName.WHILE_LOOPS to 5,
+    FeatureName.FOR_LOOPS to 5,
+    FeatureName.BREAK to 6,
+    FeatureName.METHOD to 7,
+    FeatureName.ENHANCED_FOR to 8,
+    FeatureName.STRING to 9,
+    FeatureName.CASTING to 10,
+    FeatureName.NULL to 11,
+    FeatureName.MULTIDIMENSIONAL_ARRAYS to 12,
+    FeatureName.DO_WHILE_LOOPS to 13,
+    FeatureName.TYPE_INFERENCE to 14,
+    FeatureName.ASSERT to 15,
+    FeatureName.SWITCH to 15,
+    FeatureName.CONTINUE to 15,
+    FeatureName.CLASS to 16,
+    FeatureName.GETTER to 17,
+    FeatureName.SETTER to 17,
+    FeatureName.CONSTRUCTOR to 18,
+    FeatureName.VISIBILITY_MODIFIERS to 19,
+    FeatureName.RECORD to 20,
+    FeatureName.STATIC_METHOD to 21,
+    FeatureName.THIS to 21,
+    FeatureName.EXTENDS to 22,
+    FeatureName.SUPER to 22,
+    FeatureName.OVERRIDE to 22,
+    FeatureName.INSTANCEOF to 23,
+    FeatureName.REFERENCE_EQUALITY to 24,
+    FeatureName.IMPORT to 25,
+    FeatureName.FINAL_METHOD to 26,
+    FeatureName.FINAL_CLASS to 26,
+    FeatureName.INTERFACE to 27,
+    FeatureName.ABSTRACT_CLASS to 27,
+    FeatureName.ABSTRACT_METHOD to 27,
+    FeatureName.COMPARABLE to 27,
+    FeatureName.IMPLEMENTS to 28,
+    FeatureName.BOXING_CLASSES to 29,
+    FeatureName.ANONYMOUS_CLASSES to 30,
+    FeatureName.LAMBDA_EXPRESSIONS to 31,
+    FeatureName.TYPE_PARAMETERS to 32,
+    FeatureName.NESTED_CLASS to 33,
+    FeatureName.TRY_BLOCK to 34,
+    FeatureName.THROW to 35,
+    FeatureName.FINALLY to 36,
+    FeatureName.THROWS to 36,
+    FeatureName.RECURSION to 37,
+    FeatureName.GENERIC_CLASS to 38,
+    FeatureName.STREAM to 39
+)
+
+fun generateComparator() = Comparator<FeatureValue>{ first, second ->
+    val firstFeatures = first.features.featureMap.filterValues { it > 0 }
+    val secondFeatures = second.features.featureMap.filterValues { it > 0 }
+    var firstLevel = 0
+    for (featureValue in firstFeatures.keys) {
+        firstLevel = if (lessonMap[featureValue]!! > firstLevel) {
+            lessonMap[featureValue]!!
+        } else {
+            firstLevel
+        }
+    }
+    var secondLevel = 0
+    for (featureValue in secondFeatures.keys) {
+        secondLevel = if (lessonMap[featureValue]!! > secondLevel) {
+            lessonMap[featureValue]!!
+        } else {
+            secondLevel
+        }
+    }
+    when {
+        firstLevel > secondLevel -> 1
+        firstLevel < secondLevel -> -1
+        else -> 0
     }
 }

@@ -3,6 +3,7 @@ package edu.illinois.cs.cs125.jeed.core
 import io.kotest.core.spec.style.StringSpec
 import io.kotest.matchers.shouldBe
 
+@Suppress("LargeClass")
 class TestFeatures : StringSpec({
     "should count variable declarations in snippets" {
         Source.fromSnippet(
@@ -133,9 +134,10 @@ if (i < 15) {
         if (i < 5) {
             i++;
         }
-    }
-    if (i > 10) {
-        i--;
+    } else {
+        if (i > 10) {
+            i--;
+        }
     }
 }
 """.trim()
@@ -159,8 +161,8 @@ if (i < 5 || i > 15) {
 }
 """.trim()
         ).features().also {
-            it.lookup(".").features.featureMap[FeatureName.CONDITIONAL] shouldBe 5
-            it.lookup(".").features.featureMap[FeatureName.COMPLEX_CONDITIONAL] shouldBe 2
+            it.lookup(".").features.featureMap[FeatureName.COMPARISON_OPERATORS] shouldBe 5
+            it.lookup(".").features.featureMap[FeatureName.LOGICAL_OPERATORS] shouldBe 2
         }
     }
     "should count try blocks, switch statements, finally blocks, and assertions in snippets" {
@@ -229,6 +231,7 @@ arr[2] = arr[0] + arr[1];
 int[] nums = {1, 2, 4};
 """.trim()
         ).features().also {
+            it.lookup(".").features.featureMap[FeatureName.ARRAYS] shouldBe 2
             it.lookup(".").features.featureMap[FeatureName.NEW_KEYWORD] shouldBe 1
             it.lookup(".").features.featureMap[FeatureName.ARRAY_ACCESS] shouldBe 5
             it.lookup(".").features.featureMap[FeatureName.ARRAY_LITERAL] shouldBe 1
@@ -238,12 +241,13 @@ int[] nums = {1, 2, 4};
         Source.fromSnippet(
             """
 import java.util.stream.Stream;
+
 String first = "Hello, world!";
 String second = null;
 Stream<String> stream;
 """.trim()
         ).features().also {
-            it.lookup(".").features.featureMap[FeatureName.STRING] shouldBe 2
+            it.lookup(".").features.featureMap[FeatureName.STRING] shouldBe 3
             it.lookup(".").features.featureMap[FeatureName.NULL] shouldBe 1
             it.lookup(".").features.featureMap[FeatureName.STREAM] shouldBe 1
         }
@@ -262,7 +266,7 @@ char[][] array1 = new char[10][10];
         Source.fromSnippet(
             """
 var first = 0;
-var second = "Hello, world!";
+val second = "Hello, world!";
 """.trim()
         ).features().also {
             it.lookup(".").features.featureMap[FeatureName.TYPE_INFERENCE] shouldBe 2
@@ -315,6 +319,7 @@ public class Test {
             it.lookup("Test", "Test.java").features.featureMap[FeatureName.SETTER] shouldBe 1
             it.lookup("Test", "Test.java").features.featureMap[FeatureName.STATIC_METHOD] shouldBe 1
             it.lookup("Test", "Test.java").features.featureMap[FeatureName.VISIBILITY_MODIFIERS] shouldBe 2
+            it.lookup("Test", "Test.java").features.featureMap[FeatureName.NESTED_CLASS] shouldBe 1
         }
     }
     "should count the extends keyword, the super constructor, and the 'this' keyword in classes" {
@@ -410,7 +415,7 @@ public class Calculator implements Test {
 """.trim()
         ).features().also {
             it.lookup("Test").features.featureMap[FeatureName.INTERFACE] shouldBe 1
-            // it.lookup("Test").features.featureMap[FeatureName.METHOD] shouldBe 2
+            it.lookup("Test").features.featureMap[FeatureName.METHOD] shouldBe 2
             it.lookup("Calculator").features.featureMap[FeatureName.IMPLEMENTS] shouldBe 1
         }
     }
@@ -483,7 +488,8 @@ void container(int setSize) throws IllegalArgumentException {
 """.trim()
         ).features().also {
             it.lookup("").features.featureMap[FeatureName.THROW] shouldBe 1
-            it.lookup("").features.featureMap[FeatureName.THROWS] shouldBe 2 // main method for snippets also throws exception
+            // main method for snippets also throws exception
+            it.lookup("").features.featureMap[FeatureName.THROWS] shouldBe 2
         }
     }
     "should count generic classes" {
@@ -534,30 +540,6 @@ public class Test {
             )
         ).features().also {
             it.lookup("", "Test.java").features.featureMap[FeatureName.CLASS] shouldBe 2
-        }
-    }
-    "should correctly create a code skeleton for snippets" {
-        Source.fromSnippet(
-            """
-int i = 0;
-if (i < 15) {
-    for (int j = 0; j < 10; j++) {
-        i--;
-        if (i < 5) {
-            i++;
-        } else {
-            i--;
-        }
-    }
-    while (i > 10) {
-        i--;
-    }
-} else {
-    System.out.println("Hello, world!");
-}
-""".trim()
-        ).features().also {
-            it.lookup("").features.skeleton.trim() shouldBe "if { for { if else } while } else"
         }
     }
     "should count final classes" {
@@ -618,5 +600,189 @@ public enum Test {
         ).features().also {
             it.lookup("", "Test.java").features.featureMap[FeatureName.ENUM] shouldBe 1
         }
+    }
+    "should correctly create a list of types and identifiers in snippets" {
+        Source.fromSnippet(
+            """
+int i = 0;
+double j = 5.0;
+boolean foo = true;
+String string = "Hello, world!";
+
+""".trim()
+        ).features().also {
+            it.lookup(".").features.typeList shouldBe arrayListOf("int", "double", "boolean", "String")
+            it.lookup(".").features.identifierList shouldBe arrayListOf("i", "j", "foo", "string")
+        }
+    }
+    "should correctly create a list of import statements" {
+        Source(
+            mapOf(
+                "Test.java" to """
+import java.util.List;
+import java.util.ArrayList;
+                    
+public class Test { }
+                """.trim()
+            )
+        ).features().also {
+            it.lookup("", "Test.java").features.importList shouldBe arrayListOf("java.util.List", "java.util.ArrayList")
+        }
+    }
+    "should count recursive calls" {
+        Source.fromSnippet(
+            """
+int countArray(int index, int[] array) {
+    if (index >= array.length) {
+           return 0;
+    }
+    return array[index] + countArray(index + 1, array);
+}
+""".trim()
+        ).features().also {
+            // Why does path = "." not work???
+            it.lookup("").features.featureMap[FeatureName.RECURSION] shouldBe 1
+        }
+    }
+    "should correctly count Comparable" {
+        Source(
+            mapOf(
+                "Test.java" to """
+public class Test implements Comparable {
+    public int compareTo(Test other) {
+        return 0;
+    }
+}
+                """.trim()
+            )
+        ).features().also {
+            it.lookup("", "Test.java").features.featureMap[FeatureName.COMPARABLE] shouldBe 1
+        }
+    }
+    "should correctly create a code skeleton for snippets" {
+        Source.fromSnippet(
+            """
+int i = 0;
+if (i < 15) {
+    for (int j = 0; j < 10; j++) {
+        i--;
+        do {
+            if (i < 5) {
+                i++;
+            } else {
+                i--;
+            }
+        } while (i < 10);
+    }
+    while (i > 10) {
+        i--;
+    }
+} else {
+    System.out.println("Hello, world!");
+    do {
+        i--;
+    } while (i > 10);
+    if (true) {
+        System.out.println("True");
+    } else {
+        i++;
+    }
+}
+""".trim()
+        ).features().also {
+            it.lookup("").features.skeleton.trim() shouldBe "if { for { do { if else } while } while } else { do while if else }"
+        }
+    }
+    "should correctly count break and continue in snippets" {
+        Source.fromSnippet(
+            """
+for (int i = 0; i < 10; i++) {
+    if (i < 7) {
+        continue;
+    } else {
+        break;
+    }
+}
+""".trim()
+        ).features().also {
+            it.lookup(".").features.featureMap[FeatureName.BREAK] shouldBe 1
+            it.lookup(".").features.featureMap[FeatureName.CONTINUE] shouldBe 1
+        }
+    }
+    "should correctly count modifiers on fields" {
+        Source(
+            mapOf(
+                "Test.java" to """
+public class Test {
+    static int number = 0;
+    final String string = "string";
+}
+                """.trim()
+            )
+        ).features().also {
+            it.lookup("Test", "Test.java").features.featureMap[FeatureName.STATIC_FIELD] shouldBe 1
+            it.lookup("Test", "Test.java").features.featureMap[FeatureName.FINAL_FIELD] shouldBe 1
+        }
+    }
+    "should correctly count boxing classes and type parameters" {
+        Source.fromSnippet(
+            """
+import java.util.List;
+import java.util.ArrayList;
+
+Integer first = new Integer("1");
+Boolean second = true;
+List<String> list = new ArrayList<>();
+""".trim()
+        ).features().also {
+            it.lookup(".").features.featureMap[FeatureName.BOXING_CLASSES] shouldBe 2
+            it.lookup(".").features.featureMap[FeatureName.TYPE_PARAMETERS] shouldBe 1
+        }
+    }
+    "f: should correctly compare two snippets" {
+        val first = Source.fromSnippet(
+            """
+int i = 0;
+char j = 'j';
+i += 4;
+String first = "hello";
+""".trim()
+        ).features().lookup(".")
+        val second = Source.fromSnippet(
+            """
+int x = 0;
+int y = x + 5;
+for (int i = 0; i < 10; i++) { }
+""".trim()
+        ).features().lookup(".")
+        val comparator = generateComparator()
+        comparator.compare(first, second) shouldBe 1
+    }
+    "f: should correctly compare two files" {
+        val first = Source(
+            mapOf(
+                "Test.java" to """
+public class Test {
+    int add(int x, int y) {
+        String hello = "Hello!";
+        return x + y;
+    }
+}
+                """.trim()
+            )
+        ).features().lookup("Test", "Test.java")
+        val second = Source(
+            mapOf(
+                "Test.java" to """
+public class Test {
+    String add(String x, String y) {
+        return x + y;
+    }
+}
+                """.trim()
+            )
+        ).features().lookup("Test", "Test.java")
+        val comparator = generateComparator()
+        comparator.compare(first, second) shouldBe 0
     }
 })
