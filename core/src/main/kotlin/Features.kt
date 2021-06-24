@@ -988,7 +988,7 @@ val lessonMap = mapOf(
     FeatureName.STREAM to 39
 )
 
-fun generateComparator() = Comparator<FeatureValue>{ first, second ->
+fun generateComparator() = Comparator<FeatureValue> { first, second ->
     val firstFeatures = first.features.featureMap.filterValues { it > 0 }
     val secondFeatures = second.features.featureMap.filterValues { it > 0 }
     var firstLevel = 0

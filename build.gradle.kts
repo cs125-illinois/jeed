@@ -1,6 +1,6 @@
 plugins {
-    kotlin("jvm") version "1.5.10" apply false
-    kotlin("kapt") version "1.5.10" apply false
+    kotlin("jvm") version "1.5.20" apply false
+    kotlin("kapt") version "1.5.20" apply false
     id("org.jmailen.kotlinter") version "3.4.5" apply false
     id("com.github.ben-manes.versions") version "0.39.0"
     id("io.gitlab.arturbosch.detekt") version "1.17.1"

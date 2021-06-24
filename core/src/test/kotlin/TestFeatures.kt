@@ -690,7 +690,8 @@ if (i < 15) {
 }
 """.trim()
         ).features().also {
-            it.lookup("").features.skeleton.trim() shouldBe "if { for { do { if else } while } while } else { do while if else }"
+            it.lookup("").features.skeleton.trim() shouldBe
+                "if { for { do { if else } while } while } else { do while if else }"
         }
     }
     "should correctly count break and continue in snippets" {
@@ -739,7 +740,7 @@ List<String> list = new ArrayList<>();
             it.lookup(".").features.featureMap[FeatureName.TYPE_PARAMETERS] shouldBe 1
         }
     }
-    "f: should correctly compare two snippets" {
+    "should correctly compare two snippets" {
         val first = Source.fromSnippet(
             """
 int i = 0;
@@ -758,7 +759,7 @@ for (int i = 0; i < 10; i++) { }
         val comparator = generateComparator()
         comparator.compare(first, second) shouldBe 1
     }
-    "f: should correctly compare two files" {
+    "should correctly compare two files" {
         val first = Source(
             mapOf(
                 "Test.java" to """
