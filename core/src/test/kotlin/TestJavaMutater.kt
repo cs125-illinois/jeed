@@ -8,6 +8,7 @@ import io.kotest.matchers.string.shouldMatch
 import io.kotest.matchers.string.shouldNotContain
 import kotlin.random.Random
 
+@Suppress("LargeClass")
 class TestJavaMutater : StringSpec({
     "it should find boolean literals to mutate" {
         Source.fromJava(

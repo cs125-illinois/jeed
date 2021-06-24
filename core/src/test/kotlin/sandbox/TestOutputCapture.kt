@@ -92,7 +92,7 @@ for (int i = 0; i < 32; i++) {
                 }
             } else {
                 async {
-                    for (j in 1..512) {
+                    repeat(512) {
                         println("Bad")
                         System.err.println("Bad")
                         delay(1L)
@@ -108,7 +108,7 @@ for (int i = 0; i < 32; i++) {
         System.setErr(originalStderr)
 
         val unrelatedOutput = combinedOutputStream.toString()
-        unrelatedOutput.lines().filter { it == "Bad" }.size shouldBe 4 * 2 * 512
+        unrelatedOutput.lines().filter { it == "Bad" }.size shouldBe (4 * 2 * 512)
     }
     "should redirect output to trusted task properly" {
         val compiledSource = Source.fromSnippet(
