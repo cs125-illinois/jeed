@@ -26,7 +26,7 @@ class KotlinComplexityListener(val source: Source, entry: Map.Entry<String, Stri
         } else {
             ClassComplexity(
                 name,
-                SourceRange(name, source.mapLocation(name, start), source.mapLocation(name, end))
+                SourceRange(fileName, source.mapLocation(fileName, start), source.mapLocation(fileName, end))
             )
         }
         if (complexityStack.isNotEmpty()) {
@@ -193,7 +193,8 @@ class KotlinComplexityListener(val source: Source, entry: Map.Entry<String, Stri
     // lambdas and throws
     override fun enterFunctionLiteral(ctx: KotlinParser.FunctionLiteralContext) {
         require(complexityStack.isNotEmpty())
-        currentComplexity.complexity++
+        // TODO: For Ben to rethink...
+        // currentComplexity.complexity++
     }
 
     // if & else if

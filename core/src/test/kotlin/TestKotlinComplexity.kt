@@ -19,6 +19,23 @@ fun main(first: Int, second: String, third: Blah?): Int {
         }
     }
 
+    "should compute complexity for Kotlin snippet" {
+        Source.fromSnippet(
+            """
+class Dog(val name: String)
+
+listOf(Dog("Shadow"), Dog("Chuchu"), Dog("Lulu"))
+  .map { it.name }
+  .sorted()
+  .forEach { println(it) }
+""".trim(), SnippetArguments(fileType = Source.FileType.KOTLIN)
+        ).also {
+            println(it.rewrittenSource)
+        }.complexity().also {
+            it.lookup("", "").complexity shouldBe 1
+        }
+    }
+
     "should compute complexity from sources map" {
         Source(
             mapOf(
@@ -349,7 +366,7 @@ class PingPonger constructor(private var state: String) {
                 """.trim()
             )
         ).complexity().also {
-            it.lookup("PingPonger", "Test.kt").complexity shouldBe 7
+            it.lookup("PingPonger", "Test.kt").complexity shouldBe 5
         }
     }
 
@@ -524,7 +541,7 @@ fun main() {
 }
             """.trim()
         ).complexity().also {
-            it.lookup("main()", "Main.kt").complexity shouldBe 5
+            it.lookup("main()", "Main.kt").complexity shouldBe 2
         }
     }
 
@@ -539,7 +556,7 @@ fun main() {
 }
             """.trim()
         ).complexity().also {
-            it.lookup("main()", "Main.kt").complexity shouldBe 2
+            it.lookup("main()", "Main.kt").complexity shouldBe 1
         }
     }
 
