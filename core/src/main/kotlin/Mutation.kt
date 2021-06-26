@@ -823,4 +823,3 @@ class ChangeEquals(
         }
     }
 }
-

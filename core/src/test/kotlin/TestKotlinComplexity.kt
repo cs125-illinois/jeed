@@ -28,7 +28,8 @@ listOf(Dog("Shadow"), Dog("Chuchu"), Dog("Lulu"))
   .map { it.name }
   .sorted()
   .forEach { println(it) }
-""".trim(), SnippetArguments(fileType = Source.FileType.KOTLIN)
+""".trim(),
+            SnippetArguments(fileType = Source.FileType.KOTLIN)
         ).also {
             println(it.rewrittenSource)
         }.complexity().also {
