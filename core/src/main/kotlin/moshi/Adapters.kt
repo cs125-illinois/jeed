@@ -11,6 +11,8 @@ import edu.illinois.cs.cs125.jeed.core.CompilationMessage
 import edu.illinois.cs.cs125.jeed.core.CompiledSource
 import edu.illinois.cs.cs125.jeed.core.ComplexityFailed
 import edu.illinois.cs.cs125.jeed.core.ExecutionFailed
+import edu.illinois.cs.cs125.jeed.core.FeatureMap
+import edu.illinois.cs.cs125.jeed.core.FeatureName
 import edu.illinois.cs.cs125.jeed.core.Interval
 import edu.illinois.cs.cs125.jeed.core.KtLintError
 import edu.illinois.cs.cs125.jeed.core.KtLintFailed
@@ -46,7 +48,8 @@ val Adapters = setOf(
     ComplexityFailedAdapter(),
     TemplatingErrorAdapter(),
     TemplatingFailedAdapter(),
-    TemplatedSourceResultAdapter()
+    TemplatedSourceResultAdapter(),
+    FeatureMapAdapter()
 )
 
 class InstantAdapter {
@@ -383,5 +386,16 @@ class TemplatedSourceResultAdapter {
             templatedSourceResult.sources.toFlatSources(),
             templatedSourceResult.originalSources.toFlatSources()
         )
+    }
+}
+
+class FeatureMapAdapter {
+    @FromJson
+    fun featureMapFromJson(map: MutableMap<FeatureName, Int>): FeatureMap {
+        return FeatureMap(map)
+    }
+    @ToJson
+    fun featureMapToJson(map: FeatureMap): Map<FeatureName, Int> {
+        return map.map
     }
 }

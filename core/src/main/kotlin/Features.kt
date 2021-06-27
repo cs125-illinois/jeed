@@ -110,27 +110,37 @@ enum class FeatureName {
     TYPE_PARAMETERS
 }
 
+class FeatureMap(val map: MutableMap<FeatureName, Int> = mutableMapOf()) : MutableMap<FeatureName, Int> by map {
+    override fun get(key: FeatureName): Int = map.getOrDefault(key, 0)
+    override fun put(key: FeatureName, value: Int): Int? {
+        val previous = map[key]
+        if (value == 0) {
+            map.remove(key)
+        } else {
+            map[key] = value
+        }
+        return previous
+    }
+}
+
 @JsonClass(generateAdapter = true)
 data class Features(
-    var featureMap: MutableMap<FeatureName, Int> = FeatureName.values().associate { it to 0 }.toMutableMap(),
+    var featureMap: FeatureMap = FeatureMap(),
     var importList: MutableSet<String> = mutableSetOf(),
     var typeList: MutableSet<String> = mutableSetOf(),
     var identifierList: MutableSet<String> = mutableSetOf(),
     var skeleton: String = ""
 ) {
     operator fun plus(other: Features): Features {
-        val map = mutableMapOf<FeatureName, Int>()
+        val map = FeatureMap()
         for (key in FeatureName.values()) {
-            map[key] = featureMap[key]!! + other.featureMap[key]!!
+            map[key] = featureMap.getValue(key) + other.featureMap.getValue(key)
         }
-        importList.addAll(other.importList)
-        typeList.addAll(other.typeList)
-        identifierList.addAll(other.identifierList)
         return Features(
             map,
-            importList,
-            typeList,
-            identifierList,
+            (importList + other.importList).toMutableSet(),
+            (typeList + other.typeList).toMutableSet(),
+            (identifierList + other.identifierList).toMutableSet(),
             skeleton + " " + other.skeleton
         )
     }
