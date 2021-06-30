@@ -313,7 +313,7 @@ private class FeatureListener(val source: Source, entry: Map.Entry<String, Strin
     override fun enterClassDeclaration(ctx: JavaParser.ClassDeclarationContext) {
         count(FeatureName.CLASS, 1)
         enterClassOrInterface(
-            ctx.IDENTIFIER().text,
+            ctx.identifier().text,
             Location(ctx.start.line, ctx.start.charPositionInLine),
             Location(ctx.stop.line, ctx.stop.charPositionInLine)
         )
@@ -431,7 +431,7 @@ private class FeatureListener(val source: Source, entry: Map.Entry<String, Strin
 
     override fun enterInterfaceDeclaration(ctx: JavaParser.InterfaceDeclarationContext) {
         enterClassOrInterface(
-            ctx.IDENTIFIER().text,
+            ctx.identifier().text,
             Location(ctx.start.line, ctx.start.charPositionInLine),
             Location(ctx.stop.line, ctx.stop.charPositionInLine)
         )
@@ -482,7 +482,7 @@ private class FeatureListener(val source: Source, entry: Map.Entry<String, Strin
 
     override fun enterEnumDeclaration(ctx: JavaParser.EnumDeclarationContext) {
         enterClassOrInterface(
-            ctx.IDENTIFIER().text,
+            ctx.identifier().text,
             Location(ctx.start.line, ctx.start.charPositionInLine),
             Location(ctx.stop.line, ctx.stop.charPositionInLine)
         )
@@ -495,7 +495,7 @@ private class FeatureListener(val source: Source, entry: Map.Entry<String, Strin
 
     override fun enterRecordDeclaration(ctx: JavaParser.RecordDeclarationContext) {
         enterClassOrInterface(
-            ctx.IDENTIFIER().text,
+            ctx.identifier().text,
             Location(ctx.start.line, ctx.start.charPositionInLine),
             Location(ctx.stop.line, ctx.stop.charPositionInLine)
         )
@@ -508,10 +508,10 @@ private class FeatureListener(val source: Source, entry: Map.Entry<String, Strin
 
     override fun enterMethodDeclaration(ctx: JavaParser.MethodDeclarationContext) {
         count(FeatureName.METHOD, 1)
-        if (ctx.IDENTIFIER().text.startsWith("get")) {
+        if (ctx.identifier().text.startsWith("get")) {
             count(FeatureName.GETTER, 1)
         }
-        if (ctx.IDENTIFIER().text.startsWith("set")) {
+        if (ctx.identifier().text.startsWith("set")) {
             count(FeatureName.SETTER, 1)
         }
         ctx.THROWS()?.also {
@@ -537,7 +537,7 @@ private class FeatureListener(val source: Source, entry: Map.Entry<String, Strin
             it.typeType().text
         } ?: ""
         enterMethodOrConstructor(
-            "${ctx.typeTypeOrVoid().text} ${ctx.IDENTIFIER().text}($parameters)",
+            "${ctx.typeTypeOrVoid().text} ${ctx.identifier().text}($parameters)",
             Location(ctx.start.line, ctx.start.charPositionInLine),
             Location(ctx.stop.line, ctx.stop.charPositionInLine)
         )
@@ -552,7 +552,7 @@ private class FeatureListener(val source: Source, entry: Map.Entry<String, Strin
             it.typeType().text
         } ?: ""
         enterMethodOrConstructor(
-            "${ctx.typeTypeOrVoid().text} ${ctx.IDENTIFIER().text}($parameters)",
+            "${ctx.typeTypeOrVoid().text} ${ctx.identifier().text}($parameters)",
             Location(ctx.start.line, ctx.start.charPositionInLine),
             Location(ctx.stop.line, ctx.stop.charPositionInLine)
         )
@@ -606,12 +606,12 @@ private class FeatureListener(val source: Source, entry: Map.Entry<String, Strin
             numBrackets > 0 -> count(FeatureName.ARRAYS, 1)
         }
         for (declarator in ctx.variableDeclarators().variableDeclarator()) {
-            currentFeatures.features.identifierList.add(declarator.variableDeclaratorId().IDENTIFIER().text)
+            currentFeatures.features.identifierList.add(declarator.variableDeclaratorId().identifier().text)
         }
         // Check if variable is an object
         ctx.typeType().classOrInterfaceType()?.also {
             for (declarator in ctx.variableDeclarators().variableDeclarator()) {
-                seenObjectIdentifiers += declarator.variableDeclaratorId().IDENTIFIER().text
+                seenObjectIdentifiers += declarator.variableDeclaratorId().identifier().text
             }
         }
     }
@@ -812,7 +812,7 @@ private class FeatureListener(val source: Source, entry: Map.Entry<String, Strin
             count(FeatureName.LAMBDA_EXPRESSIONS, 1)
         }
         ctx.methodCall()?.also {
-            if (featureStack[0].name.contains(ctx.methodCall()?.IDENTIFIER()?.text ?: "")) {
+            if (featureStack[0].name.contains(ctx.methodCall()?.identifier()?.text ?: "")) {
                 if (ctx.methodCall().expressionList().text.filter { it == ',' }.length
                     == featureStack[0].name.filter { it == ',' }.length
                 ) {
@@ -831,25 +831,25 @@ private class FeatureListener(val source: Source, entry: Map.Entry<String, Strin
         }
         count(
             FeatureName.STRING,
-            ctx.classOrInterfaceType()?.IDENTIFIER()?.filter {
+            ctx.classOrInterfaceType()?.identifier()?.filter {
                 it.text == "String"
             }?.size ?: 0
         )
         count(
             FeatureName.STREAM,
-            ctx.classOrInterfaceType()?.IDENTIFIER()?.filter {
+            ctx.classOrInterfaceType()?.identifier()?.filter {
                 it.text == "Stream"
             }?.size ?: 0
         )
         count(
             FeatureName.COMPARABLE,
-            ctx.classOrInterfaceType()?.IDENTIFIER()?.filter {
+            ctx.classOrInterfaceType()?.identifier()?.filter {
                 it.text == "Comparable"
             }?.size ?: 0
         )
         count(
             FeatureName.BOXING_CLASSES,
-            ctx.classOrInterfaceType()?.IDENTIFIER()?.filter {
+            ctx.classOrInterfaceType()?.identifier()?.filter {
                 when (it.text) {
                     "Boolean", "Byte", "Character", "Float", "Integer", "Long", "Short", "Double" -> true
                     else -> false

@@ -1,4 +1,5 @@
 // ktlint-disable filename
+@file:Suppress("MatchingDeclarationName")
 package edu.illinois.cs.cs125.jeed.core
 
 import edu.illinois.cs.cs125.jeed.core.antlr.JavaParser
@@ -9,19 +10,20 @@ import org.antlr.v4.runtime.tree.ParseTreeWalker
 import org.antlr.v4.runtime.tree.TerminalNode
 import org.jetbrains.kotlin.backend.common.pop
 
+@Suppress("TooManyFunctions", "ComplexMethod", "LongMethod")
 class JavaMutationListener(private val parsedSource: Source.ParsedSource) : JavaParserBaseListener() {
     val lines = parsedSource.contents.lines()
     val mutations: MutableList<Mutation> = mutableListOf()
     private val fileType = Source.FileType.JAVA
     private val currentPath: MutableList<Mutation.Location.SourcePath> = mutableListOf()
     override fun enterClassDeclaration(ctx: JavaParser.ClassDeclarationContext) {
-        currentPath.add(Mutation.Location.SourcePath(Mutation.Location.SourcePath.Type.CLASS, ctx.IDENTIFIER().text))
+        currentPath.add(Mutation.Location.SourcePath(Mutation.Location.SourcePath.Type.CLASS, ctx.identifier().text))
     }
 
     override fun exitClassDeclaration(ctx: JavaParser.ClassDeclarationContext) {
         currentPath.last().also {
             check(it.type == Mutation.Location.SourcePath.Type.CLASS)
-            check(it.name == ctx.IDENTIFIER()!!.text)
+            check(it.name == ctx.identifier()!!.text)
         }
         currentPath.pop()
     }
@@ -238,9 +240,10 @@ class JavaMutationListener(private val parsedSource: Source.ParsedSource) : Java
                     )
                 )
             }
+            @Suppress("ComplexCondition")
             if (contents == "." &&
                 ctx.methodCall() != null &&
-                ctx.methodCall().IDENTIFIER().text == "equals" &&
+                ctx.methodCall().identifier().text == "equals" &&
                 ctx.methodCall().expressionList().expression().size == 1
             ) {
                 mutations.add(

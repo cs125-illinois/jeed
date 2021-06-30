@@ -33,7 +33,7 @@ dependencies {
 
     testImplementation("io.kotest:kotest-runner-junit5:4.6.0")
     testImplementation("io.kotest:kotest-assertions-ktor:4.4.3")
-    testImplementation("io.ktor:ktor-server-test-host:1.6.0")
+    testImplementation("io.ktor:ktor-server-test-host:1.6.1")
 }
 application {
     @Suppress("DEPRECATION")

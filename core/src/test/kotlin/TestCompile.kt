@@ -53,6 +53,34 @@ Foo foo = new Foo();
         compiledSource should haveDefinedExactlyTheseClasses(setOf("Test", "Me"))
         compiledSource should haveProvidedThisManyClasses(0)
     }
+    "should compile sources that use the record keyword" {
+        val compiledSource = Source(
+            mapOf(
+                "Test.java" to """
+public class Test {
+  public static void main() {
+    String record = "record";
+  }
+}""".trim()
+            )
+        ).compile()
+
+        compiledSource should haveDefinedExactlyTheseClasses(setOf("Test"))
+        compiledSource should haveProvidedThisManyClasses(0)
+    }
+    "should compile snippets that use the record keyword" {
+        val compiledSource = Source.fromSnippet(
+            """
+String record = "record";
+int record() {
+  return 0;
+}
+""".trim()
+        ).compile()
+
+        compiledSource should haveDefinedExactlyTheseClasses(setOf("Main"))
+        compiledSource should haveProvidedThisManyClasses(0)
+    }
     "should compile sources with dependencies" {
         val compiledSource = Source(
             mapOf(

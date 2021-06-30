@@ -106,9 +106,10 @@ i++
 """.trim()
             )
         }
-        exception.errors shouldHaveSize 2
+        exception.errors shouldHaveSize 3
         exception should haveParseErrorOnLine(1)
         exception should haveParseErrorOnLine(13)
+        exception should haveParseErrorOnLine(14)
     }
     "should be able to reconstruct original sources using entry map" {
         val snippet =

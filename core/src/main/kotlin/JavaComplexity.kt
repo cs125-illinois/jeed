@@ -80,7 +80,7 @@ class JavaComplexityListener(val source: Source, entry: Map.Entry<String, String
 
     override fun enterClassDeclaration(ctx: JavaParser.ClassDeclarationContext) {
         enterClassOrInterface(
-            ctx.IDENTIFIER().text,
+            ctx.identifier().text,
             Location(ctx.start.line, ctx.start.charPositionInLine),
             Location(ctx.stop.line, ctx.stop.charPositionInLine)
         )
@@ -92,7 +92,7 @@ class JavaComplexityListener(val source: Source, entry: Map.Entry<String, String
 
     override fun enterInterfaceDeclaration(ctx: JavaParser.InterfaceDeclarationContext) {
         enterClassOrInterface(
-            ctx.IDENTIFIER().text,
+            ctx.identifier().text,
             Location(ctx.start.line, ctx.start.charPositionInLine),
             Location(ctx.stop.line, ctx.stop.charPositionInLine)
         )
@@ -104,7 +104,7 @@ class JavaComplexityListener(val source: Source, entry: Map.Entry<String, String
 
     override fun enterRecordDeclaration(ctx: JavaParser.RecordDeclarationContext) {
         enterClassOrInterface(
-            ctx.IDENTIFIER().text,
+            ctx.identifier().text,
             Location(ctx.start.line, ctx.start.charPositionInLine),
             Location(ctx.stop.line, ctx.stop.charPositionInLine)
         )
@@ -119,7 +119,7 @@ class JavaComplexityListener(val source: Source, entry: Map.Entry<String, String
             it.typeType().text
         } ?: ""
         enterMethodOrConstructor(
-            "${ctx.typeTypeOrVoid().text} ${ctx.IDENTIFIER().text}($parameters)",
+            "${ctx.typeTypeOrVoid().text} ${ctx.identifier().text}($parameters)",
             Location(ctx.start.line, ctx.start.charPositionInLine),
             Location(ctx.stop.line, ctx.stop.charPositionInLine)
         )

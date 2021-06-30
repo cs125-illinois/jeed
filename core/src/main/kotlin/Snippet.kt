@@ -315,12 +315,12 @@ ${" ".repeat(snippetArguments.indent * 2)}@JvmStatic fun main() {""".lines().let
         )
     }
 
-    val rewrittenSource = rewrittenSourceLines.map {
+    val rewrittenSource = rewrittenSourceLines.joinToString(separator = "\n") {
         when {
             it.isBlank() -> ""
             else -> it
         }
-    }.joinToString(separator = "\n")
+    }
     return Snippet(
         Sources(hashMapOf(SNIPPET_SOURCE to rewrittenSource)),
         originalSource,
@@ -337,7 +337,7 @@ ${" ".repeat(snippetArguments.indent * 2)}@JvmStatic fun main() {""".lines().let
 private val JAVA_VISIBILITY_PATTERN =
     """^\s*(public|private|protected)""".toRegex()
 
-@Suppress("LongMethod", "ComplexMethod")
+@Suppress("LongMethod", "ComplexMethod", "SpellCheckingInspection")
 private fun sourceFromJavaSnippet(originalSource: String, snippetArguments: SnippetArguments): Snippet {
     val sourceLines = originalSource.lines().map { it.trim().length }
     val errorListener = SnippetErrorListener(sourceLines)
@@ -433,21 +433,21 @@ private fun sourceFromJavaSnippet(originalSource: String, snippetArguments: Snip
             }
             val parent = context.parent as SnippetParser.LocalTypeDeclarationContext
             markAs(parent.start.line, parent.stop.line, "class")
-            val className = context.IDENTIFIER().text
+            val className = context.identifier().text
             classNames.add(className)
             if (context.parent is SnippetParser.LocalTypeDeclarationContext &&
                 (
                     (context.parent as SnippetParser.LocalTypeDeclarationContext).classOrInterfaceModifier()
                         ?.find { it.text == "public" } != null
                     ) &&
-                context.IDENTIFIER().text == "Example"
+                context.identifier().text == "Example"
             ) {
                 context.classBody()?.classBodyDeclaration()
                     ?.filter { it?.memberDeclaration()?.methodDeclaration() != null }
                     ?.any { c ->
                         c.modifier().find { it.text == "public" } != null &&
                             c.modifier().find { it.text == "static" } != null &&
-                            c.memberDeclaration().methodDeclaration().IDENTIFIER().text == "main" &&
+                            c.memberDeclaration().methodDeclaration().identifier().text == "main" &&
                             c.memberDeclaration().methodDeclaration().typeTypeOrVoid().text == "void"
                     }?.also {
                         if (it) {
@@ -470,7 +470,7 @@ private fun sourceFromJavaSnippet(originalSource: String, snippetArguments: Snip
             }
             val parent = context.parent as SnippetParser.LocalTypeDeclarationContext
             markAs(parent.start.line, parent.stop.line, "class")
-            val className = context.IDENTIFIER().text
+            val className = context.identifier().text
             classNames.add(className)
         }
 
@@ -480,7 +480,7 @@ private fun sourceFromJavaSnippet(originalSource: String, snippetArguments: Snip
             }
             val parent = context.parent as SnippetParser.LocalTypeDeclarationContext
             markAs(parent.start.line, parent.stop.line, "record")
-            val className = context.IDENTIFIER().text
+            val className = context.identifier().text
             classNames.add(className)
         }
 
@@ -490,7 +490,7 @@ private fun sourceFromJavaSnippet(originalSource: String, snippetArguments: Snip
             }
             markAs(context.start.line, context.stop.line, "method")
             contentMapping[context.start.line - 1] = "method:start"
-            val methodName = context.IDENTIFIER().text
+            val methodName = context.identifier().text
             methodNames.add(methodName)
         }
 
@@ -500,7 +500,7 @@ private fun sourceFromJavaSnippet(originalSource: String, snippetArguments: Snip
             }
             markAs(context.start.line, context.stop.line, "method")
             contentMapping[context.start.line - 1] = "method:start"
-            val methodName = context.methodDeclaration().IDENTIFIER().text
+            val methodName = context.methodDeclaration().identifier().text
             methodNames.add(methodName)
         }
 
