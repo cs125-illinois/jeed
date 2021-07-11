@@ -786,4 +786,30 @@ public class Test {
         val comparator = generateComparator()
         comparator.compare(first, second) shouldBe 0
     }
+    "should not choke on initializer blocks" {
+        Source(
+            mapOf(
+                "Test.java" to """
+public class Test {
+    {
+        System.out.println("Instance initializer");
+    }
+}
+                """.trim()
+            )
+        ).features()
+    }
+    "should not choke on static initializer blocks" {
+        Source(
+            mapOf(
+                "Test.java" to """
+public class Test {
+    static {
+        System.out.println("Static initializer");
+    }
+}
+                """.trim()
+            )
+        ).features()
+    }
 })
