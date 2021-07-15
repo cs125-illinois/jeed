@@ -45,6 +45,41 @@ class ComplexityFailed(errors: List<SourceError>) : JeedError(errors) {
 }
 
 class ComplexityResults(val source: Source, val results: Map<String, Map<String, ComplexityValue>>) {
+    private fun ComplexityValue.print(indentation: Int = 0): String {
+        val name = if (this.name == "" && source is Snippet) {
+            if (this is MethodComplexity) {
+                source.looseCodeMethodName
+            } else {
+                source.wrappedClassName
+            }
+        } else {
+            this.name
+        }
+        val start = "${" ".repeat(indentation)}$name: ${this.complexity}"
+        val methods = this.methods.values.joinToString("\n") { (it as MethodComplexity).print(indentation + 2) }
+        val classes = this.classes.values.joinToString("\n") { (it as ClassComplexity).print(indentation + 2) }
+        var toReturn = start
+        if (methods.isNotBlank()) {
+            toReturn += "\n$methods"
+        }
+        if (classes.isNotBlank()) {
+            toReturn += "\n$classes"
+        }
+        return toReturn
+    }
+
+    override fun toString() = results.map { (filename, values) ->
+        val start = "${
+        if (source is Snippet) {
+            source.wrappedClassName + source.type.extension()
+        } else {
+            filename
+        }
+        }:"
+        val rest = values.values.joinToString("\n") { it.print(2) }
+        "$start\n$rest"
+    }.joinToString("\n")
+
     @Suppress("ReturnCount")
     fun lookup(path: String, filename: String = ""): ComplexityValue {
         val components = path.split(".").toMutableList()
