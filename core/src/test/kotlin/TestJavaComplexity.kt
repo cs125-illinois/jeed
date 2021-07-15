@@ -259,4 +259,27 @@ public class Example {
             it.lookup("Example", "").complexity shouldBe 1
         }
     }
+    "should not fail on multiple anonymous objects" {
+        Source.fromSnippet(
+            """
+interface Filter {
+  boolean accept(int first, int second);
+}
+Filter bothBositive = new Filter() {
+  @Override
+  public boolean accept(int first, int second) {
+    return first > 0 && second > 0;
+  }
+};
+Filter bothNegative = new Filter() {
+  @Override
+  public boolean accept(int first, int second) {
+    return first < 0 && second < 0;
+  }
+};
+""".trim()
+        ).complexity().also {
+            it.lookup(".", "").complexity shouldBe 5
+        }
+    }
 })

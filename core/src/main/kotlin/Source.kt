@@ -307,3 +307,11 @@ fun require(block: () -> String): Nothing {
 }
 
 class SourceMappingException(message: String) : Exception(message)
+
+fun Source.FileType.extension() = when {
+    this === Source.FileType.KOTLIN -> ".kt"
+    this === Source.FileType.JAVA -> ".java"
+    else -> {
+        error("Unknown filetype: $this")
+    }
+}

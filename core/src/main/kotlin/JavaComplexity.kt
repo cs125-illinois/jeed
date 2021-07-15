@@ -19,6 +19,8 @@ class JavaComplexityListener(val source: Source, entry: Map.Entry<String, String
         get() = complexityStack[0]
     var results: MutableMap<String, ClassComplexity> = mutableMapOf()
 
+    private var anonymousClassDepth = 0
+
     private fun enterClassOrInterface(name: String, start: Location, end: Location) {
         val locatedClass = if (source is Snippet && name == source.wrappedClassName) {
             ClassComplexity("", source.snippetRange)
@@ -51,7 +53,9 @@ class JavaComplexityListener(val source: Source, entry: Map.Entry<String, String
                 )
             }
         if (complexityStack.isNotEmpty()) {
-            assert(!currentComplexity.methods.containsKey(locatedMethod.name))
+            assert(!currentComplexity.methods.containsKey(locatedMethod.name)) {
+                "Already saw ${locatedMethod.name}"
+            }
             currentComplexity.methods[locatedMethod.name] = locatedMethod
         }
         complexityStack.add(0, locatedMethod)
@@ -115,6 +119,10 @@ class JavaComplexityListener(val source: Source, entry: Map.Entry<String, String
     }
 
     override fun enterMethodDeclaration(ctx: JavaParser.MethodDeclarationContext) {
+        if (anonymousClassDepth > 0) {
+            currentComplexity.complexity++
+            return
+        }
         val parameters = ctx.formalParameters().formalParameterList()?.formalParameter()?.joinToString(",") {
             it.typeType().text
         } ?: ""
@@ -126,6 +134,9 @@ class JavaComplexityListener(val source: Source, entry: Map.Entry<String, String
     }
 
     override fun exitMethodDeclaration(ctx: JavaParser.MethodDeclarationContext) {
+        if (anonymousClassDepth > 0) {
+            return
+        }
         exitMethodOrConstructor()
     }
 
@@ -210,6 +221,18 @@ class JavaComplexityListener(val source: Source, entry: Map.Entry<String, String
         assert(complexityStack.isNotEmpty())
         val currentMethod = currentComplexity as MethodComplexity
         currentMethod.complexity++
+    }
+
+    override fun enterClassCreatorRest(ctx: JavaParser.ClassCreatorRestContext) {
+        if (ctx.classBody() != null) {
+            anonymousClassDepth++
+        }
+    }
+
+    override fun exitClassCreatorRest(ctx: JavaParser.ClassCreatorRestContext) {
+        if (ctx.classBody() != null) {
+            anonymousClassDepth--
+        }
     }
 
     init {
