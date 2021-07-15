@@ -9,9 +9,11 @@ import edu.illinois.cs.cs125.jeed.core.SourceExecutionArguments
 import edu.illinois.cs.cs125.jeed.core.moshi.PermissionAdapter
 import java.io.File
 
+const val DEFAULT_PORT = 8888
 const val DEFAULT_SENTINEL_DELAY = 5L
 
 object TopLevel : ConfigSpec("") {
+    val port by optional(DEFAULT_PORT)
     val sentinelDelay by optional(DEFAULT_SENTINEL_DELAY)
 }
 

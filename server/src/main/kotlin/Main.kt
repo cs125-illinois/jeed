@@ -115,5 +115,5 @@ fun main() = runBlocking<Unit> {
             exitProcess(-1)
         }
     }
-    embeddedServer(Netty, port = 8888, module = Application::jeed).start(true)
+    embeddedServer(Netty, port = configuration[TopLevel.port], module = Application::jeed).start(true)
 }

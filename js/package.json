@@ -1,4 +1,4 @@
 {
     "private": true,
-    "workspaces": ["types", "output", "react", "jquery", "demo"]
+    "workspaces": ["types", "output", "react", "jquery", "proxy", "demo"]
 }
