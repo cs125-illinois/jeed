@@ -1,0 +1,4 @@
+{
+    "private": true,
+    "workspaces": ["types", "output", "react", "jquery", "demo"]
+}

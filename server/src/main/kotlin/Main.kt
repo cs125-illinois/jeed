@@ -2,12 +2,6 @@
 
 package edu.illinois.cs.cs125.jeed.server
 
-import com.google.api.client.googleapis.auth.oauth2.GoogleIdTokenVerifier
-import com.google.api.client.http.javanet.NetHttpTransport
-import com.google.api.client.json.gson.GsonFactory
-import com.mongodb.MongoClient
-import com.mongodb.MongoClientURI
-import com.mongodb.client.model.Filters
 import com.ryanharter.ktor.moshi.moshi
 import com.squareup.moshi.JsonClass
 import com.squareup.moshi.Moshi
@@ -36,8 +30,6 @@ import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.time.delay
 import kotlinx.coroutines.withContext
 import mu.KotlinLogging
-import org.apache.http.auth.AuthenticationException
-import org.bson.BsonDocument
 import java.net.URI
 import java.time.Duration
 import java.time.Instant
@@ -95,32 +87,8 @@ fun Application.jeed() {
         get("/") {
             call.respond(currentStatus.update())
         }
-        @Suppress("TooGenericExceptionCaught")
-        post("/auth") {
-            withContext(Dispatchers.IO) {
-                if (Request.googleTokenVerifier == null) {
-                    call.respond(HttpStatusCode.ExpectationFailed)
-                    return@withContext
-                }
-                val preAuthenticationRequest = try {
-                    call.receive<PreAuthenticationRequest>()
-                } catch (e: Exception) {
-                    call.respond(HttpStatusCode.BadRequest)
-                    return@withContext
-                }
-                try {
-                    @Suppress("BlockingMethodInNonBlockingContext")
-                    Request.googleTokenVerifier!!.verify(preAuthenticationRequest.authToken)
-                } catch (e: Exception) {
-                    call.respond(HttpStatusCode.Unauthorized)
-                } finally {
-                    call.respond(HttpStatusCode.OK)
-                }
-            }
-        }
         post("/") {
             withContext(Dispatchers.IO) {
-                @Suppress("TooGenericExceptionCaught")
                 val job = try {
                     call.receive<Request>().check()
                 } catch (e: Exception) {
@@ -129,15 +97,6 @@ fun Application.jeed() {
                     return@withContext
                 }
 
-                try {
-                    job.authenticate()
-                } catch (e: AuthenticationException) {
-                    logger.warn(e.toString())
-                    call.respond(HttpStatusCode.Unauthorized)
-                    return@withContext
-                }
-
-                @Suppress("TooGenericExceptionCaught")
                 try {
                     val result = job.run()
                     currentStatus.lastRequest = Instant.now()
@@ -164,27 +123,9 @@ fun main() = runBlocking<Unit> {
     val httpUri = URI(configuration[TopLevel.http])
     assert(httpUri.scheme == "http")
 
-    configuration[TopLevel.mongodb]?.let {
-        val mongoUri = MongoClientURI(it)
-        val database = mongoUri.database ?: error("MONGO must specify database to use")
-        val collection = configuration[TopLevel.Mongo.collection]
-        Request.mongoCollection = MongoClient(mongoUri)
-            .getDatabase(database)
-            .getCollection(collection, BsonDocument::class.java)
-    }
-    configuration[Auth.Google.clientIDs].let {
-        if (it.isNotEmpty()) {
-            Request.googleTokenVerifier = GoogleIdTokenVerifier.Builder(NetHttpTransport(), GsonFactory())
-                .setAudience(it)
-                .build()
-        }
-    }
-
     backgroundScope.launch { warm(2) }
-    backgroundScope.launch { Request.mongoCollection?.find(Filters.eq("_id", "")) }
     backgroundScope.launch {
         delay(Duration.ofMinutes(configuration[TopLevel.sentinelDelay]))
-        @Suppress("TooGenericExceptionCaught")
         try {
             warm(2)
             logger.debug("Sentinel succeeded")

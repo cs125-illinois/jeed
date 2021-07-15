@@ -1,0 +1,25 @@
+tasks: ["snippet", "compile", "execute"]
+label: testing
+snippet: System.out.println("Hello, world!");
+arguments:
+  snippet:
+    indent: 4
+  compilation:
+    wError: true
+    Xlint: "none"
+    enablePreview: false
+    useCache: false
+    waitForCache: true
+  execution:
+    timeout: 200
+    permissions:
+      - klass: java.util.PropertyPermission
+        name: java.specification.version
+        actions: read
+    maxExtraThreads: 4
+    maxOutputLines: 80
+    dryRun: false
+    waitForShutdown: true
+authToken: "testing"
+waitForSave: true
+requireSave: true

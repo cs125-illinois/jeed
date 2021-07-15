@@ -20,6 +20,7 @@ class Response(val request: Request) {
 
     lateinit var interval: Interval
 
+    @Suppress("unused")
     val json: String
         get() = RESPONSE_ADAPTER.toJson(this)
 

@@ -1,0 +1,44 @@
+{
+  "name": "@cs124/jeed-types",
+  "version": "2021.7.0",
+  "license": "MIT",
+  "main": "dist/index.js",
+  "scripts": {
+    "build": "rimraf dist && tsc",
+    "clean": "rimraf dist",
+    "eslint": "eslint src/**",
+    "ncu": "ncu",
+    "prepublish": "rimraf dist && tsc",
+    "prettier": "prettier -w --plugin=prettier-plugin-organize-imports . && prettier-package-json --write",
+    "test": "JEED_SERVER=http://localhost:8888 ts-mocha --paths tests/index.spec.ts",
+    "watch": "tsc -w"
+  },
+  "types": "dist/index.d.ts",
+  "peerDependencies": {
+    "runtypes": ">= 6"
+  },
+  "devDependencies": {
+    "@types/deep-diff": "^1.0.1",
+    "@types/js-yaml": "^4.0.2",
+    "@types/lodash": "^4.14.171",
+    "@types/mocha": "^8.2.3",
+    "@types/node": "^16.3.2",
+    "@typescript-eslint/eslint-plugin": "4.28.3",
+    "@typescript-eslint/parser": "4.28.3",
+    "deep-diff": "^1.0.2",
+    "eslint": "7.30.0",
+    "eslint-config-prettier": "8.3.0",
+    "isomorphic-fetch": "^3.0.0",
+    "js-yaml": "^4.1.0",
+    "lodash": "^4.17.21",
+    "mocha": "^9.0.2",
+    "npm-check-updates": "11.8.3",
+    "prettier": "2.3.2",
+    "prettier-package-json": "2.6.0",
+    "prettier-plugin-organize-imports": "2.2.0",
+    "rimraf": "3.0.2",
+    "runtypes": "6.3.1",
+    "ts-mocha": "^8.0.0",
+    "typescript": "4.3.5"
+  }
+}

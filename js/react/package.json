@@ -1,0 +1,38 @@
+{
+  "name": "@cs124/jeed-react",
+  "version": "2021.7.0",
+  "license": "MIT",
+  "main": "dist/index.js",
+  "scripts": {
+    "build": "rimraf dist && tsc",
+    "clean": "rimraf dist",
+    "eslint": "eslint src/**",
+    "ncu": "ncu",
+    "prepublish": "rimraf dist && tsc",
+    "prettier": "prettier -w --plugin=prettier-plugin-organize-imports . && prettier-package-json --write",
+    "test": "JEED_SERVER=http://localhost:8888 ts-mocha --paths tests/index.spec.ts",
+    "watch": "tsc -w"
+  },
+  "types": "dist/index.d.ts",
+  "peerDependencies": {
+    "react": ">= 16"
+  },
+  "dependencies": {
+    "@cs124/jeed-types": "2021.7.0"
+  },
+  "devDependencies": {
+    "@types/react": "^17.0.14",
+    "@typescript-eslint/eslint-plugin": "4.28.3",
+    "@typescript-eslint/parser": "4.28.3",
+    "eslint": "7.30.0",
+    "eslint-config-prettier": "8.3.0",
+    "npm-check-updates": "11.8.3",
+    "prettier": "2.3.2",
+    "prettier-package-json": "2.6.0",
+    "prettier-plugin-organize-imports": "2.2.0",
+    "react": "^17.0.2",
+    "rimraf": "3.0.2",
+    "runtypes": "6.3.1",
+    "typescript": "4.3.5"
+  }
+}

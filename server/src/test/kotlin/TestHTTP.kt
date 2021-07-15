@@ -2,13 +2,8 @@
 
 package edu.illinois.cs.cs125.jeed.server
 
-import com.mongodb.MongoClient
-import com.mongodb.MongoClientURI
 import io.kotest.assertions.ktor.shouldHaveStatus
-import io.kotest.core.spec.Spec
 import io.kotest.core.spec.style.StringSpec
-import io.kotest.core.test.TestCase
-import io.kotest.core.test.TestResult
 import io.kotest.matchers.ints.shouldBeGreaterThan
 import io.kotest.matchers.shouldBe
 import io.kotest.matchers.shouldNotBe
@@ -18,31 +13,9 @@ import io.ktor.http.HttpStatusCode
 import io.ktor.server.testing.handleRequest
 import io.ktor.server.testing.setBody
 import io.ktor.server.testing.withTestApplication
-import org.bson.BsonDocument
 
 @Suppress("LargeClass")
 class TestHTTP : StringSpec() {
-    override fun beforeSpec(spec: Spec) {
-        configuration[TopLevel.mongodb]?.let {
-            val mongoUri = MongoClientURI(it)
-            val database = mongoUri.database ?: error("MONGO must specify database to use")
-            val collection = "${configuration[TopLevel.Mongo.collection]}-test"
-            Request.mongoCollection = MongoClient(mongoUri)
-                .getDatabase(database)
-                .getCollection(collection, BsonDocument::class.java)
-        }
-    }
-
-    override fun beforeTest(testCase: TestCase) {
-        Request.mongoCollection?.drop()
-        Request.mongoCollection?.countDocuments() shouldBe 0
-    }
-
-    override fun afterTest(testCase: TestCase, result: TestResult) {
-        Request.mongoCollection?.drop()
-        Request.mongoCollection?.countDocuments() shouldBe 0
-    }
-
     init {
         "should accept good snippet request" {
             withTestApplication(Application::jeed) {
@@ -58,7 +31,6 @@ class TestHTTP : StringSpec() {
                     )
                 }.apply {
                     response.shouldHaveStatus(HttpStatusCode.OK.value)
-                    Request.mongoCollection?.countDocuments() shouldBe 1
 
                     val jeedResponse = Response.from(response.content)
                     jeedResponse.completed.execution?.klass shouldBe "Main"
@@ -81,7 +53,6 @@ class TestHTTP : StringSpec() {
                     )
                 }.apply {
                     response.shouldHaveStatus(HttpStatusCode.OK.value)
-                    Request.mongoCollection?.countDocuments() shouldBe 1
 
                     val jeedResponse = Response.from(response.content)
                     jeedResponse.completed.cexecution?.klass shouldBe "Main"
@@ -104,7 +75,6 @@ class TestHTTP : StringSpec() {
                     )
                 }.apply {
                     response.shouldHaveStatus(HttpStatusCode.OK.value)
-                    Request.mongoCollection?.countDocuments() shouldBe 1
 
                     val jeedResponse = Response.from(response.content)
                     jeedResponse.completed.execution?.klass shouldBe "MainKt"
@@ -137,7 +107,6 @@ public class Main {
                     )
                 }.apply {
                     response.shouldHaveStatus(HttpStatusCode.OK.value)
-                    Request.mongoCollection?.countDocuments() shouldBe 1
 
                     val jeedResponse = Response.from(response.content)
                     jeedResponse.completedTasks.size shouldBe 2
@@ -167,7 +136,6 @@ fun main() {
                     )
                 }.apply {
                     response.shouldHaveStatus(HttpStatusCode.OK.value)
-                    Request.mongoCollection?.countDocuments() shouldBe 1
 
                     val jeedResponse = Response.from(response.content)
                     jeedResponse.completed.execution?.klass shouldBe "MainKt"
@@ -207,7 +175,6 @@ fun main() {
                     )
                 }.apply {
                     response.shouldHaveStatus(HttpStatusCode.OK.value)
-                    Request.mongoCollection?.countDocuments() shouldBe 1
 
                     val jeedResponse = Response.from(response.content)
                     jeedResponse.completed.execution?.klass shouldBe "MainKt"
@@ -243,7 +210,6 @@ public static void main() {
                     )
                 }.apply {
                     response.shouldHaveStatus(HttpStatusCode.OK.value)
-                    Request.mongoCollection?.countDocuments() shouldBe 1
 
                     val jeedResponse = Response.from(response.content)
                     jeedResponse.completedTasks.size shouldBe 3
@@ -273,7 +239,6 @@ fun main() {
                     )
                 }.apply {
                     response.shouldHaveStatus(HttpStatusCode.OK.value)
-                    Request.mongoCollection?.countDocuments() shouldBe 1
 
                     val jeedResponse = Response.from(response.content)
                     jeedResponse.completedTasks.size shouldBe 3
@@ -303,7 +268,6 @@ fun main() {
                     )
                 }.apply {
                     response.shouldHaveStatus(HttpStatusCode.BadRequest.value)
-                    Request.mongoCollection?.countDocuments() shouldBe 0
                 }
             }
         }
@@ -337,7 +301,6 @@ public static void main() {
                     )
                 }.apply {
                     response.shouldHaveStatus(HttpStatusCode.OK.value)
-                    Request.mongoCollection?.countDocuments() shouldBe 1
 
                     val jeedResponse = Response.from(response.content)
                     jeedResponse.completedTasks.size shouldBe 3
@@ -369,7 +332,6 @@ public class Main {
                     )
                 }.apply {
                     response.shouldHaveStatus(HttpStatusCode.OK.value)
-                    Request.mongoCollection?.countDocuments() shouldBe 1
 
                     val jeedResponse = Response.from(response.content)
                     jeedResponse.completedTasks.size shouldBe 1
@@ -401,7 +363,6 @@ class Main {
                     )
                 }.apply {
                     response.shouldHaveStatus(HttpStatusCode.OK.value)
-                    Request.mongoCollection?.countDocuments() shouldBe 1
 
                     val jeedResponse = Response.from(response.content)
                     jeedResponse.completedTasks.size shouldBe 1
@@ -423,7 +384,6 @@ class Main {
                     )
                 }.apply {
                     response.shouldHaveStatus(HttpStatusCode.OK.value)
-                    Request.mongoCollection?.countDocuments() shouldBe 1
 
                     val jeedResponse = Response.from(response.content)
                     jeedResponse.completedTasks.size shouldBe 0
@@ -462,7 +422,6 @@ public static void main() {
                     )
                 }.apply {
                     response.shouldHaveStatus(HttpStatusCode.OK.value)
-                    Request.mongoCollection?.countDocuments() shouldBe 1
 
                     val jeedResponse = Response.from(response.content)
                     jeedResponse.completedTasks.size shouldBe 0
@@ -495,7 +454,6 @@ public class Main {
                     )
                 }.apply {
                     response.shouldHaveStatus(HttpStatusCode.OK.value)
-                    Request.mongoCollection?.countDocuments() shouldBe 1
 
                     val jeedResponse = Response.from(response.content)
                     jeedResponse.completedTasks.size shouldBe 0
@@ -526,7 +484,6 @@ fun main() {
                     )
                 }.apply {
                     response.shouldHaveStatus(HttpStatusCode.OK.value)
-                    Request.mongoCollection?.countDocuments() shouldBe 1
 
                     val jeedResponse = Response.from(response.content)
                     jeedResponse.completedTasks.size shouldBe 0
@@ -564,7 +521,6 @@ System.out.println(\"Here\");
                     )
                 }.apply {
                     response.shouldHaveStatus(HttpStatusCode.OK.value)
-                    Request.mongoCollection?.countDocuments() shouldBe 1
 
                     val jeedResponse = Response.from(response.content)
                     jeedResponse.completedTasks.size shouldBe 1
@@ -597,7 +553,6 @@ System.out.println(\"Here\");
                     )
                 }.apply {
                     response.shouldHaveStatus(HttpStatusCode.OK.value)
-                    Request.mongoCollection?.countDocuments() shouldBe 1
 
                     val jeedResponse = Response.from(response.content)
                     jeedResponse.completedTasks.size shouldBe 3
@@ -631,7 +586,6 @@ public class Main {
                     )
                 }.apply {
                     response.shouldHaveStatus(HttpStatusCode.OK.value)
-                    Request.mongoCollection?.countDocuments() shouldBe 1
 
                     val jeedResponse = Response.from(response.content)
                     jeedResponse.completedTasks.size shouldBe 2
@@ -664,7 +618,6 @@ public class Main {
                     )
                 }.apply {
                     response.shouldHaveStatus(HttpStatusCode.OK.value)
-                    Request.mongoCollection?.countDocuments() shouldBe 1
 
                     val jeedResponse = Response.from(response.content)
                     jeedResponse.completedTasks.size shouldBe 1
@@ -699,7 +652,6 @@ public class Main {
                 }
             }.apply {
                 response.shouldHaveStatus(HttpStatusCode.BadRequest.value)
-                Request.mongoCollection?.countDocuments() shouldBe 0
             }
         }
         "should handle a java source that is actually a snippet" {
@@ -725,7 +677,6 @@ System.out.println(\"Here\");
                 }
             }.apply {
                 response.shouldHaveStatus(HttpStatusCode.OK.value)
-                Request.mongoCollection?.countDocuments() shouldBe 1
 
                 val jeedResponse = Response.from(response.content)
                 jeedResponse.completedTasks.size shouldBe 3
@@ -759,7 +710,6 @@ println(\"Here\")
                 }
             }.apply {
                 response.shouldHaveStatus(HttpStatusCode.OK.value)
-                Request.mongoCollection?.countDocuments() shouldBe 1
 
                 val jeedResponse = Response.from(response.content)
                 jeedResponse.completedTasks.size shouldBe 3
@@ -784,7 +734,6 @@ println(\"Here\")
                 }
             }.apply {
                 response.shouldHaveStatus(HttpStatusCode.BadRequest.value)
-                Request.mongoCollection?.countDocuments() shouldBe 0
             }
         }
         "should reject mapped source request" {
@@ -809,7 +758,6 @@ public class Main {
                 }
             }.apply {
                 response.shouldHaveStatus(HttpStatusCode.BadRequest.value)
-                Request.mongoCollection?.countDocuments() shouldBe 0
             }
         }
         "should reject unauthorized request" {
@@ -819,7 +767,6 @@ public class Main {
                     setBody("broken")
                 }.apply {
                     response.shouldHaveStatus(HttpStatusCode.BadRequest.value)
-                    Request.mongoCollection?.countDocuments() shouldBe 0
                 }
             }
         }
@@ -830,7 +777,6 @@ public class Main {
                     setBody("broken")
                 }.apply {
                     response.shouldHaveStatus(HttpStatusCode.BadRequest.value)
-                    Request.mongoCollection?.countDocuments() shouldBe 0
                 }
             }
         }

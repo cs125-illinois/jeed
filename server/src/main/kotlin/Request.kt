@@ -1,7 +1,5 @@
 package edu.illinois.cs.cs125.jeed.server
 
-import com.google.api.client.googleapis.auth.oauth2.GoogleIdTokenVerifier
-import com.mongodb.client.MongoCollection
 import edu.illinois.cs.cs125.jeed.core.CheckstyleFailed
 import edu.illinois.cs.cs125.jeed.core.CompilationFailed
 import edu.illinois.cs.cs125.jeed.core.ComplexityFailed
@@ -31,15 +29,7 @@ import edu.illinois.cs.cs125.jeed.core.moshi.TemplatedSourceResult
 import edu.illinois.cs.cs125.jeed.core.server.FlatComplexityResults
 import edu.illinois.cs.cs125.jeed.core.server.Task
 import edu.illinois.cs.cs125.jeed.core.server.TaskArguments
-import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.async
-import org.apache.http.auth.AuthenticationException
-import org.bson.BsonDocument
-import org.bson.BsonString
 import java.time.Instant
-
-private val mongoScope = CoroutineScope(Dispatchers.IO)
 
 @Suppress("LongParameterList")
 class Request(
@@ -48,10 +38,7 @@ class Request(
     passedSnippet: String?,
     passedTasks: Set<Task>,
     arguments: TaskArguments?,
-    @Suppress("MemberVisibilityCanBePrivate") val authToken: String?,
     val label: String,
-    val waitForSave: Boolean = false,
-    val requireSave: Boolean = true,
     val checkForSnippet: Boolean = false
 ) {
     val tasks: Set<Task>
@@ -178,34 +165,6 @@ class Request(
         return this
     }
 
-    @Suppress("ComplexMethod", "NestedBlockDepth")
-    fun authenticate() {
-        @Suppress("EmptyCatchBlock", "TooGenericExceptionCaught")
-        try {
-            if (googleTokenVerifier != null && authToken != null) {
-                googleTokenVerifier?.verify(authToken)?.let {
-                    if (configuration[Auth.Google.hostedDomain] != null) {
-                        require(it.payload.hostedDomain == configuration[Auth.Google.hostedDomain])
-                    }
-                    email = it.payload.email
-                    audience = it.payload.audienceAsList
-                }
-            }
-        } catch (e: IllegalArgumentException) {
-        } catch (e: Exception) {
-            logger.warn(e.toString())
-        }
-
-        if (email == null && !configuration[Auth.none]) {
-            val message = if (authToken == null) {
-                "authentication required by authentication token missing"
-            } else {
-                "authentication failure"
-            }
-            throw AuthenticationException(message)
-        }
-    }
-
     @Suppress("ComplexMethod", "LongMethod")
     suspend fun run(): Response {
         currentStatus.counts.submitted++
@@ -320,34 +279,6 @@ class Request(
             currentStatus.counts.completed++
             response.interval = Interval(started, Instant.now())
         }
-        if (mongoCollection != null) {
-            val resultSave = mongoScope.async {
-                @Suppress("TooGenericExceptionCaught")
-                try {
-                    mongoCollection?.insertOne(
-                        BsonDocument.parse(response.json).also {
-                            it.append("receivedSemester", BsonString(configuration[TopLevel.semester]))
-                        }
-                    )
-                    currentStatus.counts.saved++
-                } catch (e: Exception) {
-                    logger.error("Saving job failed: $e")
-                    if (requireSave) {
-                        throw(e)
-                    } else {
-                        null
-                    }
-                }
-            }
-            if (waitForSave || requireSave) {
-                resultSave.await()
-            }
-        }
         return response
-    }
-
-    companion object {
-        var mongoCollection: MongoCollection<BsonDocument>? = null
-        var googleTokenVerifier: GoogleIdTokenVerifier? = null
     }
 }

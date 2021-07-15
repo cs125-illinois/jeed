@@ -1,0 +1,29 @@
+{
+  "files.exclude": {
+    "**/.git": true,
+    "**/.svn": true,
+    "**/.hg": true,
+    "**/CVS": true,
+    "**/.DS_Store": true,
+    "**/.rush": true,
+    "**/dist": true,
+    "**/node_modules": true,
+    "**/*.build.log": true,
+    "**/.tsconfig.tsbuildinfo": true,
+    "**/.cache": true,
+    "**/public": true,
+    "**/.deploy": true,
+    "**/.next": true,
+  },
+  "emmet.showExpandedAbbreviation": "never",
+  "files.trimTrailingWhitespace": true,
+  "editor.autoClosingBrackets": "never",
+  "editor.parameterHints.enabled": false,
+  "editor.quickSuggestions": {
+    "other": false,
+    "comments": false,
+    "strings": false
+  },
+  "workbench.editor.enablePreview": false,
+  "typescript.autoClosingTags": false
+}

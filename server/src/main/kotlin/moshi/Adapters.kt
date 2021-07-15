@@ -29,10 +29,7 @@ class RequestJson(
     val snippet: String?,
     val tasks: Set<Task>,
     val arguments: TaskArguments?,
-    val authToken: String?,
     val label: String,
-    val waitForSave: Boolean? = false,
-    val requireSave: Boolean? = true,
     val checkForSnippet: Boolean? = false
 )
 
@@ -47,10 +44,7 @@ class JobAdapter {
             requestJson.snippet,
             requestJson.tasks,
             requestJson.arguments,
-            requestJson.authToken,
             requestJson.label,
-            requestJson.waitForSave ?: false,
-            requestJson.requireSave ?: true,
             requestJson.checkForSnippet ?: false
         )
     }
@@ -64,10 +58,7 @@ class JobAdapter {
             request.snippet,
             request.tasks,
             request.arguments,
-            null,
             request.label,
-            request.waitForSave,
-            request.requireSave,
             request.checkForSnippet
         )
     }

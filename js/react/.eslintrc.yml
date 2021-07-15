@@ -1,0 +1,10 @@
+ignorePatterns:
+  - "dist"
+parser: "@typescript-eslint/parser"
+extends:
+  - eslint:recommended
+  - prettier
+  - plugin:@typescript-eslint/recommended
+parserOptions:
+  ecmaVersion: 2018
+  sourceType: "module"

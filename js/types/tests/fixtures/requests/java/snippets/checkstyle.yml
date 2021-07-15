@@ -1,0 +1,22 @@
+tasks: ["snippet", "checkstyle", "compile", "execute"]
+label: testing
+snippet: System.out.println( "Hello, world!" );
+arguments:
+  snippet:
+    indent: 2
+  compilation:
+    wError: true
+    Xlint: "none"
+    enablePreview: false
+    useCache: false
+    waitForCache: true
+  checkstyle:
+    failOnError: false
+  execution:
+    timeout: 100
+    maxExtraThreads: 2
+    maxOutputLines: 40
+    waitForShutdown: false
+authToken: "testing"
+waitForSave: true
+requireSave: true

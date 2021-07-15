@@ -4,3 +4,5 @@ complexity:
 exceptions:
   SwallowedException:
     active: false
+  TooGenericExceptionCaught:
+    active: false

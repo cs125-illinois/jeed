@@ -23,9 +23,6 @@ class TestConfig : StringSpec({
     "should load simple configuration from a file" {
         val config = Config { addSpec(Limits) }.from.yaml.string(
             """
-auth:
-  - google
-semester: Spring2019
 limits:
   execution:
     timeout: 10000

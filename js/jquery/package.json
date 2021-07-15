@@ -1,4 +1,7 @@
 {
+  "private": true,
+  "name": "@cs125/jeed-jquery",
+  "version": "2021.7.0",
   "scripts": {
     "build": "babel jeed.js -d build/",
     "jeed": "docker run -p 8888:8888 -e HOSTS=http://localhost:1234 cs125/jeed:latest",
@@ -11,11 +14,11 @@
     "babel-cli": "^6.26.0",
     "babel-core": "^6.26.3",
     "babel-preset-env": "^1.7.0",
-    "concurrently": "^5.1.0",
+    "concurrently": "^6.2.0",
     "env-cmd": "^10.1.0",
-    "npm-check-updates": "^4.1.2",
-    "parcel-bundler": "^1.12.4",
-    "prettier": "^2.0.5",
-    "prettier-package-json": "^2.1.3"
+    "npm-check-updates": "^11.8.3",
+    "parcel-bundler": "^1.12.5",
+    "prettier": "^2.3.2",
+    "prettier-package-json": "^2.6.0"
   }
 }
