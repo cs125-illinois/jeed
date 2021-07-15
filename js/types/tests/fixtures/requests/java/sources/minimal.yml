@@ -1,9 +1,5 @@
-tasks: ["compile", "execute"]
+tasks: ["checkstyle", "complexity", "compile", "execute"]
 label: "testing"
 sources:
   - path: Example.java
-    contents: public class Example {
-      public static void main() {
-      System.out.println("Here");
-      }
-      }
+    contents: public class Example { public static void main() { System.out.println("Here"); } }

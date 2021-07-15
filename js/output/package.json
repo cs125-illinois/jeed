@@ -9,8 +9,8 @@
     "eslint": "eslint src/**",
     "ncu": "ncu",
     "prepublish": "rimraf dist && tsc",
-    "prettier": "prettier -w --plugin=prettier-plugin-organize-imports . && prettier-package-json --write",
     "test": "JEED_SERVER=http://localhost:8888 ts-mocha --paths tests/index.spec.ts",
+    "prettier": "prettier -w --plugin=prettier-plugin-organize-imports . && prettier-package-json --write",
     "watch": "tsc -w"
   },
   "types": "dist/index.d.ts",

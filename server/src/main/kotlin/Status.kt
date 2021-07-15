@@ -18,7 +18,6 @@ import edu.illinois.cs.cs125.jeed.core.version as JEED_VERSION
 @JsonClass(generateAdapter = true)
 @Suppress("MemberVisibilityCanBePrivate", "LongParameterList")
 class Status(
-    val hosts: List<String> = configuration[TopLevel.hosts],
     val tasks: Set<Task> = Task.values().toSet(),
     val started: Instant = Instant.now(),
     val hostname: String = InetAddress.getLocalHost().hostName,

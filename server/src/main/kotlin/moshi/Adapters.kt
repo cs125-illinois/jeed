@@ -93,6 +93,7 @@ class ResultAdapter {
         result.completed.complexity = responseJson.completed.complexity
         result.completed.execution = responseJson.completed.execution
         result.completed.cexecution = responseJson.completed.cexecution
+        result.completed.features = responseJson.completed.features
         result.completedTasks.addAll(responseJson.completedTasks)
 
         result.failed.snippet = responseJson.failed.snippet

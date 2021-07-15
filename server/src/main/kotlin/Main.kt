@@ -30,7 +30,6 @@ import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.time.delay
 import kotlinx.coroutines.withContext
 import mu.KotlinLogging
-import java.net.URI
 import java.time.Duration
 import java.time.Instant
 import java.util.Properties
@@ -56,25 +55,7 @@ data class PreAuthenticationRequest(val authToken: String)
 @Suppress("ComplexMethod", "LongMethod")
 fun Application.jeed() {
     install(CORS) {
-        configuration[TopLevel.hosts].union(listOf(configuration[TopLevel.http])).toSet().forEach { hostname ->
-            if (hostname == "*") {
-                anyHost()
-            } else {
-                @Suppress("MagicNumber")
-                URI(hostname).let {
-                    require(it.host != null && it.scheme != null) { "Bad hostname: $hostname" }
-
-                    val hostWithPort = if (it.port != -1) {
-                        "${it.host}:${it.port}"
-                    } else {
-                        it.host
-                    }
-                    host(hostWithPort, schemes = listOf(it.scheme))
-                }
-            }
-        }
-
-        allowCredentials = true
+        anyHost()
         allowNonSimpleContentTypes = true
     }
     install(ContentNegotiation) {
@@ -120,9 +101,6 @@ private val backgroundScope = CoroutineScope(Dispatchers.IO)
 fun main() = runBlocking<Unit> {
     logger.info(configuration.toJson.toText())
 
-    val httpUri = URI(configuration[TopLevel.http])
-    assert(httpUri.scheme == "http")
-
     backgroundScope.launch { warm(2) }
     backgroundScope.launch {
         delay(Duration.ofMinutes(configuration[TopLevel.sentinelDelay]))
@@ -137,5 +115,5 @@ fun main() = runBlocking<Unit> {
             exitProcess(-1)
         }
     }
-    embeddedServer(Netty, host = httpUri.host, port = httpUri.port, module = Application::jeed).start(true)
+    embeddedServer(Netty, port = 8888, module = Application::jeed).start(true)
 }

@@ -20,6 +20,7 @@ enum class Task {
     complexity,
     execute,
     cexecute,
+    features,
 }
 
 @JsonClass(generateAdapter = true)
@@ -33,4 +34,5 @@ class TaskArguments(
     // val complexity: currently accepts no arguments
     val execution: SourceExecutionArguments = SourceExecutionArguments(),
     val cexecution: ContainerExecutionArguments = ContainerExecutionArguments()
+    // val features: currently accepts no arguments
 )

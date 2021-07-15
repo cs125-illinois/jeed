@@ -1,9 +1,9 @@
-tasks: ["snippet", "compile", "execute"]
+tasks: ["snippet", "checkstyle", "complexity", "features", "compile", "execute"]
 label: testing
 snippet: System.out.println("Hello, world!");
 arguments:
   snippet:
-    indent: 4
+    indent: 2
   compilation:
     wError: true
     Xlint: "none"
@@ -20,6 +20,3 @@ arguments:
     maxOutputLines: 80
     dryRun: false
     waitForShutdown: true
-authToken: "testing"
-waitForSave: true
-requireSave: true

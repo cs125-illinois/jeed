@@ -17,6 +17,7 @@ import edu.illinois.cs.cs125.jeed.core.complexity
 import edu.illinois.cs.cs125.jeed.core.defaultChecker
 import edu.illinois.cs.cs125.jeed.core.distinguish
 import edu.illinois.cs.cs125.jeed.core.execute
+import edu.illinois.cs.cs125.jeed.core.features
 import edu.illinois.cs.cs125.jeed.core.fromSnippet
 import edu.illinois.cs.cs125.jeed.core.fromTemplates
 import edu.illinois.cs.cs125.jeed.core.kompile
@@ -27,6 +28,7 @@ import edu.illinois.cs.cs125.jeed.core.moshi.PermissionAdapter
 import edu.illinois.cs.cs125.jeed.core.moshi.SourceTaskResults
 import edu.illinois.cs.cs125.jeed.core.moshi.TemplatedSourceResult
 import edu.illinois.cs.cs125.jeed.core.server.FlatComplexityResults
+import edu.illinois.cs.cs125.jeed.core.server.FlatFeaturesResults
 import edu.illinois.cs.cs125.jeed.core.server.Task
 import edu.illinois.cs.cs125.jeed.core.server.TaskArguments
 import java.time.Instant
@@ -232,6 +234,11 @@ class Request(
             if (tasks.contains(Task.complexity)) {
                 response.completed.complexity = FlatComplexityResults(actualSource.complexity())
                 response.completedTasks.add(Task.complexity)
+            }
+
+            if (tasks.contains(Task.features)) {
+                response.completed.features = FlatFeaturesResults(actualSource.features())
+                response.completedTasks.add(Task.features)
             }
 
             if (tasks.contains(Task.execute)) {

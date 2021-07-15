@@ -4,7 +4,7 @@
   "license": "MIT",
   "main": "dist/index.js",
   "scripts": {
-    "build": "rimraf dist && tsc",
+    "build": "tsc",
     "clean": "rimraf dist",
     "eslint": "eslint src/**",
     "ncu": "ncu",

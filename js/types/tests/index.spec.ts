@@ -1,13 +1,12 @@
-import _ from "lodash"
-
-import { describe } from "mocha"
-require("isomorphic-fetch")
-import yaml from "js-yaml"
-import fs from "fs"
-import { String } from "runtypes"
 import { diff } from "deep-diff"
+import fs from "fs"
+import yaml from "js-yaml"
+import _ from "lodash"
+import { describe } from "mocha"
+import { String } from "runtypes"
+import { Request, Response, ServerStatus, TaskArguments } from "../src"
 
-import { ServerStatus, Request, Response, TaskArguments } from "../src"
+require("isomorphic-fetch")
 
 const server = String.check(process.env.JEED_SERVER)
 
@@ -83,12 +82,6 @@ describe("Java", function () {
     })
     it("should accept a complete request", function (done) {
       const request = yaml.load(fs.readFileSync(`${__dirname}/fixtures/requests/java/snippets/complete.yml`, "utf8"))
-      checkRequest(request, true)
-        .then(() => done())
-        .catch((err) => done(err))
-    })
-    it("should accept a checkstyle request", function (done) {
-      const request = yaml.load(fs.readFileSync(`${__dirname}/fixtures/requests/java/snippets/checkstyle.yml`, "utf8"))
       checkRequest(request, true)
         .then(() => done())
         .catch((err) => done(err))

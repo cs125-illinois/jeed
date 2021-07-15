@@ -9,17 +9,13 @@ import edu.illinois.cs.cs125.jeed.core.SourceExecutionArguments
 import edu.illinois.cs.cs125.jeed.core.moshi.PermissionAdapter
 import java.io.File
 
-const val DEFAULT_HTTP = "http://0.0.0.0:8888"
 const val DEFAULT_SENTINEL_DELAY = 5L
 
 object TopLevel : ConfigSpec("") {
-    val http by optional(DEFAULT_HTTP)
-    val hosts by optional<List<String>>(listOf())
     val sentinelDelay by optional(DEFAULT_SENTINEL_DELAY)
 }
 
 object Limits : ConfigSpec() {
-
     object Execution : ConfigSpec() {
         val timeout by optional(Sandbox.ExecutionArguments.DEFAULT_TIMEOUT)
         val permissions by optional(
