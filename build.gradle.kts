@@ -1,6 +1,6 @@
 plugins {
-    kotlin("jvm") version "1.5.20" apply false
-    kotlin("kapt") version "1.5.20" apply false
+    kotlin("jvm") version "1.5.21" apply false
+    kotlin("kapt") version "1.5.21" apply false
     id("org.jmailen.kotlinter") version "3.4.5" apply false
     id("com.github.ben-manes.versions") version "0.39.0"
     id("io.gitlab.arturbosch.detekt") version "1.17.1"
@@ -15,7 +15,7 @@ allprojects {
 }
 subprojects {
     group = "com.github.cs125-illinois.jeed"
-    version = "2021.6.11"
+    version = "2021.7.0"
     tasks.withType<Test> {
         useJUnitPlatform()
         enableAssertions = true

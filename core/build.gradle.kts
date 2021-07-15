@@ -20,7 +20,7 @@ dependencies {
     implementation(kotlin("compiler-embeddable"))
     implementation(kotlin("reflect"))
 
-    implementation("org.jetbrains.kotlinx:kotlinx-coroutines-core:1.5.0")
+    implementation("org.jetbrains.kotlinx:kotlinx-coroutines-core:1.5.1")
     implementation("com.puppycrawl.tools:checkstyle:8.44")
     implementation("com.pinterest.ktlint:ktlint-core:0.40.0")
     implementation("com.pinterest.ktlint:ktlint-ruleset-standard:0.41.0")
@@ -30,13 +30,13 @@ dependencies {
     implementation("org.ow2.asm:asm-util:9.2")
     implementation("org.slf4j:slf4j-api:1.7.31")
     implementation("ch.qos.logback:logback-classic:1.2.3")
-    implementation("io.github.microutils:kotlin-logging:2.0.8")
-    implementation("io.github.classgraph:classgraph:4.8.108")
+    implementation("io.github.microutils:kotlin-logging:2.0.10")
+    implementation("io.github.classgraph:classgraph:4.8.110")
     implementation("net.java.dev.jna:jna:5.8.0")
     implementation("io.github.java-diff-utils:java-diff-utils:4.10")
-    api("com.github.ben-manes.caffeine:caffeine:3.0.2")
+    api("com.github.ben-manes.caffeine:caffeine:3.0.3")
 
-    testImplementation("io.kotest:kotest-runner-junit5:4.6.0")
+    testImplementation("io.kotest:kotest-runner-junit5:4.6.1")
 }
 tasks.test {
     useJUnitPlatform()
