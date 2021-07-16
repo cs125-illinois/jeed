@@ -1,30 +1,25 @@
 import { Request, Response, ServerStatus } from "@cs124/jeed-types"
+import { googleLogin } from "@cs124/koa-google-login"
 import cors from "@koa/cors"
 import Router from "@koa/router"
-import { OAuth2Client } from "google-auth-library"
 import { createHttpTerminator } from "http-terminator"
 import Koa, { Context } from "koa"
 import koaBody from "koa-body"
 import { MongoClient as mongo } from "mongodb"
 import mongodbUri from "mongodb-uri"
 import fetch from "node-fetch"
-import { Array, String } from "runtypes"
+import { String } from "runtypes"
 
 const BACKEND = String.check(process.env.JEED_SERVER)
 
 const { database } = String.guard(process.env.MONGODB) ? mongodbUri.parse(process.env.MONGODB) : { database: undefined }
-const client = String.guard(process.env.MONGODB)
-  ? mongo.connect(process.env.MONGODB, { useNewUrlParser: true, useUnifiedTopology: true })
-  : undefined
+const client = String.guard(process.env.MONGODB) ? mongo.connect(process.env.MONGODB) : undefined
 const _collection = client?.then((c) => c.db(database).collection(process.env.MONGODB_COLLECTION || "jeed"))
 const validDomains = process.env.VALID_DOMAINS?.split(",").map((s) => s.trim())
 
 const router = new Router<Record<string, unknown>, { email?: string }>()
 
-const googleClientIDs = Array(String).guard(process.env.GOOGLE_CLIENT_IDS)
-  ? process.env.GOOGLE_CLIENT_IDS.split(",").map((s) => s.trim())
-  : undefined
-const googleClient = googleClientIDs && new OAuth2Client(googleClientIDs[0])
+const audience = process.env.GOOGLE_CLIENT_IDS?.split(",").map((s) => s.trim())
 
 const PORT = process.env.PORT || 8888
 
@@ -35,7 +30,7 @@ const STATUS = Object.assign(
     started: new Date(),
     port: PORT,
   },
-  googleClientIDs ? { googleClientIDs } : null,
+  audience ? { audience } : null,
   { mongoDB: client !== undefined }
 )
 const getStatus = async () => {
@@ -87,22 +82,7 @@ const server = new Koa()
       maxAge: 86400,
     })
   )
-  .use(async (ctx, next) => {
-    if (googleClient) {
-      try {
-        ctx.email = await googleClient
-          .verifyIdToken({
-            idToken: ctx.headers["google-token"] as string,
-            audience: googleClientIDs || [],
-          })
-          .then((result) => result.getPayload())
-          .then((result) => result?.email?.toLowerCase())
-      } catch (err) {
-        console.error(err)
-      }
-    }
-    await next()
-  })
+  .use(audience ? googleLogin({ audience, required: false }) : (_, next) => next())
   .use(koaBody({ jsonLimit: "8mb" }))
   .use(router.routes())
   .use(router.allowedMethods())

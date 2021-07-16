@@ -7,11 +7,13 @@
     "lint": "next lint",
     "serve": "next start",
     "start": "next dev",
-    "prettier": "prettier -w --plugin=prettier-plugin-organize-imports . && prettier-package-json --write"
+    "prettier": "prettier -w --plugin=prettier-plugin-organize-imports . && prettier-package-json --write",
+    "backend": "docker-compose --env-file .env.development up"
   },
   "dependencies": {
-    "@cs124/jeed-react": "2021.7.0",
     "@cs124/jeed-output": "2021.7.0",
+    "@cs124/jeed-react": "2021.7.0",
+    "@cs124/react-google-login": "^2021.7.0",
     "next": "11.0.1",
     "react": "17.0.2",
     "react-ace": "9.4.1",

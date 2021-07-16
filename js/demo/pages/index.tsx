@@ -1,12 +1,22 @@
 import { terminalOutput } from "@cs124/jeed-output"
 import { JeedProvider, useJeed } from "@cs124/jeed-react"
+import { GoogleLoginProvider, useGoogleLogin, WithGoogleTokens } from "@cs124/react-google-login"
 import dynamic from "next/dynamic"
 import { useCallback, useRef, useState } from "react"
-import { IAceEditor, ICommand } from "react-ace/lib/types"
+import { IAceEditor } from "react-ace/lib/types"
 import { Request, Task } from "../../types/dist"
 
 const AceEditor = dynamic(() => import("react-ace"), { ssr: false })
 
+const LoginButton: React.FC = () => {
+  const { isSignedIn, auth, ready } = useGoogleLogin()
+  if (!ready) {
+    return null
+  }
+  return (
+    <button onClick={() => (isSignedIn ? auth?.signOut() : auth?.signIn())}>{isSignedIn ? "Signout" : "Signin"}</button>
+  )
+}
 const JeedDemo: React.FC = () => {
   const [mode, setMode] = useState<"java" | "kotlin">("java")
   const [output, setOutput] = useState("")
@@ -26,7 +36,7 @@ const JeedDemo: React.FC = () => {
     const response = await runJeed(request, true)
     const output = terminalOutput(response)
     setOutput(output)
-  }, [])
+  }, [mode, runJeed])
 
   const commands = [
     {
@@ -79,9 +89,18 @@ const JeedDemo: React.FC = () => {
 
 export default function Home() {
   return (
-    <JeedProvider server={process.env.NEXT_PUBLIC_JEED_SERVER as string}>
-      <h2>Jeed Demo</h2>
-      <JeedDemo />
-    </JeedProvider>
+    <GoogleLoginProvider clientConfig={{ client_id: process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID as string }}>
+      <WithGoogleTokens>
+        {({ idToken }) => (
+          <JeedProvider googleToken={idToken} server={process.env.NEXT_PUBLIC_JEED_SERVER as string}>
+            <h2>Jeed Demo</h2>
+            <div>
+              <LoginButton />
+            </div>
+            <JeedDemo />
+          </JeedProvider>
+        )}
+      </WithGoogleTokens>
+    </GoogleLoginProvider>
   )
 }
