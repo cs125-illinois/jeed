@@ -382,7 +382,6 @@ private class FeatureListener(val source: Source, entry: Map.Entry<String, Strin
             ctx.classBody().classBodyDeclaration().filter { declaration ->
                 declaration.memberDeclaration().methodDeclaration()?.isSnippetMethod() != true
             }.filter { declaration ->
-                println(declaration.memberDeclaration()?.methodDeclaration()?.fullName())
                 declaration.modifier().any {
                     when (it.text) {
                         "public", "private", "protected" -> true

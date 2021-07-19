@@ -4,8 +4,10 @@ import edu.illinois.cs.cs125.jeed.core.CheckstyleFailed
 import edu.illinois.cs.cs125.jeed.core.CompilationFailed
 import edu.illinois.cs.cs125.jeed.core.ComplexityFailed
 import edu.illinois.cs.cs125.jeed.core.ExecutionFailed
+import edu.illinois.cs.cs125.jeed.core.FeaturesFailed
 import edu.illinois.cs.cs125.jeed.core.Interval
 import edu.illinois.cs.cs125.jeed.core.KtLintFailed
+import edu.illinois.cs.cs125.jeed.core.MutationsFailed
 import edu.illinois.cs.cs125.jeed.core.SnippetTransformationFailed
 import edu.illinois.cs.cs125.jeed.core.Source
 import edu.illinois.cs.cs125.jeed.core.SourceType
@@ -27,6 +29,7 @@ import edu.illinois.cs.cs125.jeed.core.moshi.ExecutionFailedResult
 import edu.illinois.cs.cs125.jeed.core.moshi.PermissionAdapter
 import edu.illinois.cs.cs125.jeed.core.moshi.SourceTaskResults
 import edu.illinois.cs.cs125.jeed.core.moshi.TemplatedSourceResult
+import edu.illinois.cs.cs125.jeed.core.mutations
 import edu.illinois.cs.cs125.jeed.core.server.FlatComplexityResults
 import edu.illinois.cs.cs125.jeed.core.server.FlatFeaturesResults
 import edu.illinois.cs.cs125.jeed.core.server.Task
@@ -51,6 +54,7 @@ class Request(
 
     val source: Map<String, String>?
     val snippet: String?
+
     init {
         var potentialSource = passedSource
         var potentialSnippet = passedSnippet
@@ -241,6 +245,11 @@ class Request(
                 response.completedTasks.add(Task.features)
             }
 
+            if (tasks.contains(Task.mutations)) {
+                response.completed.mutations = actualSource.mutations(arguments.mutations)
+                response.completedTasks.add(Task.mutations)
+            }
+
             if (tasks.contains(Task.execute)) {
                 check(compiledSource != null) { "should have compiled source before executing" }
                 val executionResult = compiledSource.execute(arguments.execution)
@@ -282,6 +291,12 @@ class Request(
                 response.failed.cexecution = ExecutionFailedResult(executionFailed)
                 response.failedTasks.add(Task.cexecute)
             }
+        } catch (featuresFailed: FeaturesFailed) {
+            response.failed.features = featuresFailed
+            response.failedTasks.add(Task.features)
+        } catch (mutationsFailed: MutationsFailed) {
+            response.failed.mutations = mutationsFailed
+            response.failedTasks.add(Task.mutations)
         } finally {
             currentStatus.counts.completed++
             response.interval = Interval(started, Instant.now())

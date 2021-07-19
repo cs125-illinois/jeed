@@ -10,7 +10,8 @@ export const Task = Union(
   Literal("complexity"),
   Literal("execute"),
   Literal("cexecute"),
-  Literal("features")
+  Literal("features"),
+  Literal("mutations")
 )
 export type Task = Static<typeof Task>
 
@@ -156,6 +157,12 @@ export const ContainerExecutionArguments = Partial({
 })
 export type ContainerExecutionArguments = Static<typeof ContainerExecutionArguments>
 
+export const MutationsArguments = Partial({
+  limit: Number,
+  suppressWithComments: Boolean,
+})
+export type MutationsArguments = Static<typeof MutationsArguments>
+
 export const TaskArguments = Partial({
   snippet: SnippetArguments,
   compilation: CompilationArguments,
@@ -164,6 +171,7 @@ export const TaskArguments = Partial({
   ktlint: KtLintArguments,
   execution: SourceExecutionArguments,
   cexecution: ContainerExecutionArguments,
+  mutations: MutationsArguments,
 })
 export type TaskArguments = Static<typeof TaskArguments>
 
@@ -293,6 +301,37 @@ export const FlatFeaturesResults = Record({
 })
 export type FlatFeaturesResults = Static<typeof FlatFeaturesResults>
 
+export const MutationLocation = Record({
+  start: Number,
+  end: Number,
+  line: String,
+  startLine: Number,
+  endLine: Number,
+})
+export type MutationLocation = Static<typeof MutationLocation>
+
+export const AppliedMutation = Record({
+  mutationType: String,
+  location: MutationLocation,
+  original: String,
+  mutated: String,
+  linesChanged: Number,
+})
+export type AppliedMutation = Static<typeof AppliedMutation>
+
+export const MutatedSource = Record({
+  mutatedSource: String,
+  mutatedSources: Dictionary(String),
+  mutation: AppliedMutation,
+})
+export type MutatedSource = Static<typeof MutatedSource>
+
+export const MutationsResults = Record({
+  source: Dictionary(String),
+  mutatedSources: Array(MutatedSource),
+})
+export type MutationsResults = Static<typeof MutationsResults>
+
 export const ThrownException = Record({
   klass: String,
   stacktrace: String,
@@ -366,6 +405,7 @@ export const CompletedTasks = Partial({
   features: FlatFeaturesResults,
   execution: SourceTaskResults,
   cexecution: ContainerExecutionResults,
+  mutations: MutationsResults,
 })
 export type CompletedTasks = Static<typeof CompletedTasks>
 
@@ -432,6 +472,16 @@ export const ComplexityFailed = Record({
 })
 export type ComplexityFailed = Static<typeof ComplexityFailed>
 
+export const FeaturesFailed = Record({
+  errors: Array(SourceError),
+})
+export type FeaturesFailed = Static<typeof FeaturesFailed>
+
+export const MutationsFailed = Record({
+  errors: Array(SourceError),
+})
+export type MutationsFailed = Static<typeof MutationsFailed>
+
 export const ExecutionFailedResult = Partial({
   classNotFound: String,
   methodNotFound: String,
@@ -448,6 +498,8 @@ export const FailedTasks = Partial({
   complexity: ComplexityFailed,
   execution: ExecutionFailedResult,
   cexecution: ExecutionFailedResult,
+  features: FeaturesFailed,
+  mutations: MutationsFailed,
 })
 export type FailedTasks = Static<typeof FailedTasks>
 

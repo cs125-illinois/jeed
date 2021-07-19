@@ -1,3 +1,5 @@
+@file:Suppress("MatchingDeclarationName")
+
 // ktlint-disable filename
 package edu.illinois.cs.cs125.jeed.core
 
@@ -8,28 +10,11 @@ import org.antlr.v4.runtime.tree.ParseTreeWalker
 import org.antlr.v4.runtime.tree.TerminalNode
 import org.jetbrains.kotlin.backend.common.pop
 
+@Suppress("TooManyFunctions")
 class KotlinMutationListener(private val parsedSource: Source.ParsedSource) : KotlinParserBaseListener() {
     val lines = parsedSource.contents.lines()
     val mutations: MutableList<Mutation> = mutableListOf()
     private val fileType = Source.FileType.KOTLIN
-
-    private val currentPath: MutableList<Mutation.Location.SourcePath> = mutableListOf()
-    override fun enterClassDeclaration(ctx: KotlinParser.ClassDeclarationContext) {
-        currentPath.add(
-            Mutation.Location.SourcePath(
-                Mutation.Location.SourcePath.Type.CLASS,
-                ctx.simpleIdentifier().text
-            )
-        )
-    }
-
-    override fun exitClassDeclaration(ctx: KotlinParser.ClassDeclarationContext) {
-        currentPath.last().also {
-            check(it.type == Mutation.Location.SourcePath.Type.CLASS)
-            check(it.name == ctx.simpleIdentifier()!!.text)
-        }
-        currentPath.pop()
-    }
 
     private val returnTypeStack: MutableList<String> = mutableListOf()
     private val currentReturnType: String?
@@ -108,22 +93,23 @@ class KotlinMutationListener(private val parsedSource: Source.ParsedSource) : Ko
         Mutation.Location(
             start.startIndex,
             stop.stopIndex,
-            currentPath,
             lines.filterIndexed { index, _ -> index >= start.line - 1 && index <= stop.line - 1 }
                 .joinToString("\n"),
-            start.line
+            start.line,
+            stop.line
         )
 
     private fun List<TerminalNode>.toLocation() =
         Mutation.Location(
             first().symbol.startIndex,
             last().symbol.stopIndex,
-            currentPath,
             lines.filterIndexed { index, _ -> index >= first().symbol.line - 1 && index <= last().symbol.line - 1 }
                 .joinToString("\n"),
-            first().symbol.line
+            first().symbol.line,
+            last().symbol.line
         )
 
+    @Suppress("ComplexMethod")
     override fun enterLiteralConstant(ctx: KotlinParser.LiteralConstantContext) {
         if (insideAnnotation) {
             return
@@ -143,6 +129,7 @@ class KotlinMutationListener(private val parsedSource: Source.ParsedSource) : Ko
                 mutations.add(StringLiteral(location, parsedSource.contents(location), fileType))
             }
         }
+        @Suppress("MagicNumber")
         ctx.HexLiteral()?.also {
             ctx.toLocation().also { location ->
                 mutations.add(NumberLiteral(location, parsedSource.contents(location), fileType, 16))
@@ -181,11 +168,11 @@ class KotlinMutationListener(private val parsedSource: Source.ParsedSource) : Ko
                 val location = Mutation.Location(
                     ctx.ELSE().symbol.startIndex,
                     ctx.controlStructureBody(1).stop.stopIndex,
-                    currentPath,
                     lines.filterIndexed { index, _ ->
                         index >= ctx.ELSE().symbol.line - 1 && index <= ctx.controlStructureBody(1).stop.line - 1
                     }.joinToString("\n"),
-                    ctx.ELSE().symbol.line
+                    ctx.ELSE().symbol.line,
+                    ctx.controlStructureBody(1).stop.line
                 )
                 mutations.add(RemoveIf(location, parsedSource.contents(location), fileType))
                 mutations.add(RemoveIf(ctx.toLocation(), parsedSource.contents(ctx.toLocation()), fileType))
@@ -193,11 +180,11 @@ class KotlinMutationListener(private val parsedSource: Source.ParsedSource) : Ko
                 val location = Mutation.Location(
                     ctx.start.startIndex,
                     ctx.ELSE().symbol.stopIndex,
-                    currentPath,
                     lines.filterIndexed { index, _ ->
                         index >= ctx.start.line - 1 && index <= ctx.ELSE().symbol.line - 1
                     }.joinToString("\n"),
-                    ctx.start.line
+                    ctx.start.line,
+                    ctx.ELSE().symbol.line
                 )
                 mutations.add(RemoveIf(location, parsedSource.contents(location), fileType))
             }
@@ -324,20 +311,20 @@ class KotlinMutationListener(private val parsedSource: Source.ParsedSource) : Ko
         val frontLocation = Mutation.Location(
             front.start.startIndex,
             back.start.startIndex - 1,
-            currentPath,
             lines
                 .filterIndexed { index, _ -> index >= front.start.line - 1 && index <= back.start.line - 1 }
                 .joinToString("\n"),
-            front.start.line
+            front.start.line,
+            back.start.line
         )
         val backLocation = Mutation.Location(
             front.stop.stopIndex + 1,
             back.stop.stopIndex,
-            currentPath,
             lines
                 .filterIndexed { index, _ -> index >= front.stop.line - 1 && index <= back.stop.line - 1 }
                 .joinToString("\n"),
-            front.start.line
+            front.start.line,
+            back.stop.line
         )
         return Pair(frontLocation, backLocation)
     }

@@ -98,7 +98,7 @@ const server = new Koa({ proxy: true })
     ratelimit({
       driver: "memory",
       db: db,
-      duration: process.env.RATE_LIMIT_MS ? parseInt(process.env.RATE_LIMIT_MS) : 1000,
+      duration: process.env.RATE_LIMIT_MS ? parseInt(process.env.RATE_LIMIT_MS) : 100,
       headers: {
         remaining: "Rate-Limit-Remaining",
         reset: "Rate-Limit-Reset",

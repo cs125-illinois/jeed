@@ -370,6 +370,69 @@ public class Main {
                 }
             }
         }
+        "should fail bad source features request" {
+            withTestApplication(Application::jeed) {
+                handleRequest(HttpMethod.Post, "/") {
+                    addHeader("content-type", "application/json")
+                    setBody(
+                        """
+{
+"label": "test",
+"sources": [
+  {
+    "path": "Main.java",
+    "contents": "
+public class Main {
+    public static void main() {
+        System.out.println(\"Here\")
+    }
+}"
+  }
+],
+"tasks": [ "features" ]
+}""".trim()
+                    )
+                }.apply {
+                    response.shouldHaveStatus(HttpStatusCode.OK.value)
+
+                    val jeedResponse = Response.from(response.content)
+                    jeedResponse.completedTasks.size shouldBe 0
+                    jeedResponse.failedTasks.size shouldBe 1
+                }
+            }
+        }
+        "should accept good source mutations request" {
+            withTestApplication(Application::jeed) {
+                handleRequest(HttpMethod.Post, "/") {
+                    addHeader("content-type", "application/json")
+                    setBody(
+                        """
+{
+"label": "test",
+"sources": [
+  {
+    "path": "Main.java",
+    "contents": "
+public class Main {
+    public static void main() {
+        System.out.println(\"Here\");
+    }
+}"
+  }
+],
+"tasks": [ "mutations" ]
+}""".trim()
+                    )
+                }.apply {
+                    response.shouldHaveStatus(HttpStatusCode.OK.value)
+
+                    val jeedResponse = Response.from(response.content)
+                    println(response.content)
+                    jeedResponse.completedTasks.size shouldBe 1
+                    jeedResponse.failedTasks.size shouldBe 0
+                }
+            }
+        }
         "should accept good Kotlin complexity request" {
             withTestApplication(Application::jeed) {
                 handleRequest(HttpMethod.Post, "/") {

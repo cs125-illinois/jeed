@@ -1,13 +1,17 @@
 package edu.illinois.cs.cs125.jeed.core.server
 
 import com.squareup.moshi.JsonClass
+import edu.illinois.cs.cs125.jeed.core.ALL
 import edu.illinois.cs.cs125.jeed.core.CheckstyleArguments
 import edu.illinois.cs.cs125.jeed.core.CompilationArguments
 import edu.illinois.cs.cs125.jeed.core.ContainerExecutionArguments
 import edu.illinois.cs.cs125.jeed.core.KompilationArguments
 import edu.illinois.cs.cs125.jeed.core.KtLintArguments
+import edu.illinois.cs.cs125.jeed.core.Mutation
+import edu.illinois.cs.cs125.jeed.core.MutationsArguments
 import edu.illinois.cs.cs125.jeed.core.SnippetArguments
 import edu.illinois.cs.cs125.jeed.core.SourceExecutionArguments
+import kotlin.random.Random
 
 @Suppress("EnumEntryName", "EnumNaming")
 enum class Task {
@@ -21,6 +25,7 @@ enum class Task {
     execute,
     cexecute,
     features,
+    mutations
 }
 
 @JsonClass(generateAdapter = true)
@@ -33,6 +38,8 @@ class TaskArguments(
     val ktlint: KtLintArguments = KtLintArguments(),
     // val complexity: currently accepts no arguments
     val execution: SourceExecutionArguments = SourceExecutionArguments(),
-    val cexecution: ContainerExecutionArguments = ContainerExecutionArguments()
+    val cexecution: ContainerExecutionArguments = ContainerExecutionArguments(),
     // val features: currently accepts no arguments
+    val mutations: MutationsArguments = MutationsArguments()
 )
+

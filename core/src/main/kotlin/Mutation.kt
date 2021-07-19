@@ -2,7 +2,9 @@
 
 package edu.illinois.cs.cs125.jeed.core
 
+import com.squareup.moshi.JsonClass
 import java.util.Objects
+import kotlin.math.abs
 import kotlin.math.pow
 import kotlin.random.Random
 
@@ -12,12 +14,13 @@ sealed class Mutation(
     val original: String,
     val fileType: Source.FileType
 ) {
+    @JsonClass(generateAdapter = true)
     data class Location(
         val start: Int,
         val end: Int,
-        val path: List<SourcePath>,
         val line: String,
-        val startLine: Int
+        val startLine: Int,
+        val endLine: Int
     ) {
         init {
             check(end >= start) { "Invalid location: $end $start" }
@@ -71,6 +74,8 @@ sealed class Mutation(
         modified = null
     }
 
+    var linesChanged: Int? = null
+
     fun apply(contents: String, random: Random = Random): String {
         val wasBlank = contents.lines()[location.startLine - 1].isBlank()
         val prefix = contents.substring(0 until location.start)
@@ -82,8 +87,18 @@ sealed class Mutation(
         check(modified == null) { "Mutation already applied" }
 
         modified = applyMutation(random)
-
         check(modified != original) { "Mutation did not change the input: $mutationType" }
+
+        val originalLines = original.lines()
+        val modifiedLines = modified!!.lines()
+        linesChanged = when {
+            modified!!.isBlank() -> original.lines().size
+            originalLines.size == modifiedLines.size ->
+                originalLines.zip(modifiedLines).filter { (m, o) -> m != o }.size
+            else -> abs(originalLines.size - modifiedLines.size)
+        }
+        require(linesChanged!! > 0) { "Line change count failed" }
+
         return (prefix + modified + postfix).lines().filterIndexed { index, s ->
             if (index + 1 != location.startLine) {
                 true
@@ -118,6 +133,24 @@ sealed class Mutation(
                 Source.FileType.JAVA -> JavaMutationListener(parsedSource).mutations.filterIsInstance<T>()
                 Source.FileType.KOTLIN -> KotlinMutationListener(parsedSource).mutations.filterIsInstance<T>()
             }
+    }
+}
+
+@JsonClass(generateAdapter = true)
+data class AppliedMutation(
+    val mutationType: Mutation.Type,
+    var location: Mutation.Location,
+    val original: String, val mutated: String,
+    val linesChanged: Int
+) {
+    constructor(mutation: Mutation) : this(
+        mutation.mutationType,
+        mutation.location,
+        mutation.original,
+        mutation.modified!!,
+        mutation.linesChanged!!
+    ) {
+        require(mutation.applied) { "Must be created from an applied mutation" }
     }
 }
 
@@ -556,7 +589,8 @@ class NullReturn(
     companion object {
         @Suppress("DEPRECATION")
         fun matches(contents: String, returnType: String, fileType: Source.FileType) = when (fileType) {
-            Source.FileType.JAVA -> contents != "null" && (returnType == returnType.capitalize() || returnType.endsWith("[]"))
+            Source.FileType.JAVA -> contents != "null" && (returnType == returnType.capitalize()
+                || returnType.endsWith("[]"))
             Source.FileType.KOTLIN -> contents != "null" && !kotlinPrimitiveTypes.contains(returnType)
         }
     }
@@ -597,7 +631,7 @@ class RemoveMethod(
     }
 
     companion object {
-        @Suppress("DEPRECATION")
+        @Suppress("DEPRECATION", "ComplexMethod")
         private fun forReturnType(returnType: String, fileType: Source.FileType) = when (fileType) {
             Source.FileType.JAVA -> when {
                 returnType == "String" -> "return \"\""
@@ -657,11 +691,13 @@ class RemoveMethod(
             }
             return postfix.reversed()
         }
-        fun matches(contents: String, returnType: String, fileType: Source.FileType) = contents.removePrefix(getPrefix(contents)).let {
-            it.removeSuffix(getPostfix(it))
-        }.let {
-            it.isNotBlank() && it.trim().removeSuffix(";").trim() != forReturnType(returnType, fileType)
-        }
+
+        fun matches(contents: String, returnType: String, fileType: Source.FileType) =
+            contents.removePrefix(getPrefix(contents)).let {
+                it.removeSuffix(getPostfix(it))
+            }.let {
+                it.isNotBlank() && it.trim().removeSuffix(";").trim() != forReturnType(returnType, fileType)
+            }
     }
 }
 

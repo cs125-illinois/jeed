@@ -15,18 +15,6 @@ class JavaMutationListener(private val parsedSource: Source.ParsedSource) : Java
     val lines = parsedSource.contents.lines()
     val mutations: MutableList<Mutation> = mutableListOf()
     private val fileType = Source.FileType.JAVA
-    private val currentPath: MutableList<Mutation.Location.SourcePath> = mutableListOf()
-    override fun enterClassDeclaration(ctx: JavaParser.ClassDeclarationContext) {
-        currentPath.add(Mutation.Location.SourcePath(Mutation.Location.SourcePath.Type.CLASS, ctx.identifier().text))
-    }
-
-    override fun exitClassDeclaration(ctx: JavaParser.ClassDeclarationContext) {
-        currentPath.last().also {
-            check(it.type == Mutation.Location.SourcePath.Type.CLASS)
-            check(it.name == ctx.identifier()!!.text)
-        }
-        currentPath.pop()
-    }
 
     private val returnTypeStack: MutableList<String> = mutableListOf()
     private val currentReturnType: String?
@@ -65,21 +53,21 @@ class JavaMutationListener(private val parsedSource: Source.ParsedSource) : Java
         Mutation.Location(
             start.startIndex,
             stop.stopIndex,
-            currentPath,
             lines.filterIndexed { index, _ -> index >= start.line - 1 && index <= stop.line - 1 }
                 .joinToString("\n"),
-            start.line
+            start.line,
+            stop.line
         )
 
-    private fun Token.toLocation() = Mutation.Location(startIndex, stopIndex, currentPath, lines[line - 1], line)
+    private fun Token.toLocation() = Mutation.Location(startIndex, stopIndex, lines[line - 1], line, line)
     private fun List<TerminalNode>.toLocation() =
         Mutation.Location(
             first().symbol.startIndex,
             last().symbol.stopIndex,
-            currentPath,
             lines.filterIndexed { index, _ -> index >= first().symbol.line - 1 && index <= last().symbol.line - 1 }
                 .joinToString("\n"),
-            first().symbol.line
+            first().symbol.line,
+            last().symbol.line
         )
 
     override fun enterLiteral(ctx: JavaParser.LiteralContext) {
@@ -124,24 +112,24 @@ class JavaMutationListener(private val parsedSource: Source.ParsedSource) : Java
         val frontLocation = Mutation.Location(
             front.start.startIndex,
             back.start.startIndex - 1,
-            currentPath,
             lines
                 .filterIndexed { index, _ ->
                     index >= front.start.line - 1 && index <= back.start.line - 1
                 }
                 .joinToString("\n"),
-            front.start.line
+            front.start.line,
+            back.start.line
         )
         val backLocation = Mutation.Location(
             front.stop.stopIndex + 1,
             back.stop.stopIndex,
-            currentPath,
             lines
                 .filterIndexed { index, _ ->
                     index >= front.stop.line - 1 && index <= back.stop.line - 1
                 }
                 .joinToString("\n"),
-            front.start.line
+            front.start.line,
+            back.stop.line
         )
         return Pair(frontLocation, backLocation)
     }
@@ -279,10 +267,10 @@ class JavaMutationListener(private val parsedSource: Source.ParsedSource) : Java
                         Mutation.Location(
                             start.startIndex,
                             end.stopIndex,
-                            currentPath,
                             lines.filterIndexed { index, _ -> index >= start.line - 1 && index <= end.line - 1 }
                                 .joinToString("\n"),
-                            start.line
+                            start.line,
+                            end.line
                         )
                     mutations.add(RemoveIf(elseLocation, parsedSource.contents(elseLocation), fileType))
                 } else if (ctx.statement().size >= 2) {
@@ -298,13 +286,13 @@ class JavaMutationListener(private val parsedSource: Source.ParsedSource) : Java
                             Mutation.Location(
                                 previousMarker.symbol.startIndex,
                                 end.stop.stopIndex,
-                                currentPath,
                                 lines
                                     .filterIndexed { index, _ ->
                                         index >= previousMarker.symbol.line - 1 && index <= end.stop.line - 1
                                     }
                                     .joinToString("\n"),
-                                previousMarker.symbol.line
+                                previousMarker.symbol.line,
+                                end.stop.line
                             )
                         mutations.add(RemoveIf(currentLocation, parsedSource.contents(currentLocation), fileType))
                         previousMarker = statement.ELSE()

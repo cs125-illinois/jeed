@@ -4,6 +4,7 @@ package edu.illinois.cs.cs125.jeed.core
 
 import com.github.difflib.DiffUtils
 import com.github.difflib.patch.DeltaType
+import com.squareup.moshi.JsonClass
 import org.antlr.v4.runtime.misc.Interval
 import kotlin.random.Random
 
@@ -16,6 +17,7 @@ fun MutableList<Mutation.Location.SourcePath>.klass(): String =
 fun MutableList<Mutation.Location.SourcePath>.method(): String =
     findLast { it.type == Mutation.Location.SourcePath.Type.METHOD }?.name ?: error("No current method in path")
 
+@JsonClass(generateAdapter = true)
 data class SourceMutation(val name: String, val mutation: Mutation)
 
 @Suppress("unused", "MemberVisibilityCanBePrivate")
@@ -314,4 +316,41 @@ fun Source.allFixedMutations(
         }
     }
     return mutatedSources
+}
+
+@JsonClass(generateAdapter = true)
+data class MutationsArguments(val limit: Int = 4, val suppressWithComments: Boolean = true)
+
+class MutationsFailed(errors: List<SourceError>) : JeedError(errors) {
+    override fun toString(): String {
+        return "errors were encountered while mutating sources: ${errors.joinToString(separator = ",")}"
+    }
+}
+
+@JsonClass(generateAdapter = true)
+data class MutationsResults(val source: Map<String, String>, val mutatedSources: List<MutatedSource>) {
+    @JsonClass(generateAdapter = true)
+    data class MutatedSource(
+        val mutatedSource: String,
+        val mutatedSources: Map<String, String>,
+        val mutation: AppliedMutation
+    )
+}
+
+@Throws(MutationsFailed::class)
+fun Source.mutations(mutationsArguments: MutationsArguments = MutationsArguments()): MutationsResults {
+    try {
+        val mutatedSources =
+            mutationStream(mutationsArguments.suppressWithComments).take(mutationsArguments.limit).map {
+                require(it.mutations.size == 1) { "Stream applied multiple mutations" }
+                MutationsResults.MutatedSource(
+                    it.mutations.first().name,
+                    it.sources.sources,
+                    AppliedMutation(it.mutations.first().mutation)
+                )
+            }.toList()
+        return MutationsResults(this.sources, mutatedSources)
+    } catch (e: JeedParsingException) {
+        throw MutationsFailed(e.errors)
+    }
 }

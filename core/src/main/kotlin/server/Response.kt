@@ -12,14 +12,20 @@ import edu.illinois.cs.cs125.jeed.core.ComplexityValue
 import edu.illinois.cs.cs125.jeed.core.ContainerExecutionResults
 import edu.illinois.cs.cs125.jeed.core.FeatureValue
 import edu.illinois.cs.cs125.jeed.core.Features
+import edu.illinois.cs.cs125.jeed.core.FeaturesFailed
 import edu.illinois.cs.cs125.jeed.core.FeaturesResults
 import edu.illinois.cs.cs125.jeed.core.KtLintFailed
 import edu.illinois.cs.cs125.jeed.core.KtLintResults
 import edu.illinois.cs.cs125.jeed.core.MethodComplexity
 import edu.illinois.cs.cs125.jeed.core.MethodFeatures
+import edu.illinois.cs.cs125.jeed.core.Mutation
+import edu.illinois.cs.cs125.jeed.core.MutationsFailed
+import edu.illinois.cs.cs125.jeed.core.MutationsResults
 import edu.illinois.cs.cs125.jeed.core.Snippet
 import edu.illinois.cs.cs125.jeed.core.SnippetTransformationFailed
+import edu.illinois.cs.cs125.jeed.core.SourceMutation
 import edu.illinois.cs.cs125.jeed.core.SourceRange
+import edu.illinois.cs.cs125.jeed.core.Sources
 import edu.illinois.cs.cs125.jeed.core.TemplatingFailed
 import edu.illinois.cs.cs125.jeed.core.moshi.CompiledSourceResult
 import edu.illinois.cs.cs125.jeed.core.moshi.ExecutionFailedResult
@@ -38,7 +44,8 @@ class CompletedTasks(
     var complexity: FlatComplexityResults? = null,
     var execution: SourceTaskResults? = null,
     var cexecution: ContainerExecutionResults? = null,
-    var features: FlatFeaturesResults? = null
+    var features: FlatFeaturesResults? = null,
+    var mutations: MutationsResults? = null
 )
 
 @JsonClass(generateAdapter = true)
@@ -52,7 +59,9 @@ class FailedTasks(
     var ktlint: KtLintFailed? = null,
     var complexity: ComplexityFailed? = null,
     var execution: ExecutionFailedResult? = null,
-    var cexecution: ExecutionFailedResult? = null
+    var cexecution: ExecutionFailedResult? = null,
+    var features: FeaturesFailed? = null,
+    var mutations: MutationsFailed? = null
 )
 
 @JsonClass(generateAdapter = true)

@@ -1,4 +1,4 @@
-tasks: ["checkstyle", "complexity", "compile", "execute"]
+tasks: ["checkstyle", "complexity", "compile", "execute", "features", "mutations"]
 label: "testing"
 sources:
   - path: Example.java

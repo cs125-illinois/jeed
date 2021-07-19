@@ -1,3 +1,5 @@
+@file:Suppress("unused")
+
 package edu.illinois.cs.cs125.jeed.core.moshi
 
 import com.squareup.moshi.FromJson
@@ -13,9 +15,12 @@ import edu.illinois.cs.cs125.jeed.core.ComplexityFailed
 import edu.illinois.cs.cs125.jeed.core.ExecutionFailed
 import edu.illinois.cs.cs125.jeed.core.FeatureMap
 import edu.illinois.cs.cs125.jeed.core.FeatureName
+import edu.illinois.cs.cs125.jeed.core.FeaturesFailed
 import edu.illinois.cs.cs125.jeed.core.Interval
 import edu.illinois.cs.cs125.jeed.core.KtLintError
 import edu.illinois.cs.cs125.jeed.core.KtLintFailed
+import edu.illinois.cs.cs125.jeed.core.Mutation
+import edu.illinois.cs.cs125.jeed.core.MutationsFailed
 import edu.illinois.cs.cs125.jeed.core.Sandbox
 import edu.illinois.cs.cs125.jeed.core.Snippet
 import edu.illinois.cs.cs125.jeed.core.SnippetTransformationError
@@ -49,7 +54,9 @@ val Adapters = setOf(
     TemplatingErrorAdapter(),
     TemplatingFailedAdapter(),
     TemplatedSourceResultAdapter(),
-    FeatureMapAdapter()
+    FeatureMapAdapter(),
+    FeaturesFailedAdapter(),
+    MutationsFailedAdapter()
 )
 
 class InstantAdapter {
@@ -394,8 +401,41 @@ class FeatureMapAdapter {
     fun featureMapFromJson(map: MutableMap<FeatureName, Int>): FeatureMap {
         return FeatureMap(map)
     }
+
     @ToJson
     fun featureMapToJson(map: FeatureMap): Map<FeatureName, Int> {
         return map.map
+    }
+}
+
+@JsonClass(generateAdapter = true)
+data class FeaturesFailedJson(val errors: List<SourceError>)
+
+class FeaturesFailedAdapter {
+    @FromJson
+    fun featuresFailedFromJson(featuresFailedJson: FeaturesFailedJson): FeaturesFailed {
+        return FeaturesFailed(featuresFailedJson.errors)
+    }
+
+    @Suppress("UNCHECKED_CAST")
+    @ToJson
+    fun featuresFailedToJson(featuresFailed: FeaturesFailed): FeaturesFailedJson {
+        return FeaturesFailedJson(featuresFailed.errors)
+    }
+}
+
+@JsonClass(generateAdapter = true)
+data class MutationsFailedJson(val errors: List<SourceError>)
+
+class MutationsFailedAdapter {
+    @FromJson
+    fun mutationsFailedFromJson(mutationsFailedJson: MutationsFailedJson): MutationsFailed {
+        return MutationsFailed(mutationsFailedJson.errors)
+    }
+
+    @Suppress("UNCHECKED_CAST")
+    @ToJson
+    fun mutationsFailedToJson(mutationsFailed: MutationsFailed): MutationsFailedJson {
+        return MutationsFailedJson(mutationsFailed.errors)
     }
 }
