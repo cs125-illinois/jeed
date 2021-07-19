@@ -9,3 +9,18 @@ body {
   margin-right: auto;
   max-width: 800px;
 }
+div.output {
+  margin: 8px 0;
+  white-space: pre-wrap;
+  min-height: calc(1.5em + 16px);
+  font-family: Monaco, Menlo, monospace;
+  background-color: #222222;
+  color: #dddddd;
+  padding: 8px;
+  span.error {
+    color: red;
+  }
+  span.success {
+    color: lightgreen;
+  }
+}

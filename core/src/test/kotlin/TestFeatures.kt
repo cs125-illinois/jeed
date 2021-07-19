@@ -17,7 +17,10 @@ i++;
             it.lookup(".").features.featureMap[FeatureName.LOCAL_VARIABLE_DECLARATIONS] shouldBe 2
             it.lookup(".").features.featureMap[FeatureName.VARIABLE_ASSIGNMENTS] shouldBe 2
             it.lookup(".").features.featureMap[FeatureName.VARIABLE_REASSIGNMENTS] shouldBe 1
-            it.lookup("").features.featureMap[FeatureName.METHOD] shouldBe 1
+            it.lookup("").features.featureMap[FeatureName.METHOD] shouldBe 0
+            it.lookup("").features.featureMap[FeatureName.VISIBILITY_MODIFIERS] shouldBe 0
+            it.lookup("").features.featureMap[FeatureName.THROWS] shouldBe 0
+            it.lookup("").features.featureMap[FeatureName.STATIC_METHOD] shouldBe 0
         }
     }
     "should count for loops in snippets" {
@@ -275,6 +278,10 @@ val second = "Hello, world!";
     "should count methods and classes" {
         Source.fromSnippet(
             """
+int test() {
+  return 0;
+}
+public class Test { }
 System.out.println("Hello, world!");
 """.trim()
         ).features().also {
@@ -488,8 +495,7 @@ void container(int setSize) throws IllegalArgumentException {
 """.trim()
         ).features().also {
             it.lookup("").features.featureMap[FeatureName.THROW] shouldBe 1
-            // main method for snippets also throws exception
-            it.lookup("").features.featureMap[FeatureName.THROWS] shouldBe 2
+            it.lookup("").features.featureMap[FeatureName.THROWS] shouldBe 1
         }
     }
     "should count generic classes" {

@@ -34,10 +34,14 @@ export const JeedProvider: React.FC<JeedProviderProps> = ({ googleToken, server,
           googleToken ? { "google-token": googleToken } : null
         ),
       })
-        .then((response) => response.json())
-        .then((response) => {
-          setStatus(response.status)
-          return response
+        .then(async (response) => {
+          if (response.status === 200) {
+            const r = await response.json()
+            setStatus(r.status)
+            return r
+          } else {
+            throw await response.text()
+          }
         })
         .catch((err) => {
           setStatus(undefined)

@@ -8,5 +8,6 @@ ARG BUILD_DATE
 ENV BUILD_DATE=$BUILD_DATE
 
 COPY dist/index.js .
+COPY dist/index.js.map .
 
-CMD [ "node", "index.js"]
+CMD [ "node", "--enable-source-maps", "index.js"]

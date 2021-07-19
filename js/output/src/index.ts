@@ -85,18 +85,47 @@ ${originalLine ? originalLine + "\n" + new Array(column).join(" ") + "^" : ""}${
     }
   }
 
-  if (Object.keys(response.failed).length === 0 && (response.completed.execution || response.completed.cexecution)) {
-    const completed = response.completed.execution || response.completed.cexecution
-    const output = completed?.outputLines.map(({ line }) => line) || []
-    if (response.completed.execution?.threw) {
-      output.push(response.completed.execution?.threw.stacktrace)
-    } else if (completed?.timeout) {
-      output.push("(Program timed out)")
+  if (Object.keys(response.failed).length === 0) {
+    if (response.completed.execution || response.completed.cexecution) {
+      const completed = response.completed.execution || response.completed.cexecution
+      const output = completed?.outputLines
+        ? completed.outputLines.length > 0
+          ? completed.outputLines.map(({ line }) => line)
+          : [`<span class="success">(Completed without output)</span>`]
+        : []
+      if (response.completed.execution?.threw) {
+        output.push(response.completed.execution?.threw.stacktrace)
+      } else if (completed?.timeout) {
+        output.push("(Program timed out)")
+      }
+      if (completed?.truncatedLines || 0 > 0) {
+        output.push(`(${completed?.truncatedLines} lines were truncated)`)
+      }
+      return output.join("\n")
+    } else if (response.completed.checkstyle) {
+      return `<span class="success">No checkstyle errors found</span>`
+    } else if (response.completed.ktlint) {
+      return `<span class="success">No ktlint errors found</span>`
+    } else if (response.completed.complexity) {
+      const results = response.completed.complexity.results
+      const output = []
+      for (const result of results) {
+        const totalComplexity = result.classes.map(({ complexity }) => complexity).reduce((c, n) => n + c, 0)
+        const name = result.source === "" ? "Entire snippet" : result.source
+        output.push(`${name} has complexity ${totalComplexity}`)
+        for (const klass of result.classes) {
+          if (klass.name === "") {
+            continue
+          }
+          output.push(`  ${klass.name} has complexity ${klass.complexity}`)
+        }
+        for (const method of result.methods) {
+          const methodName = method.name === "" ? "Loose code" : `Method ${method.name}`
+          output.push(`  ${methodName} has complexity ${method.complexity}`)
+        }
+      }
+      return output.join("\n")
     }
-    if (completed?.truncatedLines || 0 > 0) {
-      output.push(`(${completed?.truncatedLines} lines were truncated)`)
-    }
-    return output.join("\n")
   }
 
   console.error(`Nothing failed but no success result either...`)

@@ -5,6 +5,7 @@ import Router from "@koa/router"
 import { createHttpTerminator } from "http-terminator"
 import Koa, { Context } from "koa"
 import koaBody from "koa-body"
+import ratelimit from "koa-ratelimit"
 import { MongoClient as mongo } from "mongodb"
 import mongodbUri from "mongodb-uri"
 import fetch from "node-fetch"
@@ -42,6 +43,7 @@ router.get("/", async (ctx: Context) => {
 })
 router.post("/", async (ctx) => {
   const start = new Date()
+  const collection = await _collection
   const request = Request.check(ctx.request.body)
   let response: Response
   try {
@@ -51,25 +53,35 @@ router.post("/", async (ctx) => {
         "Content-Type": "application/json",
       },
       body: JSON.stringify(request),
+    }).then(async (r) => {
+      if (r.status === 200) {
+        return Response.check(await r.json())
+      } else {
+        throw await r.text()
+      }
     })
-      .then((r) => r.json())
-      .then((r) => Response.check(r))
   } catch (err) {
-    console.error(err)
-    return ctx.throw(400)
+    collection?.insertOne(
+      Object.assign(
+        { succeeded: false, ...request, start, end: new Date(), ip: ctx.request.ip, err },
+        String.guard(process.env.SEMESTER) ? { semester: process.env.SEMESTER } : null,
+        ctx.email ? { email: ctx.email } : null
+      )
+    )
+    return ctx.throw(err, 400)
   }
   ctx.body = response
-  const collection = await _collection
   collection?.insertOne(
     Object.assign(
-      { ...response, start, end: new Date() },
+      { succeeded: true, ...response, start, end: new Date(), ip: ctx.request.ip },
       String.guard(process.env.SEMESTER) ? { semester: process.env.SEMESTER } : null,
       ctx.email ? { email: ctx.email } : null
     )
   )
 })
 
-const server = new Koa()
+const db = new Map()
+const server = new Koa({ proxy: true })
   .use(
     cors({
       origin: (ctx) => {
@@ -80,6 +92,20 @@ const server = new Koa()
         }
       },
       maxAge: 86400,
+    })
+  )
+  .use(
+    ratelimit({
+      driver: "memory",
+      db: db,
+      duration: process.env.RATE_LIMIT_MS ? parseInt(process.env.RATE_LIMIT_MS) : 1000,
+      headers: {
+        remaining: "Rate-Limit-Remaining",
+        reset: "Rate-Limit-Reset",
+        total: "Rate-Limit-Total",
+      },
+      max: 1,
+      whitelist: (ctx) => ctx.request.method === "GET",
     })
   )
   .use(audience ? googleLogin({ audience, required: false }) : (_, next) => next())
@@ -93,7 +119,6 @@ Promise.resolve().then(async () => {
   server.on("error", (err) => {
     console.error(err)
   })
-  await _collection
   const terminator = createHttpTerminator({ server: s })
   process.on("SIGTERM", async () => await terminator.terminate())
 })

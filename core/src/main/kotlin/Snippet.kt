@@ -129,7 +129,7 @@ fun Source.Companion.fromSnippet(
     originalSource: String,
     snippetArguments: SnippetArguments = SnippetArguments()
 ): Snippet {
-    require(originalSource.isNotEmpty())
+    require(originalSource.isNotEmpty()) { "Snippet cannot be a blank string" }
     return when (snippetArguments.fileType) {
         Source.FileType.JAVA -> sourceFromJavaSnippet(originalSource, snippetArguments)
         Source.FileType.KOTLIN -> sourceFromKotlinSnippet(originalSource, snippetArguments)

@@ -6,10 +6,10 @@ import com.ryanharter.ktor.moshi.moshi
 import com.squareup.moshi.JsonClass
 import com.squareup.moshi.Moshi
 import com.uchuhimo.konf.source.json.toJson
+import edu.illinois.cs.cs125.jeed.core.getStackTraceAsString
 import edu.illinois.cs.cs125.jeed.core.warm
 import edu.illinois.cs.cs125.jeed.server.moshi.Adapters
 import io.ktor.application.Application
-import io.ktor.application.ApplicationCallPipeline
 import io.ktor.application.call
 import io.ktor.application.install
 import io.ktor.features.CORS
@@ -17,6 +17,7 @@ import io.ktor.features.ContentNegotiation
 import io.ktor.http.HttpStatusCode
 import io.ktor.request.receive
 import io.ktor.response.respond
+import io.ktor.response.respondText
 import io.ktor.routing.get
 import io.ktor.routing.post
 import io.ktor.routing.routing
@@ -73,8 +74,8 @@ fun Application.jeed() {
                 val job = try {
                     call.receive<Request>().check()
                 } catch (e: Exception) {
-                    logger.warn(e.toString())
-                    call.respond(HttpStatusCode.BadRequest)
+                    logger.warn(e.getStackTraceAsString())
+                    call.respondText(e.message ?: e.toString(), status = HttpStatusCode.BadRequest)
                     return@withContext
                 }
 
@@ -83,15 +84,10 @@ fun Application.jeed() {
                     currentStatus.lastRequest = Instant.now()
                     call.respond(result)
                 } catch (e: Exception) {
-                    logger.warn(e.toString())
-                    call.respond(HttpStatusCode.BadRequest)
+                    logger.warn(e.getStackTraceAsString())
+                    call.respondText(e.message ?: e.toString(), status = HttpStatusCode.BadRequest)
                 }
             }
-        }
-    }
-    intercept(ApplicationCallPipeline.Fallback) {
-        if (call.response.status() == null) {
-            call.respond(HttpStatusCode.NotFound)
         }
     }
 }

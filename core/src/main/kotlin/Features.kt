@@ -290,6 +290,8 @@ private class FeatureListener(val source: Source, entry: Map.Entry<String, Strin
         count(
             FeatureName.VISIBILITY_MODIFIERS,
             ctx.typeDeclaration().filter { declaration ->
+                declaration.classDeclaration()?.isSnippetClass() != true
+            }.filter { declaration ->
                 declaration.classOrInterfaceModifier().any {
                     when (it.text) {
                         "public", "private", "protected" -> true
@@ -311,7 +313,9 @@ private class FeatureListener(val source: Source, entry: Map.Entry<String, Strin
     }
 
     override fun enterClassDeclaration(ctx: JavaParser.ClassDeclarationContext) {
-        count(FeatureName.CLASS, 1)
+        if (!ctx.isSnippetClass()) {
+            count(FeatureName.CLASS, 1)
+        }
         enterClassOrInterface(
             ctx.identifier().text,
             Location(ctx.start.line, ctx.start.charPositionInLine),
@@ -320,6 +324,8 @@ private class FeatureListener(val source: Source, entry: Map.Entry<String, Strin
         count(
             FeatureName.STATIC_METHOD,
             ctx.classBody().classBodyDeclaration().filter { declaration ->
+                declaration.memberDeclaration()?.methodDeclaration()?.isSnippetMethod() != true
+            }.filter { declaration ->
                 declaration.modifier().any {
                     it.classOrInterfaceModifier().STATIC() != null &&
                         declaration.memberDeclaration().methodDeclaration() != null
@@ -374,6 +380,9 @@ private class FeatureListener(val source: Source, entry: Map.Entry<String, Strin
         count(
             FeatureName.VISIBILITY_MODIFIERS,
             ctx.classBody().classBodyDeclaration().filter { declaration ->
+                declaration.memberDeclaration().methodDeclaration()?.isSnippetMethod() != true
+            }.filter { declaration ->
+                println(declaration.memberDeclaration()?.methodDeclaration()?.fullName())
                 declaration.modifier().any {
                     when (it.text) {
                         "public", "private", "protected" -> true
@@ -506,16 +515,32 @@ private class FeatureListener(val source: Source, entry: Map.Entry<String, Strin
         exitClassOrInterface()
     }
 
+    private fun JavaParser.MethodDeclarationContext.fullName(): String {
+        val parameters = formalParameters().formalParameterList()?.formalParameter()?.joinToString(",") {
+            it.typeType().text
+        } ?: ""
+        return "${identifier().text}($parameters)"
+    }
+
+    private fun JavaParser.ClassDeclarationContext.isSnippetClass() = source is Snippet &&
+        identifier().text == source.wrappedClassName
+
+    private fun JavaParser.MethodDeclarationContext.isSnippetMethod() = source is Snippet &&
+        fullName() == source.looseCodeMethodName &&
+        (featureStack.getOrNull(0) as? ClassFeatures)?.name == ""
+
     override fun enterMethodDeclaration(ctx: JavaParser.MethodDeclarationContext) {
-        count(FeatureName.METHOD, 1)
-        if (ctx.identifier().text.startsWith("get")) {
-            count(FeatureName.GETTER, 1)
-        }
-        if (ctx.identifier().text.startsWith("set")) {
-            count(FeatureName.SETTER, 1)
-        }
-        ctx.THROWS()?.also {
-            count(FeatureName.THROWS, 1)
+        if (!ctx.isSnippetMethod()) {
+            count(FeatureName.METHOD, 1)
+            if (ctx.identifier().text.startsWith("get")) {
+                count(FeatureName.GETTER, 1)
+            }
+            if (ctx.identifier().text.startsWith("set")) {
+                count(FeatureName.SETTER, 1)
+            }
+            ctx.THROWS()?.also {
+                count(FeatureName.THROWS, 1)
+            }
         }
         count(
             FeatureName.FINAL_CLASS,
@@ -533,11 +558,8 @@ private class FeatureListener(val source: Source, entry: Map.Entry<String, Strin
                 } ?: false
             }?.size ?: 0
         )
-        val parameters = ctx.formalParameters().formalParameterList()?.formalParameter()?.joinToString(",") {
-            it.typeType().text
-        } ?: ""
         enterMethodOrConstructor(
-            "${ctx.typeTypeOrVoid().text} ${ctx.identifier().text}($parameters)",
+            "${ctx.typeTypeOrVoid().text} ${ctx.fullName()}",
             Location(ctx.start.line, ctx.start.charPositionInLine),
             Location(ctx.stop.line, ctx.stop.charPositionInLine)
         )
