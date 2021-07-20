@@ -140,7 +140,8 @@ sealed class Mutation(
 data class AppliedMutation(
     val mutationType: Mutation.Type,
     var location: Mutation.Location,
-    val original: String, val mutated: String,
+    val original: String,
+    val mutated: String,
     val linesChanged: Int
 ) {
     constructor(mutation: Mutation) : this(
@@ -589,8 +590,10 @@ class NullReturn(
     companion object {
         @Suppress("DEPRECATION")
         fun matches(contents: String, returnType: String, fileType: Source.FileType) = when (fileType) {
-            Source.FileType.JAVA -> contents != "null" && (returnType == returnType.capitalize()
-                || returnType.endsWith("[]"))
+            Source.FileType.JAVA -> contents != "null" && (
+                returnType == returnType.capitalize() ||
+                    returnType.endsWith("[]")
+                )
             Source.FileType.KOTLIN -> contents != "null" && !kotlinPrimitiveTypes.contains(returnType)
         }
     }

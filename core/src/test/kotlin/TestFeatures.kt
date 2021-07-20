@@ -746,6 +746,21 @@ List<String> list = new ArrayList<>();
             it.lookup(".").features.featureMap[FeatureName.TYPE_PARAMETERS] shouldBe 1
         }
     }
+    "should correctly count print statements and dot notation" {
+        Source.fromSnippet(
+            """
+System.out.println("Hello, world!");
+System.out.print("Hello, world!");
+System.err.println("Hello, world!");
+System.err.print("Hello, world!");
+""".trim()
+        ).features().also {
+            it.lookup(".").features.featureMap[FeatureName.PRINT_STATEMENTS] shouldBe 4
+            it.lookup(".").features.featureMap[FeatureName.DOT_NOTATION] shouldBe 8
+            it.lookup(".").features.featureMap[FeatureName.DOTTED_METHOD_CALL] shouldBe 4
+            it.lookup(".").features.featureMap[FeatureName.DOTTED_VARIABLE_ACCESS] shouldBe 0
+        }
+    }
     "should correctly compare two snippets" {
         val first = Source.fromSnippet(
             """

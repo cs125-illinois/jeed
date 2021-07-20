@@ -117,12 +117,31 @@ ${originalLine ? originalLine + "\n" + new Array(column).join(" ") + "^" : ""}${
           if (klass.name === "") {
             continue
           }
-          output.push(`  ${klass.name} has complexity ${klass.complexity}`)
+          output.push(`  Class ${klass.name} has complexity ${klass.complexity}`)
         }
         for (const method of result.methods) {
           const methodName = method.name === "" ? "Loose code" : `Method ${method.name}`
           output.push(`  ${methodName} has complexity ${method.complexity}`)
         }
+      }
+      return output.join("\n")
+    }
+    if (response.completed.features) {
+      const { results, allFeatures } = response.completed.features
+      const output = []
+      for (const result of results) {
+        const fileFeatures: { [key: string]: boolean } = {}
+        for (const klass of result.classes) {
+          for (const feature of Object.keys(klass.features.featureMap)) {
+            fileFeatures[feature] = true
+          }
+        }
+        const name = result.source === "" ? "Entire snippet" : result.source
+        output.push(
+          `${name} uses features ${Object.keys(fileFeatures)
+            .map((feature) => allFeatures[feature])
+            .sort()}`
+        )
       }
       return output.join("\n")
     }

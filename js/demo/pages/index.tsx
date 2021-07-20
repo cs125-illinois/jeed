@@ -8,6 +8,19 @@ import { IAceEditor } from "react-ace/lib/types"
 
 const AceEditor = dynamic(() => import("react-ace"), { ssr: false })
 
+const DEFAULT_JAVA_SNIPPET = `System.out.println("Hello, Java!");`
+const DEFAULT_KOTLIN_SNIPPET = `println("Hello, Kotlin!")`
+const DEFAULT_JAVA_CLASS = `public class Example {
+  public static void main() {
+    System.out.println("Hello, Java!");
+  }
+}
+`
+const DEFAULT_KOTLIN_CLASS = `fun main() {
+  println("Hello, Kotlin!")
+}
+`
+
 const LoginButton: React.FC = () => {
   const { isSignedIn, auth, ready } = useGoogleLogin()
   if (!ready) {
@@ -20,6 +33,7 @@ const LoginButton: React.FC = () => {
 const JeedDemo: React.FC = () => {
   const [value, setValue] = useState("")
   const [mode, setMode] = useState<"java" | "kotlin">("java")
+  const [snippet, setSnippet] = useState(true)
   const [response, setResponse] = useState<{ response?: Response; error?: string } | undefined>()
   const { run: runJeed } = useJeed()
   const aceRef = useRef<IAceEditor>()
@@ -29,8 +43,8 @@ const JeedDemo: React.FC = () => {
       if (!aceRef.current) {
         return
       }
-      const snippet = aceRef.current.getValue()
-      if (snippet.trim() === "") {
+      const content = aceRef.current.getValue()
+      if (content.trim() === "") {
         setResponse(undefined)
         return
       }
@@ -63,7 +77,8 @@ const JeedDemo: React.FC = () => {
       const request: Request = {
         label: "demo",
         tasks,
-        snippet,
+        ...(snippet && { snippet: content }),
+        ...(!snippet && { sources: [{ path: `Example.${mode === "java" ? "java" : "kt"}`, contents: content }] }),
         arguments: args,
       }
       try {
@@ -73,7 +88,7 @@ const JeedDemo: React.FC = () => {
         setResponse({ error })
       }
     },
-    [mode, runJeed]
+    [mode, snippet, runJeed]
   )
 
   const output = useMemo(
@@ -120,9 +135,13 @@ const JeedDemo: React.FC = () => {
   }, [commands])
 
   useEffect(() => {
-    setValue(mode === "java" ? `System.out.println("Hello, Java!");` : `println("Hello, Kotlin!")`)
+    if (mode === "java") {
+      setValue(snippet ? DEFAULT_JAVA_SNIPPET : DEFAULT_JAVA_CLASS)
+    } else {
+      setValue(snippet ? DEFAULT_KOTLIN_SNIPPET : DEFAULT_KOTLIN_CLASS)
+    }
     setResponse(undefined)
-  }, [mode])
+  }, [mode, snippet])
 
   return (
     <>
@@ -145,12 +164,12 @@ const JeedDemo: React.FC = () => {
         commands={commands}
         setOptions={{ tabSize: 2 }}
       />
-      <div>
+      <div style={{ marginTop: 8 }}>
         <button
           onClick={() => {
             run("run")
           }}
-          style={{ marginTop: 8, marginRight: 8 }}
+          style={{ marginRight: 8 }}
         >
           Run
         </button>
@@ -158,7 +177,7 @@ const JeedDemo: React.FC = () => {
           onClick={() => {
             run("lint")
           }}
-          style={{ marginTop: 8, marginRight: 8 }}
+          style={{ marginRight: 8 }}
         >
           {mode === "java" ? "checkstyle" : "ktlint"}
         </button>
@@ -166,7 +185,7 @@ const JeedDemo: React.FC = () => {
           onClick={() => {
             run("complexity")
           }}
-          style={{ marginTop: 8, marginRight: 8 }}
+          style={{ marginRight: 8 }}
         >
           Complexity
         </button>
@@ -175,14 +194,19 @@ const JeedDemo: React.FC = () => {
             onClick={() => {
               run("features")
             }}
-            style={{ marginTop: 8, marginRight: 8 }}
+            style={{ marginRight: 8 }}
           >
             Features
           </button>
         )}
-        <button style={{ float: "right" }} onClick={() => (mode === "java" ? setMode("kotlin") : setMode("java"))}>
-          {mode === "java" ? "Kotlin" : "Java"}
-        </button>
+        <div style={{ float: "right" }}>
+          <button style={{ marginRight: 8 }} onClick={() => setSnippet(!snippet)}>
+            {snippet ? "Source" : "Snippet"}
+          </button>
+          <button onClick={() => (mode === "java" ? setMode("kotlin") : setMode("java"))}>
+            {mode === "java" ? "Kotlin" : "Java"}
+          </button>
+        </div>
       </div>
       {output !== undefined && <div className="output" dangerouslySetInnerHTML={{ __html: output }} />}
       {response?.response && (

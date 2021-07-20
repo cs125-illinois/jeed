@@ -1,6 +1,6 @@
+// ktlint-disable filename
 @file:Suppress("MatchingDeclarationName")
 
-// ktlint-disable filename
 package edu.illinois.cs.cs125.jeed.core
 
 import edu.illinois.cs.cs125.jeed.core.antlr.KotlinParser

@@ -5,110 +5,116 @@ import edu.illinois.cs.cs125.jeed.core.antlr.JavaParser
 import edu.illinois.cs.cs125.jeed.core.antlr.JavaParserBaseListener
 import org.antlr.v4.runtime.tree.ParseTreeWalker
 
-enum class FeatureName {
-    LOCAL_VARIABLE_DECLARATIONS,
-    VARIABLE_ASSIGNMENTS,
-    VARIABLE_REASSIGNMENTS,
+enum class FeatureName(val description: String) {
+    LOCAL_VARIABLE_DECLARATIONS("local variable declarations"),
+    VARIABLE_ASSIGNMENTS("variable assignments"),
+    VARIABLE_REASSIGNMENTS("variable reassignments"),
 
     // Operators
-    UNARY_OPERATORS,
-    ARITHMETIC_OPERATORS,
-    BITWISE_OPERATORS,
-    ASSIGNMENT_OPERATORS,
-    TERNARY_OPERATOR,
-    COMPARISON_OPERATORS,
-    LOGICAL_OPERATORS,
+    UNARY_OPERATORS("unary operators"),
+    ARITHMETIC_OPERATORS("arithmetic operators"),
+    BITWISE_OPERATORS("bitwise operators"),
+    ASSIGNMENT_OPERATORS("assignment operators"),
+    TERNARY_OPERATOR("ternary operators"),
+    COMPARISON_OPERATORS("comparison operators"),
+    LOGICAL_OPERATORS("logical operators"),
 
     // If & Else
-    IF_STATEMENTS,
-    ELSE_STATEMENTS,
-    ELSE_IF,
+    IF_STATEMENTS("if statements"),
+    ELSE_STATEMENTS("else statements"),
+    ELSE_IF("else-if blocks"),
 
     // Arrays
-    ARRAYS,
-    ARRAY_ACCESS,
-    ARRAY_LITERAL,
-    MULTIDIMENSIONAL_ARRAYS,
+    ARRAYS("arrays"),
+    ARRAY_ACCESS("array accesses"),
+    ARRAY_LITERAL("array literal"),
+    MULTIDIMENSIONAL_ARRAYS("multidimensional arrays"),
 
     // Loops
-    FOR_LOOPS,
-    ENHANCED_FOR,
-    WHILE_LOOPS,
-    DO_WHILE_LOOPS,
-    BREAK,
-    CONTINUE,
+    FOR_LOOPS("for loops"),
+    ENHANCED_FOR("enhanced for loops"),
+    WHILE_LOOPS("while loops"),
+    DO_WHILE_LOOPS("do-while loops"),
+    BREAK("break"),
+    CONTINUE("continue"),
 
     // Nesting
-    NESTED_IF,
-    NESTED_FOR,
-    NESTED_WHILE,
-    NESTED_DO_WHILE,
-    NESTED_CLASS,
+    NESTED_IF("nested if"),
+    NESTED_FOR("nested for"),
+    NESTED_WHILE("nested while"),
+    NESTED_DO_WHILE("nested do-while"),
+    NESTED_CLASS("nested class declaration"),
 
     // Methods
-    METHOD,
-    CONSTRUCTOR,
-    GETTER,
-    SETTER,
+    METHOD("method declarations"),
+    CONSTRUCTOR("constructor declarations"),
+    GETTER("getters"),
+    SETTER("setters"),
 
     // Strings & null
-    STRING,
-    NULL,
+    STRING("Strings"),
+    NULL("null"),
 
     // Type handling
-    CASTING,
-    TYPE_INFERENCE,
-    INSTANCEOF,
+    CASTING("type casting"),
+    TYPE_INFERENCE("type inference"),
+    INSTANCEOF("instanceof"),
 
     // Class & Interface
-    CLASS,
-    IMPLEMENTS,
-    INTERFACE,
+    CLASS("class declarations"),
+    IMPLEMENTS("interface implementations"),
+    INTERFACE("interface declarations"),
 
     // Polymorphism
-    EXTENDS,
-    SUPER,
-    OVERRIDE,
+    EXTENDS("inheritance"),
+    SUPER("super"),
+    OVERRIDE("overrides"),
 
     // Exceptions
-    TRY_BLOCK,
-    FINALLY,
-    ASSERT,
-    THROW,
-    THROWS,
+    TRY_BLOCK("try statement"),
+    FINALLY("finally block"),
+    ASSERT("assert"),
+    THROW("throw"),
+    THROWS("throws"),
 
     // Objects
-    NEW_KEYWORD,
-    THIS,
-    REFERENCE_EQUALITY,
+    NEW_KEYWORD("new keyword"),
+    THIS("this"),
+    REFERENCE_EQUALITY("referential equality"),
 
     // Modifiers
-    VISIBILITY_MODIFIERS,
-    STATIC_METHOD,
-    FINAL_METHOD,
-    ABSTRACT_METHOD,
-    STATIC_FIELD,
-    FINAL_FIELD,
-    ABSTRACT_FIELD,
-    FINAL_CLASS,
-    ABSTRACT_CLASS,
+    VISIBILITY_MODIFIERS("visibility modifiers"),
+    STATIC_METHOD("static methods"),
+    FINAL_METHOD("final methods"),
+    ABSTRACT_METHOD("abstract methods"),
+    STATIC_FIELD("static fields"),
+    FINAL_FIELD("final fields"),
+    ABSTRACT_FIELD("abstract fields"),
+    FINAL_CLASS("final classes"),
+    ABSTRACT_CLASS("abstract classes"),
 
     // Import
-    IMPORT,
+    IMPORT("import statements"),
 
     // Misc.
-    ANONYMOUS_CLASSES,
-    LAMBDA_EXPRESSIONS,
-    GENERIC_CLASS,
-    SWITCH,
-    STREAM,
-    ENUM,
-    RECURSION,
-    COMPARABLE,
-    RECORD,
-    BOXING_CLASSES,
-    TYPE_PARAMETERS
+    ANONYMOUS_CLASSES("anonymous classes"),
+    LAMBDA_EXPRESSIONS("lambda expressions"),
+    GENERIC_CLASS("generic classes"),
+    SWITCH("switch statements"),
+    STREAM("streams"),
+    ENUM("enums"),
+    RECURSION("recursion"),
+    COMPARABLE("Comparable interface"),
+    RECORD("records"),
+    BOXING_CLASSES("boxing classes"),
+    TYPE_PARAMETERS("type parameters"),
+    PRINT_STATEMENTS("print statements"),
+    DOT_NOTATION("dot notation"),
+    DOTTED_METHOD_CALL("dotted method call"),
+    DOTTED_VARIABLE_ACCESS("dotted variable access")
 }
+
+val ALL_FEATURES = FeatureName.values().map { it.name to it.description }.toMap()
 
 class FeatureMap(val map: MutableMap<FeatureName, Int> = mutableMapOf()) : MutableMap<FeatureName, Int> by map {
     override fun get(key: FeatureName): Int = map.getOrDefault(key, 0)
@@ -684,6 +690,15 @@ private class FeatureListener(val source: Source, entry: Map.Entry<String, Strin
             }
         }
         ctx.statementExpression?.also {
+            @Suppress("ComplexCondition")
+            if (it.text.startsWith("System.out.println(") ||
+                it.text.startsWith("System.out.print(") ||
+                it.text.startsWith("System.err.println(") ||
+                it.text.startsWith("System.err.print(")
+            ) {
+                count(FeatureName.PRINT_STATEMENTS, 1)
+                count(FeatureName.DOTTED_VARIABLE_ACCESS, -1)
+            }
             if (it.bop?.text == "=") {
                 count(FeatureName.VARIABLE_ASSIGNMENTS, 1)
                 count(FeatureName.VARIABLE_REASSIGNMENTS, 1)
@@ -786,6 +801,15 @@ private class FeatureListener(val source: Source, entry: Map.Entry<String, Strin
             "+=", "-=", "*=", "/=", "%=" -> count(FeatureName.ASSIGNMENT_OPERATORS, 1)
             "?" -> count(FeatureName.TERNARY_OPERATOR, 1)
             "instanceof" -> count(FeatureName.INSTANCEOF, 1)
+            "." -> {
+                count(FeatureName.DOT_NOTATION, 1)
+                if (ctx.identifier() != null) {
+                    count(FeatureName.DOTTED_VARIABLE_ACCESS, 1)
+                }
+                if (ctx.methodCall() != null) {
+                    count(FeatureName.DOTTED_METHOD_CALL, 1)
+                }
+            }
         }
         when (ctx.prefix?.text) {
             "++", "--" -> count(FeatureName.UNARY_OPERATORS, 1)

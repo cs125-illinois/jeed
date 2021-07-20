@@ -1,6 +1,7 @@
 package edu.illinois.cs.cs125.jeed.core.server
 
 import com.squareup.moshi.JsonClass
+import edu.illinois.cs.cs125.jeed.core.ALL_FEATURES
 import edu.illinois.cs.cs125.jeed.core.CheckstyleFailed
 import edu.illinois.cs.cs125.jeed.core.CheckstyleResults
 import edu.illinois.cs.cs125.jeed.core.ClassComplexity
@@ -18,14 +19,11 @@ import edu.illinois.cs.cs125.jeed.core.KtLintFailed
 import edu.illinois.cs.cs125.jeed.core.KtLintResults
 import edu.illinois.cs.cs125.jeed.core.MethodComplexity
 import edu.illinois.cs.cs125.jeed.core.MethodFeatures
-import edu.illinois.cs.cs125.jeed.core.Mutation
 import edu.illinois.cs.cs125.jeed.core.MutationsFailed
 import edu.illinois.cs.cs125.jeed.core.MutationsResults
 import edu.illinois.cs.cs125.jeed.core.Snippet
 import edu.illinois.cs.cs125.jeed.core.SnippetTransformationFailed
-import edu.illinois.cs.cs125.jeed.core.SourceMutation
 import edu.illinois.cs.cs125.jeed.core.SourceRange
-import edu.illinois.cs.cs125.jeed.core.Sources
 import edu.illinois.cs.cs125.jeed.core.TemplatingFailed
 import edu.illinois.cs.cs125.jeed.core.moshi.CompiledSourceResult
 import edu.illinois.cs.cs125.jeed.core.moshi.ExecutionFailedResult
@@ -198,7 +196,7 @@ data class FlatFeaturesResult(
 }
 
 @JsonClass(generateAdapter = true)
-data class FlatFeaturesResults(val results: List<FlatFeaturesResult>) {
+data class FlatFeaturesResults(val results: List<FlatFeaturesResult>, val allFeatures: Map<String, String> = ALL_FEATURES) {
     constructor(featureResults: FeaturesResults) : this(
         featureResults.results.map { (source, results) ->
             FlatFeaturesResult.from(source, results)

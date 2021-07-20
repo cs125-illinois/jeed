@@ -6,7 +6,7 @@ import { createHttpTerminator } from "http-terminator"
 import Koa, { Context } from "koa"
 import koaBody from "koa-body"
 import ratelimit from "koa-ratelimit"
-import { MongoClient as mongo } from "mongodb"
+import { MongoClient } from "mongodb"
 import mongodbUri from "mongodb-uri"
 import fetch from "node-fetch"
 import { String } from "runtypes"
@@ -14,7 +14,13 @@ import { String } from "runtypes"
 const BACKEND = String.check(process.env.JEED_SERVER)
 
 const { database } = String.guard(process.env.MONGODB) ? mongodbUri.parse(process.env.MONGODB) : { database: undefined }
-const client = String.guard(process.env.MONGODB) ? mongo.connect(process.env.MONGODB) : undefined
+const client = String.guard(process.env.MONGODB)
+  ? MongoClient.connect(process.env.MONGODB, {
+      useNewUrlParser: true,
+      useUnifiedTopology: true,
+      authMechanism: "SCRAM-SHA-1",
+    })
+  : undefined
 const _collection = client?.then((c) => c.db(database).collection(process.env.MONGODB_COLLECTION || "jeed"))
 const validDomains = process.env.VALID_DOMAINS?.split(",").map((s) => s.trim())
 
@@ -68,7 +74,7 @@ router.post("/", async (ctx) => {
         ctx.email ? { email: ctx.email } : null
       )
     )
-    return ctx.throw(err, 400)
+    return ctx.throw(400, err)
   }
   ctx.body = response
   collection?.insertOne(
@@ -92,6 +98,7 @@ const server = new Koa({ proxy: true })
         }
       },
       maxAge: 86400,
+      credentials: true,
     })
   )
   .use(
@@ -114,6 +121,7 @@ const server = new Koa({ proxy: true })
   .use(router.allowedMethods())
 
 Promise.resolve().then(async () => {
+  await _collection
   console.log(await getStatus())
   const s = server.listen(process.env.PORT || 8888)
   server.on("error", (err) => {

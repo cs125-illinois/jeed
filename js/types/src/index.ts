@@ -298,6 +298,7 @@ export type FlatFeaturesResult = Static<typeof FlatFeaturesResult>
 
 export const FlatFeaturesResults = Record({
   results: Array(FlatFeaturesResult),
+  allFeatures: Dictionary(String),
 })
 export type FlatFeaturesResults = Static<typeof FlatFeaturesResults>
 
