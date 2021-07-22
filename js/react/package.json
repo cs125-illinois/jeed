@@ -9,16 +9,17 @@
     "eslint": "eslint src/**",
     "ncu": "ncu --dep dev,prod",
     "prepublish": "rimraf dist && tsc",
-    "prettier": "prettier -w --plugin=prettier-plugin-organize-imports . && prettier-package-json --write",
+    "start": "tsc -w",
     "test": "JEED_SERVER=http://localhost:8888 ts-mocha --paths tests/index.spec.ts",
+    "prettier": "prettier -w --plugin=prettier-plugin-organize-imports . && prettier-package-json --write",
     "watch": "tsc -w"
   },
   "types": "dist/index.d.ts",
-  "peerDependencies": {
-    "react": ">= 16"
-  },
   "dependencies": {
     "@cs124/jeed-types": "2021.7.0"
+  },
+  "peerDependencies": {
+    "react": ">= 16"
   },
   "devDependencies": {
     "@types/react": "^17.0.14",
@@ -29,7 +30,7 @@
     "npm-check-updates": "11.8.3",
     "prettier": "2.3.2",
     "prettier-package-json": "2.6.0",
-    "prettier-plugin-organize-imports": "2.3.0",
+    "prettier-plugin-organize-imports": "2.3.3",
     "react": "^17.0.2",
     "rimraf": "3.0.2",
     "runtypes": "6.3.1",

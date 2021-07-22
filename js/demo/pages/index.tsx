@@ -96,7 +96,7 @@ const JeedDemo: React.FC = () => {
       response?.response
         ? terminalOutput(response.response)
         : response?.error
-        ? `<span class="error">${response?.error}</span>`
+        ? { output: response?.error, level: "error" }
         : undefined,
     [response]
   )
@@ -208,7 +208,11 @@ const JeedDemo: React.FC = () => {
           </button>
         </div>
       </div>
-      {output !== undefined && <div className="output" dangerouslySetInnerHTML={{ __html: output }} />}
+      {output !== undefined && (
+        <div className="output">
+          <span className={output.level}>{output.output}</span>
+        </div>
+      )}
       {response?.response && (
         <AceEditor
           readOnly

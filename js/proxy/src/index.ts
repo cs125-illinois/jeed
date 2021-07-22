@@ -13,12 +13,14 @@ import { String } from "runtypes"
 
 const BACKEND = String.check(process.env.JEED_SERVER)
 
-const { database } = String.guard(process.env.MONGODB) ? mongodbUri.parse(process.env.MONGODB) : { database: undefined }
+const { username, database } = String.guard(process.env.MONGODB)
+  ? mongodbUri.parse(process.env.MONGODB)
+  : { username: undefined, database: undefined }
 const client = String.guard(process.env.MONGODB)
   ? MongoClient.connect(process.env.MONGODB, {
       useNewUrlParser: true,
       useUnifiedTopology: true,
-      authMechanism: "SCRAM-SHA-1",
+      ...(username && { authMechanism: "SCRAM-SHA-1" }),
     })
   : undefined
 const _collection = client?.then((c) => c.db(database).collection(process.env.MONGODB_COLLECTION || "jeed"))

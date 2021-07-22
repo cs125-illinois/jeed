@@ -28,7 +28,7 @@ dependencies {
     implementation("com.squareup.moshi:moshi:1.12.0")
     implementation("org.ow2.asm:asm:9.2")
     implementation("org.ow2.asm:asm-util:9.2")
-    implementation("org.slf4j:slf4j-api:1.7.31")
+    implementation("org.slf4j:slf4j-api:1.7.32")
     implementation("ch.qos.logback:logback-classic:1.2.4")
     implementation("io.github.microutils:kotlin-logging:2.0.10")
     implementation("io.github.classgraph:classgraph:4.8.110")

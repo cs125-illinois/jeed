@@ -12,10 +12,11 @@ export function getOriginalLine(request: Request, line: number, source?: string)
   throw new Error(`Couldn't find line ${line} in source ${source}`)
 }
 
-export function terminalOutput(response: Response | undefined): string {
-  if (!response) {
-    return ""
-  }
+export interface TerminalOutput {
+  output: string
+  level: "success" | "warning" | "error"
+}
+export function terminalOutput(response: Response): TerminalOutput {
   const { request } = response
   if (response.failed.snippet) {
     const output = response.failed.snippet.errors
@@ -26,8 +27,11 @@ export function terminalOutput(response: Response | undefined): string {
       })
       .join("\n")
     const errorCount = Object.keys(response.failed.snippet.errors).length
-    return `${output}
-  ${errorCount} error${errorCount > 1 ? "s" : ""}`
+    return {
+      output: `${output}
+  ${errorCount} error${errorCount > 1 ? "s" : ""}`,
+      level: "error",
+    }
   } else if (response.failed.compilation || response.failed.kompilation) {
     const output =
       (response.failed.compilation || response.failed.kompilation)?.errors
@@ -52,8 +56,11 @@ ${originalLine ? originalLine + "\n" + new Array(column).join(" ") + "^" : ""}${
         })
         .join("\n") || ""
     const errorCount = Object.keys((response.failed.compilation || response.failed.kompilation)?.errors || {}).length
-    return `${output}
-  ${errorCount} error${errorCount > 1 ? "s" : ""}`
+    return {
+      output: `${output}
+  ${errorCount} error${errorCount > 1 ? "s" : ""}`,
+      level: "error",
+    }
   } else if (response.failed.checkstyle) {
     const output =
       response.failed.checkstyle?.errors
@@ -62,8 +69,11 @@ ${originalLine ? originalLine + "\n" + new Array(column).join(" ") + "^" : ""}${
         })
         .join("\n") || ""
     const errorCount = Object.keys(response.failed.checkstyle?.errors || {}).length
-    return `${output}
-  ${errorCount} error${errorCount > 1 ? "s" : ""}`
+    return {
+      output: `${output}
+  ${errorCount} error${errorCount > 1 ? "s" : ""}`,
+      level: "error",
+    }
   } else if (response.failed.ktlint) {
     const output =
       response.failed.ktlint?.errors
@@ -72,40 +82,47 @@ ${originalLine ? originalLine + "\n" + new Array(column).join(" ") + "^" : ""}${
         })
         .join("\n") || ""
     const errorCount = Object.keys(response.failed.ktlint?.errors || {}).length
-    return `${output}
-  ${errorCount} error${errorCount > 1 ? "s" : ""}`
+    return {
+      output: `${output}
+  ${errorCount} error${errorCount > 1 ? "s" : ""}`,
+      level: "error",
+    }
   } else if (response.failed.execution || response.failed.cexecution) {
     const failed = response.failed.execution || response.failed.cexecution
     if (failed?.classNotFound) {
-      return `Error: could not find class ${failed?.classNotFound}`
+      return { output: `Error: could not find class ${failed?.classNotFound}`, level: "error" }
     } else if (failed?.methodNotFound) {
-      return `Error: could not find method ${failed?.methodNotFound}`
+      return { output: `Error: could not find method ${failed?.methodNotFound}`, level: "error" }
     } else {
-      return `Something unexpected went wrong...`
+      return { output: `Something unexpected went wrong. Please report a bug.`, level: "error" }
     }
   }
 
   if (Object.keys(response.failed).length === 0) {
     if (response.completed.execution || response.completed.cexecution) {
+      let level: "success" | "error" | "warning" = "success"
       const completed = response.completed.execution || response.completed.cexecution
       const output = completed?.outputLines
         ? completed.outputLines.length > 0
           ? completed.outputLines.map(({ line }) => line)
-          : [`<span class="success">(Completed without output)</span>`]
+          : [`(Completed without output)`]
         : []
       if (response.completed.execution?.threw) {
+        level = "error"
         output.push(response.completed.execution?.threw.stacktrace)
       } else if (completed?.timeout) {
+        level = "error"
         output.push("(Program timed out)")
       }
       if (completed?.truncatedLines || 0 > 0) {
+        level = "warning"
         output.push(`(${completed?.truncatedLines} lines were truncated)`)
       }
-      return output.join("\n")
+      return { output: output.join("\n"), level }
     } else if (response.completed.checkstyle) {
-      return `<span class="success">No checkstyle errors found</span>`
+      return { output: `No checkstyle errors found`, level: "success" }
     } else if (response.completed.ktlint) {
-      return `<span class="success">No ktlint errors found</span>`
+      return { output: `No ktlint errors found`, level: "success" }
     } else if (response.completed.complexity) {
       const results = response.completed.complexity.results
       const output = []
@@ -124,7 +141,7 @@ ${originalLine ? originalLine + "\n" + new Array(column).join(" ") + "^" : ""}${
           output.push(`  ${methodName} has complexity ${method.complexity}`)
         }
       }
-      return output.join("\n")
+      return { output: output.join("\n"), level: "success" }
     }
     if (response.completed.features) {
       const { results, allFeatures } = response.completed.features
@@ -143,10 +160,8 @@ ${originalLine ? originalLine + "\n" + new Array(column).join(" ") + "^" : ""}${
             .sort()}`
         )
       }
-      return output.join("\n")
+      return { output: output.join("\n"), level: "success" }
     }
   }
-
-  console.error(`Nothing failed but no success result either...`)
-  return ""
+  throw Error("Can't generate output for this result")
 }

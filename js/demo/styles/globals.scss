@@ -17,10 +17,12 @@ div.output {
   background-color: #222222;
   color: #dddddd;
   padding: 8px;
+  max-height: calc(30em + 16px);
+  overflow: scroll;
   span.error {
     color: red;
   }
-  span.success {
-    color: lightgreen;
+  span.warning {
+    color: goldenrod;
   }
 }
