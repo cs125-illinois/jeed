@@ -235,6 +235,53 @@ try {
         executionResult shouldNot haveCompleted()
         executionResult.threw should beInstanceOf(Error::class)
     }
+    "should correctly handle throw inside try-catch" {
+        val executionResult = Source.fromSnippet(
+            """
+try {
+    System.out.println("Try");
+    throw new RuntimeException("Boom");
+} catch (Exception e) {
+    System.out.println(e.getMessage());
+}
+            """.trim()
+        ).compile().execute()
+
+        executionResult should haveCompleted()
+        executionResult should haveOutput("Try\nBoom")
+    }
+    "should correctly handle throw inside try-finally" {
+        val executionResult = Source.fromSnippet(
+            """
+try {
+    System.out.println("Try");
+    throw new RuntimeException("Boom");
+} finally {
+    System.out.println("Finally");
+}
+            """.trim()
+        ).compile().execute()
+
+        executionResult shouldNot haveCompleted()
+        executionResult should haveOutput("Try\nFinally")
+        executionResult.threw should beInstanceOf<RuntimeException>()
+    }
+    "should correctly handle throwing a dangerous exception inside try-finally" {
+        val executionResult = Source.fromSnippet(
+            """
+try {
+    System.out.println("Try");
+    throw new Error("Boom");
+} finally {
+    System.out.println("Finally");
+}
+            """.trim()
+        ).compile().execute()
+
+        executionResult shouldNot haveCompleted()
+        executionResult should haveOutput("Try")
+        executionResult.threw should beInstanceOf<Error>()
+    }
     "should remove finalizers" {
         val executionResult = Source.fromSnippet(
             """
