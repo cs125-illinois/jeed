@@ -265,7 +265,7 @@ public class Example {
 interface Filter {
   boolean accept(int first, int second);
 }
-Filter bothBositive = new Filter() {
+Filter bothPositive = new Filter() {
   @Override
   public boolean accept(int first, int second) {
     return first > 0 && second > 0;
@@ -281,5 +281,25 @@ Filter bothNegative = new Filter() {
         ).complexity().also {
             it.lookup(".", "").complexity shouldBe 5
         }
+    }
+    "should not fail on class declarations with initializer blocks" {
+        Source.fromSnippet(
+            """
+public class Example {
+  {
+    System.out.println("Instance initializer");
+  }
+}""".trim()
+        ).complexity()
+    }
+    "should not fail on class declarations with static initializer blocks" {
+        Source.fromSnippet(
+            """
+public class Example {
+  static {
+    System.out.println("Static initializer");
+  }
+}""".trim()
+        ).complexity()
     }
 })

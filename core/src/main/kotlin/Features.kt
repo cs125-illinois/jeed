@@ -407,7 +407,7 @@ private class FeatureListener(val source: Source, entry: Map.Entry<String, Strin
         count(
             FeatureName.NESTED_CLASS,
             ctx.classBody().classBodyDeclaration().filter { declaration ->
-                declaration.memberDeclaration().classDeclaration() != null
+                declaration.memberDeclaration()?.classDeclaration() != null
             }.size
         )
         count(
