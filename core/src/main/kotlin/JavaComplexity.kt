@@ -164,18 +164,17 @@ class JavaComplexityListener(val source: Source, entry: Map.Entry<String, String
 
     override fun enterStatement(ctx: JavaParser.StatementContext) {
         assert(complexityStack.isNotEmpty())
-        val currentMethod = currentComplexity as MethodComplexity
         val firstToken = ctx.getStart() ?: error("can't get first token in statement")
         if (basicComplexityTokens.contains(firstToken.type)) {
             // for, while, do and throw each represent one new path
-            currentMethod.complexity++
+            currentComplexity.complexity++
         } else if (firstToken.type == JavaLexer.IF) {
             /*
              * if statements only ever add one unit of complexity. If no else is present then we either enter
              * the condition or not or not, adding one path.
              * If else is present then we either take the condition or the else, adding one path.
              */
-            currentMethod.complexity++
+            currentComplexity.complexity++
         }
     }
 

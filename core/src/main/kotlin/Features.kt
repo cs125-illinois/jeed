@@ -385,16 +385,18 @@ private class FeatureListener(val source: Source, entry: Map.Entry<String, Strin
         )
         count(
             FeatureName.VISIBILITY_MODIFIERS,
-            ctx.classBody().classBodyDeclaration().filter { declaration ->
-                declaration.memberDeclaration().methodDeclaration()?.isSnippetMethod() != true
-            }.filter { declaration ->
-                declaration.modifier().any {
-                    when (it.text) {
-                        "public", "private", "protected" -> true
-                        else -> false
+            ctx.classBody().classBodyDeclaration()
+                .filter { it.memberDeclaration() != null }
+                .filter { declaration ->
+                    declaration.memberDeclaration().methodDeclaration()?.isSnippetMethod() != true
+                }.filter { declaration ->
+                    declaration.modifier().any {
+                        when (it.text) {
+                            "public", "private", "protected" -> true
+                            else -> false
+                        }
                     }
-                }
-            }.size
+                }.size
         )
         count(
             FeatureName.OVERRIDE,
