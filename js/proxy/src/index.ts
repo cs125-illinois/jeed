@@ -8,8 +8,10 @@ import koaBody from "koa-body"
 import ratelimit from "koa-ratelimit"
 import { MongoClient } from "mongodb"
 import mongodbUri from "mongodb-uri"
-import fetch from "node-fetch"
+import originalFetch, { Response as FetchResponse } from "node-fetch"
 import { String } from "runtypes"
+// eslint-disable-next-line @typescript-eslint/no-var-requires
+const fetch = require("fetch-retry")(originalFetch)
 
 const BACKEND = String.check(process.env.JEED_SERVER)
 
@@ -42,8 +44,13 @@ const STATUS = Object.assign(
   audience ? { audience } : null,
   { mongoDB: client !== undefined }
 )
-const getStatus = async () => {
-  return { ...STATUS, status: ServerStatus.check(await fetch(BACKEND).then((r) => r.json())) }
+const getStatus = async (retries = 0) => {
+  return {
+    ...STATUS,
+    status: ServerStatus.check(
+      await fetch(BACKEND, { retries, retryDelay: 1000 }).then((r: FetchResponse) => r.json())
+    ),
+  }
 }
 
 router.get("/", async (ctx: Context) => {
@@ -124,7 +131,7 @@ const server = new Koa({ proxy: true })
 
 Promise.resolve().then(async () => {
   await _collection
-  console.log(await getStatus())
+  console.log(await getStatus(4))
   const s = server.listen(process.env.PORT || 8888)
   server.on("error", (err) => {
     console.error(err)

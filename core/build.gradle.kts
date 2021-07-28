@@ -29,7 +29,7 @@ dependencies {
     implementation("org.ow2.asm:asm:9.2")
     implementation("org.ow2.asm:asm-util:9.2")
     implementation("org.slf4j:slf4j-api:1.7.32")
-    implementation("ch.qos.logback:logback-classic:1.2.4")
+    implementation("ch.qos.logback:logback-classic:1.2.5")
     implementation("io.github.microutils:kotlin-logging:2.0.10")
     implementation("io.github.classgraph:classgraph:4.8.110")
     implementation("net.java.dev.jna:jna:5.8.0")
