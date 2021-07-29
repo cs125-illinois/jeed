@@ -1573,9 +1573,15 @@ object Sandbox {
             return
         }
         threadPool.shutdown()
-        if (!threadPool.awaitTermination(timeout / 2, TimeUnit.SECONDS)) {
-            threadPool.shutdownNow()
+        try {
             require(threadPool.awaitTermination(timeout / 2, TimeUnit.SECONDS))
+        } catch (e: Exception) {
+            threadPool.shutdownNow()
+            @Suppress("EmptyCatchBlock")
+            try {
+                require(threadPool.awaitTermination(timeout / 2, TimeUnit.SECONDS))
+            } catch (e: Exception) {
+            }
         }
 
         System.setOut(originalStdout)

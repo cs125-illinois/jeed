@@ -22,8 +22,8 @@ dependencies {
 
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-core:1.5.1")
     implementation("com.puppycrawl.tools:checkstyle:8.44")
-    implementation("com.pinterest.ktlint:ktlint-core:0.40.0")
-    implementation("com.pinterest.ktlint:ktlint-ruleset-standard:0.41.0")
+    implementation("com.pinterest.ktlint:ktlint-core:0.42.0")
+    implementation("com.pinterest.ktlint:ktlint-ruleset-standard:0.42.0")
     implementation("com.github.jknack:handlebars:4.2.0")
     implementation("com.squareup.moshi:moshi:1.12.0")
     implementation("org.ow2.asm:asm:9.2")

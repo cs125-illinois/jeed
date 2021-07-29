@@ -171,9 +171,9 @@ ELLIPSIS:           '...';
 
 // Whitespace and comments
 
-WS:                 [ \t\r\n\u000C]+ -> channel(HIDDEN);
-COMMENT:            '/*' .*? '*/'    -> channel(HIDDEN);
-LINE_COMMENT:       '//' ~[\r\n]*    -> channel(HIDDEN);
+WS:                 [ \t\r\n\u000C]+ -> channel(2);
+COMMENT:            '/*' .*? '*/'    -> channel(1);
+LINE_COMMENT:       '//' ~[\r\n]*    -> channel(1);
 
 // Identifiers
 

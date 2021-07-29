@@ -636,31 +636,30 @@ class RemoveMethod(
     companion object {
         @Suppress("DEPRECATION", "ComplexMethod")
         private fun forReturnType(returnType: String, fileType: Source.FileType) = when (fileType) {
-            Source.FileType.JAVA -> when {
-                returnType == "String" -> "return \"\""
-                returnType == returnType.capitalize() || returnType.endsWith("[]") -> "return null"
-                returnType == "void" -> "return"
-                returnType == "byte" -> "return 0"
-                returnType == "short" -> "return 0"
-                returnType == "int" -> "return 0"
-                returnType == "long" -> "return 0L"
-                returnType == "char" -> "return '0'"
-                returnType == "boolean" -> "return false"
-                returnType == "float" -> "return 0.0f"
-                returnType == "double" -> "return 0.0"
-                else -> error("Bad return type: $returnType")
+            Source.FileType.JAVA -> when (returnType) {
+                "String" -> "return \"\""
+                "void" -> "return"
+                "byte" -> "return 0"
+                "short" -> "return 0"
+                "int" -> "return 0"
+                "long" -> "return 0L"
+                "char" -> "return '0'"
+                "boolean" -> "return false"
+                "float" -> "return 0.0f"
+                "double" -> "return 0.0"
+                else -> "return null"
             }
-            Source.FileType.KOTLIN -> when {
-                returnType.removeSuffix("?") == "String" -> "return \"\""
-                returnType.removeSuffix("?") == "" -> "return"
-                returnType.removeSuffix("?") == "Byte" -> "return 0"
-                returnType.removeSuffix("?") == "Short" -> "return 0"
-                returnType.removeSuffix("?") == "Int" -> "return 0"
-                returnType.removeSuffix("?") == "Long" -> "return 0L"
-                returnType.removeSuffix("?") == "Char" -> "return '0'"
-                returnType.removeSuffix("?") == "Boolean" -> "return false"
-                returnType.removeSuffix("?") == "Float" -> "return 0.0f"
-                returnType.removeSuffix("?") == "Double" -> "return 0.0"
+            Source.FileType.KOTLIN -> when (returnType.removeSuffix("?")) {
+                "String" -> "return \"\""
+                "" -> "return"
+                "Byte" -> "return 0"
+                "Short" -> "return 0"
+                "Int" -> "return 0"
+                "Long" -> "return 0L"
+                "Char" -> "return '0'"
+                "Boolean" -> "return false"
+                "Float" -> "return 0.0f"
+                "Double" -> "return 0.0"
                 else -> "return null"
             }
         }

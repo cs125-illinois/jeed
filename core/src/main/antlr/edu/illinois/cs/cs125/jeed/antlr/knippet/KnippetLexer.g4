@@ -23,17 +23,17 @@ JavadocComment : ' '* '/**' .*? '*/';
 
 DelimitedComment
     : '/*' ( DelimitedComment | . )*? '*/'
-      -> channel(HIDDEN)
+      -> channel(1)
     ;
 
 LineComment
     : '//' ~[\u000A\u000D]*
-      -> channel(HIDDEN)
+      -> channel(1)
     ;
 
 WS
     : [\u0020\u0009\u000C]
-      -> skip
+      -> channel(2)
     ;
 
 NL: '\u000A' | '\u000D' '\u000A' ;
