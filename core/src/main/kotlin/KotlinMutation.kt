@@ -65,6 +65,12 @@ class KotlinMutationListener(private val parsedSource: Source.ParsedSource) : Ko
                 mutations.add(NullReturn(returnLocation, parsedSource.contents(returnLocation), fileType))
             }
         }
+        ctx.BREAK()?.also {
+            mutations.add(SwapBreakContinue(ctx.toLocation(), parsedSource.contents(ctx.toLocation()), fileType))
+        }
+        ctx.CONTINUE()?.also {
+            mutations.add(SwapBreakContinue(ctx.toLocation(), parsedSource.contents(ctx.toLocation()), fileType))
+        }
     }
 
     override fun enterStatement(ctx: KotlinParser.StatementContext) {
@@ -301,6 +307,16 @@ class KotlinMutationListener(private val parsedSource: Source.ParsedSource) : Ko
             val (frontLocation, backLocation) = ctx.locationPair()
             mutations.add(RemovePlus(frontLocation, parsedSource.contents(frontLocation), fileType))
             mutations.add(RemovePlus(backLocation, parsedSource.contents(backLocation), fileType))
+            val text = parsedSource.contents(ctx.multiplicativeExpression()[1].toLocation())
+            if (text == "1") {
+                mutations.add(
+                    PlusOrMinusOneToZero(
+                        ctx.multiplicativeExpression()[1].toLocation(),
+                        parsedSource.contents(ctx.multiplicativeExpression()[1].toLocation()),
+                        fileType
+                    )
+                )
+            }
         }
     }
 

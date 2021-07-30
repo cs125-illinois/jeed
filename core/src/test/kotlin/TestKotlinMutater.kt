@@ -438,7 +438,7 @@ fun test(first: Int) {
         }
     }
 
-    "it should flip and and or" {
+    "it should swap and and or" {
         Source.fromKotlin(
             """
 fun test(first: Int) {
@@ -450,6 +450,42 @@ fun test(first: Int) {
         ).checkMutations<SwapAndOr> { mutations, contents ->
             mutations shouldHaveSize 1
             mutations[0].check(contents, "&&", "||")
+        }
+    }
+
+    "it should swap break and continue" {
+        Source.fromKotlin(
+            """
+fun test(first: Int) {
+  for (i in 0..10) {
+    if (i < 5) {
+      continue
+    }
+    if (i > 7) {
+      break
+    }
+  }
+}
+""".trim()
+        ).checkMutations<SwapBreakContinue> { mutations, contents ->
+            mutations shouldHaveSize 2
+            mutations[0].check(contents, "continue", "break")
+        }
+    }
+
+    "it should remove plus and minus 1" {
+        Source.fromKotlin(
+            """
+fun test() {
+  var i = 0
+  var j = 0
+  var i = i + 1
+  var j = j - 1
+}"""
+        ).checkMutations<PlusOrMinusOneToZero> { mutations, contents ->
+            mutations shouldHaveSize 2
+            mutations[0].check(contents, "1", "0")
+            mutations[1].check(contents, "1", "0")
         }
     }
 
@@ -656,11 +692,12 @@ fun testing(): Int {
 }
 """.trim()
         ).also { source ->
-            source.mutater(types = ALL - setOf(Mutation.Type.REMOVE_METHOD, Mutation.Type.REMOVE_STATEMENT)).also { mutater ->
-                mutater.size shouldBe 2
-                mutater.apply()
-                mutater.size shouldBe 0
-            }
+            source.mutater(types = ALL - setOf(Mutation.Type.REMOVE_METHOD, Mutation.Type.REMOVE_STATEMENT))
+                .also { mutater ->
+                    mutater.size shouldBe 2
+                    mutater.apply()
+                    mutater.size shouldBe 0
+                }
         }
     }
 
@@ -673,7 +710,10 @@ fun testing(): Int {
 }
 """.trim()
         ).also { source ->
-            source.mutater(shuffle = false, types = ALL - setOf(Mutation.Type.REMOVE_METHOD, Mutation.Type.REMOVE_STATEMENT))
+            source.mutater(
+                shuffle = false,
+                types = ALL - setOf(Mutation.Type.REMOVE_METHOD, Mutation.Type.REMOVE_STATEMENT)
+            )
                 .also { mutater ->
                     mutater.size shouldBe 3
                     mutater.apply()

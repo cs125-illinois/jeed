@@ -63,7 +63,8 @@ sealed class Mutation(
         PRIMITIVE_RETURN, TRUE_RETURN, FALSE_RETURN, NULL_RETURN, PLUS_TO_MINUS,
         REMOVE_RUNTIME_CHECK, REMOVE_METHOD,
         NEGATE_IF, NEGATE_WHILE, REMOVE_IF, REMOVE_LOOP, REMOVE_AND_OR, REMOVE_TRY, REMOVE_STATEMENT,
-        REMOVE_PLUS, REMOVE_BINARY, CHANGE_EQUALS
+        REMOVE_PLUS, REMOVE_BINARY, CHANGE_EQUALS,
+        SWAP_BREAK_CONTINUE, PLUS_OR_MINUS_ONE_TO_ZERO
     }
 
     var modified: String? = null
@@ -184,6 +185,8 @@ val OTHER = setOf(
     Mutation.Type.REMOVE_PLUS,
     Mutation.Type.REMOVE_BINARY,
     Mutation.Type.CHANGE_EQUALS,
+    Mutation.Type.SWAP_BREAK_CONTINUE,
+    Mutation.Type.PLUS_OR_MINUS_ONE_TO_ZERO
 )
 val ALL = PITEST + OTHER
 
@@ -512,6 +515,51 @@ class SwapAndOr(
 
     companion object {
         fun matches(contents: String) = contents in setOf("&&", "||")
+    }
+}
+
+class SwapBreakContinue(
+    location: Location,
+    original: String,
+    fileType: Source.FileType
+) : Mutation(Type.SWAP_BREAK_CONTINUE, location, original, fileType) {
+    override val preservesLength = false
+    override val estimatedCount = 1
+    override val mightNotCompile = false
+    override val fixedCount = true
+
+    override fun applyMutation(random: Random): String {
+        return when (original) {
+            "break" -> "continue"
+            "continue" -> "break"
+            else -> error("${javaClass.name} didn't find the expected text")
+        }
+    }
+
+    companion object {
+        fun matches(contents: String) = contents in setOf("break", "continue")
+    }
+}
+
+class PlusOrMinusOneToZero(
+    location: Location,
+    original: String,
+    fileType: Source.FileType
+) : Mutation(Type.PLUS_OR_MINUS_ONE_TO_ZERO, location, original, fileType) {
+    override val preservesLength = false
+    override val estimatedCount = 1
+    override val mightNotCompile = false
+    override val fixedCount = true
+
+    override fun applyMutation(random: Random): String {
+        return when (original) {
+            "1" -> "0"
+            else -> error("${javaClass.name} didn't find the expected text: $original")
+        }
+    }
+
+    companion object {
+        fun matches(contents: String) = contents == "1"
     }
 }
 

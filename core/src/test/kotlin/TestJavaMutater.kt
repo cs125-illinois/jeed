@@ -437,6 +437,43 @@ public class Example {
             mutations[0].check(contents, "&&", "||")
         }
     }
+    "it should swap break and continue" {
+        Source.fromJava(
+            """
+public class Example {
+  public static int test(int first) {
+    for (int i = 0; i < 10; i++) {
+      if (i < 5) {
+        continue;
+      }
+      if (i > 7) {
+        break;
+      }
+    }
+  }
+}"""
+        ).checkMutations<SwapBreakContinue> { mutations, contents ->
+            mutations shouldHaveSize 2
+            mutations[0].check(contents, "continue", "break")
+        }
+    }
+    "it should remove plus and minus 1" {
+        Source.fromJava(
+            """
+public class Example {
+  public static int test(int first) {
+    int i = 0;
+    int j = 0;
+    int i = i + 1;
+    int j = j - 1;
+  }
+}"""
+        ).checkMutations<PlusOrMinusOneToZero> { mutations, contents ->
+            mutations shouldHaveSize 2
+            mutations[0].check(contents, "1", "0")
+            mutations[1].check(contents, "1", "0")
+        }
+    }
     "it should remove loops correctly" {
         Source.fromJava(
             """

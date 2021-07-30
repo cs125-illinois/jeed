@@ -1,5 +1,6 @@
 // ktlint-disable filename
 @file:Suppress("MatchingDeclarationName")
+
 package edu.illinois.cs.cs125.jeed.core
 
 import edu.illinois.cs.cs125.jeed.core.antlr.JavaParser
@@ -245,6 +246,18 @@ class JavaMutationListener(private val parsedSource: Source.ParsedSource) : Java
                     )
                 )
             }
+            if (contents == "+" || contents == "-") {
+                val text = parsedSource.contents(ctx.expression(1).toLocation())
+                if (text == "1") {
+                    mutations.add(
+                        PlusOrMinusOneToZero(
+                            ctx.expression(1).toLocation(),
+                            parsedSource.contents(ctx.expression(1).toLocation()),
+                            fileType
+                        )
+                    )
+                }
+            }
         }
     }
 
@@ -347,6 +360,12 @@ class JavaMutationListener(private val parsedSource: Source.ParsedSource) : Java
         }
         ctx.statementExpression?.also {
             mutations.add(RemoveStatement(ctx.toLocation(), parsedSource.contents(ctx.toLocation()), fileType))
+        }
+        ctx.BREAK()?.symbol?.also {
+            mutations.add(SwapBreakContinue(it.toLocation(), parsedSource.contents(it.toLocation()), fileType))
+        }
+        ctx.CONTINUE()?.symbol?.also {
+            mutations.add(SwapBreakContinue(it.toLocation(), parsedSource.contents(it.toLocation()), fileType))
         }
     }
 

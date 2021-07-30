@@ -36,6 +36,20 @@ class TestSourceUtilities : StringSpec({
         Source.fromKotlin("""println("Hello, world!") // test me""").stripComments().contents shouldBe
             """println("Hello, world!") """
     }
+    "should strip kotlin comments without breaking whitespace" {
+        Source.fromKotlin(
+            """
+            |for (i in test) {
+            |  println(i) // test me
+            |}
+        """.trimMargin()
+        ).stripComments().contents shouldBe
+            """
+            |for (i in test) {
+            |  println(i) 
+            |}
+        """.trimMargin()
+    }
     "should diff text with same line count" {
         val first = """
             |test me
