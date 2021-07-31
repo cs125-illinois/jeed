@@ -474,6 +474,21 @@ public class Example {
             mutations[1].check(contents, "1", "0")
         }
     }
+    "it should remove plus and minus 1 with number literal" {
+        Source.fromJava(
+            """
+public class Example {
+  public static int test(int first) {
+    int i = i + 1;
+    int j = j - 1;
+  }
+}"""
+        ).checkMutations<NumberLiteral> { mutations, contents ->
+            mutations shouldHaveSize 2
+            mutations[0].check(contents, "1", "0")
+            mutations[1].check(contents, "1", "0")
+        }
+    }
     "it should remove loops correctly" {
         Source.fromJava(
             """
@@ -805,7 +820,7 @@ public class Example {
   }
 }"""
         ).also { source ->
-            source.mutationStream().take(1024).toList().size shouldBe 6
+            source.mutationStream().take(1024).toList().size shouldBe 5
         }
     }
     "it should not mutate annotations" {
@@ -926,7 +941,7 @@ fun Mutation.check(contents: String, original: String, modified: String? = null)
     applied shouldBe false
     this.original shouldBe original
     this.modified shouldBe null
-    val toReturn = apply(contents)
+    val toReturn = apply(contents, Random(seed = 124))
     applied shouldBe true
     this.original shouldBe original
     this.modified shouldNotBe original

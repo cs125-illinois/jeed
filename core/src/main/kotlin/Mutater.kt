@@ -18,7 +18,10 @@ fun MutableList<Mutation.Location.SourcePath>.method(): String =
     findLast { it.type == Mutation.Location.SourcePath.Type.METHOD }?.name ?: error("No current method in path")
 
 @JsonClass(generateAdapter = true)
-data class SourceMutation(val name: String, val mutation: Mutation)
+data class SourceMutation(
+    val name: String,
+    val mutation: Mutation
+)
 
 @Suppress("unused", "MemberVisibilityCanBePrivate")
 class MutatedSource(
@@ -340,15 +343,17 @@ data class MutationsResults(val source: Map<String, String>, val mutatedSources:
 @Throws(MutationsFailed::class)
 fun Source.mutations(mutationsArguments: MutationsArguments = MutationsArguments()): MutationsResults {
     try {
-        val mutatedSources =
-            mutationStream(mutationsArguments.suppressWithComments).take(mutationsArguments.limit).map {
+        val mutatedSources = mutationStream(mutationsArguments.suppressWithComments)
+            .map {
                 require(it.mutations.size == 1) { "Stream applied multiple mutations" }
                 MutationsResults.MutatedSource(
                     it.mutations.first().name,
                     it.sources.sources,
                     AppliedMutation(it.mutations.first().mutation)
                 )
-            }.toList()
+            }
+            .take(mutationsArguments.limit)
+            .toList()
         return MutationsResults(this.sources, mutatedSources)
     } catch (e: JeedParsingException) {
         throw MutationsFailed(e.errors)

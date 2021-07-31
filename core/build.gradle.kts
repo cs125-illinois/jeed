@@ -21,7 +21,7 @@ dependencies {
     implementation(kotlin("reflect"))
 
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-core:1.5.1")
-    implementation("com.puppycrawl.tools:checkstyle:8.44")
+    implementation("com.puppycrawl.tools:checkstyle:8.45")
     implementation("com.pinterest.ktlint:ktlint-core:0.42.0")
     implementation("com.pinterest.ktlint:ktlint-ruleset-standard:0.42.0")
     implementation("com.github.jknack:handlebars:4.2.0")

@@ -291,6 +291,10 @@ class NumberLiteral(
     override val estimatedCount = numberPositions.size * 2
 
     override fun applyMutation(random: Random): String {
+        // Special case since 0 -> 9 is a bit too obvious
+        if (original == "0") {
+            return "1"
+        }
         val position = numberPositions.shuffled(random).first()
         return original.toCharArray().also { characters ->
             val direction = random.nextBoolean()
@@ -301,7 +305,7 @@ class NumberLiteral(
             }.let {
                 @Suppress("MagicNumber")
                 // Avoid adding leading zeros
-                if (position == 0 && it == 0) {
+                if (position == 0 && original.length > 1 && it == 0) {
                     if (direction) {
                         1
                     } else {

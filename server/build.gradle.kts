@@ -27,7 +27,7 @@ dependencies {
     implementation("com.uchuhimo:konf-core:1.1.2")
     implementation("com.uchuhimo:konf-yaml:1.1.2")
     implementation("io.github.microutils:kotlin-logging:2.0.10")
-    implementation("com.github.cs125-illinois:libcs1:2021.5.7")
+    implementation("com.github.cs125-illinois:libcs1:2021.7.0")
 
     testImplementation("io.kotest:kotest-runner-junit5:4.6.1")
     testImplementation("io.kotest:kotest-assertions-ktor:4.4.3")

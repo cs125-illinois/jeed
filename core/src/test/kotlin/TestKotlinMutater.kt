@@ -802,7 +802,7 @@ fun testStream(): Int {
 }
 """.trim()
         ).also { source ->
-            source.mutationStream().take(1024).toList().size shouldBe 7
+            source.mutationStream().take(1024).toList().size shouldBe 6
         }
     }
 
