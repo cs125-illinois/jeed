@@ -344,6 +344,11 @@ class JavaMutationListener(private val parsedSource: Source.ParsedSource) : Java
         ctx.WHILE()?.also {
             ctx.parExpression().toLocation().also { location ->
                 mutations.add(NegateWhile(location, parsedSource.contents(location), fileType))
+                val endBraceLocation = listOf(
+                    ctx.statement().last().block().RBRACE(),
+                    ctx.statement().last().block().RBRACE()
+                ).toLocation()
+                mutations.add(AddBreak(endBraceLocation, parsedSource.contents(endBraceLocation), fileType))
             }
             if (ctx.DO() == null) {
                 mutations.add(RemoveLoop(ctx.toLocation(), parsedSource.contents(ctx.toLocation()), fileType))
@@ -351,6 +356,11 @@ class JavaMutationListener(private val parsedSource: Source.ParsedSource) : Java
         }
         ctx.FOR()?.also {
             mutations.add(RemoveLoop(ctx.toLocation(), parsedSource.contents(ctx.toLocation()), fileType))
+            val endBraceLocation = listOf(
+                ctx.statement().last().block().RBRACE(),
+                ctx.statement().last().block().RBRACE()
+            ).toLocation()
+            mutations.add(AddBreak(endBraceLocation, parsedSource.contents(endBraceLocation), fileType))
         }
         ctx.DO()?.also {
             mutations.add(RemoveLoop(ctx.toLocation(), parsedSource.contents(ctx.toLocation()), fileType))

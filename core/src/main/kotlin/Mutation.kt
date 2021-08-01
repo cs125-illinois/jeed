@@ -64,7 +64,7 @@ sealed class Mutation(
         REMOVE_RUNTIME_CHECK, REMOVE_METHOD,
         NEGATE_IF, NEGATE_WHILE, REMOVE_IF, REMOVE_LOOP, REMOVE_AND_OR, REMOVE_TRY, REMOVE_STATEMENT,
         REMOVE_PLUS, REMOVE_BINARY, CHANGE_EQUALS,
-        SWAP_BREAK_CONTINUE, PLUS_OR_MINUS_ONE_TO_ZERO
+        SWAP_BREAK_CONTINUE, PLUS_OR_MINUS_ONE_TO_ZERO, ADD_BREAK
     }
 
     var modified: String? = null
@@ -186,7 +186,8 @@ val OTHER = setOf(
     Mutation.Type.REMOVE_BINARY,
     Mutation.Type.CHANGE_EQUALS,
     Mutation.Type.SWAP_BREAK_CONTINUE,
-    Mutation.Type.PLUS_OR_MINUS_ONE_TO_ZERO
+    Mutation.Type.PLUS_OR_MINUS_ONE_TO_ZERO,
+    Mutation.Type.ADD_BREAK
 )
 val ALL = PITEST + OTHER
 
@@ -911,5 +912,21 @@ class ChangeEquals(
                 }
             }
         }
+    }
+}
+
+class AddBreak(
+    location: Location,
+    original: String,
+    fileType: Source.FileType
+) : Mutation(Type.ADD_BREAK, location, original, fileType) {
+    override val preservesLength = false
+    override val estimatedCount = 1
+    override val mightNotCompile = false
+    override val fixedCount = false
+
+    override fun applyMutation(random: Random): String = when (fileType) {
+        Source.FileType.JAVA -> "break; }"
+        Source.FileType.KOTLIN -> "break }"
     }
 }

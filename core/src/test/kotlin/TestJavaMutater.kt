@@ -505,6 +505,43 @@ public class Example {
             mutations[0].check(contents, "for (int i = 0; i < first; i++) { }", "")
         }
     }
+    "it should add breaks to for loops correctly" {
+        Source.fromJava(
+            """
+public class Example {
+  public static int test(int first) {
+    for (int i = 0; i < first; i++) {
+        i += 1;
+    }
+    for (int i : new int[] {1, 2, 4}) { }
+  }
+}"""
+        ).checkMutations<AddBreak> { mutations, contents ->
+            mutations shouldHaveSize 2
+            mutations[0].check(contents, "}", "break; }")
+            mutations[1].check(contents, "}", "break; }")
+        }
+    }
+    "it should add breaks to while loops correctly" {
+        Source.fromJava(
+            """
+public class Example {
+  public static int test(int first) {
+    int i = 0;
+    while (true) {
+        i += 1;
+    }
+    do {
+        i += 1;
+    } while (true);
+  }
+}"""
+        ).checkMutations<AddBreak> { mutations, contents ->
+            mutations shouldHaveSize 2
+            mutations[0].check(contents, "}", "break; }")
+            mutations[1].check(contents, "}", "break; }")
+        }
+    }
     "it should remove and-ors correctly" {
         Source.fromJava(
             """
@@ -924,7 +961,7 @@ public class Question {
 """
         ).allMutations().onEach { mutatedSource ->
             mutatedSource.marked().checkstyle().also { errors ->
-                errors.errors.filter { it.key != "block.noStatement" } shouldHaveSize 0
+                errors.errors.filter { it.key != "block.noStatement" && it.key != "indentation.child.error"} shouldHaveSize 0
             }
         }
     }
