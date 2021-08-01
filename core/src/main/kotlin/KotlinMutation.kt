@@ -199,6 +199,21 @@ class KotlinMutationListener(private val parsedSource: Source.ParsedSource) : Ko
 
     override fun enterLoopExpression(ctx: KotlinParser.LoopExpressionContext) {
         val location = ctx.toLocation()
+        ctx.doWhileExpression()?.also {
+            val rightCurl = it.controlStructureBody().block().RCURL()
+            val rightCurlLocation = listOf(rightCurl, rightCurl).toLocation()
+            mutations.add(AddBreak(rightCurlLocation, parsedSource.contents(rightCurlLocation), fileType))
+        }
+        ctx.forExpression()?.also {
+            val rightCurl = it.controlStructureBody().block().RCURL()
+            val rightCurlLocation = listOf(rightCurl, rightCurl).toLocation()
+            mutations.add(AddBreak(rightCurlLocation, parsedSource.contents(rightCurlLocation), fileType))
+        }
+        ctx.whileExpression()?.also {
+            val rightCurl = it.controlStructureBody().block().RCURL()
+            val rightCurlLocation = listOf(rightCurl, rightCurl).toLocation()
+            mutations.add(AddBreak(rightCurlLocation, parsedSource.contents(rightCurlLocation), fileType))
+        }
         mutations.add(RemoveLoop(location, parsedSource.contents(location), fileType))
     }
 
@@ -209,6 +224,9 @@ class KotlinMutationListener(private val parsedSource: Source.ParsedSource) : Ko
 
     override fun enterWhileExpression(ctx: KotlinParser.WhileExpressionContext) {
         val location = ctx.parenthesizedExpression().toLocation()
+        val rightCurl = ctx.controlStructureBody().block().RCURL()
+        val rightCurlLocation = listOf(rightCurl, rightCurl).toLocation()
+        mutations.add(AddBreak(rightCurlLocation, parsedSource.contents(rightCurlLocation), fileType))
         mutations.add(NegateWhile(location, parsedSource.contents(location), fileType))
     }
 

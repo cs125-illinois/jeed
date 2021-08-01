@@ -507,6 +507,24 @@ fun test(first: Int) {
             mutations[3].check(contents, "do {} while (true)", "")
         }
     }
+
+    "it should add breaks to for loops correctly" {
+        Source.fromKotlin(
+            """
+fun test(first: Int) {
+  for (i in 0..first) { 
+    i += 1
+  }
+  for (item: Int in intArrayOf(1, 2, 4)) { }
+}
+""".trim()
+        ).checkMutations<AddBreak> { mutations, contents ->
+            mutations shouldHaveSize 2
+            mutations[0].check(contents, "}", "break }")
+            mutations[1].check(contents, "}", "break }")
+        }
+    }
+
     "it should remove and-ors in while loops" {
         Source.fromKotlin(
             """
