@@ -79,4 +79,45 @@ class TestSourceUtilities : StringSpec({
         second.lineDifferenceCount(first) shouldBe 1
         second.lineDifferenceCount(second) shouldBe 0
     }
+    "should remove java assertion messages" {
+        Source.fromJava(
+            """public class Test {
+            |  public static void main() {
+            |    assert false :"Testing";
+            |    assert true: "Here" ;
+            |    assert false;
+            |  }
+            |}
+            |""".trimMargin()).stripAssertionMessages().googleFormat().contents shouldBe
+            """public class Test {
+            |  public static void main() {
+            |    assert false;
+            |    assert true;
+            |    assert false;
+            |  }
+            |}
+            |""".trimMargin()
+    }
+    "f: should remove kotlin assertion messages" {
+        Source.fromKotlin(
+            """fun main() {
+            |  assert(false) { "Testing" }
+            |  check(true)
+            |  require(false) {
+            |    val i = 0
+            |    "${"$"}i"
+            |  }
+            |  error("Bad")
+            |  error ( "Whoops" )
+            |}
+            |""".trimMargin()).stripAssertionMessages().trimLines().contents shouldBe
+            """fun main() {
+            |  assert(false)
+            |  check(true)
+            |  require(false)
+            |  error("error")
+            |  error ("error")
+            |}
+            |""".trimMargin()
+    }
 })

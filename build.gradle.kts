@@ -21,7 +21,7 @@ subprojects {
         useJUnitPlatform()
         enableAssertions = true
         // Fix encoding bug on Windows
-        jvmArgs("-Dfile.encoding=UTF-8")
+        jvmArgs("-Dfile.encoding=UTF-8", "--illegal-access=permit")
     }
 }
 tasks.dependencyUpdates {

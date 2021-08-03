@@ -34,6 +34,7 @@ dependencies {
     implementation("io.github.classgraph:classgraph:4.8.110")
     implementation("net.java.dev.jna:jna:5.8.0")
     implementation("io.github.java-diff-utils:java-diff-utils:4.10")
+    implementation("com.google.googlejavaformat:google-java-format:1.11.0")
     api("com.github.ben-manes.caffeine:caffeine:3.0.3")
 
     testImplementation("io.kotest:kotest-runner-junit5:4.6.1")
