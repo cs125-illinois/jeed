@@ -23,11 +23,19 @@ data class SourceMutation(
     val mutation: Mutation
 )
 
+@JsonClass(generateAdapter = true)
+data class AppliedSourceMutation(
+    val name: String,
+    val mutation: AppliedMutation
+) {
+    constructor(sourceMutation: SourceMutation) : this(sourceMutation.name, AppliedMutation(sourceMutation.mutation))
+}
+
 @Suppress("unused", "MemberVisibilityCanBePrivate")
 class MutatedSource(
     sources: Sources,
     val originalSources: Sources,
-    val mutations: List<SourceMutation>,
+    val mutations: List<AppliedSourceMutation>,
     val appliedMutations: Int,
     val unappliedMutations: Int
 ) : Source(sources) {
@@ -139,7 +147,7 @@ class Mutater(
         }
     }
     private val availableMutations: MutableList<SourceMutation> = mutations.toMutableList()
-    val appliedMutations: MutableList<SourceMutation> = mutableListOf()
+    val appliedMutations: MutableList<AppliedSourceMutation> = mutableListOf()
 
     val size: Int
         get() = availableMutations.size
@@ -152,7 +160,7 @@ class Mutater(
             val modified = sourceMutation.mutation.apply(original, random)
             check(original != modified) { "Mutation did not change source" }
 
-            appliedMutations.add(sourceMutation)
+            appliedMutations.add(AppliedSourceMutation(sourceMutation))
             availableMutations.removeIf { it.mutation.overlaps(sourceMutation.mutation) }
             availableMutations.filter { it.mutation.after(sourceMutation.mutation) }.forEach {
                 it.mutation.shift(modified.length - original.length)
@@ -220,7 +228,7 @@ fun Source.allMutations(
         val modified = sourceMutation.mutation.apply(original, random)
         check(original != modified) { "Mutation did not change source" }
         modifiedSources[sourceMutation.name] = modified
-        MutatedSource(Sources(modifiedSources), sources, listOf(sourceMutation), 1, mutations.size - 1)
+        MutatedSource(Sources(modifiedSources), sources, listOf(AppliedSourceMutation(sourceMutation)), 1, mutations.size - 1)
     }
 }
 
@@ -252,7 +260,7 @@ fun Source.mutationStream(
         val modified = mutation.mutation.apply(original, random)
         check(original != modified) { "Mutation did not change source" }
         modifiedSources[mutation.name] = modified
-        val source = MutatedSource(Sources(modifiedSources), sources, listOf(mutation), 1, mutations.size - 1)
+        val source = MutatedSource(Sources(modifiedSources), sources, listOf(AppliedSourceMutation(mutation)), 1, mutations.size - 1)
         if (source.md5 !in seen) {
             retries = 0
             seen += source.md5
@@ -306,7 +314,7 @@ fun Source.allFixedMutations(
             val modified = mutation.mutation.apply(original, random)
             check(original != modified) { "Mutation did not change source" }
             modifiedSources[mutation.name] = modified
-            val source = MutatedSource(Sources(modifiedSources), sources, listOf(mutation), 1, mutations.size - 1)
+            val source = MutatedSource(Sources(modifiedSources), sources, listOf(AppliedSourceMutation(mutation)), 1, mutations.size - 1)
             if (source.md5 !in seen) {
                 retries = 0
                 seen += source.md5
@@ -349,7 +357,7 @@ fun Source.mutations(mutationsArguments: MutationsArguments = MutationsArguments
                 MutationsResults.MutatedSource(
                     it.mutations.first().name,
                     it.sources.sources,
-                    AppliedMutation(it.mutations.first().mutation)
+                    it.mutations.first().mutation
                 )
             }
             .take(mutationsArguments.limit)

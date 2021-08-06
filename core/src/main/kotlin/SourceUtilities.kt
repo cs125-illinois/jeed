@@ -1,11 +1,16 @@
+@file:Suppress("TooManyFunctions")
+
 package edu.illinois.cs.cs125.jeed.core
 
+import edu.illinois.cs.cs125.jeed.core.antlr.JavaLexer
 import edu.illinois.cs.cs125.jeed.core.antlr.JavaParser
 import edu.illinois.cs.cs125.jeed.core.antlr.JavaParserBaseListener
 import edu.illinois.cs.cs125.jeed.core.antlr.KnippetLexer
 import edu.illinois.cs.cs125.jeed.core.antlr.KotlinParser
 import edu.illinois.cs.cs125.jeed.core.antlr.KotlinParserBaseListener
 import edu.illinois.cs.cs125.jeed.core.antlr.SnippetLexer
+import net.sf.extjwnl.data.POS
+import net.sf.extjwnl.dictionary.Dictionary
 import org.antlr.v4.runtime.CharStreams
 import org.antlr.v4.runtime.misc.Interval
 import org.antlr.v4.runtime.tree.ParseTreeWalker
@@ -21,6 +26,59 @@ fun String.stripComments(type: Source.FileType): String {
 }
 
 fun Source.stripComments() = Source(sources.mapValues { (_, contents) -> contents.stripComments(type) })
+
+internal fun String.identifiers(type: Source.FileType): Set<String> {
+    val charStream = CharStreams.fromString(this)
+    return when (type) {
+        Source.FileType.JAVA ->
+            SnippetLexer(charStream).allTokens.filter { it.type == SnippetLexer.IDENTIFIER }.map { it.text }.toSet()
+        Source.FileType.KOTLIN ->
+            KnippetLexer(charStream).allTokens.filter { it.type == KnippetLexer.Identifier }.map { it.text }.toSet()
+    }
+}
+
+fun Source.identifiers() = mutableSetOf<String>().apply {
+    sources.mapValues { (_, contents) -> addAll(contents.identifiers(type)) }
+}.toSet()
+
+internal fun Source.ParsedSource.strings(type: Source.FileType): Set<String> {
+    return when (type) {
+        Source.FileType.JAVA -> {
+            val charStream = CharStreams.fromString(contents)
+            JavaLexer(charStream).allTokens
+                .filter { it.type == JavaLexer.STRING_LITERAL || it.type == JavaLexer.TEXT_BLOCK_LITERAL }
+                .map {
+                    when (it.type) {
+                        JavaLexer.STRING_LITERAL -> it.text.removeSurrounding("\"").trim()
+                        JavaLexer.TEXT_BLOCK_LITERAL -> it.text.removeSurrounding("\"\"\"").trim()
+                        else -> error("Bad token type")
+                    }
+                }
+                .toSet()
+        }
+        Source.FileType.KOTLIN -> {
+            object : KotlinParserBaseListener() {
+                val strings = mutableSetOf<String>()
+                override fun enterStringLiteral(ctx: KotlinParser.StringLiteralContext) {
+                    ctx.lineStringLiteral()?.also {
+                        strings += it.text.removeSurrounding("\"").trim()
+                    }
+                    ctx.multiLineStringLiteral()?.also {
+                        strings += it.text.removeSurrounding("\"\"\"").trim()
+                    }
+                }
+
+                init {
+                    ParseTreeWalker.DEFAULT.walk(this, tree)
+                }
+            }.strings
+        }
+    }
+}
+
+fun Source.strings() = mutableSetOf<String>().apply {
+    sources.mapValues { (filename, _) -> addAll(getParsed(filename).strings(type)) }
+}.toSet()
 
 fun Source.ParsedSource.stripAssertionMessages(type: Source.FileType): String {
     val keep = when (type) {
@@ -72,7 +130,7 @@ fun Source.ParsedSource.stripAssertionMessages(type: Source.FileType): String {
             }.keep
         }
     }
-    return keep.joinToString("") { it ->
+    return keep.joinToString("") {
         when (it) {
             is IntRange -> stream.getText(Interval(it.first, it.last))
             is String -> it
@@ -110,3 +168,47 @@ private fun levenshteinDistance(first: List<Int>, second: List<Int>): Int {
 
 fun String.lineDifferenceCount(other: String) =
     levenshteinDistance(lines().map { it.trimEnd().hashCode() }, other.lines().map { it.trimEnd().hashCode() })
+
+val WORDS by lazy {
+    object {}::class.java.getResource("/bad.txt")!!.readText().lines().map { it.trim().lowercase() }.toSet()
+}
+val LARGEST_WORD = WORDS.maxOf { it.length }
+val DICTIONARY = Dictionary.getDefaultResourceInstance()!!
+
+fun String.hasBadWords(): String? {
+    val input = lowercase().replace("""[^a-zA-Z]""".toRegex(), "")
+    for (start in input.indices) {
+        var offset = 1
+        while (offset < input.length + 1 - start && offset < LARGEST_WORD) {
+            val wordToCheck = input.substring(start, start + offset)
+            WORDS.find { it ->
+                if (it == "ass" && input.contains("pass")) {
+                    false
+                } else if (it == "meth" && input.contains("something")) {
+                    false
+                } else if (wordToCheck.length <= 2 && input.length > 2) {
+                    false
+                } else if (it == wordToCheck) {
+                    !(it.length < input.length && POS.values().any { DICTIONARY.getIndexWord(it, input) != null })
+                } else {
+                    false
+                }
+            }?.also {
+                return it
+            }
+            offset++
+        }
+    }
+    return null
+}
+
+fun Source.hasBadWords(): String? {
+    sources.entries.forEach { (filename, contents) ->
+        (contents.identifiers(type) + getParsed(filename).strings(type)).forEach { identifier ->
+            identifier.trim().split(" ").forEach { it.trim().hasBadWords()?.also { badWord ->
+                return badWord
+            }}
+        }
+    }
+    return null
+}
