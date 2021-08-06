@@ -208,7 +208,7 @@ fun Source.hasBadWords(): String? {
             identifier.trim().split(" ").forEach {
                 it.trim().hasBadWords()?.also { badWord ->
                     return badWord
-                } 
+                }
             }
         }
     }
