@@ -205,9 +205,11 @@ fun String.hasBadWords(): String? {
 fun Source.hasBadWords(): String? {
     sources.entries.forEach { (filename, contents) ->
         (contents.identifiers(type) + getParsed(filename).strings(type)).forEach { identifier ->
-            identifier.trim().split(" ").forEach { it.trim().hasBadWords()?.also { badWord ->
-                return badWord
-            }}
+            identifier.trim().split(" ").forEach {
+                it.trim().hasBadWords()?.also { badWord ->
+                    return badWord
+                } 
+            }
         }
     }
     return null

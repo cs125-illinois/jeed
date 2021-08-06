@@ -961,7 +961,7 @@ public class Question {
 """
         ).allMutations().onEach { mutatedSource ->
             mutatedSource.marked().checkstyle().also { errors ->
-                errors.errors.filter { it.key != "block.noStatement" && it.key != "indentation.child.error"} shouldHaveSize 0
+                errors.errors.filter { it.key != "block.noStatement" && it.key != "indentation.child.error" } shouldHaveSize 0
             }
         }
     }

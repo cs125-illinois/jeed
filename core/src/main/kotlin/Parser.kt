@@ -278,4 +278,3 @@ fun Tree.toPrettyTree(ruleNames: List<String>): String? {
 
     return process(this, ruleNames).replace("(?m)^\\s+$", "").replace("\\r?\\n\\r?\\n", System.lineSeparator())
 }
-
