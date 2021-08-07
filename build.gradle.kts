@@ -16,12 +16,12 @@ allprojects {
 }
 subprojects {
     group = "com.github.cs125-illinois.jeed"
-    version = "2021.8.0"
+    version = "2021.8.1"
     tasks.withType<Test> {
         useJUnitPlatform()
         enableAssertions = true
         // Fix encoding bug on Windows
-        jvmArgs("-Dfile.encoding=UTF-8")
+        jvmArgs("-Dfile.encoding=UTF-8", "--illegal-access=permit")
     }
 }
 tasks.dependencyUpdates {
