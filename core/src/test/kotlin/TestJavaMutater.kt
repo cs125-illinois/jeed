@@ -936,6 +936,35 @@ public class Example {
             }
         }
     }
+
+    "should not fail with new switch syntax" {
+        Source.fromJava(
+            """
+public class Example {
+    public boolean shouldMakeCoffee(String situation) {
+        return switch (situation) {
+          case "Morning", "Cramming" -> true;
+          case "Midnight" -> true;
+          default -> false;
+        };
+    }
+}"""
+        ).allMutations()
+    }
+
+    "should not fail with another new switch syntax" {
+        Source.fromJava(
+            """
+public class Example {
+    int foo = 3;
+    boolean boo = switch (foo) {
+      case 1, 2, 3 -> true;
+      default -> false;
+    };
+}"""
+        ).allMutations()
+    }
+
     "it should handle double marks again" {
         Source.fromJava(
             """
@@ -961,7 +990,7 @@ public class Question {
 """
         ).allMutations().onEach { mutatedSource ->
             mutatedSource.marked().checkstyle().also { errors ->
-                errors.errors.filter { it.key != "block.noStatement" && it.key != "indentation.child.error"} shouldHaveSize 0
+                errors.errors.filter { it.key != "block.noStatement" && it.key != "indentation.child.error" } shouldHaveSize 0
             }
         }
     }

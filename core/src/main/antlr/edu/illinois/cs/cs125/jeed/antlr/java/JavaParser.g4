@@ -457,8 +457,8 @@ switchExpressionBlockStatementGroup
     ;
 
 switchExpressionLabel
-    : CASE (constantExpression=expression | enumConstantName=identifier) '->'
-    | DEFAULT '->'
+    : CASE ((constantExpression=expression (',' constantExpression=expression)*) | enumConstantName=identifier) (':' | '->')
+    | DEFAULT (':' | '->')
     ;
 
 forControl
