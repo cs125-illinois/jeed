@@ -30,6 +30,18 @@ int i = 0;
 i++;""".trim()
         )
     }
+    "should not fail with new switch statements in snippets" {
+        Source.fromSnippet(
+            """
+public boolean shouldMakeCoffee(String situation) {
+        return switch (situation) {
+          case "Morning", "Cramming" -> true;
+          case "Midnight" -> true;
+          default -> false;
+        };
+}""".trim()
+        )
+    }
     "should identify a parse errors in a broken snippet" {
         val exception = shouldThrow<SnippetTransformationFailed> {
             Source.fromSnippet(
