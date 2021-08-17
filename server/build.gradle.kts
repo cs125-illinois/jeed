@@ -8,7 +8,7 @@ plugins {
     application
     `maven-publish`
     id("com.github.johnrengelman.shadow") version "7.0.0"
-    id("com.palantir.docker") version "0.27.0"
+    id("com.palantir.docker") version "0.28.0"
     id("org.jmailen.kotlinter")
     id("io.gitlab.arturbosch.detekt")
 }
@@ -27,7 +27,7 @@ dependencies {
     implementation("com.uchuhimo:konf-core:1.1.2")
     implementation("com.uchuhimo:konf-yaml:1.1.2")
     implementation("io.github.microutils:kotlin-logging:2.0.10")
-    implementation("com.github.cs125-illinois:libcs1:2021.7.0")
+    implementation("com.github.cs125-illinois:libcs1:2021.8.0")
 
     testImplementation("io.kotest:kotest-runner-junit5:4.6.1")
     testImplementation("io.kotest:kotest-assertions-ktor:4.4.3")
