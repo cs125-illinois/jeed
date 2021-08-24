@@ -26,7 +26,7 @@ dependencies {
     implementation("ch.qos.logback:logback-classic:1.2.5")
     implementation("com.uchuhimo:konf-core:1.1.2")
     implementation("com.uchuhimo:konf-yaml:1.1.2")
-    implementation("io.github.microutils:kotlin-logging:2.0.10")
+    implementation("io.github.microutils:kotlin-logging:2.0.11")
     implementation("com.github.cs125-illinois:libcs1:2021.8.0")
 
     testImplementation("io.kotest:kotest-runner-junit5:4.6.1")
