@@ -1443,10 +1443,10 @@
   resolved "https://registry.yarnpkg.com/@types/node/-/node-16.3.2.tgz#655432817f83b51ac869c2d51dd8305fb8342e16"
   integrity sha512-jJs9ErFLP403I+hMLGnqDRWT0RYKSvArxuBVh2veudHV7ifEC1WAmjJADacZ7mRbA2nWgHtn8xyECMAot0SkAw==
 
-"@types/node@^16.7.2":
-  version "16.7.2"
-  resolved "https://registry.yarnpkg.com/@types/node/-/node-16.7.2.tgz#0465a39b5456b61a04d98bd5545f8b34be340cb7"
-  integrity sha512-TbG4TOx9hng8FKxaVrCisdaxKxqEwJ3zwHoCWXZ0Jw6mnvTInpaB99/2Cy4+XxpXtjNv9/TgfGSvZFyfV/t8Fw==
+"@types/node@^16.7.5":
+  version "16.7.5"
+  resolved "https://registry.yarnpkg.com/@types/node/-/node-16.7.5.tgz#96142b243977b03d99c338fdb09241d286102711"
+  integrity sha512-E7SpxDXoHEpmZ9C1gSqwadhE6zPRtf3g0gJy9Y51DsImnR5TcDs3QEiV/3Q7zOM8LWaZp5Gph71NK6ElVMG1IQ==
 
 "@types/normalize-package-data@^2.4.0":
   version "2.4.1"
@@ -4442,10 +4442,10 @@ es6-object-assign@^1.1.0:
   resolved "https://registry.yarnpkg.com/es6-object-assign/-/es6-object-assign-1.1.0.tgz#c2c3582656247c39ea107cb1e6652b6f9f24523c"
   integrity sha1-wsNYJlYkfDnqEHyx5mUrb58kUjw=
 
-esbuild@^0.12.23:
-  version "0.12.23"
-  resolved "https://registry.yarnpkg.com/esbuild/-/esbuild-0.12.23.tgz#fd40d70d3ec5e7893d8c5be655e3e38d096dd882"
-  integrity sha512-qvS4aKnmKikoWGscd5lVAzgobMovlH/JhaWitRiQ8xJx0x1Fym0pqVjMFs43Nvff8WpibeWm+fWoLK88T1U0Xw==
+esbuild@^0.12.24:
+  version "0.12.24"
+  resolved "https://registry.yarnpkg.com/esbuild/-/esbuild-0.12.24.tgz#21966fad25a80f368ed308101e88102bce0dc68f"
+  integrity sha512-C0ibY+HsXzYB6L/pLWEiWjMpghKsIc58Q5yumARwBQsHl9DXPakW+5NI/Y9w4YXiz0PEP6XTGTT/OV4Nnsmb4A==
 
 escalade@^3.1.1:
   version "3.1.1"
@@ -7163,10 +7163,10 @@ mkdirp@^1.0.3, mkdirp@^1.0.4:
   resolved "https://registry.yarnpkg.com/mkdirp/-/mkdirp-1.0.4.tgz#3eb5ed62622756d79a5f0e2a221dfebad75c2f7e"
   integrity sha512-vVqVZQyf3WLx2Shd0qJ9xuvqgAyKPLAiqITEtqW0oIUjzo3PePDd6fW9iFz30ef7Ysp/oiWqbhszeGWW2T6Gzw==
 
-mocha@^9.1.0:
-  version "9.1.0"
-  resolved "https://registry.yarnpkg.com/mocha/-/mocha-9.1.0.tgz#0a7aa6fc4f59d1015d4e11747d9104b752553c67"
-  integrity sha512-Kjg/XxYOFFUi0h/FwMOeb6RoroiZ+P1yOfya6NK7h3dNhahrJx1r2XIT3ge4ZQvJM86mdjNA+W5phqRQh7DwCg==
+mocha@^9.1.1:
+  version "9.1.1"
+  resolved "https://registry.yarnpkg.com/mocha/-/mocha-9.1.1.tgz#33df2eb9c6262434630510c5f4283b36efda9b61"
+  integrity sha512-0wE74YMgOkCgBUj8VyIDwmLUjTsS13WV1Pg7l0SHea2qzZzlq7MDnfbPsHKcELBRk3+izEVkRofjmClpycudCA==
   dependencies:
     "@ungap/promise-all-settled" "1.1.2"
     ansi-colors "4.1.1"
