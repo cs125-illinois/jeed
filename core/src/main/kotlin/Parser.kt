@@ -100,7 +100,6 @@ class DistinguishErrorListener : BaseErrorListener() {
         msg: String,
         e: RecognitionException?
     ) {
-        println(msg)
         check(!msg.trim().startsWith("extraneous input"))
         if (e != null) {
             throw(e)

@@ -1,7 +1,9 @@
+import org.jetbrains.kotlin.gradle.tasks.KotlinCompile
+
 plugins {
-    kotlin("jvm") version "1.5.21" apply false
-    kotlin("kapt") version "1.5.21" apply false
-    id("org.jmailen.kotlinter") version "3.5.0" apply false
+    kotlin("jvm") version "1.5.30" apply false
+    kotlin("kapt") version "1.5.30" apply false
+    id("org.jmailen.kotlinter") version "3.5.1" apply false
     id("com.github.ben-manes.versions") version "0.39.0"
     id("io.gitlab.arturbosch.detekt") version "1.18.0"
 }
@@ -16,12 +18,18 @@ allprojects {
 }
 subprojects {
     group = "com.github.cs125-illinois.jeed"
-    version = "2021.8.2"
+    version = "2021.8.3"
     tasks.withType<Test> {
         useJUnitPlatform()
         enableAssertions = true
         // Fix encoding bug on Windows
         jvmArgs("-Dfile.encoding=UTF-8", "--illegal-access=permit")
+    }
+    tasks.withType<KotlinCompile> {
+        kotlinOptions {
+            jvmTarget = JavaVersion.VERSION_16.toString()
+        }
+
     }
 }
 tasks.dependencyUpdates {
