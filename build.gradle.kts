@@ -29,7 +29,6 @@ subprojects {
         kotlinOptions {
             jvmTarget = JavaVersion.VERSION_16.toString()
         }
-
     }
 }
 tasks.dependencyUpdates {
