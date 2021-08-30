@@ -16,8 +16,7 @@ dependencies {
     kapt("com.squareup.moshi:moshi-kotlin-codegen:1.12.0")
 
     implementation(project(":core"))
-    implementation(kotlin("stdlib"))
-    implementation(kotlin("reflect"))
+    implementation("org.jetbrains.kotlin:kotlin-reflect:1.5.30")
 
     implementation("io.ktor:ktor-server-netty:1.6.3")
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-core:1.5.1")
@@ -27,7 +26,7 @@ dependencies {
     implementation("com.uchuhimo:konf-core:1.1.2")
     implementation("com.uchuhimo:konf-yaml:1.1.2")
     implementation("io.github.microutils:kotlin-logging:2.0.11")
-    implementation("com.github.cs125-illinois:libcs1:2021.8.0")
+    implementation("com.github.cs125-illinois:libcs1:2021.8.1")
 
     testImplementation("io.kotest:kotest-runner-junit5:4.6.2")
     testImplementation("io.kotest:kotest-assertions-ktor:4.4.3")

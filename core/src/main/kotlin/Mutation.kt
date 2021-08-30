@@ -129,11 +129,16 @@ sealed class Mutation(
     override fun hashCode() = Objects.hash(mutationType, location, original)
 
     companion object {
-        inline fun <reified T : Mutation> find(parsedSource: Source.ParsedSource, fileType: Source.FileType): List<T> =
-            when (fileType) {
-                Source.FileType.JAVA -> JavaMutationListener(parsedSource).mutations.filterIsInstance<T>()
-                Source.FileType.KOTLIN -> KotlinMutationListener(parsedSource).mutations.filterIsInstance<T>()
+        inline fun <reified T : Mutation> find(parsedSource: Source.ParsedSource, fileType: Source.FileType): List<T> {
+            @Suppress("CascadeIf")
+            return if (fileType == Source.FileType.JAVA) {
+                JavaMutationListener(parsedSource).mutations.filterIsInstance<T>()
+            } else if (fileType == Source.FileType.KOTLIN) {
+                KotlinMutationListener(parsedSource).mutations.filterIsInstance<T>()
+            } else {
+                error("Invalid fileType $fileType")
             }
+        }
     }
 }
 
