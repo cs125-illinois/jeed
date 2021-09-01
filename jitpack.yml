@@ -1,7 +1,5 @@
-jdk:
-  - openjdk16
 before_install:
   - curl -s "https://get.sdkman.io" | bash
   - source ~/.sdkman/bin/sdkman-init.sh
-  - sdk install java 16.0.1-open
-  - sdk use java 16.0.1-open
+  - sdk install java 16.0.2-open
+  - sdk use java 16.0.2-open
