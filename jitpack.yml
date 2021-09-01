@@ -3,3 +3,4 @@ before_install:
   - source ~/.sdkman/bin/sdkman-init.sh
   - sdk install java 16.0.1-open
   - sdk use java 16.0.1-open
+  - export JAVA_TOOL_OPTIONS="-Dfile.encoding=UTF-8"
