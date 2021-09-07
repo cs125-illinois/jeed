@@ -44,9 +44,6 @@ class SourceExecutionArguments(
             // Not sure why this is required by Date, but it seems to be
             // ClassLoader enumeration is probably not unsafe...
             RuntimePermission("getClassLoader"),
-            // Required by java.util.Currency
-            RuntimePermission("accessSystemModules"),
-            PropertyPermission("java.util.currency.data", "read")
         )
     }
 }
