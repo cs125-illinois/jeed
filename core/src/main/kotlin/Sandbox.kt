@@ -1213,7 +1213,9 @@ object Sandbox {
         override fun checkRead(file: String) {
             val confinedTask = confinedTaskByClassLoader()
                 ?: return systemSecurityManager?.checkRead(file) ?: return
-            if (!file.endsWith(".class")) {
+            if (file.endsWith("currency.properties")) {
+                confinedTask.addPermissionRequest(FilePermission(file, "read"), true)
+            } else if (!file.endsWith(".class")) {
                 confinedTask.addPermissionRequest(FilePermission(file, "read"), false)
             } else {
                 systemSecurityManager?.checkRead(file)

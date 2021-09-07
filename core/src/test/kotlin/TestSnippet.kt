@@ -695,6 +695,17 @@ class Example {
             executionResult should haveOutput("")
         }
     }
+    "should load Currency data" {
+        Source.fromSnippet(
+"""
+import java.util.Currency;
+
+System.out.println(Currency.getAvailableCurrencies());
+            """.trimIndent()
+        ).compile().execute().also { executionResult ->
+            executionResult should haveCompleted()
+        }
+    }
 })
 
 fun haveParseErrorOnLine(line: Int) = object : Matcher<SnippetTransformationFailed> {
