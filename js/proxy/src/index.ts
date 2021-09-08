@@ -131,7 +131,7 @@ const server = new Koa({ proxy: true })
 
 Promise.resolve().then(async () => {
   await _collection
-  console.log(await getStatus(4))
+  console.log(await getStatus(process.env.STARTUP_RETRY_COUNT ? parseInt(process.env.STARTUP_RETRY_COUNT) : 4))
   const s = server.listen(process.env.PORT || 8888)
   server.on("error", (err) => {
     console.error(err)
