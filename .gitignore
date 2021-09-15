@@ -37,3 +37,5 @@ test-output/
 .idea/**/compiler.xml
 .idea/google-java-format.xml
 core/src/main/gen
+.DS_Store
+leaktest/dump/
