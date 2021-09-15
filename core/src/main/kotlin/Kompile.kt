@@ -165,66 +165,70 @@ private fun kompile(
     source.tryCache(kompilationArguments, started, systemCompilerName)?.let { return it }
 
     val rootDisposable = Disposer.newDisposable()
-    val messageCollector = JeedMessageCollector(source, kompilationArguments.arguments.allWarningsAsErrors)
-    val configuration = CompilerConfiguration().apply {
-        put(CLIConfigurationKeys.MESSAGE_COLLECTOR_KEY, messageCollector)
-        put(CommonConfigurationKeys.MODULE_NAME, JvmProtoBufUtil.DEFAULT_MODULE_NAME)
-        put(JVMConfigurationKeys.PARAMETERS_METADATA, kompilationArguments.parameters)
-        put(JVMConfigurationKeys.JVM_TARGET, kompilationArguments.jvmTarget.toJvmTarget())
-        configureExplicitContentRoots(kompilationArguments.arguments)
-    }
-
-    // Silence scaring warning on Windows
-    setIdeaIoUseFallback()
-
-    val environment = KotlinCoreEnvironment.createForProduction(
-        rootDisposable,
-        configuration,
-        EnvironmentConfigFiles.JVM_CONFIG_FILES
-    )
-
-    val psiFileFactory = PsiFileFactory.getInstance(environment.project) as PsiFileFactoryImpl
-    val psiFiles = source.sources.map { (name, contents) ->
-        val virtualFile = LightVirtualFile(name, KotlinLanguage.INSTANCE, contents)
-        psiFileFactory.trySetupPsiForFile(virtualFile, KotlinLanguage.INSTANCE, true, false) as KtFile?
-            ?: error("couldn't parse source to psiFile")
-    }.toMutableList()
-
-    environment::class.java.getDeclaredField("sourceFiles").also { field ->
-        field.isAccessible = true
-        field.set(environment, psiFiles)
-    }
-    if (kompilationArguments.parentFileManager != null) {
-        environment::class.java.getDeclaredField("rootsIndex").also { field ->
-            field.isAccessible = true
-            val rootsIndex = field.get(environment) as JvmDependenciesDynamicCompoundIndex
-            val root = kompilationArguments.parentFileManager.toVirtualFile()
-            rootsIndex.addIndex(JvmDependenciesIndexImpl(listOf(JavaRoot(root, JavaRoot.RootType.BINARY))))
+    try {
+        val messageCollector = JeedMessageCollector(source, kompilationArguments.arguments.allWarningsAsErrors)
+        val configuration = CompilerConfiguration().apply {
+            put(CLIConfigurationKeys.MESSAGE_COLLECTOR_KEY, messageCollector)
+            put(CommonConfigurationKeys.MODULE_NAME, JvmProtoBufUtil.DEFAULT_MODULE_NAME)
+            put(JVMConfigurationKeys.PARAMETERS_METADATA, kompilationArguments.parameters)
+            put(JVMConfigurationKeys.JVM_TARGET, kompilationArguments.jvmTarget.toJvmTarget())
+            configureExplicitContentRoots(kompilationArguments.arguments)
         }
-    }
 
-    val state = KotlinToJVMBytecodeCompiler.analyzeAndGenerate(environment)
+        // Silence scaring warning on Windows
+        setIdeaIoUseFallback()
 
-    if (messageCollector.errors.isNotEmpty()) {
-        throw CompilationFailed(messageCollector.errors)
-    }
-    check(state != null) { "compilation should have succeeded" }
+        val environment = KotlinCoreEnvironment.createForProduction(
+            rootDisposable,
+            configuration,
+            EnvironmentConfigFiles.JVM_CONFIG_FILES
+        )
 
-    val fileManager = JeedFileManager(
-        parentFileManager ?: standardFileManager,
-        GeneratedClassLoader(state.factory, kompilationArguments.parentClassLoader)
-    )
-    val classLoader = JeedClassLoader(fileManager, parentClassLoader)
+        val psiFileFactory = PsiFileFactory.getInstance(environment.project) as PsiFileFactoryImpl
+        val psiFiles = source.sources.map { (name, contents) ->
+            val virtualFile = LightVirtualFile(name, KotlinLanguage.INSTANCE, contents)
+            psiFileFactory.trySetupPsiForFile(virtualFile, KotlinLanguage.INSTANCE, true, false) as KtFile?
+                ?: error("couldn't parse source to psiFile")
+        }.toMutableList()
 
-    return CompiledSource(
-        source,
-        messageCollector.warnings,
-        started,
-        Interval(started, Instant.now()),
-        classLoader,
-        fileManager
-    ).also {
-        it.cache(kompilationArguments)
+        environment::class.java.getDeclaredField("sourceFiles").also { field ->
+            field.isAccessible = true
+            field.set(environment, psiFiles)
+        }
+        if (kompilationArguments.parentFileManager != null) {
+            environment::class.java.getDeclaredField("rootsIndex").also { field ->
+                field.isAccessible = true
+                val rootsIndex = field.get(environment) as JvmDependenciesDynamicCompoundIndex
+                val root = kompilationArguments.parentFileManager.toVirtualFile()
+                rootsIndex.addIndex(JvmDependenciesIndexImpl(listOf(JavaRoot(root, JavaRoot.RootType.BINARY))))
+            }
+        }
+
+        val state = KotlinToJVMBytecodeCompiler.analyzeAndGenerate(environment)
+
+        if (messageCollector.errors.isNotEmpty()) {
+            throw CompilationFailed(messageCollector.errors)
+        }
+        check(state != null) { "compilation should have succeeded" }
+
+        val fileManager = JeedFileManager(
+            parentFileManager ?: standardFileManager,
+            GeneratedClassLoader(state.factory, kompilationArguments.parentClassLoader)
+        )
+        val classLoader = JeedClassLoader(fileManager, parentClassLoader)
+
+        return CompiledSource(
+            source,
+            messageCollector.warnings,
+            started,
+            Interval(started, Instant.now()),
+            classLoader,
+            fileManager
+        ).also {
+            it.cache(kompilationArguments)
+        }
+    } finally {
+        Disposer.dispose(rootDisposable)
     }
 }
 
@@ -354,3 +358,4 @@ private fun Int.toCompilerVersion() = when (this) {
     in 10..16 -> toString()
     else -> error("Bad JVM target: $this")
 }
+

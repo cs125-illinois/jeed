@@ -7,7 +7,7 @@ plugins {
 dependencies {
     implementation(project(":core"))
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-core:1.5.2")
-    implementation("ch.qos.logback:logback-classic:1.2.5")
+    implementation("ch.qos.logback:logback-classic:1.2.6")
     implementation("io.github.microutils:kotlin-logging:2.0.11")
 }
 application {
@@ -18,7 +18,7 @@ tasks {
     "run"(JavaExec::class) {
         jvmArgs(
             "-ea",
-            "-Xms64m",
+            "-Xms128m",
             "-Xmx128m",
             "--enable-preview",
             "--illegal-access=permit"

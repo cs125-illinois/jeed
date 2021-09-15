@@ -11,10 +11,10 @@ plugins {
     id("io.gitlab.arturbosch.detekt")
 }
 dependencies {
-    implementation("ch.qos.logback:logback-classic:1.2.5")
+    implementation("ch.qos.logback:logback-classic:1.2.6")
     implementation("io.github.microutils:kotlin-logging:2.0.11")
     implementation("com.github.ajalt:clikt:2.8.0")
-    implementation("io.github.classgraph:classgraph:4.8.115")
+    implementation("io.github.classgraph:classgraph:4.8.116")
 }
 application {
     @Suppress("DEPRECATION")
