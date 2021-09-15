@@ -12,6 +12,36 @@ export function getOriginalLine(request: Request, line: number, source?: string)
   throw new Error(`Couldn't find line ${line} in source ${source}`)
 }
 
+export function compilerWarnings(response: Response): string | undefined {
+  if (!(response.completed.compilation || response.completed.kompilation)) {
+    return
+  }
+  return (
+    (response.completed.compilation || response.completed.kompilation)?.messages
+      .filter(({ kind }) => kind === "WARNING")
+      .map((error) => {
+        const { location, message } = error
+        if (location) {
+          const { source, line, column } = location as SourceLocation
+          const originalLine = getOriginalLine(response.request, line, source)
+          const firstErrorLine = message.split("\n").slice(0, 1).join()
+          const restOfError = message
+            .split("\n")
+            .slice(1)
+            .filter((line) => {
+              return !(source === "" && line.trim().startsWith("location: class"))
+            })
+            .join("\n")
+          return `${source === "" ? "Line " : `${source}:`}${line}: error: ${firstErrorLine}
+${originalLine ? originalLine + "\n" + new Array(column).join(" ") + "^" : ""}${restOfError ? "\n" + restOfError : ""}`
+        } else {
+          return message
+        }
+      })
+      .join("\n") || ""
+  )
+}
+
 export interface TerminalOutput {
   output: string
   level: "success" | "warning" | "error"
