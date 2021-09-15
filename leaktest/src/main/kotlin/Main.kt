@@ -5,18 +5,13 @@ import edu.illinois.cs.cs125.jeed.core.kompile
 
 fun main() {
     for (i in 0..(1024 * 1024)) {
-        Thread {
-            Source.fromKotlin(
-                """
+        Source.fromKotlin(
+            """
 fun main() {
   println("Hello, $i")
 }""".trim()
-            ).kompile().also {
-                println(i)
-            }
-        }.also {
-            it.run()
-            it.join()
+        ).kompile().also {
+            println(i)
         }
     }
 }
