@@ -21,7 +21,8 @@ tasks {
             "-Xms128m",
             "-Xmx128m",
             "--enable-preview",
-            "--illegal-access=permit"
+            "--illegal-access=permit",
+            "-verbose:class"
         )
     }
 }
