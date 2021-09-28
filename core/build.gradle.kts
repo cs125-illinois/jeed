@@ -23,7 +23,7 @@ dependencies {
     implementation("com.puppycrawl.tools:checkstyle:9.0")
     implementation("com.pinterest.ktlint:ktlint-core:0.42.1")
     implementation("com.pinterest.ktlint:ktlint-ruleset-standard:0.42.1")
-    implementation("com.github.jknack:handlebars:4.2.0")
+    implementation("com.github.jknack:handlebars:4.2.1")
     implementation("com.squareup.moshi:moshi:1.12.0")
     implementation("org.ow2.asm:asm:9.2")
     implementation("org.ow2.asm:asm-util:9.2")

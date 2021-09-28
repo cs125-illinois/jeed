@@ -8,7 +8,7 @@ plugins {
     application
     `maven-publish`
     id("com.github.johnrengelman.shadow") version "7.0.0"
-    id("com.palantir.docker") version "0.28.0"
+    id("com.palantir.docker") version "0.29.0"
     id("org.jmailen.kotlinter")
     id("io.gitlab.arturbosch.detekt")
 }

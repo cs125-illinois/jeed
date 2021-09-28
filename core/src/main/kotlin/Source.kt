@@ -35,7 +35,7 @@ open class Source(
     checkSourceNames: (Sources) -> FileType = ::defaultCheckSourceNames,
     @Transient val sourceMappingFunction: (SourceLocation) -> SourceLocation = { it }
 ) {
-    val sources = Sources(sourceMap)
+    val sources = Sources(sourceMap.mapValues { (_, value) -> value.replace("""\r\n?""".toRegex(), "\n") })
 
     val contents: String
         get() = sources.contents

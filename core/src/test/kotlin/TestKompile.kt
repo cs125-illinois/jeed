@@ -32,6 +32,21 @@ fun main() {
         compiledSource should haveDefinedExactlyTheseClasses(setOf("TestKt", "Person"))
         compiledSource should haveProvidedThisManyClasses(0)
     }
+    "should not fail on windows line endings" {
+        val compiledSource = Source(
+            mapOf(
+                "Test.kt" to """
+data class Person(val name: String)
+fun main() {
+  println("Here")
+}
+""".trim().replace("\n", "\r\n")
+            )
+        ).kompile()
+
+        compiledSource should haveDefinedExactlyTheseClasses(setOf("TestKt", "Person"))
+        compiledSource should haveProvidedThisManyClasses(0)
+    }
     "should compile sources with dependencies" {
         val compiledSource = Source(
             mapOf(
