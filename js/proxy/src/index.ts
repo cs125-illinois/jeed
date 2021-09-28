@@ -137,7 +137,10 @@ Promise.resolve().then(async () => {
     console.error(err)
   })
   const terminator = createHttpTerminator({ server: s })
-  process.on("SIGTERM", async () => await terminator.terminate())
+  process.on("SIGTERM", async () => {
+    await terminator.terminate()
+    process.exit(0)
+  })
 })
 process.on("uncaughtException", (err) => {
   console.error(err)
