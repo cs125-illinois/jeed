@@ -860,7 +860,7 @@ private class FeatureListener(val source: Source, entry: Map.Entry<String, Strin
         }
         ctx.methodCall()?.also {
             if (featureStack[0].name.contains(ctx.methodCall()?.identifier()?.text ?: "")) {
-                if (ctx.methodCall().expressionList().text.filter { it == ',' }.length
+                if (ctx.methodCall().expressionList()?.text?.filter { it == ',' }?.length
                     == featureStack[0].name.filter { it == ',' }.length
                 ) {
                     count(FeatureName.RECURSION, 1)
