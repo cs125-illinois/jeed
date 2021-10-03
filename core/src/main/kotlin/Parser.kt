@@ -83,7 +83,11 @@ fun Source.parseKotlinFile(entry: Map.Entry<String, String>): Source.ParsedSourc
     }.let {
         it.removeErrorListeners()
         it.addErrorListener(errorListener)
-        it.kotlinFile()
+        try {
+            it.kotlinFile()
+        } catch (e: StackOverflowError) {
+            throw JeedParsingException(listOf(SourceError(null, "Code is too complicated to determine complexity")))
+        }
     }.also {
         errorListener.check()
     }

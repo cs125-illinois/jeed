@@ -18,7 +18,7 @@ dependencies {
     implementation(project(":core"))
     implementation("org.jetbrains.kotlin:kotlin-reflect:1.5.31")
 
-    implementation("io.ktor:ktor-server-netty:1.6.3")
+    implementation("io.ktor:ktor-server-netty:1.6.4")
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-core:1.5.2")
     implementation("com.squareup.moshi:moshi-kotlin-codegen:1.12.0")
     implementation("com.github.cs125-illinois:ktor-moshi:1.0.3")
@@ -30,7 +30,7 @@ dependencies {
 
     testImplementation("io.kotest:kotest-runner-junit5:4.6.3")
     testImplementation("io.kotest:kotest-assertions-ktor:4.4.3")
-    testImplementation("io.ktor:ktor-server-test-host:1.6.3")
+    testImplementation("io.ktor:ktor-server-test-host:1.6.4")
 }
 application {
     @Suppress("DEPRECATION")

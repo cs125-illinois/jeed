@@ -4,8 +4,6 @@ import io.kotest.assertions.throwables.shouldThrow
 import io.kotest.core.spec.style.StringSpec
 import io.kotest.matchers.shouldBe
 
-// todo: add assert, require, and check
-
 class TestKotlinComplexity : StringSpec({
     "should compute complexity for Kotlin top-level method" {
         Source.fromKotlin(
@@ -592,6 +590,50 @@ fun main2(first: Int, second: String, third: Blah?): Int {
             it.lookup("main(Int,String,Blah?):Int", "Main.kt").complexity shouldBe 1
             it.lookup("main2(Int,String,Blah?):Int", "Main.kt").complexity shouldBe 1
             it.lookupFile("Main.kt") shouldBe 2
+        }
+    }
+    "should not overflow on deep nesting" {
+        shouldThrow<ComplexityFailed> {
+            Source.fromKotlin(
+                """fun mystery(a: Int): Int {
+  if (a == -1) {
+    return 0
+  } else if (a == 0) {
+    return 0
+  } else if (a == 1) {
+    return 0
+  } else if (a == -2147483648) {
+    return 2
+  } else if (a == 889510) {
+    return 2
+  } else if (a == 598806) {
+    return 2
+  } else if (a == 974889) {
+    return 2
+  } else if (a == 485818) {
+    return 3
+  } else if (a == 858845) {
+    return 3
+  } else if (a == 887182) {
+    return 3
+  } else if (a == 668881) {
+    return 3
+  } else if (a == 88180) {
+    return 3
+  } else if (a == 888447) {
+    return 3
+  } else if (a == 985087) {
+    return 2
+  } else if (a == 547149) {
+    return 0
+  } else if (a == 438786) {
+    return 2
+  } else if (a == 838822) {
+    return 3
+  }
+  return 1
+}"""
+            ).complexity()
         }
     }
 })
