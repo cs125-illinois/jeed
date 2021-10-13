@@ -351,6 +351,7 @@ object Sandbox {
                     confinedTask.truncatedLines,
                     executionArguments
                 )
+                @Suppress("ThrowingExceptionsWithoutMessageOrCause")
                 runBlocking { resultChannel.send(ExecutorResult(executionResult, Exception())) }
             } catch (e: Throwable) {
                 runBlocking { resultChannel.send(ExecutorResult(null, e)) }
@@ -1304,7 +1305,7 @@ object Sandbox {
 
     @JvmStatic
     fun redirectOutput(block: () -> Any?): JeedOutputCapture {
-        val confinedTask = confinedTaskByThreadGroup() ?: check { "should only be used from a confined task" }
+        val confinedTask = confinedTaskByThreadGroup() ?: error("should only be used from a confined task")
         check(!confinedTask.redirectingOutput) { "can't nest calls to redirectOutput" }
 
         confinedTask.redirectingOutput = true
@@ -1361,7 +1362,7 @@ object Sandbox {
      * But the result is that you have to implement the entire PrintStream public API. Leaving anything out means that
      * stuff doesn't get forwarded, and we have to make sure that nothing is shared.
      *
-     * Hence this sadness.
+     * Hence, this sadness.
      *
      * PS: also fuck you Java for leaving me no choice but to resort to this. There are a half-dozen different terrible
      * design decisions that led us to this place. Please do better next time.
@@ -1550,7 +1551,7 @@ object Sandbox {
 
         System.setOut(RedirectingPrintStream(TaskResults.OutputLine.Console.STDOUT))
         System.setErr(RedirectingPrintStream(TaskResults.OutputLine.Console.STDERR))
-        // Try to silence ThreadDeath error messages. Not sure this works but it can't hurt.
+        // Try to silence ThreadDeath error messages. Not sure if this works, but it can't hurt.
         // Thread.setDefaultUncaughtExceptionHandler { _, _ -> }
 
         threadPool = Executors.newFixedThreadPool(size)

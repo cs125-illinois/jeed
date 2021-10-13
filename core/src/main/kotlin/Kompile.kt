@@ -243,7 +243,7 @@ const val KOTLIN_COROUTINE_MIN_EXTRA_THREADS = 4
 fun CompiledSource.usesCoroutines(): Boolean = source.sources.keys
     .map { source.getParsed(it).tree }
     .any { tree ->
-        tree as? KotlinParser.KotlinFileContext ?: check { "Parse tree is not from a Kotlin file" }
+        tree as? KotlinParser.KotlinFileContext ?: error("Parse tree is not from a Kotlin file")
         tree.preamble().importList().importHeader().any { importName ->
             KOTLIN_COROUTINE_IMPORTS.any { importName.identifier().text.startsWith(it) }
         }

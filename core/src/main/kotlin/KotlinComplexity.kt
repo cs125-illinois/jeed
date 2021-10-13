@@ -13,6 +13,9 @@ class KotlinComplexityListener(val source: Source, entry: Map.Entry<String, Stri
     private val fileName = entry.key
     private var currentClass = ""
 
+    private var anonymousClassDepth = 0
+    private var objectLiteralCounter = 0
+
     private val currentComplexity: ComplexityValue
         get() = complexityStack[0]
 
@@ -136,7 +139,13 @@ class KotlinComplexityListener(val source: Source, entry: Map.Entry<String, Stri
                 it.last().text
             }
         }
-        val longName = "$name($parameters)${returnType?.let { ":$returnType" } ?: ""}"
+        val longName = ("$name($parameters)${returnType?.let { ":$returnType" } ?: ""}").let {
+            if (anonymousClassDepth > 0) {
+                "${it}${"$"}$objectLiteralCounter"
+            } else {
+                it
+            }
+        }
 
         enterMethodOrConstructor(
             longName,
@@ -168,24 +177,36 @@ class KotlinComplexityListener(val source: Source, entry: Map.Entry<String, Stri
 
     // ||
     override fun enterDisjunction(ctx: KotlinParser.DisjunctionContext) {
-        if (!ctx.text.contains("||")) return
-        if (ctx.text.contains("(") || ctx.text.contains(")")) return
+        if (!ctx.text.contains("||")) {
+            return
+        }
+        if (ctx.text.contains("(") || ctx.text.contains(")")) {
+            return
+        }
         require(complexityStack.isNotEmpty())
         currentComplexity.complexity++
     }
 
     // &&
     override fun enterConjunction(ctx: KotlinParser.ConjunctionContext) {
-        if (!ctx.text.contains("&&")) return
-        if (ctx.text.contains("(") || ctx.text.contains(")")) return
+        if (!ctx.text.contains("&&")) {
+            return
+        }
+        if (ctx.text.contains("(") || ctx.text.contains(")")) {
+            return
+        }
         require(complexityStack.isNotEmpty())
         currentComplexity.complexity++
     }
 
     // ?:
     override fun enterElvisExpression(ctx: KotlinParser.ElvisExpressionContext) {
-        if (!ctx.text.contains("?:")) return
-        if (ctx.text.contains("(") || ctx.text.contains(")")) return
+        if (!ctx.text.contains("?:")) {
+            return
+        }
+        if (ctx.text.contains("(") || ctx.text.contains(")")) {
+            return
+        }
         require(complexityStack.isNotEmpty())
         currentComplexity.complexity++
     }
@@ -199,7 +220,9 @@ class KotlinComplexityListener(val source: Source, entry: Map.Entry<String, Stri
 
     // if & else if
     override fun enterIfExpression(ctx: KotlinParser.IfExpressionContext) {
-        if (!ctx.text.contains("if")) return
+        if (!ctx.text.contains("if")) {
+            return
+        }
         require(complexityStack.isNotEmpty())
         currentComplexity.complexity++
     }
@@ -224,16 +247,33 @@ class KotlinComplexityListener(val source: Source, entry: Map.Entry<String, Stri
 
     // ?.
     override fun enterMemberAccessOperator(ctx: KotlinParser.MemberAccessOperatorContext) {
-        if (ctx.text != "?.") return
+        if (ctx.text != "?.") {
+            return
+        }
         require(complexityStack.isNotEmpty())
         currentComplexity.complexity++
     }
 
     // !!.
     override fun enterPostfixUnaryOperation(ctx: KotlinParser.PostfixUnaryOperationContext) {
-        if (ctx.text != "!!") return
+        if (ctx.text != "!!") {
+            return
+        }
         require(complexityStack.isNotEmpty())
         currentComplexity.complexity++
+    }
+
+    override fun enterObjectLiteral(ctx: KotlinParser.ObjectLiteralContext) {
+        if (ctx.classBody() != null) {
+            anonymousClassDepth++
+            objectLiteralCounter++
+        }
+    }
+
+    override fun exitObjectLiteral(ctx: KotlinParser.ObjectLiteralContext) {
+        if (ctx.classBody() != null) {
+            anonymousClassDepth--
+        }
     }
 
     init {

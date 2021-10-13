@@ -592,6 +592,20 @@ fun main2(first: Int, second: String, third: Blah?): Int {
             it.lookupFile("Main.kt") shouldBe 2
         }
     }
+    "should handle multiple anonymous classes" {
+        Source.fromKotlin(
+            """
+interface Adder {
+  fun addTo(value: Int): Int
+}
+val addOne = object : Adder {
+  override fun addTo(value: Int) = value + 1
+}
+val addEight = object : Adder {
+  override fun addTo(value: Int) = value + 8
+}""".trim()
+        ).complexity()
+    }
     "should not overflow on deep nesting" {
         shouldThrow<ComplexityFailed> {
             Source.fromKotlin(

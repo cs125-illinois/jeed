@@ -91,7 +91,7 @@ fun Source.Companion.fromTemplates(sourceMap: Map<String, String>, templateMap: 
         } catch (e: HandlebarsException) {
             templatingErrors.add(TemplatingError(templateName, e.error.line, e.error.column, e.error.message))
             return@mapValues ""
-        } ?: assert { "should have created a template" }
+        } ?: error("should have created a template")
 
         try {
             val indentedSource = source.lines().mapIndexed { i, line ->

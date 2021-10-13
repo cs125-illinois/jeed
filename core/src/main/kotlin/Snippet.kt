@@ -287,7 +287,7 @@ ${" ".repeat(snippetArguments.indent * 2)}@JvmStatic fun main() {""".lines().let
         SnippetTransformationError(
             SourceLocation(
                 SNIPPET_SOURCE,
-                looseCodeMapping[it.line] ?: require { "Missing loose code mapping " },
+                looseCodeMapping[it.line] ?: error("Missing loose code mapping"),
                 it.charPositionInLine
             ),
             "return statements not allowed at top level in snippets"

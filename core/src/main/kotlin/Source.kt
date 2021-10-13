@@ -113,7 +113,7 @@ open class Source(
             )
         }?.joinToString(separator = "") {
             String.format(Locale.US, "%02x", it)
-        } ?: require { "Problem computing hash" }
+        } ?: error("Problem computing hash")
     }
 
     override fun equals(other: Any?): Boolean {
@@ -136,7 +136,7 @@ open class Source(
             return when (val extension = filename.split("/").last().split(".").last()) {
                 "java" -> FileType.JAVA
                 "kt" -> FileType.KOTLIN
-                else -> require { "invalid extension: $extension" }
+                else -> error("invalid extension: $extension")
             }
         }
 
@@ -291,19 +291,6 @@ fun Throwable.getStackTraceForSource(
 
 fun Method.getQualifiedName(): String {
     return "$name(${parameters.joinToString(separator = ", ")})"
-}
-
-// Overloads of built-in functions that can be used to the right of Elvis operators
-fun assert(block: () -> String): Nothing {
-    throw AssertionError(block())
-}
-
-fun check(block: () -> String): Nothing {
-    throw IllegalStateException(block())
-}
-
-fun require(block: () -> String): Nothing {
-    throw IllegalArgumentException(block())
 }
 
 class SourceMappingException(message: String) : Exception(message)

@@ -11,6 +11,7 @@ import kotlinx.coroutines.runBlocking
 import java.time.Instant
 
 const val JEED_DEFAULT_COMPILATION_CACHE_SIZE_MB = 256L
+
 @Suppress("TooGenericExceptionCaught")
 val compilationCacheSizeMB = try {
     System.getenv("JEED_COMPILATION_CACHE_SIZE")?.toLong() ?: JEED_DEFAULT_COMPILATION_CACHE_SIZE_MB
@@ -20,6 +21,7 @@ val compilationCacheSizeMB = try {
 }
 
 const val JEED_DEFAULT_USE_CACHE = false
+
 @Suppress("TooGenericExceptionCaught")
 val useCompilationCache = try {
     System.getenv("JEED_USE_CACHE")?.toBoolean() ?: JEED_DEFAULT_USE_CACHE
@@ -69,9 +71,9 @@ fun Source.tryCache(
     }
     MoreCacheStats.hits++
 
-    val cachedCompilationArguments = cachedResult.compilationArguments ?: require {
+    val cachedCompilationArguments = cachedResult.compilationArguments ?: error(
         "Cached compilation result missing arguments"
-    }
+    )
     if (cachedResult.compilerName != compilerName) {
         return null
     }
@@ -131,9 +133,9 @@ fun Source.tryCache(
         return null
     }
     MoreCacheStats.hits++
-    val cachedKompilationArguments = cachedResult.kompilationArguments ?: require {
+    val cachedKompilationArguments = cachedResult.kompilationArguments ?: error(
         "Cached kompilation result missing arguments"
-    }
+    )
     if (cachedResult.compilerName != compilerName) {
         return null
     }

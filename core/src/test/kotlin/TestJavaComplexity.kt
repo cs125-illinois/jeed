@@ -192,13 +192,17 @@ interface Simple {
 interface Test {
   void test();
 }
-Test test = new Test() {
+Test first = new Test() {
+  @Override
+  public void test() { }
+};
+Test second = new Test() {
   @Override
   public void test() { }
 };
             """.trim()
         ).complexity().also {
-            it.lookup(".", "").complexity shouldBe 2
+            it.lookup(".", "").complexity shouldBe 3
         }
     }
     "should not fail on generic methods" {
