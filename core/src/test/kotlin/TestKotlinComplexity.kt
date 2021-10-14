@@ -363,7 +363,9 @@ class PingPonger constructor(private var state: String) {
                 """.trim()
             )
         ).complexity().also {
-            it.lookup("PingPonger", "Test.kt").complexity shouldBe 5
+            it.lookup("PingPonger", "Test.kt").complexity shouldBe 8
+            it.lookup("PingPonger.pong():Boolean", "Test.kt").complexity shouldBe 2
+            it.lookup("PingPonger.ping():Boolean", "Test.kt").complexity shouldBe 2
         }
     }
 
@@ -648,6 +650,49 @@ val addEight = object : Adder {
   return 1
 }"""
             ).complexity()
+        }
+    }
+    "should measure when and if equivalently" {
+        Source.fromKotlin(
+            """
+fun first(first: Int, second: Int): Int {
+  return if (first > second && second > first) {
+    1
+  } else if (second < first && first < second) {
+    -1
+  } else {
+    0
+  }
+}
+fun second(first: Int, second: Int): Int {
+  return when {
+    first > second && second > first -> 1
+    second < first && first < second -> -1
+    else -> 0
+  }
+}
+""".trim()
+        ).complexity().also {
+            it.lookup("first(Int,Int):Int", "Main.kt").complexity shouldBe 5
+            it.lookup("second(Int,Int):Int", "Main.kt").complexity shouldBe 5
+        }
+    }
+    "should measure if correctly" {
+        Source.fromKotlin(
+            """
+fun first(first: Int, second: Int): Int {
+  var it = first > second || second == first
+  return if (first > second && second > first || second == first && second == second) {
+    1
+  } else if (second < first && first < second) {
+    -1
+  } else {
+    0
+  }
+}
+""".trim()
+        ).complexity().also {
+            it.lookup("first(Int,Int):Int", "Main.kt").complexity shouldBe 8
         }
     }
 })

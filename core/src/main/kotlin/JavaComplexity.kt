@@ -171,7 +171,7 @@ class JavaComplexityListener(val source: Source, entry: Map.Entry<String, String
         } else if (firstToken.type == JavaLexer.IF) {
             /*
              * if statements only ever add one unit of complexity. If no else is present then we either enter
-             * the condition or not or not, adding one path.
+             * the condition or not, adding one path.
              * If else is present then we either take the condition or the else, adding one path.
              */
             currentComplexity.complexity++

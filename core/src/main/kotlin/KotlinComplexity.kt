@@ -176,35 +176,47 @@ class KotlinComplexityListener(val source: Source, entry: Map.Entry<String, Stri
     }
 
     // ||
+    private var requireDepth = 0
     override fun enterDisjunction(ctx: KotlinParser.DisjunctionContext) {
-        if (!ctx.text.contains("||")) {
-            return
+        val conjunction = ctx.conjunction()[0].text
+        if (conjunction.startsWith("require(") ||
+            conjunction.startsWith("check(") ||
+            conjunction.startsWith("assert(")
+        ) {
+            if (requireDepth == 0) {
+                currentComplexity.complexity++
+            }
+            requireDepth++
         }
-        if (ctx.text.contains("(") || ctx.text.contains(")")) {
+        if (ctx.DISJ().isEmpty()) {
             return
         }
         require(complexityStack.isNotEmpty())
-        currentComplexity.complexity++
+        currentComplexity.complexity += 1
+    }
+
+    override fun exitDisjunction(ctx: KotlinParser.DisjunctionContext) {
+        val conjunction = ctx.conjunction()[0].text
+        if (conjunction.startsWith("require(") ||
+            conjunction.startsWith("check(") ||
+            conjunction.startsWith("assert(")
+        ) {
+            requireDepth--
+        }
     }
 
     // &&
     override fun enterConjunction(ctx: KotlinParser.ConjunctionContext) {
-        if (!ctx.text.contains("&&")) {
-            return
-        }
-        if (ctx.text.contains("(") || ctx.text.contains(")")) {
+        if (ctx.CONJ().isEmpty()) {
             return
         }
         require(complexityStack.isNotEmpty())
-        currentComplexity.complexity++
+        currentComplexity.complexity += 1
     }
 
     // ?:
     override fun enterElvisExpression(ctx: KotlinParser.ElvisExpressionContext) {
-        if (!ctx.text.contains("?:")) {
-            return
-        }
-        if (ctx.text.contains("(") || ctx.text.contains(")")) {
+        if (ctx.ELVIS().isEmpty()) {
             return
         }
         require(complexityStack.isNotEmpty())
@@ -218,6 +230,8 @@ class KotlinComplexityListener(val source: Source, entry: Map.Entry<String, Stri
         // currentComplexity.complexity++
     }
 
+    private var inIfExpression = false
+
     // if & else if
     override fun enterIfExpression(ctx: KotlinParser.IfExpressionContext) {
         if (!ctx.text.contains("if")) {
@@ -225,12 +239,22 @@ class KotlinComplexityListener(val source: Source, entry: Map.Entry<String, Stri
         }
         require(complexityStack.isNotEmpty())
         currentComplexity.complexity++
+        inIfExpression = true
+    }
+
+    override fun exitIfExpression(ctx: KotlinParser.IfExpressionContext) {
+        inIfExpression = false
     }
 
     // when, called for each ->, except the default one
     override fun enterWhenCondition(ctx: KotlinParser.WhenConditionContext) {
         require(complexityStack.isNotEmpty())
         currentComplexity.complexity++
+        inIfExpression = true
+    }
+
+    override fun exitWhenCondition(ctx: KotlinParser.WhenConditionContext) {
+        inIfExpression = false
     }
 
     // catch block
@@ -243,6 +267,13 @@ class KotlinComplexityListener(val source: Source, entry: Map.Entry<String, Stri
     override fun enterLoopExpression(ctx: KotlinParser.LoopExpressionContext) {
         require(complexityStack.isNotEmpty())
         currentComplexity.complexity++
+    }
+
+    override fun enterJumpExpression(ctx: KotlinParser.JumpExpressionContext) {
+        if (ctx.THROW() != null && requireDepth == 0) {
+            require(complexityStack.isNotEmpty())
+            currentComplexity.complexity++
+        }
     }
 
     // ?.
