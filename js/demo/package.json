@@ -3,31 +3,31 @@
   "name": "demo",
   "version": "0.1.0",
   "scripts": {
+    "backend": "docker-compose --env-file .env.development up",
     "build": "next build",
     "lint": "next lint",
     "serve": "next start",
     "start": "next dev",
-    "prettier": "prettier -w --plugin=prettier-plugin-organize-imports . && prettier-package-json --write",
-    "backend": "docker-compose --env-file .env.development up"
+    "prettier": "prettier -w --plugin=prettier-plugin-organize-imports . && prettier-package-json --write"
   },
   "dependencies": {
-    "@cs124/jeed-output": "2021.8.2",
-    "@cs124/jeed-react": "2021.8.1",
+    "@cs124/jeed-output": "2021.10.0",
+    "@cs124/jeed-react": "2021.10.0",
     "@cs124/react-google-login": "^2021.7.0",
     "next": "11.1.2",
     "react": "17.0.2",
-    "react-ace": "9.4.3",
+    "react-ace": "9.5.0",
     "react-dom": "17.0.2",
-    "runtypes": "6.4.0"
+    "runtypes": "6.4.1"
   },
   "devDependencies": {
-    "@types/react": "17.0.20",
-    "eslint": "7.32.0",
+    "@types/react": "17.0.32",
+    "eslint": "8.1.0",
     "eslint-config-next": "11.1.2",
-    "prettier": "2.4.0",
+    "prettier": "2.4.1",
     "prettier-package-json": "2.6.0",
-    "prettier-plugin-organize-imports": "2.3.3",
-    "sass": "1.39.0",
-    "typescript": "4.4.2"
+    "prettier-plugin-organize-imports": "2.3.4",
+    "sass": "1.43.3",
+    "typescript": "4.4.4"
   }
 }

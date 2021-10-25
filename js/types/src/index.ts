@@ -94,6 +94,7 @@ export type ServerStatus = Static<typeof ServerStatus>
 export const SnippetArguments = Partial({
   indent: Number,
   fileType: FileType,
+  noEmptyMain: Boolean
 })
 export type SnippetArguments = Static<typeof SnippetArguments>
 
