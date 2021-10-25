@@ -30,10 +30,10 @@ dependencies {
     implementation("org.slf4j:slf4j-api:1.7.32")
     implementation("ch.qos.logback:logback-classic:1.2.6")
     implementation("io.github.microutils:kotlin-logging:2.0.11")
-    implementation("io.github.classgraph:classgraph:4.8.126")
+    implementation("io.github.classgraph:classgraph:4.8.128")
     implementation("net.java.dev.jna:jna:5.9.0")
     implementation("io.github.java-diff-utils:java-diff-utils:4.11")
-    implementation("com.google.googlejavaformat:google-java-format:1.11.0")
+    implementation("com.google.googlejavaformat:google-java-format:1.12.0")
     implementation("net.sf.extjwnl:extjwnl:2.0.3")
     implementation("net.sf.extjwnl:extjwnl-data-wn31:1.2")
 

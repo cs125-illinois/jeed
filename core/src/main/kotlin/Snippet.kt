@@ -14,6 +14,7 @@ import org.antlr.v4.runtime.CharStreams
 import org.antlr.v4.runtime.CommonTokenStream
 import org.antlr.v4.runtime.RecognitionException
 import org.antlr.v4.runtime.Recognizer
+import org.jetbrains.kotlin.backend.common.pop
 
 const val SNIPPET_SOURCE = ""
 
@@ -120,7 +121,8 @@ class SnippetErrorListener(
 @JsonClass(generateAdapter = true)
 data class SnippetArguments(
     val indent: Int = 4,
-    var fileType: Source.FileType = Source.FileType.JAVA
+    var fileType: Source.FileType = Source.FileType.JAVA,
+    val noEmptyMain: Boolean = false
 )
 
 @Suppress("LongMethod", "ComplexMethod")
@@ -213,6 +215,7 @@ ${" ".repeat(snippetArguments.indent * 2)}@JvmStatic fun main() {""".lines().let
         klassLines.add(it.start.line..it.stop.line)
     }
 
+    var sawMainLines = false
     val topLevelStart = parseTree.topLevelObject()?.firstOrNull()?.start?.line ?: 0
     val topLevelEnd = parseTree.topLevelObject()?.lastOrNull()?.stop?.line?.inc() ?: 0
     @Suppress("MagicNumber")
@@ -220,6 +223,7 @@ ${" ".repeat(snippetArguments.indent * 2)}@JvmStatic fun main() {""".lines().let
         if (methodLines.any { it.contains(lineNumber) } || klassLines.any { it.contains(lineNumber) }) {
             continue
         }
+        sawMainLines = true
         val indentAmount = if (lineNumber in multilineLines) {
             0
         } else {
@@ -231,8 +235,13 @@ ${" ".repeat(snippetArguments.indent * 2)}@JvmStatic fun main() {""".lines().let
         currentOutputLineNumber++
     }
 
-    rewrittenSourceLines.add("""${" ".repeat(snippetArguments.indent * 2)}}""")
-    currentOutputLineNumber++
+    if (sawMainLines || !snippetArguments.noEmptyMain) {
+        rewrittenSourceLines.add("""${" ".repeat(snippetArguments.indent * 2)}}""")
+        currentOutputLineNumber++
+    } else {
+        rewrittenSourceLines.pop()
+        currentOutputLineNumber--
+    }
 
     @Suppress("MagicNumber")
     for (methodRange in methodLines) {

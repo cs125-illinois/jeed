@@ -695,6 +695,38 @@ class Example {
             executionResult should haveOutput("")
         }
     }
+    "should parse kotlin snippets without empty main when requested" {
+        Source.fromSnippet(
+            """
+fun test() {
+  i = 0
+}
+""".trim(),
+            SnippetArguments(fileType = Source.FileType.KOTLIN)
+        ).also {
+            it.rewrittenSource.lines() shouldHaveSize 9
+            val compilerError = shouldThrow<CompilationFailed> {
+                it.kompile()
+            }
+            compilerError.errors shouldHaveSize 1
+            compilerError.errors[0].location?.line shouldBe 2
+        }
+        Source.fromSnippet(
+            """
+fun test() {
+  i = 0
+}
+""".trim(),
+            SnippetArguments(fileType = Source.FileType.KOTLIN, noEmptyMain = true)
+        ).also {
+            it.rewrittenSource.lines() shouldHaveSize 7
+            val compilerError = shouldThrow<CompilationFailed> {
+                it.kompile()
+            }
+            compilerError.errors shouldHaveSize 1
+            compilerError.errors[0].location?.line shouldBe 2
+        }
+    }
 })
 
 fun haveParseErrorOnLine(line: Int) = object : Matcher<SnippetTransformationFailed> {

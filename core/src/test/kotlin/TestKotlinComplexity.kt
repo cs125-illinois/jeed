@@ -695,4 +695,20 @@ fun first(first: Int, second: Int): Int {
             it.lookup("first(Int,Int):Int", "Main.kt").complexity shouldBe 8
         }
     }
+    "should measure modulus correctly" {
+        Source.fromKotlin(
+            """
+class Main {
+    companion object {
+        fun sumIsOdd(first: Int, second: Int): Boolean {
+          return (first + second) % 2 != 0
+        }
+    }
+}
+""".trim()
+        ).complexity().also {
+            it.lookup("Main", "Main.kt").complexity shouldBe 1
+            it.lookupFile("Main.kt") shouldBe 1
+        }
+    }
 })
