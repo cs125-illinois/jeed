@@ -18,7 +18,7 @@ allprojects {
 }
 subprojects {
     group = "com.github.cs125-illinois.jeed"
-    version = "2021.10.4"
+    version = "2021.11.0"
     tasks.withType<Test> {
         useJUnitPlatform()
         enableAssertions = true
