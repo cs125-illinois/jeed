@@ -1,9 +1,9 @@
 import org.jetbrains.kotlin.gradle.tasks.KotlinCompile
 
 plugins {
-    kotlin("jvm") version "1.5.31" apply false
-    kotlin("kapt") version "1.5.31" apply false
-    id("org.jmailen.kotlinter") version "3.6.0" apply false
+    kotlin("jvm") version "1.6.0" apply false
+    kotlin("kapt") version "1.6.0" apply false
+    id("org.jmailen.kotlinter") version "3.7.0" apply false
     id("com.github.ben-manes.versions") version "0.39.0"
     id("io.gitlab.arturbosch.detekt") version "1.18.1"
 }
@@ -14,11 +14,19 @@ allprojects {
         maven("https://jitpack.io")
         maven("https://maven.google.com/")
         maven("https://maven.pkg.jetbrains.space/public/p/kotlinx-html/maven")
+        maven("https://oss.sonatype.org/content/repositories/snapshots/") {
+            mavenContent {
+                snapshotsOnly()
+            }
+            content {
+                includeGroup("com.squareup.moshi")
+            }
+        }
     }
 }
 subprojects {
     group = "com.github.cs125-illinois.jeed"
-    version = "2021.11.0"
+    version = "2021.11.1"
     tasks.withType<Test> {
         useJUnitPlatform()
         enableAssertions = true

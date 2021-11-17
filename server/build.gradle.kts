@@ -13,20 +13,20 @@ plugins {
     id("io.gitlab.arturbosch.detekt")
 }
 dependencies {
-    kapt("com.squareup.moshi:moshi-kotlin-codegen:1.12.0")
+    kapt("com.squareup.moshi:moshi-kotlin-codegen:1.13.0-SNAPSHOT")
 
     implementation(project(":core"))
-    implementation("org.jetbrains.kotlin:kotlin-reflect:1.5.31")
+    implementation("org.jetbrains.kotlin:kotlin-reflect:1.6.0")
 
     implementation("io.ktor:ktor-server-netty:1.6.5")
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-core:1.5.2")
-    implementation("com.squareup.moshi:moshi-kotlin-codegen:1.12.0")
+    implementation("com.squareup.moshi:moshi-kotlin-codegen:1.13.0-SNAPSHOT")
     implementation("com.github.cs125-illinois:ktor-moshi:1.0.3")
-    implementation("ch.qos.logback:logback-classic:1.2.6")
+    implementation("ch.qos.logback:logback-classic:1.2.7")
     implementation("com.uchuhimo:konf-core:1.1.2")
     implementation("com.uchuhimo:konf-yaml:1.1.2")
     implementation("io.github.microutils:kotlin-logging:2.0.11")
-    implementation("com.github.cs125-illinois:libcs1:2021.10.3")
+    implementation("com.github.cs125-illinois:libcs1:2021.11.0")
 
     testImplementation("io.kotest:kotest-runner-junit5:4.6.3")
     testImplementation("io.kotest:kotest-assertions-ktor:4.4.3")
