@@ -68,31 +68,38 @@ router.post("/", async (ctx) => {
         "Content-Type": "application/json",
       },
       body: JSON.stringify(request),
-    }).then(async (r) => {
+    }).then(async (r: FetchResponse) => {
       if (r.status === 200) {
         return Response.check(await r.json())
       } else {
         throw await r.text()
       }
     })
-  } catch (err) {
-    collection?.insertOne(
-      Object.assign(
-        { succeeded: false, ...request, start, end: new Date(), ip: ctx.request.ip, err },
-        String.guard(process.env.SEMESTER) ? { semester: process.env.SEMESTER } : null,
-        ctx.email ? { email: ctx.email } : null
-      )
-    )
-    return ctx.throw(400, err)
+  } catch (err: any) {
+    collection?.insertOne({
+      succeeded: false,
+      ...request,
+      start,
+      end: new Date(),
+      ip: ctx.request.ip,
+      err,
+      ...(String.guard(process.env.SEMESTER) && { semester: process.env.SEMESTER }),
+      ...(ctx.email && { email: ctx.email }),
+      ...(ctx.request.origin && { origin: ctx.request.origin }),
+    })
+    return ctx.throw(err, 400)
   }
   ctx.body = response
-  collection?.insertOne(
-    Object.assign(
-      { succeeded: true, ...response, start, end: new Date(), ip: ctx.request.ip },
-      String.guard(process.env.SEMESTER) ? { semester: process.env.SEMESTER } : null,
-      ctx.email ? { email: ctx.email } : null
-    )
-  )
+  collection?.insertOne({
+    succeeded: true,
+    ...response,
+    start,
+    end: new Date(),
+    ip: ctx.request.ip,
+    ...(String.guard(process.env.SEMESTER) && { semester: process.env.SEMESTER }),
+    ...(ctx.email && { email: ctx.email }),
+    ...(ctx.request.origin && { origin: ctx.request.origin }),
+  })
 })
 
 const db = new Map()
