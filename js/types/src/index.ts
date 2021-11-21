@@ -60,6 +60,9 @@ export const Interval = Record({
 })
 export type Interval = Static<typeof Interval>
 
+export const intervalDuration = (interval: Interval) =>
+  new Date(interval.end).valueOf() - new Date(interval.start).valueOf()
+
 export const ServerStatus = Record({
   tasks: Array(Task),
   started: String.withConstraint((s) => !isNaN(Date.parse(s))),
@@ -94,7 +97,7 @@ export type ServerStatus = Static<typeof ServerStatus>
 export const SnippetArguments = Partial({
   indent: Number,
   fileType: FileType,
-  noEmptyMain: Boolean
+  noEmptyMain: Boolean,
 })
 export type SnippetArguments = Static<typeof SnippetArguments>
 
@@ -512,6 +515,7 @@ export const Response = Record({
   completedTasks: Array(Task),
   failed: FailedTasks,
   failedTasks: Array(Task),
+  interval: Interval,
 }).And(
   Partial({
     email: String,

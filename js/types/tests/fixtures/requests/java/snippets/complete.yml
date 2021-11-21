@@ -11,7 +11,7 @@ arguments:
     useCache: false
     waitForCache: true
   execution:
-    timeout: 200
+    timeout: 80
     permissions:
       - klass: java.util.PropertyPermission
         name: java.specification.version

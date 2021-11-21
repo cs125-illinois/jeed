@@ -12,14 +12,15 @@ const server = String.check(process.env.JEED_SERVER)
 
 async function postRequest(server: string, request: Request, validate = true): Promise<Response> {
   request = validate ? Request.check(request) : request
-  const response = await (
-    await fetch(server, {
-      method: "post",
-      body: JSON.stringify(request),
-      headers: { "Content-Type": "application/json" },
-      credentials: "include",
-    })
-  ).json()
+  const result = await fetch(server, {
+    method: "post",
+    body: JSON.stringify(request),
+    headers: { "Content-Type": "application/json" },
+  })
+  if (result.status !== 200) {
+    throw result.status
+  }
+  const response = await result.json()
   return validate ? Response.check(response) : (response as Response)
 }
 
@@ -30,7 +31,7 @@ describe("ServerStatus", function () {
   it("should accept a valid status", async function () {
     const status = await (await fetch(server)).json()
     try {
-      ServerStatus.check(status)
+      ServerStatus.check(status.status)
     } catch (err) {
       console.log(err.key)
       console.log(JSON.stringify(status, null, 2))
@@ -50,12 +51,13 @@ async function checkRequest(request: unknown, verbose = false): Promise<Response
     throw err
   }
   const validatedRequest = Request.check(request)
-  const response = await postRequest(server, request as Request, false)
+  let response
   try {
+    response = await postRequest(server, request as Request, false)
     Response.check(response)
   } catch (err) {
-    console.log(`Response problem: ${err.key}`)
-    if (verbose) {
+    console.log(`Response problem: ${err.key || JSON.stringify(err)}`)
+    if (verbose && response) {
       console.log(JSON.stringify(response, null, 2))
     }
     throw err
