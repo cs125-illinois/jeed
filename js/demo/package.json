@@ -8,26 +8,30 @@
     "lint": "next lint",
     "serve": "next start",
     "start": "next dev",
-    "prettier": "prettier -w --plugin=prettier-plugin-organize-imports . && prettier-package-json --write"
+    "prettier": "prettier -w --plugin=prettier-plugin-organize-imports . && prettier-package-json --write",
+    "deploy": "gh-pages -t -d dist",
+    "preexport": "rimraf dist && NEXT_PUBLIC_BASE_PATH=/jeed yarn build",
+    "export": "NEXT_PUBLIC_BASE_PATH=/jeed next export -o dist && touch dist/.nojekyll"
   },
   "dependencies": {
-    "@cs124/jeed-output": "2021.10.0",
-    "@cs124/jeed-react": "2021.10.0",
-    "@cs124/react-google-login": "^2021.7.0",
-    "next": "11.1.2",
+    "@cs124/jeed-output": "2021.11.1",
+    "@cs124/jeed-react": "2021.11.1",
+    "@cs124/react-google-login": "^2021.11.0",
+    "next": "12.0.4",
     "react": "17.0.2",
     "react-ace": "9.5.0",
     "react-dom": "17.0.2",
-    "runtypes": "6.4.1"
+    "runtypes": "6.5.0"
   },
   "devDependencies": {
-    "@types/react": "17.0.32",
-    "eslint": "8.1.0",
-    "eslint-config-next": "11.1.2",
+    "@types/react": "17.0.35",
+    "eslint": "8.3.0",
+    "eslint-config-next": "12.0.4",
+    "gh-pages": "^3.2.3",
     "prettier": "2.4.1",
     "prettier-package-json": "2.6.0",
     "prettier-plugin-organize-imports": "2.3.4",
-    "sass": "1.43.3",
-    "typescript": "4.4.4"
+    "sass": "1.43.4",
+    "typescript": "4.5.2"
   }
 }

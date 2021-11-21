@@ -1,6 +1,6 @@
 import { terminalOutput } from "@cs124/jeed-output"
 import { JeedProvider, useJeed } from "@cs124/jeed-react"
-import { Request, Response, Task, TaskArguments } from "@cs124/jeed-types"
+import { intervalDuration, Request, Response, Task, TaskArguments } from "@cs124/jeed-types"
 import { GoogleLoginProvider, useGoogleLogin, WithGoogleTokens } from "@cs124/react-google-login"
 import dynamic from "next/dynamic"
 import { useCallback, useEffect, useMemo, useRef, useState } from "react"
@@ -8,18 +8,61 @@ import { IAceEditor } from "react-ace/lib/types"
 
 const AceEditor = dynamic(() => import("react-ace"), { ssr: false })
 
-const DEFAULT_JAVA_SNIPPET = `System.out.println("Hello, Java!");`
-const DEFAULT_KOTLIN_SNIPPET = `println("Hello, Kotlin!")`
-const DEFAULT_JAVA_CLASS = `public class Example {
+const DEFAULT_JAVA_SNIPPET = `
+// Java Snippet Mode
+
+// Execution starts at the top level
+System.out.println("Hello, Java!");
+
+// Loose code and method definitions supported
+int i = 0;
+System.out.println(i);
+int addOne(int value) {
+  return value + 1;
+}
+System.out.println(addOne(2));
+
+// Modern Java features like records are supported
+record Person(String name, int age) {}
+System.out.println(new Person("Geoffrey", 42));
+`.trim()
+
+const DEFAULT_KOTLIN_SNIPPET = `
+// Kotlin Snippet Mode
+
+// Execution starts at the top level
+println("Hello, Kotlin!")
+
+// Loose code and method definitions supported
+val i = 0
+println(i)
+fun addOne(value: Int) = value + 1
+println(addOne(2))
+
+// All Kotlin features are supported
+data class Person(val name: String, val age: Int)
+println(Person("Geoffrey", 42))
+`.trim()
+
+const DEFAULT_JAVA_CLASS = `
+// Java Source Mode
+
+// Execution starts in Example.main, but this is configurable
+public class Example {
   public static void main() {
     System.out.println("Hello, Java!");
   }
 }
-`
-const DEFAULT_KOTLIN_CLASS = `fun main() {
+`.trim()
+
+const DEFAULT_KOTLIN_CLASS = `
+// Kotlin Source Mode
+
+// Execution starts in the top-level main method, but this is configurable
+fun main() {
   println("Hello, Kotlin!")
 }
-`
+`.trim()
 
 const LoginButton: React.FC = () => {
   const { isSignedIn, auth, ready } = useGoogleLogin()
@@ -84,12 +127,31 @@ const JeedDemo: React.FC = () => {
       try {
         const response = await runJeed(request, true)
         setResponse({ response })
-      } catch (error) {
+      } catch (error: any) {
         setResponse({ error })
       }
     },
     [mode, snippet, runJeed]
   )
+
+  const timings = useMemo(() => {
+    if (response?.response) {
+      return {
+        total: intervalDuration(response.response.interval),
+        ...(response.response.completed.compilation && {
+          compilation: intervalDuration(response.response.completed.compilation.interval),
+        }),
+        ...(response.response.completed.kompilation && {
+          compilation: intervalDuration(response.response.completed.kompilation.interval),
+        }),
+        ...(response.response.completed.execution && {
+          execution: intervalDuration(response.response.completed.execution.interval),
+        }),
+      }
+    } else {
+      return undefined
+    }
+  }, [response])
 
   const output = useMemo(
     () =>
@@ -208,19 +270,40 @@ const JeedDemo: React.FC = () => {
           </button>
         </div>
       </div>
+      {timings !== undefined && (
+        <div style={{ display: "flex", flexDirection: "row" }}>
+          <div>Total: {timings.total}ms</div>
+          {timings.compilation !== undefined && (
+            <div style={{ marginLeft: 8 }}>
+              Compilation: {timings.compilation}ms
+              {(response?.response?.completed.compilation?.cached ||
+                response?.response?.completed.kompilation?.cached) && <span> (Cached)</span>}
+            </div>
+          )}
+          {timings.execution !== undefined && <div style={{ marginLeft: 8 }}>Execution: {timings.execution}ms</div>}
+        </div>
+      )}
       {output !== undefined && (
-        <div className="output">
-          <span className={output.level}>{output.output}</span>
+        <div style={{ marginTop: 8 }}>
+          <p>Output processed to mimic terminal output:</p>
+          <div className="output">
+            <span className={output.level}>{output.output}</span>
+          </div>
         </div>
       )}
       {response?.response && (
-        <AceEditor
-          readOnly
-          theme="github"
-          mode="json"
-          height="32rem"
-          value={JSON.stringify(response.response, null, 2)}
-        />
+        <div style={{ marginTop: 8 }}>
+          <p>Full server response object containing detailed result information.</p>
+          <AceEditor
+            readOnly
+            theme="github"
+            mode="json"
+            height="32rem"
+            width="100%"
+            showPrintMargin={false}
+            value={JSON.stringify(response.response, null, 2)}
+          />
+        </div>
       )}
     </>
   )
@@ -235,6 +318,21 @@ export default function Home() {
             <h2>Jeed Demo</h2>
             <div style={{ marginBottom: 8 }}>
               <LoginButton />
+            </div>
+            <div style={{ marginBottom: 8 }}>
+              <p>
+                <a href="https://github.com/cs125-illinois/jeed">Jeed</a> is a fast Java and Kotlin execution and
+                analysis toolkit. It compiles and safely executes Java and Kotlin code up to 100 times faster than using
+                a container, allowing a small number of backend servers to easily support a large amount of interactive
+                use.
+              </p>
+              <p>
+                Jeed can also perform a variety of analysis tasks, including linting (<kbd>checkstyle</kbd> and{" "}
+                <kbd>ktlint</kbd>), cyclomatic complexity analysis, and language feature analysis (Java only currently).
+                It also supports <em>snippet mode</em>, a relaxed Java and Kotlin syntax that allows top-level method
+                definitions and loose code.
+              </p>
+              <p>Use the demo below to explore Jeed's features.</p>
             </div>
             <JeedDemo />
           </JeedProvider>

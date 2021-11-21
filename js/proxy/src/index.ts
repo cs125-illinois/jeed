@@ -75,6 +75,7 @@ router.post("/", async (ctx) => {
         throw await r.text()
       }
     })
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
   } catch (err: any) {
     collection?.insertOne({
       succeeded: false,
