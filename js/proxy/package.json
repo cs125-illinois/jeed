@@ -1,7 +1,7 @@
 {
   "private": true,
   "name": "proxy",
-  "version": "2021.11.1",
+  "version": "2021.11.2",
   "scripts": {
     "build": "rimraf dist && esbuild src/index.ts --sourcemap --bundle --platform=node --outfile=dist/index.js",
     "clean": "rimraf dist",

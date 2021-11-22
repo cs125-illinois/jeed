@@ -108,7 +108,12 @@ const server = new Koa({ proxy: true })
   .use(
     cors({
       origin: (ctx) => {
-        if (!ctx.headers.origin || (validDomains && !validDomains.includes(ctx.headers.origin))) {
+        if (
+          !ctx.headers.origin ||
+          (validDomains &&
+            !validDomains.includes(ctx.headers.origin) &&
+            !validDomains.includes(ctx.headers.origin.split(".").slice(-2).join(".")))
+        ) {
           return ""
         } else {
           return ctx.headers.origin
