@@ -344,7 +344,7 @@ List list = new ArrayList();
         compiledSource should haveProvidedThisManyClasses(0)
     }
     "should compile with classes from nonstandard libraries" {
-        val compiledSource = Source.fromSnippet(
+        @Suppress("SpellCheckingInspection") val compiledSource = Source.fromSnippet(
             """
 import com.puppycrawl.tools.checkstyle.Checker;
 
@@ -354,7 +354,7 @@ System.out.println(new Checker());
         compiledSource should haveDefinedExactlyTheseClasses(setOf("Main"))
     }
     "should compile with classes from .class files" {
-        val compiledSource = Source.fromSnippet(
+        @Suppress("SpellCheckingInspection") val compiledSource = Source.fromSnippet(
             """
 import edu.illinois.cs.cs125.testingjeed.importable.*;
 
@@ -413,7 +413,7 @@ public class Test {
     }
     "should compile sources that use Java 14 features" {
         if (systemCompilerVersion >= 14) {
-            val compiledSource = Source(
+            @Suppress("SpellCheckingInspection") val compiledSource = Source(
                 mapOf(
                     "Test.java" to """
 public class Test {
@@ -455,7 +455,7 @@ public class Test {
         }
     }
     "should not support Java 14 preview features when preview is disabled" {
-        if (systemCompilerVersion >= 14 && systemCompilerVersion < 15) {
+        if (systemCompilerVersion in 14..14) {
             shouldThrow<CompilationFailed> {
                 val tripleQuote = "\"\"\""
                 Source(
@@ -582,8 +582,8 @@ fun haveCompilationErrorAt(source: String = SNIPPET_SOURCE, line: Int, column: I
                         it.location?.line == line &&
                         (column == null || it.location?.column == column)
                 },
-                "should have compilation error on line $line",
-                "should not have compilation error on line $line"
+                { "should have compilation error on line $line" },
+                { "should not have compilation error on line $line" }
             )
         }
     }
@@ -592,8 +592,8 @@ fun haveCompilationMessageAt(source: String = SNIPPET_SOURCE, line: Int) = objec
     override fun test(value: CompiledSource): MatcherResult {
         return MatcherResult(
             value.messages.any { it.location?.source == source && it.location?.line == line },
-            "should have compilation message on line $line",
-            "should not have compilation message on line $line"
+            { "should have compilation message on line $line" },
+            { "should not have compilation message on line $line" }
         )
     }
 }
@@ -607,13 +607,15 @@ fun <T> haveDefinedExactlyTheseClasses(classes: Set<String>) = object : Matcher<
         }
         return MatcherResult(
             definedClasses == classes,
-            "should have defined ${classes.joinToString(separator = ", ")} " +
-                "(found ${
-                definedClasses.joinToString(
-                    separator = ", "
-                )
-                })",
-            "should not have defined ${classes.joinToString(separator = ", ")}"
+            {
+                "should have defined ${classes.joinToString(separator = ", ")} " +
+                    "(found ${
+                    definedClasses.joinToString(
+                        separator = ", "
+                    )
+                    })"
+            },
+            { "should not have defined ${classes.joinToString(separator = ", ")}" }
         )
     }
 }
@@ -627,8 +629,8 @@ fun <T> haveProvidedThisManyClasses(count: Int) = object : Matcher<T> {
         }
         return MatcherResult(
             providedClassCount == count,
-            "should have loaded $count classes (found $providedClassCount)",
-            "should not have loaded $count classes"
+            { "should have loaded $count classes (found $providedClassCount)" },
+            { "should not have loaded $count classes" }
         )
     }
 }
@@ -642,11 +644,13 @@ fun <T> haveProvidedExactlyTheseClasses(classes: Set<String>) = object : Matcher
         }
         return MatcherResult(
             providedClasses == classes,
-            "should have provided ${classes.joinToString(separator = ", ")} (found ${
-            providedClasses
-                .joinToString(separator = ", ")
-            })",
-            "should not have provided ${classes.joinToString(separator = ", ")}"
+            {
+                "should have provided ${classes.joinToString(separator = ", ")} (found ${
+                providedClasses
+                    .joinToString(separator = ", ")
+                })"
+            },
+            { "should not have provided ${classes.joinToString(separator = ", ")}" }
         )
     }
 }
@@ -660,13 +664,15 @@ fun <T> haveLoadedAtLeastTheseClasses(classes: Set<String>) = object : Matcher<T
         }
         return MatcherResult(
             loadedClasses.containsAll(classes),
-            "should have loaded at least ${classes.joinToString(separator = ", ")} " +
-                "(found ${
-                loadedClasses.joinToString(
-                    separator = ", "
-                )
-                })",
-            "should not have loaded at least ${classes.joinToString(separator = ", ")}"
+            {
+                "should have loaded at least ${classes.joinToString(separator = ", ")} " +
+                    "(found ${
+                    loadedClasses.joinToString(
+                        separator = ", "
+                    )
+                    })"
+            },
+            { "should not have loaded at least ${classes.joinToString(separator = ", ")}" }
         )
     }
 }

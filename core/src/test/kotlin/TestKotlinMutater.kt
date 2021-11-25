@@ -324,6 +324,19 @@ fun test(first: Int, second: Int) {
         }
     }
 
+    "!it should mutate array literals" {
+        Source.fromKotlin(
+            """
+fun test(first: Int, second: Int) {
+  val list = arrayOf(1, 2, 4)
+}
+""".trim()
+        ).checkMutations<ModifyArrayLiteral> { mutations, contents ->
+            mutations shouldHaveSize 1
+            mutations[0].check(contents, "1, 2, 4", "")
+        }
+    }
+
     "it should remove entire methods" {
         Source.fromKotlin(
             """

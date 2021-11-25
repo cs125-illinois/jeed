@@ -512,7 +512,7 @@ letters[-1] = 'X'
     "should execute sources that use Java 14 features" {
         @Suppress("MagicNumber")
         if (systemCompilerVersion >= 14) {
-            val executionResult = Source(
+            @Suppress("SpellCheckingInspection") val executionResult = Source(
                 mapOf(
                     "Main.java" to """
 record Range(int lo, int hi) {
@@ -566,8 +566,8 @@ fun haveCompleted() = object : Matcher<Sandbox.TaskResults<out Any?>> {
     override fun test(value: Sandbox.TaskResults<out Any?>): MatcherResult {
         return MatcherResult(
             value.completed,
-            "Code should have run: ${value.threw}",
-            "Code should not have run"
+            { "Code should have run: ${value.threw}" },
+            { "Code should not have run" }
         )
     }
 }
@@ -576,8 +576,8 @@ fun haveTimedOut() = object : Matcher<Sandbox.TaskResults<out Any?>> {
     override fun test(value: Sandbox.TaskResults<out Any?>): MatcherResult {
         return MatcherResult(
             value.timeout,
-            "Code should have timed out",
-            "Code should not have timed out"
+            { "Code should have timed out" },
+            { "Code should not have timed out" }
         )
     }
 }
@@ -587,8 +587,8 @@ fun haveOutput(output: String = "") = object : Matcher<Sandbox.TaskResults<out A
         val actualOutput = value.output.trim()
         return MatcherResult(
             actualOutput == output,
-            "Expected output $output, found $actualOutput",
-            "Expected to not find output $actualOutput"
+            { "Expected output $output, found $actualOutput" },
+            { "Expected to not find output $actualOutput" }
         )
     }
 }
@@ -598,8 +598,8 @@ fun haveExactOutput(output: String = "") = object : Matcher<Sandbox.TaskResults<
         val actualOutput = value.output
         return MatcherResult(
             actualOutput == output,
-            "Expected output ->$output<-, found ->$actualOutput<-",
-            "Expected to not find output $actualOutput"
+            { "Expected output ->$output<-, found ->$actualOutput<-" },
+            { "Expected to not find output $actualOutput" }
         )
     }
 }
@@ -609,8 +609,8 @@ fun haveStdout(output: String) = object : Matcher<Sandbox.TaskResults<out Any?>>
         val actualOutput = value.stdout.trim()
         return MatcherResult(
             actualOutput == output,
-            "Expected stdout $output, found $actualOutput",
-            "Expected to not find stdout $actualOutput"
+            { "Expected stdout $output, found $actualOutput" },
+            { "Expected to not find stdout $actualOutput" }
         )
     }
 }
@@ -620,8 +620,8 @@ fun haveStderr(output: String) = object : Matcher<Sandbox.TaskResults<out Any?>>
         val actualOutput = value.stderr.trim()
         return MatcherResult(
             actualOutput == output,
-            "Expected stderr $output, found $actualOutput",
-            "Expected to not find stderr $actualOutput"
+            { "Expected stderr $output, found $actualOutput" },
+            { "Expected to not find stderr $actualOutput" }
         )
     }
 }

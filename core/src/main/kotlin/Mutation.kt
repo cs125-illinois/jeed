@@ -64,7 +64,8 @@ sealed class Mutation(
         REMOVE_RUNTIME_CHECK, REMOVE_METHOD,
         NEGATE_IF, NEGATE_WHILE, REMOVE_IF, REMOVE_LOOP, REMOVE_AND_OR, REMOVE_TRY, REMOVE_STATEMENT,
         REMOVE_PLUS, REMOVE_BINARY, CHANGE_EQUALS,
-        SWAP_BREAK_CONTINUE, PLUS_OR_MINUS_ONE_TO_ZERO, ADD_BREAK
+        SWAP_BREAK_CONTINUE, PLUS_OR_MINUS_ONE_TO_ZERO, ADD_BREAK,
+        MODIFY_ARRAY_LITERAL
     }
 
     var modified: String? = null
@@ -148,14 +149,16 @@ data class AppliedMutation(
     var location: Mutation.Location,
     val original: String,
     val mutated: String,
-    val linesChanged: Int
+    val linesChanged: Int,
+    val mightNotCompile: Boolean
 ) {
     constructor(mutation: Mutation) : this(
         mutation.mutationType,
         mutation.location,
         mutation.original,
         mutation.modified!!,
-        mutation.linesChanged!!
+        mutation.linesChanged!!,
+        mutation.mightNotCompile
     ) {
         require(mutation.applied) { "Must be created from an applied mutation" }
     }
@@ -933,5 +936,21 @@ class AddBreak(
     override fun applyMutation(random: Random): String = when (fileType) {
         Source.FileType.JAVA -> "break; }"
         Source.FileType.KOTLIN -> "break }"
+    }
+}
+
+class ModifyArrayLiteral(
+    location: Location,
+    original: String,
+    fileType: Source.FileType
+) : Mutation(Type.MODIFY_ARRAY_LITERAL, location, original, fileType) {
+    override val preservesLength = false
+    override val estimatedCount = 1
+    override val mightNotCompile = false
+    override val fixedCount = true
+
+    override fun applyMutation(random: Random): String = when (fileType) {
+        Source.FileType.JAVA -> ""
+        Source.FileType.KOTLIN -> ""
     }
 }
