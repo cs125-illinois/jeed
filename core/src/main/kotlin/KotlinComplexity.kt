@@ -125,20 +125,11 @@ class KotlinComplexityListener(val source: Source, entry: Map.Entry<String, Stri
     }
 
     override fun enterFunctionDeclaration(ctx: KotlinParser.FunctionDeclarationContext) {
-        val name = ctx.identifier().text
+        val name = ctx.simpleIdentifier().text
         val parameters = ctx.functionValueParameters().functionValueParameter()?.joinToString(",") {
             it.parameter().type().text
         }
-        val returnType = ctx.type().let {
-            if (it.isEmpty()) {
-                null
-            } else {
-                check(it.last().start.startIndex > ctx.identifier().start.startIndex) {
-                    "Couldn't find method return type"
-                }
-                it.last().text
-            }
-        }
+        val returnType = ctx.type()?.text
         val longName = ("$name($parameters)${returnType?.let { ":$returnType" } ?: ""}").let {
             if (anonymousClassDepth > 0) {
                 "${it}${"$"}$objectLiteralCounter"
@@ -216,7 +207,7 @@ class KotlinComplexityListener(val source: Source, entry: Map.Entry<String, Stri
 
     // ?:
     override fun enterElvisExpression(ctx: KotlinParser.ElvisExpressionContext) {
-        if (ctx.ELVIS().isEmpty()) {
+        if (ctx.elvis().isEmpty()) {
             return
         }
         require(complexityStack.isNotEmpty())
@@ -264,7 +255,7 @@ class KotlinComplexityListener(val source: Source, entry: Map.Entry<String, Stri
     }
 
     // do, while, and for
-    override fun enterLoopExpression(ctx: KotlinParser.LoopExpressionContext) {
+    override fun enterLoopStatement(ctx: KotlinParser.LoopStatementContext) {
         require(complexityStack.isNotEmpty())
         currentComplexity.complexity++
     }
@@ -286,7 +277,7 @@ class KotlinComplexityListener(val source: Source, entry: Map.Entry<String, Stri
     }
 
     // !!.
-    override fun enterPostfixUnaryOperation(ctx: KotlinParser.PostfixUnaryOperationContext) {
+    override fun enterPostfixUnaryOperator(ctx: KotlinParser.PostfixUnaryOperatorContext) {
         if (ctx.text != "!!") {
             return
         }

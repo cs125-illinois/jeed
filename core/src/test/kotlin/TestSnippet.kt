@@ -733,8 +733,8 @@ fun haveParseErrorOnLine(line: Int) = object : Matcher<SnippetTransformationFail
     override fun test(value: SnippetTransformationFailed): MatcherResult {
         return MatcherResult(
             value.errors.any { it.location.line == line },
-            "should have parse error on line $line",
-            "should not have parse error on line $line"
+            { "should have parse error on line $line" },
+            { "should not have parse error on line $line" }
         )
     }
 }

@@ -389,7 +389,7 @@ fun test(first: Int, second: Int): Int {
 """.trim()
         ).checkMutations<NegateIf> { mutations, contents ->
             mutations shouldHaveSize 1
-            mutations[0].check(contents, "(first > second)", "(!(first > second))")
+            mutations[0].check(contents, "first > second", "!(first > second)")
         }
     }
 
@@ -408,8 +408,8 @@ fun test(first: Int): Int {
 """.trim()
         ).checkMutations<NegateWhile> { mutations, contents ->
             mutations shouldHaveSize 2
-            mutations[0].check(contents, "(i < first)", "(!(i < first))")
-            mutations[1].check(contents, "(i > first)", "(!(i > first))")
+            mutations[0].check(contents, "i < first", "!(i < first)")
+            mutations[1].check(contents, "i > first", "!(i > first)")
         }
     }
 

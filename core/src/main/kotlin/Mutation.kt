@@ -773,7 +773,10 @@ class NegateIf(
     override val estimatedCount = 1
     override val mightNotCompile = false
     override val fixedCount = true
-    override fun applyMutation(random: Random) = "(!$original)"
+    override fun applyMutation(random: Random) = when (fileType) {
+        Source.FileType.JAVA -> "(!$original)"
+        Source.FileType.KOTLIN -> "!($original)"
+    }
 }
 
 class NegateWhile(
@@ -785,7 +788,10 @@ class NegateWhile(
     override val estimatedCount = 1
     override val mightNotCompile = false
     override val fixedCount = true
-    override fun applyMutation(random: Random) = "(!$original)"
+    override fun applyMutation(random: Random) = when (fileType) {
+        Source.FileType.JAVA -> "(!$original)"
+        Source.FileType.KOTLIN -> "!($original)"
+    }
 }
 
 class RemoveIf(

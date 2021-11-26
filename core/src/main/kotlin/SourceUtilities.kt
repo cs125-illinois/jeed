@@ -105,16 +105,16 @@ fun Source.ParsedSource.stripAssertionMessages(type: Source.FileType): String {
                 var currentStart = 0
                 val keep = mutableListOf<Any>()
                 override fun enterPostfixUnaryExpression(ctx: KotlinParser.PostfixUnaryExpressionContext) {
-                    val identifier = ctx.atomicExpression()?.simpleIdentifier()?.text
+                    val identifier = ctx.primaryExpression()?.simpleIdentifier()?.text
                     if (identifier != null && listOf("assert", "check", "require").contains(identifier)) {
-                        ctx.postfixUnaryOperation(0)?.callSuffix()?.annotatedLambda(0)?.also {
+                        ctx.postfixUnarySuffix(0)?.callSuffix()?.annotatedLambda()?.also {
                             val start = it.start.startIndex
                             keep += (currentStart until start) as Any
                             currentStart = it.stop.stopIndex + 1
                         }
                     }
                     if (identifier == "error") {
-                        ctx.postfixUnaryOperation(0)?.callSuffix()?.valueArguments()?.also {
+                        ctx.postfixUnarySuffix(0)?.callSuffix()?.valueArguments()?.also {
                             val start = it.start.startIndex
                             keep += (currentStart until start + 1) as Any
                             keep += "\"error\""
