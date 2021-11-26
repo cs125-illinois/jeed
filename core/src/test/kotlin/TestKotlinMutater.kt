@@ -1,6 +1,7 @@
 package edu.illinois.cs.cs125.jeed.core
 
 import io.kotest.core.spec.style.StringSpec
+import io.kotest.matchers.collections.shouldHaveAtLeastSize
 import io.kotest.matchers.collections.shouldHaveSize
 import io.kotest.matchers.shouldBe
 import io.kotest.matchers.shouldNotBe
@@ -23,7 +24,6 @@ fun example() {
             mutations[1].check(contents, "===", "==")
         }
     }
-
     "it should find boolean literals to mutate" {
         Source.fromKotlin(
             """
@@ -39,7 +39,6 @@ class Example() {
             mutations[1].check(contents, "false", "true")
         }
     }
-
     "it should find char literals to mutate" {
         Source.fromKotlin(
             """
@@ -55,7 +54,6 @@ class Example {
             mutations[1].check(contents, "'!'")
         }
     }
-
     "it should find string literals to mutate" {
         Source.fromKotlin(
             """
@@ -72,7 +70,6 @@ fun example() {
             mutations[1].check(contents, "\"\"")
         }
     }
-
     "it should find number literals to mutate" {
         Source.fromKotlin(
             """
@@ -91,7 +88,6 @@ fun example() {
             mutations[3].check(contents, "0b1001011")
         }
     }
-
     "it should find increments and decrements to mutate" { // what if in text
         Source.fromKotlin(
             """
@@ -108,7 +104,6 @@ fun example() {
             mutations[1].check(contents, "--", "++")
         }
     }
-
     "it should find negatives to invert" {
         Source.fromKotlin(
             """
@@ -124,7 +119,6 @@ fun example() {
             mutations[1].check(contents, "-", "")
         }
     }
-
     "it should find math to mutate" {
         Source.fromKotlin(
             """
@@ -146,7 +140,6 @@ fun example() {
             mutations[3].check(contents, "%", "*")
         }
     }
-
     "it should mutate plus separately" {
         Source.fromKotlin(
             """
@@ -161,7 +154,6 @@ fun example() {
             mutations[0].check(contents, "+", "-")
         }
     }
-
     "it should find conditional boundaries to mutate" {
         Source.fromKotlin(
             """
@@ -180,7 +172,6 @@ fun example() {
             mutations[1].check(contents, ">=", ">")
         }
     }
-
     "it should find conditionals to negate" {
         Source.fromKotlin(
             """
@@ -202,7 +193,6 @@ fun example() {
             mutations[2].check(contents, "==", "!=")
         }
     }
-
     "it should find primitive returns to mutate" {
         Source.fromKotlin(
             """
@@ -235,7 +225,6 @@ fun eighth(): Double {
             mutations[1].check(contents, "'A'", "0")
         }
     }
-
     "it should find true returns to mutate" {
         Source.fromKotlin(
             """
@@ -257,7 +246,6 @@ fun fourth(): Boolean {
             mutations[1].check(contents, "false", "true")
         }
     }
-
     "it should find false returns to mutate" {
         Source.fromKotlin(
             """
@@ -279,7 +267,6 @@ fun fourth(): Boolean {
             mutations[1].check(contents, "true", "false")
         }
     }
-
     "it should find null returns to mutate" {
         Source.fromKotlin(
             """
@@ -304,7 +291,6 @@ fun fifth(): IntArray {
             mutations[1].check(contents, "IntArray(5)", "null")
         }
     }
-
     "it should find asserts, requires, and checks to mutate" {
         Source.fromKotlin(
             """
@@ -323,7 +309,6 @@ fun test(first: Int, second: Int) {
             mutations[3].check(contents, """assert(second >= 0) {"Bad second value"}""", "")
         }
     }
-
     "!it should mutate array literals" {
         Source.fromKotlin(
             """
@@ -336,7 +321,6 @@ fun test(first: Int, second: Int) {
             mutations[0].check(contents, "1, 2, 4", "")
         }
     }
-
     "it should remove entire methods" {
         Source.fromKotlin(
             """
@@ -355,7 +339,6 @@ fun test(first: Int, second: Int): LongArray {
             mutations shouldHaveSize 2
         }
     }
-
     "it should not remove entire methods if they are already blank" {
         Source.fromKotlin(
             """
@@ -375,7 +358,6 @@ fun test4(first: Int, second: Int) {
             mutations shouldHaveSize 0
         }
     }
-
     "it should negate if statements" {
         Source.fromKotlin(
             """
@@ -392,7 +374,6 @@ fun test(first: Int, second: Int): Int {
             mutations[0].check(contents, "first > second", "!(first > second)")
         }
     }
-
     "it should negate while statements" {
         Source.fromKotlin(
             """
@@ -412,7 +393,6 @@ fun test(first: Int): Int {
             mutations[1].check(contents, "i > first", "!(i > first)")
         }
     }
-
     "it should remove if statements" {
         Source.fromKotlin(
             """
@@ -450,7 +430,6 @@ fun test(first: Int) {
             )
         }
     }
-
     "it should swap and and or" {
         Source.fromKotlin(
             """
@@ -465,7 +444,6 @@ fun test(first: Int) {
             mutations[0].check(contents, "&&", "||")
         }
     }
-
     "it should swap break and continue" {
         Source.fromKotlin(
             """
@@ -485,7 +463,6 @@ fun test(first: Int) {
             mutations[0].check(contents, "continue", "break")
         }
     }
-
     "it should remove plus and minus 1" {
         Source.fromKotlin(
             """
@@ -501,7 +478,6 @@ fun test() {
             mutations[1].check(contents, "1", "0")
         }
     }
-
     "it should remove loops correctly" {
         Source.fromKotlin(
             """
@@ -520,7 +496,6 @@ fun test(first: Int) {
             mutations[3].check(contents, "do {} while (true)", "")
         }
     }
-
     "it should add breaks to for loops correctly" {
         Source.fromKotlin(
             """
@@ -537,7 +512,6 @@ fun test(first: Int) {
             mutations[1].check(contents, "}", "break }")
         }
     }
-
     "it should remove and-ors in while loops" {
         Source.fromKotlin(
             """
@@ -554,7 +528,6 @@ fun test(first: Int) {
             mutations[3].check(contents, " || true", "")
         }
     }
-
     "it should remove and-ors correctly" {
         Source.fromKotlin(
             """
@@ -571,7 +544,6 @@ fun test(first: Int) {
             mutations[3].check(contents, " || true", "")
         }
     }
-
     "it should remove try correctly" {
         Source.fromKotlin(
             """
@@ -585,7 +557,6 @@ fun test(first: Int) {
             mutations shouldHaveSize 1
         }
     }
-
     "it should remove statements correctly" {
         Source.fromKotlin(
             """
@@ -602,7 +573,6 @@ fun test() {
             mutations shouldHaveSize 4
         }
     }
-
     "it should remove plus correctly" {
         Source.fromKotlin(
             """
@@ -619,7 +589,6 @@ fun test() {
             mutations[3].check(contents, " + 4", "")
         }
     }
-
     "it should remove blank lines correctly" {
         val source = Source.fromKotlin(
             """
@@ -637,7 +606,6 @@ fun test(first: Int, second: Int) {
             mutations[1].contents.lines().filter { it.isBlank() } shouldHaveSize 0
         }
     }
-
     "it should ignore suppressed mutations" {
         Source.fromKotlin(
             """
@@ -655,7 +623,6 @@ fun fourth(): Object {
             }
         }
     }
-
     "it should ignore specific suppressed mutations" {
         Source.fromKotlin(
             """
@@ -674,7 +641,6 @@ fun example(first: Int, second: Int): Int {
             }
         }
     }
-
     "it should apply multiple mutations" {
         Source.fromKotlin(
             """
@@ -714,7 +680,6 @@ fun greeting() {
             }
         }
     }
-
     "it should handle overlapping mutations" {
         Source.fromKotlin(
             """
@@ -731,7 +696,6 @@ fun testing(): Int {
                 }
         }
     }
-
     "it should shift mutations correctly" {
         Source.fromKotlin(
             """
@@ -759,7 +723,6 @@ fun testing(): Int {
                 }
         }
     }
-
     "it should return predictable mutations" {
         Source.fromKotlin(
             """
@@ -777,7 +740,6 @@ fun testing(): Int {
             }
         }
     }
-
     "it should apply mutations correctly with Strings" {
         Source.fromKotlin(
             """
@@ -793,7 +755,17 @@ fun reformatName(input: String?): String? {
             source.allMutations()
         }
     }
-
+    "it should mutate functions with equals block" {
+        Source.fromKotlin(
+            """
+fun isOdd(arg: Int) = arg % 2 != 0
+""".trim()
+        ).also { source ->
+            source.allMutations().also {
+                it shouldHaveAtLeastSize 1
+            }
+        }
+    }
     "it should apply stream mutations" {
         Source.fromKotlin(
             """
@@ -806,7 +778,6 @@ fun testStream(): String {
             source.mutationStream().take(1024).toList().size shouldBe 1024
         }
     }
-
     "it should apply all fixed mutations" {
         Source.fromKotlin(
             """
@@ -822,7 +793,6 @@ fun testStream(): String {
             mutations shouldHaveSize 19
         }
     }
-
     "it should end stream mutations when out of things to mutate" {
         Source.fromKotlin(
             """
@@ -836,7 +806,6 @@ fun testStream(): Int {
             source.mutationStream().take(1024).toList().size shouldBe 6
         }
     }
-
     "it should not mutate annotations" {
         Source.fromKotlin(
             """
@@ -848,7 +817,6 @@ fun reformatName(input: String) {
             source.allMutations() shouldHaveSize 0
         }
     }
-
     "it should mark mutations cleanly" {
         Source.fromKotlin(
             """
@@ -866,7 +834,6 @@ fun reformatName(input: String?) {
             }
         }
     }
-
     "it should handle double marks" {
         Source.fromKotlin(
             """
@@ -891,7 +858,6 @@ fun startWord(input: String, word: String): String {
             }
         }
     }
-
     "it should handle double marks again" {
         Source.fromKotlin(
             """

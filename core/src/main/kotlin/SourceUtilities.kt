@@ -5,7 +5,7 @@ package edu.illinois.cs.cs125.jeed.core
 import edu.illinois.cs.cs125.jeed.core.antlr.JavaLexer
 import edu.illinois.cs.cs125.jeed.core.antlr.JavaParser
 import edu.illinois.cs.cs125.jeed.core.antlr.JavaParserBaseListener
-import edu.illinois.cs.cs125.jeed.core.antlr.KnippetLexer
+import edu.illinois.cs.cs125.jeed.core.antlr.KotlinLexer
 import edu.illinois.cs.cs125.jeed.core.antlr.KotlinParser
 import edu.illinois.cs.cs125.jeed.core.antlr.KotlinParserBaseListener
 import edu.illinois.cs.cs125.jeed.core.antlr.SnippetLexer
@@ -21,7 +21,7 @@ fun String.stripComments(type: Source.FileType): String {
         Source.FileType.JAVA ->
             SnippetLexer(charStream).allTokens.filter { it.channel != 1 }.joinToString("") { it.text }
         Source.FileType.KOTLIN ->
-            KnippetLexer(charStream).allTokens.filter { it.channel != 1 }.joinToString("") { it.text }
+            KotlinLexer(charStream).allTokens.filter { it.channel != 1 }.joinToString("") { it.text }
     }
 }
 
@@ -33,7 +33,7 @@ internal fun String.identifiers(type: Source.FileType): Set<String> {
         Source.FileType.JAVA ->
             SnippetLexer(charStream).allTokens.filter { it.type == SnippetLexer.IDENTIFIER }.map { it.text }.toSet()
         Source.FileType.KOTLIN ->
-            KnippetLexer(charStream).allTokens.filter { it.type == KnippetLexer.Identifier }.map { it.text }.toSet()
+            KotlinLexer(charStream).allTokens.filter { it.type == KotlinLexer.Identifier }.map { it.text }.toSet()
     }
 }
 

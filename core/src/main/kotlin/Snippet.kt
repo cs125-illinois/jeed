@@ -2,10 +2,9 @@ package edu.illinois.cs.cs125.jeed.core
 
 import com.squareup.moshi.JsonClass
 import edu.illinois.cs.cs125.jeed.core.antlr.JavaLexer
-import edu.illinois.cs.cs125.jeed.core.antlr.KnippetLexer
-import edu.illinois.cs.cs125.jeed.core.antlr.KnippetParser
-import edu.illinois.cs.cs125.jeed.core.antlr.KnippetParserBaseVisitor
 import edu.illinois.cs.cs125.jeed.core.antlr.KotlinLexer
+import edu.illinois.cs.cs125.jeed.core.antlr.KotlinParser
+import edu.illinois.cs.cs125.jeed.core.antlr.KotlinParserBaseVisitor
 import edu.illinois.cs.cs125.jeed.core.antlr.SnippetLexer
 import edu.illinois.cs.cs125.jeed.core.antlr.SnippetParser
 import edu.illinois.cs.cs125.jeed.core.antlr.SnippetParserBaseVisitor
@@ -143,18 +142,18 @@ private fun sourceFromKotlinSnippet(originalSource: String, snippetArguments: Sn
     val sourceLines = originalSource.lines()
     val errorListener = SnippetErrorListener(sourceLines.map { it.trim().length }, false)
 
-    val parseTree = KnippetLexer(CharStreams.fromString(originalSource + "\n")).let {
+    val parseTree = KotlinLexer(CharStreams.fromString(originalSource + "\n")).let {
         it.removeErrorListeners()
         it.addErrorListener(errorListener)
         CommonTokenStream(it)
     }.also {
         errorListener.check()
     }.let {
-        KnippetParser(it)
+        KotlinParser(it)
     }.let {
         it.removeErrorListeners()
         it.addErrorListener(errorListener)
-        it.kotlinFile()
+        it.script()
     }.also {
         errorListener.check()
     }
@@ -166,8 +165,8 @@ private fun sourceFromKotlinSnippet(originalSource: String, snippetArguments: Sn
     )
 
     val multilineLines = mutableSetOf<Int>()
-    object : KnippetParserBaseVisitor<Unit>() {
-        override fun visitMultiLineStringLiteral(context: KnippetParser.MultiLineStringLiteralContext) {
+    object : KotlinParserBaseVisitor<Unit>() {
+        override fun visitMultiLineStringLiteral(context: KotlinParser.MultiLineStringLiteralContext) {
             ((context.start.line + 1)..context.stop.line).forEach {
                 multilineLines.add(it)
             }
@@ -178,21 +177,33 @@ private fun sourceFromKotlinSnippet(originalSource: String, snippetArguments: Sn
     var currentOutputLineNumber = 1
     val remappedLineMapping = hashMapOf<Int, Snippet.RemappedLine>()
 
-    parseTree.preamble()?.packageHeader()?.let {
+    parseTree.packageHeader().let {
         if (it.identifier() != null) {
             throw SnippetTransformationFailed(
                 listOf(
                     SnippetTransformationError(
                         SourceLocation(SNIPPET_SOURCE, it.start.line, it.start.charPositionInLine),
-                        "package declarations not allowed in snippets"
+                        "package declarations not allowed in Jeed scripts"
+                    )
+                )
+            )
+        }
+    }
+    parseTree.fileAnnotation().let {
+        if (it.isNotEmpty()) {
+            throw SnippetTransformationFailed(
+                listOf(
+                    SnippetTransformationError(
+                        SourceLocation(SNIPPET_SOURCE, it.first().start.line, it.first().start.charPositionInLine),
+                        "file annotations not allowed in Jeed scripts"
                     )
                 )
             )
         }
     }
 
-    val preambleStart = parseTree.preamble()?.start?.line ?: 0
-    val preambleStop = parseTree.preamble()?.stop?.line?.inc() ?: 0
+    val preambleStart = parseTree.importList().importHeader().firstOrNull()?.start?.line ?: 0
+    val preambleStop = parseTree.importList().importHeader()?.lastOrNull()?.stop?.line?.inc() ?: 0
     for (lineNumber in preambleStart until preambleStop) {
         rewrittenSourceLines.add(sourceLines[lineNumber - 1].trimEnd())
         remappedLineMapping[currentOutputLineNumber] = Snippet.RemappedLine(lineNumber, currentOutputLineNumber)
@@ -208,16 +219,16 @@ ${" ".repeat(snippetArguments.indent * 2)}@JvmStatic fun main() {""".lines().let
 
     val methodLines = mutableSetOf<IntRange>()
     val klassLines = mutableSetOf<IntRange>()
-    parseTree.topLevelObject().mapNotNull { it.functionDeclaration() }.forEach {
+    parseTree.statement().mapNotNull { it.declaration()?.functionDeclaration() }.forEach {
         methodLines.add(it.start.line..it.stop.line)
     }
-    parseTree.topLevelObject().mapNotNull { it.classDeclaration() }.forEach {
+    parseTree.statement().mapNotNull { it.declaration()?.classDeclaration() }.forEach {
         klassLines.add(it.start.line..it.stop.line)
     }
 
     var sawMainLines = false
-    val topLevelStart = parseTree.topLevelObject()?.firstOrNull()?.start?.line ?: 0
-    val topLevelEnd = parseTree.topLevelObject()?.lastOrNull()?.stop?.line?.inc() ?: 0
+    val topLevelStart = parseTree.statement()?.firstOrNull()?.start?.line ?: 0
+    val topLevelEnd = parseTree.statement()?.lastOrNull()?.stop?.line?.inc() ?: 0
     @Suppress("MagicNumber")
     for (lineNumber in topLevelStart until topLevelEnd) {
         if (methodLines.any { it.contains(lineNumber) } || klassLines.any { it.contains(lineNumber) }) {
@@ -276,14 +287,16 @@ ${" ".repeat(snippetArguments.indent * 2)}@JvmStatic fun main() {""".lines().let
     val looseLines: MutableList<String> = mutableListOf()
     val looseCodeMapping: MutableMap<Int, Int> = mutableMapOf()
 
-    parseTree.topLevelObject()?.mapNotNull { it.blockLevelExpression() }?.forEach {
-        val looseStart = it.start?.line ?: 0
-        val looseEnd = it.stop?.line ?: 0
-        for (lineNumber in looseStart..looseEnd) {
-            looseCodeMapping[looseLines.size + 1] = lineNumber
-            looseLines.add(sourceLines[lineNumber - 1])
+    parseTree.statement()
+        ?.filter { it.declaration()?.functionDeclaration() == null && it.declaration()?.classDeclaration() == null }
+        ?.forEach {
+            val looseStart = it.start?.line ?: 0
+            val looseEnd = it.stop?.line ?: 0
+            for (lineNumber in looseStart..looseEnd) {
+                looseCodeMapping[looseLines.size + 1] = lineNumber
+                looseLines.add(sourceLines[lineNumber - 1])
+            }
         }
-    }
 
     KotlinLexer(CharStreams.fromString(looseLines.joinToString(separator = "\n"))).let {
         it.removeErrorListeners()
@@ -307,7 +320,7 @@ ${" ".repeat(snippetArguments.indent * 2)}@JvmStatic fun main() {""".lines().let
         }
     }
 
-    parseTree.topLevelObject()?.map { it.classDeclaration() }?.find {
+    parseTree.statement()?.map { it.declaration()?.classDeclaration() }?.find {
         it?.simpleIdentifier()?.text == "MainKt"
     }?.let {
         throw SnippetTransformationFailed(

@@ -32,7 +32,7 @@ class KotlinMutationListener(private val parsedSource: Source.ParsedSource) : Ko
 
     override fun enterFunctionBody(ctx: KotlinParser.FunctionBodyContext) {
         check(currentReturnType != null)
-        val methodLocation = ctx.block().toLocation()
+        val methodLocation = ctx.block()?.toLocation() ?: return
         val methodContents = parsedSource.contents(methodLocation)
         if (RemoveMethod.matches(methodContents, currentReturnType!!, fileType)) {
             mutations.add(RemoveMethod(methodLocation, methodContents, currentReturnType!!, fileType))

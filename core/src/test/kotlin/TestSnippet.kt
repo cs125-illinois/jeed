@@ -30,6 +30,24 @@ int i = 0;
 i++;""".trim()
         )
     }
+    "should parse Kotlin snippets" {
+        Source.fromSnippet(
+            """
+import java.util.List
+
+class Test(var me: Int = 0) {
+  fun anotherTest() = 8
+}
+fun testing(): Int {
+    var j = 0
+    return 10
+}
+class AnotherTest
+var i = 0
+i++""".trim(),
+            SnippetArguments(fileType = Source.FileType.KOTLIN)
+        )
+    }
     "should not fail with new switch statements in snippets" {
         Source.fromSnippet(
             """

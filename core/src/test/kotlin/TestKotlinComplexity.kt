@@ -16,7 +16,15 @@ fun main(first: Int, second: String, third: Blah?): Int {
             it.lookup("main(Int,String,Blah?):Int", "Main.kt").complexity shouldBe 1
         }
     }
-
+    "should compute complexity for Kotlin literal method" {
+        Source.fromKotlin(
+            """
+fun isOdd(arg: Int) = arg % 2 != 0
+""".trim()
+        ).complexity().also {
+            it.lookup("isOdd(Int)", "Main.kt").complexity shouldBe 1
+        }
+    }
     "should compute complexity for Kotlin snippet" {
         Source.fromSnippet(
             """
@@ -608,7 +616,7 @@ val addEight = object : Adder {
 }""".trim()
         ).complexity()
     }
-    "should not overflow on deep nesting" {
+    "!should not overflow on deep nesting" {
         shouldThrow<ComplexityFailed> {
             Source.fromKotlin(
                 """fun mystery(a: Int): Int {

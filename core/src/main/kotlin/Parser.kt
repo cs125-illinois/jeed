@@ -1,9 +1,9 @@
+@file:Suppress("unused")
+
 package edu.illinois.cs.cs125.jeed.core
 
 import edu.illinois.cs.cs125.jeed.core.antlr.JavaLexer
 import edu.illinois.cs.cs125.jeed.core.antlr.JavaParser
-import edu.illinois.cs.cs125.jeed.core.antlr.KnippetLexer
-import edu.illinois.cs.cs125.jeed.core.antlr.KnippetParser
 import edu.illinois.cs.cs125.jeed.core.antlr.KotlinLexer
 import edu.illinois.cs.cs125.jeed.core.antlr.KotlinParser
 import edu.illinois.cs.cs125.jeed.core.antlr.SnippetLexer
@@ -185,16 +185,16 @@ fun String.isKotlinSnippet(): Boolean {
     @Suppress("TooGenericExceptionCaught")
     return try {
         CharStreams.fromString(this).let { charStream ->
-            KnippetLexer(charStream).let { lexer ->
+            KotlinLexer(charStream).let { lexer ->
                 lexer.removeErrorListeners()
                 lexer.addErrorListener(errorListener)
                 CommonTokenStream(lexer)
             }
         }.also { tokenStream ->
-            KnippetParser(tokenStream).let { parser ->
+            KotlinParser(tokenStream).let { parser ->
                 parser.removeErrorListeners()
                 parser.addErrorListener(errorListener)
-                parser.kotlinFile()
+                parser.script()
             }
         }
         true
@@ -206,16 +206,16 @@ fun String.isKotlinSnippet(): Boolean {
 fun String.parseKnippet(): Source.ParsedSource {
     val errorListener = DistinguishErrorListener()
     val charStream = CharStreams.fromString(this)
-    val parseTree = KnippetLexer(charStream).let {
+    val parseTree = KotlinLexer(charStream).let {
         it.removeErrorListeners()
         it.addErrorListener(errorListener)
         CommonTokenStream(it)
     }.let {
-        KnippetParser(it)
+        KotlinParser(it)
     }.let {
         it.removeErrorListeners()
         it.addErrorListener(errorListener)
-        it.kotlinFile()
+        it.script()
     }
     return Source.ParsedSource(parseTree, charStream, this)
 }
@@ -249,13 +249,13 @@ fun String.distinguish(language: String) = when {
     else -> null
 }
 
-fun Tree.toPrettyTree(ruleNames: List<String>): String? {
+fun Tree.toPrettyTree(ruleNames: List<String>): String {
     var level = 0
-    fun lead(level: Int): String? {
+    fun lead(level: Int): String {
         val sb = StringBuilder()
         if (level > 0) {
             sb.append(System.lineSeparator())
-            for (cnt in 0 until level) {
+            repeat(level) {
                 sb.append("  ")
             }
         }
