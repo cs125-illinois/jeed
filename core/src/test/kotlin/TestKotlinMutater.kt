@@ -59,15 +59,32 @@ class Example {
             """
 fun example() {
     println("Hello, world!")
+    val l = listOf()
     val s: String = ""
+    val t = ${"\"\"\""}Test Me${"\"\"\""}
+    val u = "front ${"$"}{l.size} middle ${"$"}{l.size} back"
+    val v = ${"\"\"\""}front ${"$"}{l.size} middle ${"$"}{l.size} back${"\"\"\""}
 }
 """.trim()
         ).checkMutations<StringLiteral> { mutations, contents ->
-            mutations shouldHaveSize 2
-            mutations[0].check(contents, "\"Hello, world!\"").also {
+            mutations shouldHaveSize 9
+            mutations[0].check(contents, "Hello, world!").also {
                 it shouldMatch ".*println\\(\".*".toRegex(RegexOption.DOT_MATCHES_ALL)
             }
             mutations[1].check(contents, "\"\"")
+            mutations[2].check(contents, "Test Me")
+        }
+    }
+    "it should not mutate expressions in strings" {
+        Source.fromKotlin(
+            """
+fun example() {
+    val list = listOf(1, 2, 4)
+    println("${"$"}{list.size}")
+}
+""".trim()
+        ).checkMutations<StringLiteral> { mutations, contents ->
+            mutations shouldHaveSize 0
         }
     }
     "it should find number literals to mutate" {

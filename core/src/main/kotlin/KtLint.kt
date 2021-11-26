@@ -55,7 +55,7 @@ val editorConfigPath: String = run {
     val tempFile = File(createTempDir("ktlint"), ".editorconfig")
     object {}::class.java.getResourceAsStream("/ktlint/.editorconfig").let { input ->
         FileOutputStream(tempFile).also { output ->
-            input.copyTo(output)
+            input!!.copyTo(output)
         }.close()
     }
     tempFile.path
@@ -89,6 +89,55 @@ val jeedRuleSet = RuleSet(
     StringTemplateRule()
 )
 
+fun Source.ktFormat(ktLintArguments: KtLintArguments = KtLintArguments()): Source {
+    require(type == Source.FileType.KOTLIN) { "Can't run ktlint on non-Kotlin sources" }
+
+    val names = ktLintArguments.sources ?: sources.keys
+    val source = this
+    val formattedSources = sources
+        .filter { (filename, _) -> filename !in names }
+        .map { (filename, contents) -> filename to contents }
+        .toMap().toMutableMap()
+
+    sources.filter { (filename, _) ->
+        filename in names
+    }.forEach { (filename, contents) ->
+        formattedSources[
+            if (source is Snippet) {
+                "MainKt.kt"
+            } else {
+                filename
+            }
+        ] = KtLint.format(
+            KtLint.Params(
+                if (source is Snippet) {
+                    "MainKt.kt"
+                } else {
+                    filename
+                },
+                contents,
+                listOf(jeedRuleSet),
+                cb = { e, corrected ->
+                    if (!corrected && ktLintArguments.failOnError) {
+                        throw KtLintFailed(
+                            listOf(
+                                KtLintError(
+                                    e.ruleId,
+                                    e.detail,
+                                    mapLocation(SourceLocation(filename, e.line, e.col))
+                                )
+                            )
+                        )
+                    }
+                },
+                editorConfigPath = editorConfigPath
+            )
+        )
+    }
+
+    return Source(formattedSources)
+}
+
 fun Source.ktLint(ktLintArguments: KtLintArguments = KtLintArguments()): KtLintResults {
     require(type == Source.FileType.KOTLIN) { "Can't run ktlint on non-Kotlin sources" }
 
@@ -109,18 +158,16 @@ fun Source.ktLint(ktLintArguments: KtLintArguments = KtLintArguments()): KtLintR
                     contents,
                     listOf(jeedRuleSet),
                     cb = { e, _ ->
-                        run {
-                            @Suppress("TooGenericExceptionCaught", "EmptyCatchBlock")
-                            try {
-                                add(
-                                    KtLintError(
-                                        e.ruleId,
-                                        e.detail,
-                                        mapLocation(SourceLocation(filename, e.line, e.col))
-                                    )
+                        @Suppress("EmptyCatchBlock")
+                        try {
+                            add(
+                                KtLintError(
+                                    e.ruleId,
+                                    e.detail,
+                                    mapLocation(SourceLocation(filename, e.line, e.col))
                                 )
-                            } catch (e: Exception) {
-                            }
+                            )
+                        } catch (e: Exception) {
                         }
                     },
                     editorConfigPath = editorConfigPath

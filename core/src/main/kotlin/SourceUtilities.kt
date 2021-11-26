@@ -186,6 +186,8 @@ fun String.hasBadWords(): String? {
                     false
                 } else if (it == "meth" && input.contains("something")) {
                     false
+                } else if (it == "joint" && input.contains("jointostring")) {
+                    false
                 } else if (wordToCheck.length <= 2 && input.length > 2) {
                     false
                 } else if (it == wordToCheck) {

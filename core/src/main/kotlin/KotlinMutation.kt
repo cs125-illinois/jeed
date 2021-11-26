@@ -106,11 +106,29 @@ class KotlinMutationListener(private val parsedSource: Source.ParsedSource) : Ko
             last().symbol.line
         )
 
-    override fun enterPrimaryExpression(ctx: KotlinParser.PrimaryExpressionContext) {
-        ctx.stringLiteral()?.also {
-            if (insideAnnotation) {
-                return
-            }
+    override fun enterLineStringContent(ctx: KotlinParser.LineStringContentContext) {
+        if (insideAnnotation) {
+            return
+        }
+        ctx.toLocation().also { location ->
+            mutations.add(StringLiteral(location, parsedSource.contents(location), fileType, false))
+        }
+    }
+
+    override fun enterMultiLineStringContent(ctx: KotlinParser.MultiLineStringContentContext) {
+        if (insideAnnotation) {
+            return
+        }
+        ctx.toLocation().also { location ->
+            mutations.add(StringLiteral(location, parsedSource.contents(location), fileType, false))
+        }
+    }
+
+    override fun enterLineStringLiteral(ctx: KotlinParser.LineStringLiteralContext) {
+        if (insideAnnotation) {
+            return
+        }
+        if (ctx.lineStringContent().isEmpty() && ctx.lineStringExpression().isEmpty()) {
             ctx.toLocation().also { location ->
                 mutations.add(StringLiteral(location, parsedSource.contents(location), fileType))
             }

@@ -248,10 +248,15 @@ val ALPHANUMERIC_CHARS_AND_SPACE = (('a'..'z') + ('A'..'Z') + ('0'..'9') + (' ')
 class StringLiteral(
     location: Location,
     original: String,
-    fileType: Source.FileType
+    fileType: Source.FileType,
+    val withQuotes: Boolean = true
 ) : Mutation(Type.STRING_LITERAL, location, original, fileType) {
     override val preservesLength = true
-    private val string = original.removeSurrounding("\"")
+    private val string = if (withQuotes) {
+        original.removeSurrounding("\"")
+    } else {
+        original
+    }
     override val estimatedCount = ALPHANUMERIC_CHARS_AND_SPACE.size.toDouble().pow(string.length).toInt() - 1
     override val mightNotCompile = false
     override val fixedCount = false
@@ -275,7 +280,11 @@ class StringLiteral(
                 characters.joinToString("")
             }
         }.let {
-            "\"$it\""
+            if (withQuotes) {
+                "\"$it\""
+            } else {
+                it
+            }
         }
     }
 }

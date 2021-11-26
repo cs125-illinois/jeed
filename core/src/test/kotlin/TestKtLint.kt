@@ -58,4 +58,15 @@ class TestKtLint : StringSpec({
         ktLintFailed.errors.filterIsInstance<KtLintError>().filter { it.ruleId == "indent" } shouldHaveSize 1
         ktLintFailed.errors.first().location.line shouldBe 1
     }
+    "it should reformat Kotlin sources" {
+        Source.fromKotlin(
+            """fun main() {
+                |println("Hello, world!");
+                |}""".trimMargin()
+        ).ktFormat().also {
+            it.contents shouldBe """fun main() {
+                |    println("Hello, world!")
+                |}""".trimMargin()
+        }
+    }
 })
