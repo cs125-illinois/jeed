@@ -182,9 +182,19 @@ fun String.hasBadWords(): String? {
         while (offset < input.length + 1 - start && offset < LARGEST_WORD) {
             val wordToCheck = input.substring(start, start + offset)
             WORDS.find { it ->
-                if (it == "ass" && input.contains("pass")) {
+                if (it == "ass" && (input.contains("pass") || input.contains("assertion"))) {
+                    false
+                } else if (it == "sex" && input.contains("arrayindexoutofboundsexception")) {
+                    false
+                } else if (it == "arse" && input.contains("parse")) {
+                    false
+                } else if (it == "tit" && (input.contains("title") || input.contains("partition"))) {
+                    false
+                } else if (it == "bra" && input.contains("bracket")) {
                     false
                 } else if (it == "meth" && input.contains("something")) {
+                    false
+                } else if (it == "arab" && input.contains("comparable")) {
                     false
                 } else if (it == "joint" && input.contains("jointostring")) {
                     false

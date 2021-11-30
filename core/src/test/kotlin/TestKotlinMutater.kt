@@ -83,7 +83,7 @@ fun example() {
     println("${"$"}{list.size}")
 }
 """.trim()
-        ).checkMutations<StringLiteral> { mutations, contents ->
+        ).checkMutations<StringLiteral> { mutations, _ ->
             mutations shouldHaveSize 0
         }
     }
