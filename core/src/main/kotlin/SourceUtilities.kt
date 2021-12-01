@@ -175,6 +175,7 @@ val WORDS by lazy {
 val LARGEST_WORD = WORDS.maxOf { it.length }
 val DICTIONARY = Dictionary.getDefaultResourceInstance()!!
 
+@Suppress("ComplexCondition", "ComplexMethod")
 fun String.hasBadWords(): String? {
     val input = lowercase().replace("""[^a-zA-Z]""".toRegex(), "")
     for (start in input.indices) {
@@ -182,13 +183,23 @@ fun String.hasBadWords(): String? {
         while (offset < input.length + 1 - start && offset < LARGEST_WORD) {
             val wordToCheck = input.substring(start, start + offset)
             WORDS.find { it ->
-                if (it == "ass" && (input.contains("pass") || input.contains("assertion"))) {
+                if (it == "ass" && (
+                    input.contains("pass") ||
+                        input.contains("assertion") ||
+                        input.contains("class")
+                    )
+                ) {
                     false
                 } else if (it == "sex" && input.contains("arrayindexoutofboundsexception")) {
                     false
                 } else if (it == "arse" && input.contains("parse")) {
                     false
-                } else if (it == "tit" && (input.contains("title") || input.contains("partition"))) {
+                } else if (it == "tit" && (
+                    input.contains("title") ||
+                        input.contains("partition")
+                    ) ||
+                    input.contains("item")
+                ) {
                     false
                 } else if (it == "bra" && input.contains("bracket")) {
                     false
@@ -197,6 +208,10 @@ fun String.hasBadWords(): String? {
                 } else if (it == "arab" && input.contains("comparable")) {
                     false
                 } else if (it == "joint" && input.contains("jointostring")) {
+                    false
+                } else if (it == "perv" && input.contains("upper")) {
+                    false
+                } else if (it == "hell" && input.contains("hello")) {
                     false
                 } else if (wordToCheck.length <= 2 && input.length > 2) {
                     false
