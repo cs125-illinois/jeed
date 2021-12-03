@@ -1,4 +1,4 @@
-@file:Suppress("TooManyFunctions")
+@file:Suppress("TooManyFunctions", "SpellCheckingInspection")
 
 package edu.illinois.cs.cs125.jeed.core
 
@@ -175,69 +175,98 @@ val WORDS by lazy {
 val LARGEST_WORD = WORDS.maxOf { it.length }
 val DICTIONARY = Dictionary.getDefaultResourceInstance()!!
 
-@Suppress("ComplexCondition", "ComplexMethod")
-fun String.hasBadWords(): String? {
-    val input = lowercase().replace("""[^a-zA-Z]""".toRegex(), "")
-    for (start in input.indices) {
-        var offset = 1
-        while (offset < input.length + 1 - start && offset < LARGEST_WORD) {
-            val wordToCheck = input.substring(start, start + offset)
-            WORDS.find { it ->
-                if (it == "ass" && (
-                    input.contains("pass") ||
-                        input.contains("assertion") ||
-                        input.contains("class")
-                    )
-                ) {
-                    false
-                } else if (it == "sex" && input.contains("arrayindexoutofboundsexception")) {
-                    false
-                } else if (it == "arse" && input.contains("parse")) {
-                    false
-                } else if (it == "tit" && (
-                    input.contains("title") ||
-                        input.contains("partition")
-                    ) ||
-                    input.contains("item")
-                ) {
-                    false
-                } else if (it == "bra" && input.contains("bracket")) {
-                    false
-                } else if (it == "meth" && input.contains("something")) {
-                    false
-                } else if (it == "arab" && input.contains("comparable")) {
-                    false
-                } else if (it == "joint" && input.contains("jointostring")) {
-                    false
-                } else if (it == "perv" && input.contains("upper")) {
-                    false
-                } else if (it == "hell" && input.contains("hello")) {
-                    false
-                } else if (wordToCheck.length <= 2 && input.length > 2) {
-                    false
-                } else if (it == wordToCheck) {
-                    !(it.length < input.length && POS.values().any { DICTIONARY.getIndexWord(it, input) != null })
-                } else {
-                    false
+fun String.fromCamelCase() = split("(?<!(^|[A-Z]))(?=[A-Z])|(?<!^)(?=[A-Z][a-z])".toRegex())
+
+fun String.separateCamelCase() = split("(?<!(^|[A-Z]))(?=[A-Z])|(?<!^)(?=[A-Z][a-z])".toRegex())
+    .joinToString(" ")
+
+val okWords = setOf("something", "throwable")
+
+@Suppress("ComplexCondition", "ComplexMethod", "NestedBlockDepth")
+fun String.getBadWords(separateCamelCase: Boolean = false, whitelist: Set<String> = setOf()): Set<String> {
+    val badWords = mutableSetOf<String>()
+
+    val words = if (separateCamelCase) {
+        separateCamelCase()
+    } else {
+        this
+    }.lowercase().replace("""[^ a-zA-Z]""".toRegex(), "")
+
+    if (words.isEmpty()) {
+        return badWords
+    }
+
+    words.split(" ").forEach { input ->
+        if (input in okWords) {
+            return@forEach
+        }
+        for (start in input.indices) {
+            var offset = 1
+            while (offset < input.length + 1 - start && offset < LARGEST_WORD) {
+                val wordToCheck = input.substring(start, start + offset)
+                WORDS.filter { word ->
+                    if (word in whitelist) {
+                        false
+                    } else if (word == "hell" && input.contains("hello")) {
+                        false
+                    } else if (wordToCheck.length <= 2 && input.length > 2) {
+                        false
+                    } else if (word == wordToCheck) {
+                        !(
+                            word.length < input.length &&
+                                POS.values().any {
+                                    DICTIONARY.getIndexWord(it, input) != null ||
+                                        DICTIONARY.getIndexWord(it, input.removeSuffix("ed")) != null ||
+                                        DICTIONARY.getIndexWord(it, input.removeSuffix("er")) != null
+                                }
+                            )
+                    } else {
+                        false
+                    }
+                }.forEach {
+                    badWords += it
                 }
-            }?.also {
-                return it
+                offset++
             }
-            offset++
+        }
+    }
+    return badWords
+}
+
+@Suppress("ReturnCount")
+fun Source.hasBadWords(whitelist: Set<String> = setOf()): String? {
+    fun Set<String>.check(splitCamelCase: Boolean): String? {
+        forEach { identifier ->
+            identifier.trim().split(" ").forEach { string ->
+                string.trim().getBadWords(splitCamelCase, whitelist).firstOrNull()?.also {
+                    return it
+                }
+            }
+        }
+        return null
+    }
+
+    sources.entries.forEach { (filename, contents) ->
+        contents.identifiers(type).check(true)?.also {
+            return it
+        }
+        getParsed(filename).strings(type).check(false)?.also {
+            return it
         }
     }
     return null
 }
 
-fun Source.hasBadWords(): String? {
-    sources.entries.forEach { (filename, contents) ->
-        (contents.identifiers(type) + getParsed(filename).strings(type)).forEach { identifier ->
-            identifier.trim().split(" ").forEach {
-                it.trim().hasBadWords()?.also { badWord ->
-                    return badWord
-                }
-            }
+fun Source.getBadWords(whitelist: Set<String> = setOf()): Set<String> {
+    val badWords = mutableSetOf<String>()
+    fun Set<String>.check(splitCamelCase: Boolean) = forEach { identifier ->
+        identifier.trim().split(" ").forEach { string ->
+            badWords += string.trim().getBadWords(splitCamelCase, whitelist)
         }
     }
-    return null
+    sources.entries.forEach { (filename, contents) ->
+        contents.identifiers(type).check(true)
+        getParsed(filename).strings(type).check(false)
+    }
+    return badWords
 }

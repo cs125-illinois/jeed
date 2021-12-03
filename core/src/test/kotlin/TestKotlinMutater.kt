@@ -46,12 +46,14 @@ class Example {
   fun example() {
     val first: Char = 'a'
     val second: Char = '!'
+    val third: Char = '\n'
   }
 }"""
         ).checkMutations<CharLiteral> { mutations, contents ->
-            mutations shouldHaveSize 2
+            mutations shouldHaveSize 3
             mutations[0].check(contents, "'a'")
             mutations[1].check(contents, "'!'")
+            mutations[2].check(contents, "'${"\\"}n'")
         }
     }
     "it should find string literals to mutate" {

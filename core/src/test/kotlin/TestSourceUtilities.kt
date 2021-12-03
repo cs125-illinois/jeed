@@ -184,7 +184,10 @@ public class OhFuck {
   }
 }
 """.trim()
-        ).hasBadWords() shouldNotBe null
+        ).apply {
+            hasBadWords() shouldNotBe null
+            getBadWords() shouldBe setOf("fuck")
+        }
     }
     "should not detect dictionary bad words in Java sources" {
         Source.fromJava(
@@ -201,7 +204,10 @@ public class HoldOn {
   }
 }
 """.trim()
-        ).hasBadWords() shouldBe null
+        ).apply {
+            hasBadWords() shouldBe null
+            getBadWords() shouldBe setOf()
+        }
     }
     "should detect bad words in Kotlin sources" {
         Source.fromKotlin(
@@ -210,16 +216,50 @@ fun shittyFunction() {
   return true
 }
 """.trim()
-        ).hasBadWords() shouldNotBe null
+        ).apply {
+            hasBadWords() shouldNotBe null
+            getBadWords() shouldBe setOf("shitty")
+        }
     }
     "should not detect dictionary bad words in Kotlin sources" {
         Source.fromKotlin(
             """
 fun holdOn(): String {
   val passed = true
+  val semesterHasStarted = true
+  val test = "something good"
   return "search index"
 }
 """.trim()
-        ).hasBadWords() shouldBe null
+        ).apply {
+            hasBadWords() shouldBe null
+            getBadWords() shouldBe setOf()
+        }
+    }
+    "should not detect OK words in Kotlin sources" {
+        Source.fromKotlin(
+            """
+class Test : OurComparable
+
+fun holdOn(): String {
+  val passed = true
+  val title = "test"
+  var setTitle = "me"
+  return "search index"
+}
+""".trim()
+        ).apply {
+            hasBadWords() shouldBe null
+            getBadWords() shouldBe setOf()
+        }
+    }
+    "should split camelcase strings properly" {
+        "thisIsATest".fromCamelCase() shouldBe listOf("this", "Is", "A", "Test")
+    }
+    "should split uppercase camelcase strings properly" {
+        "GraphAnalysis".fromCamelCase() shouldBe listOf("Graph", "Analysis")
+    }
+    "should not find bad words at boundaries" {
+        "nextItem".getBadWords(true) shouldBe setOf()
     }
 })

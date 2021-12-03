@@ -228,13 +228,13 @@ class CharLiteral(
     original: String,
     fileType: Source.FileType
 ) : Mutation(Type.CHAR_LITERAL, location, original, fileType) {
-    override val preservesLength = true
+    override val preservesLength = false
     override val estimatedCount = ALPHANUMERIC_CHARS.size - 1
     override val mightNotCompile = false
     override val fixedCount = false
 
     private val character = original.removeSurrounding("'").also {
-        check(it.length == 1) { "Character didn't have the correct length: $original" }
+        check(it.length == 1 || it.startsWith("\\")) { "Character didn't have the correct length: $original" }
     }.first()
 
     override fun applyMutation(random: Random): String =
@@ -249,7 +249,7 @@ class StringLiteral(
     location: Location,
     original: String,
     fileType: Source.FileType,
-    val withQuotes: Boolean = true
+    private val withQuotes: Boolean = true
 ) : Mutation(Type.STRING_LITERAL, location, original, fileType) {
     override val preservesLength = true
     private val string = if (withQuotes) {
@@ -557,10 +557,6 @@ class SwapBreakContinue(
             else -> error("${javaClass.name} didn't find the expected text")
         }
     }
-
-    companion object {
-        fun matches(contents: String) = contents in setOf("break", "continue")
-    }
 }
 
 class PlusOrMinusOneToZero(
@@ -578,10 +574,6 @@ class PlusOrMinusOneToZero(
             "1" -> "0"
             else -> error("${javaClass.name} didn't find the expected text: $original")
         }
-    }
-
-    companion object {
-        fun matches(contents: String) = contents == "1"
     }
 }
 
