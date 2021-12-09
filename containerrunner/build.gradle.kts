@@ -12,7 +12,7 @@ plugins {
 }
 dependencies {
     implementation("ch.qos.logback:logback-classic:1.2.7")
-    implementation("io.github.microutils:kotlin-logging:2.1.0")
+    implementation("io.github.microutils:kotlin-logging:2.1.15")
     implementation("com.github.ajalt:clikt:2.8.0")
     implementation("io.github.classgraph:classgraph:4.8.137")
 }
