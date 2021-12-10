@@ -95,6 +95,9 @@ task("createProperties") {
 kapt {
     useBuildCache = true
     includeCompileClasspath = false
+    javacOptions {
+        option("--illegal-access", "permit")
+    }
 }
 tasks {
     val sourcesJar by creating(Jar::class) {
@@ -123,9 +126,4 @@ publishing {
 }
 kotlin {
     kotlinDaemonJvmArgs = listOf("-Dfile.encoding=UTF-8", "--illegal-access=permit")
-}
-kapt {
-    javacOptions {
-        option("--illegal-access", "permit")
-    }
 }
