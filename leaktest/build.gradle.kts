@@ -8,7 +8,7 @@ dependencies {
     implementation(project(":core"))
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-core:1.5.2")
     implementation("ch.qos.logback:logback-classic:1.2.7")
-    implementation("io.github.microutils:kotlin-logging:2.1.15")
+    implementation("io.github.microutils:kotlin-logging:2.1.16")
 }
 application {
     @Suppress("DEPRECATION")
