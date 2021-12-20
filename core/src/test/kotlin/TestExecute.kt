@@ -560,29 +560,6 @@ System.out.println(new Date(t).toString());
         ).compile().execute()
         executeMainResult should haveCompleted()
     }
-    "f: should detect built-in Kotlin collections" {
-        Source.fromSnippet(
-            """
-class SimpleArrayList(array: Array<Any?>) {
-  private val list = array.asList().toMutableList()
-  fun get(index: Int): Any? {
-    require(list.indices.contains(index))
-    return list[index]
-  }
-
-  fun set(index: Int, value: Any?) {
-    require(list.indices.contains(index))
-    list[index] = value
-  }
-}
-val list = SimpleArrayList(arrayOf(1, 2, 4))
-            """.trim(),
-            SnippetArguments(fileType = Source.FileType.KOTLIN)
-        ).kompile().execute().also {
-            it should haveCompleted()
-            println(it.sandboxedClassLoader?.loadedClasses)
-        }
-    }
 })
 
 fun haveCompleted() = object : Matcher<Sandbox.TaskResults<out Any?>> {

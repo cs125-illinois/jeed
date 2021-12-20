@@ -650,6 +650,7 @@ object Sandbox {
 
         var safe = true
             private set
+
         @Suppress("MemberVisibilityCanBePrivate")
         var knownClasses = sandboxableClassLoader.bytecodeForClasses
             .mapValues { (_, unsafeByteArray) ->
@@ -686,7 +687,7 @@ object Sandbox {
             return klass
         }
 
-        @Suppress("ReturnCount")
+        @Suppress("ReturnCount", "LongMethod", "ComplexMethod", "NestedBlockDepth")
         override fun loadClass(name: String): Class<*> {
             val confinedTask = confinedTaskByThreadGroup() ?: return super.loadClass(name)
 
@@ -726,13 +727,25 @@ object Sandbox {
                 }
             } else {
                 if (blacklistedClasses.any { name.startsWith(it) }) {
-                    confinedTask.addPermissionRequest(
-                        RuntimePermission("loadClass $name"),
-                        granted = false,
-                        throwException = false
-                    )
-                    println(Thread.currentThread().stackTrace.joinToString("\n"))
-                    throw ClassNotFoundException(name)
+                    val lookupException = name == "java.lang.invoke.MethodHandles${"$"}Lookup" && try {
+                        Thread.currentThread().stackTrace[2].let {
+                            it.className == "java.lang.Class" &&
+                                it.methodName == "getDeclaredMethods0" &&
+                                it.moduleName == "java.base"
+                        }
+                    } catch (e: Throwable) {
+                        false
+                    }
+                    if (!lookupException) {
+                        confinedTask.addPermissionRequest(
+                            RuntimePermission("loadClass $name"),
+                            granted = false,
+                            throwException = false
+                        )
+                        throw ClassNotFoundException(name)
+                    } else {
+                        delegateClass(name)
+                    }
                 } else {
                     delegateClass(name)
                 }
@@ -745,7 +758,11 @@ object Sandbox {
 
         companion object {
             private val ALWAYS_ALLOWED_CLASS_NAMES =
-                setOf(RewriteBytecode::class.java.name, InvocationTargetException::class.java.name)
+                setOf(
+                    RewriteBytecode::class.java.name,
+                    InvocationTargetException::class.java.name,
+                    EmptyRuntime::class.java.name
+                )
             private val reloadedBytecodeCache = mutableMapOf<String, ByteArray>()
         }
 

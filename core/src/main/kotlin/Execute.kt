@@ -19,7 +19,9 @@ class SourceExecutionArguments(
     maxOutputLines: Int = DEFAULT_MAX_OUTPUT_LINES,
     classLoaderConfiguration: Sandbox.ClassLoaderConfiguration = Sandbox.ClassLoaderConfiguration(),
     val dryRun: Boolean = false,
-    waitForShutdown: Boolean = DEFAULT_WAIT_FOR_SHUTDOWN
+    waitForShutdown: Boolean = DEFAULT_WAIT_FOR_SHUTDOWN,
+    @Transient
+    var methodToRun: Method? = null
 ) : Sandbox.ExecutionArguments(
     timeout,
     permissions.union(REQUIRED_PERMISSIONS),
@@ -77,14 +79,14 @@ fun CompiledSource.updateExecutionArguments(executionArguments: SourceExecutionA
     }
 
     // Fail fast if the class or method don't exist
-    val methodToRun = classLoader.findClassMethod(
+    executionArguments.methodToRun = classLoader.findClassMethod(
         executionArguments.klass,
         executionArguments.method,
         defaultKlass,
         SourceExecutionArguments.DEFAULT_METHOD
     )
-    executionArguments.klass = executionArguments.klass ?: methodToRun.declaringClass.simpleName
-    executionArguments.method = executionArguments.method ?: methodToRun.getQualifiedName()
+    executionArguments.klass = executionArguments.klass ?: executionArguments.methodToRun!!.declaringClass.simpleName
+    executionArguments.method = executionArguments.method ?: executionArguments.methodToRun!!.getQualifiedName()
     return executionArguments
 }
 
@@ -99,8 +101,11 @@ suspend fun CompiledSource.execute(
             return@sandbox null
         }
         classLoader as Sandbox.SandboxedClassLoader
+        @Suppress("SpreadOperator")
         try {
-            val method = classLoader.findClassMethod(actualArguments.klass!!, actualArguments.method!!)
+            val method = classLoader
+                .loadClass(executionArguments.methodToRun!!.declaringClass.name)
+                .getMethod(executionArguments.methodToRun!!.name, *executionArguments.methodToRun!!.parameterTypes)
             return@sandbox if (method.parameterTypes.isEmpty()) {
                 method.invoke(null)
             } else {

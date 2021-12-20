@@ -5,8 +5,10 @@ import org.jacoco.core.analysis.CoverageBuilder
 import org.jacoco.core.data.ExecutionDataStore
 import org.jacoco.core.data.SessionInfoStore
 import org.jacoco.core.instr.Instrumenter
-import org.jacoco.core.runtime.LoggerRuntime
+import org.jacoco.core.runtime.AbstractRuntime
 import org.jacoco.core.runtime.RuntimeData
+import org.objectweb.asm.MethodVisitor
+import org.objectweb.asm.Opcodes
 import java.lang.Exception
 import java.lang.reflect.InvocationTargetException
 
@@ -18,7 +20,7 @@ suspend fun CompiledSource.jacoco(
     val actualArguments = updateExecutionArguments(executionArguments)
     check(!actualArguments.dryRun) { "Dry run not supported for Jacoco" }
 
-    val runtime = LoggerRuntime()
+    val runtime = EmptyRuntime()
     val instrumenter = Instrumenter(runtime)
 
     val originalByteMap = mutableMapOf<String, ByteArray>()
@@ -30,8 +32,6 @@ suspend fun CompiledSource.jacoco(
             instrumenter.instrument(bytes, name)
         }
     }
-    // Have to do this to avoid hitting a method handle restriction in the sandbox
-    safeClassLoader.findClassMethod(actualArguments.klass!!, actualArguments.method)
 
     val data = RuntimeData()
     runtime.startup(data)
@@ -39,7 +39,9 @@ suspend fun CompiledSource.jacoco(
 
     val taskResults = Sandbox.safeExecute(safeClassLoader, actualArguments) {
         try {
-            val method = safeClassLoader.findClassMethod(actualArguments.klass!!, actualArguments.method!!)
+            val method = safeClassLoader
+                .loadClass(executionArguments.methodToRun!!.declaringClass.name)
+                .getMethod(executionArguments.methodToRun!!.name)
             if (method.parameterTypes.isEmpty()) {
                 method.invoke(null)
             } else {
@@ -65,93 +67,51 @@ suspend fun CompiledSource.jacoco(
     return Pair(taskResults, coverageBuilder)
 }
 
-/*
-class Jacocoerr(private val originalLoader: Sandbox.SandboxedClassLoader) {
-    private val runtime = LoggerRuntime()
-    private val instrumenter = Instrumenter(runtime)
-    private var completed = false
+class EmptyRuntime : AbstractRuntime() {
+    private val key = Integer.toHexString(hashCode())
 
-    fun instrument(bytes: ByteArray, name: String): ByteArray = instrumenter.instrument(bytes, name)
+    @Suppress("SpellCheckingInspection")
+    override fun generateDataAccessor(classid: Long, classname: String, probecount: Int, mv: MethodVisitor): Int {
+        mv.visitLdcInsn(key)
+        // Stack[0]: Ljava/lang/String;
 
-    fun <T> runWithCoverage(method: () -> T): Pair<T, CoverageBuilder> {
-        check(!completed)
-
-        val data = RuntimeData()
-        runtime.startup(data)
-
-        val result = method()
-
-        val executionData = ExecutionDataStore()
-        data.collect(executionData, SessionInfoStore(), false)
-        runtime.shutdown()
-        val coverageBuilder = CoverageBuilder()
-        Analyzer(executionData, coverageBuilder).apply {
-            for ((name, bytes) in originalLoader.knownClasses) {
-                analyzeClass(bytes, name)
-            }
-        }
-        completed = true
-        return Pair(result, coverageBuilder)
-    }
-}
-
-class Jacocoer(private val originalLoader: Sandbox.SandboxedClassLoader) {
-    private val classLoader: MemoryClassLoader
-    private val runtime = LoggerRuntime()
-    private var completed = false
-
-    init {
-        val instrumenter = Instrumenter(runtime)
-        classLoader = MemoryClassLoader(
-            originalLoader.parent,
-            originalLoader.knownClasses.mapValues { (name, bytes) ->
-                instrumenter.instrument(bytes, name)
-            }
+        mv.visitMethodInsn(
+            Opcodes.INVOKESTATIC,
+            classNameToPath(EmptyRuntime::class.java.name),
+            "get",
+            "(Ljava/lang/String;)Ljava/lang/Object;",
+            false
         )
+        // Stack[0]: Ljava/lang/Object;
+
+        RuntimeData.generateAccessCall(classid, classname, probecount, mv)
+        // Stack[0]: [Z
+
+        return STACK_SIZE
     }
 
-    fun <T> runWithCoverage(method: (modifierLoader: ClassLoader) -> T): Pair<T, CoverageBuilder> {
-        check(!completed)
+    override fun startup(data: RuntimeData) {
+        super.startup(data)
+        put(key, data)
+    }
 
-        val data = RuntimeData()
-        runtime.startup(data)
+    override fun shutdown() {
+        remove(key)
+        return
+    }
 
-        val result = method(classLoader)
+    companion object {
+        private val map = mutableMapOf<String, RuntimeData>()
 
-        val executionData = ExecutionDataStore()
-        data.collect(executionData, SessionInfoStore(), false)
-        runtime.shutdown()
-        val coverageBuilder = CoverageBuilder()
-        Analyzer(executionData, coverageBuilder).apply {
-            for ((name, bytes) in originalLoader.knownClasses) {
-                analyzeClass(bytes, name)
-            }
+        fun put(name: String, data: RuntimeData) {
+            map[name] = data
         }
-        completed = true
-        return Pair(result, coverageBuilder)
+
+        @JvmStatic
+        fun get(name: String) = map[name]!! as Any
+
+        fun remove(name: String) = map.remove(name)
+
+        const val STACK_SIZE = 6
     }
 }
-
-class MemoryClassLoader(
-    parent: ClassLoader,
-    val bytecodeForClasses: Map<String, ByteArray>
-) : Sandbox.SandboxableClassLoader {
-    override val definedClasses: Set<String> get() = bytecodeForClasses.keys.toSet()
-    override var providedClasses: MutableSet<String> = mutableSetOf()
-    override var loadedClasses: MutableSet<String> = mutableSetOf()
-
-    override fun findClass(name: String): Class<*> {
-        bytecodeForClasses[name]?.let {
-            loadedClasses += name
-            providedClasses += name
-            return defineClass(name, it, 0, it.size)
-        } ?: throw ClassNotFoundException(name)
-    }
-
-    override fun loadClass(name: String): Class<*> {
-        val klass = super.loadClass(name)
-        loadedClasses += name
-        return klass
-    }
-}
-*/
