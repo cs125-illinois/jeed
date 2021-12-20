@@ -389,8 +389,8 @@ class JeedClassLoader(private val fileManager: JeedFileManager, parentClassLoade
                 JavaFileObject.Kind.CLASS
             ) ?: throw ClassNotFoundException()
             val byteArray = classFile.openInputStream().readAllBytes()
-            loadedClasses.add(name)
-            providedClasses.add(name)
+            loadedClasses += name
+            providedClasses += name
             return defineClass(name, byteArray, 0, byteArray.size)
         } catch (e: Exception) {
             throw ClassNotFoundException(name)
@@ -399,7 +399,7 @@ class JeedClassLoader(private val fileManager: JeedFileManager, parentClassLoade
 
     override fun loadClass(name: String): Class<*> {
         val klass = super.loadClass(name)
-        loadedClasses.add(name)
+        loadedClasses += name
         return klass
     }
 }

@@ -1,3 +1,5 @@
+@file:Suppress("SpellCheckingInspection")
+
 package edu.illinois.cs.cs125.jeed.core
 
 import com.squareup.moshi.JsonClass
@@ -209,8 +211,12 @@ object Sandbox {
     suspend fun <T> execute(
         sandboxedClassLoader: SandboxedClassLoader,
         executionArguments: ExecutionArguments,
-        callable: SandboxCallableArguments<T>
+        callable: SandboxCallableArguments<T>,
+        classLoaderIsSafe: Boolean = true
     ): TaskResults<out T?> {
+        if (classLoaderIsSafe) {
+            require(sandboxedClassLoader.safe)
+        }
         require(executionArguments.permissions.intersect(BLACKLISTED_PERMISSIONS).isEmpty()) {
             "attempt to allow unsafe permissions"
         }
@@ -241,6 +247,14 @@ object Sandbox {
             throw SandboxStartFailed("Out of memory while transforming bytecode", e)
         }
         return execute(sandboxedClassLoader, executionArguments, callable)
+    }
+
+    suspend fun <T> safeExecute(
+        sandboxedClassLoader: SandboxedClassLoader,
+        executionArguments: ExecutionArguments = ExecutionArguments(),
+        callable: SandboxCallableArguments<T>
+    ): TaskResults<out T?> {
+        return execute(sandboxedClassLoader, executionArguments, callable, false)
     }
 
     private const val MAX_THREAD_SHUTDOWN_RETRIES = 256
@@ -634,14 +648,24 @@ object Sandbox {
         private val reloadedClasses: MutableMap<String, Class<*>> = mutableMapOf()
         private val reloader = TrustedReloader()
 
+        var safe = true
+            private set
         @Suppress("MemberVisibilityCanBePrivate")
-        val knownClasses = sandboxableClassLoader.bytecodeForClasses
+        var knownClasses = sandboxableClassLoader.bytecodeForClasses
             .mapValues { (_, unsafeByteArray) ->
                 RewriteBytecode.rewrite(
                     unsafeByteArray,
                     unsafeExceptionClasses
                 )
             }
+            private set
+
+        fun transform(method: (bytes: ByteArray, name: String) -> ByteArray) {
+            safe = false
+            knownClasses = knownClasses.mapValues { (name, bytes) ->
+                method(bytes, name)
+            }
+        }
 
         override fun findClass(name: String): Class<*> {
             return if (knownClasses.containsKey(name)) {
@@ -673,6 +697,7 @@ object Sandbox {
                         granted = false,
                         throwException = false
                     )
+
                     throw ClassNotFoundException(name)
                 }
                 return reloadedClasses.getOrPut(name) {
@@ -706,6 +731,7 @@ object Sandbox {
                         granted = false,
                         throwException = false
                     )
+                    println(Thread.currentThread().stackTrace.joinToString("\n"))
                     throw ClassNotFoundException(name)
                 } else {
                     delegateClass(name)
@@ -1583,7 +1609,7 @@ object Sandbox {
             @Suppress("EmptyCatchBlock")
             try {
                 require(threadPool.awaitTermination(timeout / 2, TimeUnit.SECONDS))
-            } catch (e: Exception) {
+            } catch (_: Exception) {
             }
         }
 

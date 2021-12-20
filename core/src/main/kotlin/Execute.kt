@@ -59,11 +59,7 @@ class ExecutionFailed(
     constructor(methodNotFound: MethodNotFoundException) : this(null, methodNotFound)
 }
 
-@Throws(ExecutionFailed::class)
-@Suppress("ReturnCount")
-suspend fun CompiledSource.execute(
-    executionArguments: SourceExecutionArguments = SourceExecutionArguments()
-): Sandbox.TaskResults<out Any?> {
+fun CompiledSource.updateExecutionArguments(executionArguments: SourceExecutionArguments): SourceExecutionArguments {
     val defaultKlass = if (this.source is Snippet) {
         this.source.entryClassName
     } else {
@@ -89,15 +85,22 @@ suspend fun CompiledSource.execute(
     )
     executionArguments.klass = executionArguments.klass ?: methodToRun.declaringClass.simpleName
     executionArguments.method = executionArguments.method ?: methodToRun.getQualifiedName()
+    return executionArguments
+}
 
-    return Sandbox.execute(classLoader, executionArguments) sandbox@{ (classLoader) ->
-        if (executionArguments.dryRun) {
-            @Suppress("LABEL_NAME_CLASH")
+@Throws(ExecutionFailed::class)
+@Suppress("ReturnCount")
+suspend fun CompiledSource.execute(
+    executionArguments: SourceExecutionArguments = SourceExecutionArguments()
+): Sandbox.TaskResults<out Any?> {
+    val actualArguments = updateExecutionArguments(executionArguments)
+    return Sandbox.execute(classLoader, actualArguments) sandbox@{ (classLoader) ->
+        if (actualArguments.dryRun) {
             return@sandbox null
         }
         classLoader as Sandbox.SandboxedClassLoader
         try {
-            val method = classLoader.findClassMethod(executionArguments.klass!!, executionArguments.method!!)
+            val method = classLoader.findClassMethod(actualArguments.klass!!, actualArguments.method!!)
             return@sandbox if (method.parameterTypes.isEmpty()) {
                 method.invoke(null)
             } else {
