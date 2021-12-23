@@ -19,7 +19,7 @@ dependencies {
     implementation("org.jetbrains.kotlin:kotlin-compiler-embeddable:1.6.10")
     implementation("org.jetbrains.kotlin:kotlin-reflect:1.6.10")
 
-    implementation("org.jetbrains.kotlinx:kotlinx-coroutines-core:1.5.2")
+    implementation("org.jetbrains.kotlinx:kotlinx-coroutines-core:1.6.0")
     implementation("com.puppycrawl.tools:checkstyle:9.2")
     implementation("com.pinterest.ktlint:ktlint-core:0.43.2")
     implementation("com.pinterest.ktlint:ktlint-ruleset-standard:0.43.2")
@@ -28,7 +28,7 @@ dependencies {
     implementation("org.ow2.asm:asm:9.2")
     implementation("org.ow2.asm:asm-util:9.2")
     implementation("org.slf4j:slf4j-api:1.7.32")
-    implementation("ch.qos.logback:logback-classic:1.2.9")
+    implementation("ch.qos.logback:logback-classic:1.2.10")
     implementation("io.github.microutils:kotlin-logging:2.1.21")
     implementation("io.github.classgraph:classgraph:4.8.138")
     implementation("net.java.dev.jna:jna:5.10.0")
