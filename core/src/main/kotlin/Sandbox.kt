@@ -1031,7 +1031,7 @@ object Sandbox {
 
             override fun visitTryCatchBlock(start: Label, end: Label, handler: Label, type: String?) {
                 currentTryCatchBlockPosition++
-                if (currentTryCatchBlockPosition in badTryCatchBlockPositions) {
+                if (start == handler) {
                     /*
                      * For unclear reasons, the Java compiler sometimes emits exception table entries that catch any
                      * exception and transfer control to the inside of the same block. This produces an infinite loop
@@ -1057,7 +1057,14 @@ object Sandbox {
                         labelsToRewrite.add(handler)
                     }
                 }
-                super.visitTryCatchBlock(start, end, handler, type)
+                /*
+                 * For unclear reasons, the Java compiler *also* sometimes emits exception table entries that cover
+                 * a larger region than necessary and partially overlap the handler, especially with throw statements
+                 * inside try-finally blocks. These entries do have functional significance, but must have their
+                 * protected regions shortened to avoid an infinite loop.
+                 */
+                val safeEnd = if (currentTryCatchBlockPosition in badTryCatchBlockPositions) handler else end
+                super.visitTryCatchBlock(start, safeEnd, handler, type)
             }
 
             private var nextLabel: Label? = null
