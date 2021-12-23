@@ -25,9 +25,12 @@ suspend fun CompiledSource.jacoco(
     val instrumenter = Instrumenter(runtime)
 
     val instrumentedClassLoader =
-        MemoryClassLoader(classLoader.parent, classLoader.bytecodeForClasses.mapValues { (name, bytes) ->
-            instrumenter.instrument(bytes, name)
-        })
+        MemoryClassLoader(
+            classLoader.parent,
+            classLoader.bytecodeForClasses.mapValues { (name, bytes) ->
+                instrumenter.instrument(bytes, name)
+            }
+        )
 
     val data = RuntimeData()
     runtime.startup(data)

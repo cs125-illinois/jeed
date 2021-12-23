@@ -704,24 +704,15 @@ object Sandbox {
                 }
             } else {
                 if (blacklistedClasses.any { name.startsWith(it) }) {
-                    val lookupException = name == "java.lang.invoke.MethodHandles${"$"}Lookup" && try {
-                        Thread.currentThread().stackTrace[2].let {
-                            it.className == "java.lang.Class" &&
-                                it.methodName == "getDeclaredMethods0" &&
-                                it.moduleName == "java.base"
-                        }
-                    } catch (e: Throwable) {
-                        false
-                    }
-                    if (!lookupException) {
+                    if (name == "java.lang.invoke.MethodHandles${"$"}Lookup") {
+                        delegateClass(name)
+                    } else {
                         confinedTask.addPermissionRequest(
                             RuntimePermission("loadClass $name"),
                             granted = false,
                             throwException = false
                         )
                         throw ClassNotFoundException(name)
-                    } else {
-                        delegateClass(name)
                     }
                 } else {
                     delegateClass(name)
