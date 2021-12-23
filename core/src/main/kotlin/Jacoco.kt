@@ -1,5 +1,7 @@
 package edu.illinois.cs.cs125.jeed.core
 
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 import org.jacoco.core.analysis.Analyzer
 import org.jacoco.core.analysis.CoverageBuilder
 import org.jacoco.core.data.ExecutionDataStore
@@ -9,7 +11,6 @@ import org.jacoco.core.runtime.AbstractRuntime
 import org.jacoco.core.runtime.RuntimeData
 import org.objectweb.asm.MethodVisitor
 import org.objectweb.asm.Opcodes
-import java.lang.Exception
 import java.lang.reflect.InvocationTargetException
 
 @Throws(ExecutionFailed::class)
@@ -23,21 +24,16 @@ suspend fun CompiledSource.jacoco(
     val runtime = EmptyRuntime()
     val instrumenter = Instrumenter(runtime)
 
-    val originalByteMap = mutableMapOf<String, ByteArray>()
-    val safeClassLoader = Sandbox.SandboxedClassLoader(
-        classLoader, executionArguments.classLoaderConfiguration
-    ).apply {
-        transform { bytes, name ->
-            originalByteMap[name] = bytes
+    val instrumentedClassLoader =
+        MemoryClassLoader(classLoader.parent, classLoader.bytecodeForClasses.mapValues { (name, bytes) ->
             instrumenter.instrument(bytes, name)
-        }
-    }
+        })
 
     val data = RuntimeData()
     runtime.startup(data)
     val executionData = ExecutionDataStore()
 
-    val taskResults = Sandbox.safeExecute(safeClassLoader, actualArguments) {
+    val taskResults = Sandbox.execute(instrumentedClassLoader, actualArguments) { (safeClassLoader) ->
         try {
             val method = safeClassLoader
                 .loadClass(executionArguments.methodToRun!!.declaringClass.name)
@@ -55,12 +51,12 @@ suspend fun CompiledSource.jacoco(
     val coverageBuilder = CoverageBuilder()
     data.collect(executionData, SessionInfoStore(), false)
     runtime.shutdown()
-    Analyzer(executionData, coverageBuilder).apply {
-        for ((name, bytes) in originalByteMap) {
-            try {
-                analyzeClass(bytes, name)
-            } catch (err: Exception) {
-                println(err.cause)
+    withContext(Dispatchers.IO) {
+        runCatching {
+            Analyzer(executionData, coverageBuilder).apply {
+                for ((name, bytes) in classLoader.bytecodeForClasses) {
+                    analyzeClass(bytes, name)
+                }
             }
         }
     }
@@ -73,8 +69,6 @@ class EmptyRuntime : AbstractRuntime() {
     @Suppress("SpellCheckingInspection")
     override fun generateDataAccessor(classid: Long, classname: String, probecount: Int, mv: MethodVisitor): Int {
         mv.visitLdcInsn(key)
-        // Stack[0]: Ljava/lang/String;
-
         mv.visitMethodInsn(
             Opcodes.INVOKESTATIC,
             classNameToPath(EmptyRuntime::class.java.name),
@@ -82,11 +76,7 @@ class EmptyRuntime : AbstractRuntime() {
             "(Ljava/lang/String;)Ljava/lang/Object;",
             false
         )
-        // Stack[0]: Ljava/lang/Object;
-
         RuntimeData.generateAccessCall(classid, classname, probecount, mv)
-        // Stack[0]: [Z
-
         return STACK_SIZE
     }
 
@@ -114,4 +104,11 @@ class EmptyRuntime : AbstractRuntime() {
 
         const val STACK_SIZE = 6
     }
+}
+
+class MemoryClassLoader(
+    parent: ClassLoader,
+    override val bytecodeForClasses: Map<String, ByteArray>
+) : ClassLoader(parent), Sandbox.SandboxableClassLoader {
+    override val classLoader = this
 }

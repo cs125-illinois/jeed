@@ -30,6 +30,7 @@ public class Main {
 
             val testCoverage = coverage.classes.find { it.name == "Test" }!!
             testCoverage.lineCounter.missedCount shouldBe 0
+            testCoverage.lineCounter.coveredCount shouldBe 6
         }
     }
 })

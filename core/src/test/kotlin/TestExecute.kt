@@ -551,14 +551,24 @@ System.out.println("➡️👤 are ❌️ alone");
         }
     }
     "should not fail on locales" {
-        val executeMainResult = Source.fromSnippet(
+        Source.fromSnippet(
             """
 import java.util.Date;
 long t = System.currentTimeMillis();
 System.out.println(new Date(t).toString());
             """.trim()
-        ).compile().execute()
-        executeMainResult should haveCompleted()
+        ).compile().execute().also {
+            it should haveCompleted()
+        }
+    }
+    "should print records" {
+        Source.fromSnippet(
+            """record Person(String name, int age) {}
+                |System.out.println(new Person("Geoffrey", 42));
+            """.trimMargin()
+        ).compile().execute().also {
+            it should haveCompleted()
+        }
     }
 })
 

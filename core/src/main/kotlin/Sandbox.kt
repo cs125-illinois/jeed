@@ -211,12 +211,8 @@ object Sandbox {
     suspend fun <T> execute(
         sandboxedClassLoader: SandboxedClassLoader,
         executionArguments: ExecutionArguments,
-        callable: SandboxCallableArguments<T>,
-        classLoaderIsSafe: Boolean = true
+        callable: SandboxCallableArguments<T>
     ): TaskResults<out T?> {
-        if (classLoaderIsSafe) {
-            require(sandboxedClassLoader.safe)
-        }
         require(executionArguments.permissions.intersect(BLACKLISTED_PERMISSIONS).isEmpty()) {
             "attempt to allow unsafe permissions"
         }
@@ -247,14 +243,6 @@ object Sandbox {
             throw SandboxStartFailed("Out of memory while transforming bytecode", e)
         }
         return execute(sandboxedClassLoader, executionArguments, callable)
-    }
-
-    suspend fun <T> safeExecute(
-        sandboxedClassLoader: SandboxedClassLoader,
-        executionArguments: ExecutionArguments = ExecutionArguments(),
-        callable: SandboxCallableArguments<T>
-    ): TaskResults<out T?> {
-        return execute(sandboxedClassLoader, executionArguments, callable, false)
     }
 
     private const val MAX_THREAD_SHUTDOWN_RETRIES = 256
@@ -648,25 +636,14 @@ object Sandbox {
         private val reloadedClasses: MutableMap<String, Class<*>> = mutableMapOf()
         private val reloader = TrustedReloader()
 
-        var safe = true
-            private set
-
         @Suppress("MemberVisibilityCanBePrivate")
-        var knownClasses = sandboxableClassLoader.bytecodeForClasses
+        val knownClasses = sandboxableClassLoader.bytecodeForClasses
             .mapValues { (_, unsafeByteArray) ->
                 RewriteBytecode.rewrite(
                     unsafeByteArray,
                     unsafeExceptionClasses
                 )
             }
-            private set
-
-        fun transform(method: (bytes: ByteArray, name: String) -> ByteArray) {
-            safe = false
-            knownClasses = knownClasses.mapValues { (name, bytes) ->
-                method(bytes, name)
-            }
-        }
 
         override fun findClass(name: String): Class<*> {
             return if (knownClasses.containsKey(name)) {
