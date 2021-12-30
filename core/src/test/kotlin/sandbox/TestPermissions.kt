@@ -13,6 +13,7 @@ import edu.illinois.cs.cs125.jeed.core.haveOutput
 import io.kotest.assertions.throwables.shouldThrow
 import io.kotest.core.spec.style.StringSpec
 import io.kotest.matchers.collections.shouldHaveSize
+import io.kotest.matchers.nulls.beNull
 import io.kotest.matchers.should
 import io.kotest.matchers.shouldBe
 import io.kotest.matchers.shouldNot
@@ -277,16 +278,6 @@ while ((line = in.readLine()) != null) {
         executionResult shouldNot haveCompleted()
         executionResult.permissionDenied shouldBe true
     }
-    "should not allow SecurityManager to be set again through reflection" {
-        val executionResult = Source.fromSnippet(
-            """
-Class<System> c = System.class;
-System s = c.newInstance();
-        """.trim()
-        ).compile().execute()
-
-        executionResult shouldNot haveCompleted()
-    }
     "should not allow SecurityManager to be created again through reflection" {
         val executionResult = Source.fromSnippet(
             """
@@ -488,5 +479,59 @@ System.out.println(clazz);
         executionResult.permissionDenied shouldBe true
         executionResult.threw shouldBe instanceOf<SecurityException>()
         executionResult.threw!!.message shouldBe "invocation of forbidden method"
+    }
+    "should not allow installing an agent through ByteBuddy, coroutine-style" {
+        val executionResult = Source.fromSnippet(
+            """
+import net.bytebuddy.agent.ByteBuddyAgent;
+
+ByteBuddyAgent.install(ByteBuddyAgent.AttachmentProvider.ForEmulatedAttachment.INSTANCE);
+        """.trim()
+        ).compile().execute(SourceExecutionArguments(timeout = 10000))
+        executionResult.permissionDenied shouldBe true
+        executionResult.completed shouldBe false
+        executionResult.threw shouldNot beNull()
+    }
+    "should not allow installing an agent through ByteBuddy's default provider" {
+        val executionResult = Source.fromSnippet(
+            """
+import net.bytebuddy.agent.ByteBuddyAgent;
+
+ByteBuddyAgent.install();
+        """.trim()
+        ).compile().execute(SourceExecutionArguments(timeout = 10000))
+        executionResult.completed shouldBe false
+        executionResult.threw shouldNot beNull()
+    }
+    "should not allow using the attachment/VM API directly" {
+        val executionResult = Source.fromSnippet(
+            """
+import com.sun.tools.attach.VirtualMachine;
+
+var vms = VirtualMachine.list();
+var vmid = vms.get(0).id();
+var vm = VirtualMachine.attach(vmid);
+        """.trim()
+        ).compile().execute(SourceExecutionArguments(timeout = 10000))
+        executionResult.permissionDenied shouldBe true
+        executionResult.completed shouldBe false
+        executionResult.threw shouldNot beNull()
+    }
+    "should not allow access to private constructors" {
+        val executionResult = Source.fromSnippet(
+            """
+import java.lang.reflect.*;
+
+class Example {
+    private Example() { }
+}
+
+Constructor<?> cons = Example.class.getDeclaredConstructors()[0];
+cons.setAccessible(true);
+System.out.println(cons.newInstance());
+        """.trim()
+        ).compile().execute(SourceExecutionArguments(timeout = 10000))
+        executionResult.permissionDenied shouldBe true
+        executionResult.completed shouldBe false
     }
 })

@@ -89,13 +89,17 @@ object Sandbox {
             val DEFAULT_BLACKLISTED_CLASSES = setOf("java.lang.reflect.")
             val DEFAULT_UNSAFE_EXCEPTIONS = setOf<String>()
             val DEFAULT_ISOLATED_CLASSES = setOf<String>()
-            val DEFAULT_BLACKLISTED_METHODS = setOf(MethodFilter("java.lang.invoke.MethodHandles.Lookup", ""))
-            val PERMANENTLY_BLACKLISTED_CLASSES =
-                setOf(
-                    "edu.illinois.cs.cs125.jeed.",
-                    "org.objectweb.asm.",
-                    "java.lang.invoke.MethodHandles"
-                )
+            val DEFAULT_BLACKLISTED_METHODS = setOf(
+                MethodFilter("java.lang.invoke.MethodHandles.Lookup", ""),
+                MethodFilter("java.lang.reflect.", "setAccessible")
+            )
+            val PERMANENTLY_BLACKLISTED_CLASSES = setOf(
+                "edu.illinois.cs.cs125.jeed.",
+                "org.objectweb.asm.",
+                "com.sun.",
+                "net.bytebuddy.agent.",
+                "java.lang.invoke.MethodHandles"
+            )
             val ALWAYS_UNSAFE_EXCEPTIONS = setOf("java.lang.Error")
             val ALWAYS_ISOLATED_CLASSES = setOf("kotlin.coroutines.", "kotlinx.coroutines.")
             val COROUTINE_REQUIRED_CLASSES = setOf("java.lang.reflect.Constructor")

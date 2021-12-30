@@ -298,6 +298,14 @@ System.out.println(countArray(array, new IncludeValue() {
         """.trim()
         ).compile()
     }
+    "should handle warnings from outside the snippet" {
+        Source.fromSnippet(
+            """
+import net.bytebuddy.agent.ByteBuddyAgent;
+ByteBuddyAgent.install(ByteBuddyAgent.AttachmentProvider.ForEmulatedAttachment.INSTANCE);
+        """.trim()
+        ).compile()
+    }
     "should parse kotlin snippets" {
         Source.fromSnippet(
             """
