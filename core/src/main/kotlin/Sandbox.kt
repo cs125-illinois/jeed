@@ -306,21 +306,19 @@ object Sandbox {
                 val coroutinesUsed = sandboxedClassLoader.loadedClasses.any { it.startsWith("kotlinx.coroutines.") }
                 fun anyActiveCoroutines(): Boolean {
                     if (!coroutinesUsed) return false
-                    synchronized(safeUnconstrainedInvocationSyncRoot) {
-                        try {
-                            safeUnconstrainedInvokerThread = Thread.currentThread()
-                            val defaultExecutorName = "kotlinx.coroutines.DefaultExecutor"
-                            val defaultExecutorClass = sandboxedClassLoader.loadClass(defaultExecutorName)
-                            if (!sandboxedClassLoader.isClassReloaded(defaultExecutorClass)) return false // Shenanigans
-                            val defaultExecutor = defaultExecutorClass.kotlin.objectInstance
-                            val emptyProp = defaultExecutorClass.kotlin.memberProperties
-                                .first { it.name == "isEmpty" }.also { it.isAccessible = true } as KProperty<*>
-                            return emptyProp.getter.call(defaultExecutor) == false
-                        } catch (e: Throwable) {
-                            return false
-                        } finally {
-                            safeUnconstrainedInvokerThread = null
-                        }
+                    try {
+                        performingSafeUnconstrainedInvocation.set(true)
+                        val defaultExecutorName = "kotlinx.coroutines.DefaultExecutor"
+                        val defaultExecutorClass = sandboxedClassLoader.loadClass(defaultExecutorName)
+                        if (!sandboxedClassLoader.isClassReloaded(defaultExecutorClass)) return false // Shenanigans
+                        val defaultExecutor = defaultExecutorClass.kotlin.objectInstance
+                        val emptyProp = defaultExecutorClass.kotlin.memberProperties
+                            .first { it.name == "isEmpty" }.also { it.isAccessible = true } as KProperty<*>
+                        return emptyProp.getter.call(defaultExecutor) == false
+                    } catch (e: Throwable) {
+                        return false
+                    } finally {
+                        performingSafeUnconstrainedInvocation.set(false)
                     }
                 }
 
@@ -867,7 +865,7 @@ object Sandbox {
 
         @JvmStatic
         fun checkSandboxEnclosure() {
-            if (confinedTaskByThreadGroup() == null && Thread.currentThread() != safeUnconstrainedInvokerThread) {
+            if (confinedTaskByThreadGroup() == null && !performingSafeUnconstrainedInvocation.get()) {
                 throw SecurityException("invocation of untrusted code outside confined task")
             }
         }
@@ -1594,8 +1592,7 @@ object Sandbox {
 
     private lateinit var originalPrintStreams: Map<TaskResults.OutputLine.Console, PrintStream>
 
-    private val safeUnconstrainedInvocationSyncRoot = Object()
-    private var safeUnconstrainedInvokerThread: Thread? = null
+    private val performingSafeUnconstrainedInvocation: ThreadLocal<Boolean> = ThreadLocal.withInitial { false }
 
     @JvmStatic
     @Synchronized
