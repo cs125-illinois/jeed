@@ -16,6 +16,7 @@ import org.objectweb.asm.Type
 import java.io.FilePermission
 import java.io.OutputStream
 import java.io.PrintStream
+import java.lang.reflect.Constructor
 import java.lang.reflect.InvocationTargetException
 import java.lang.reflect.Modifier
 import java.security.AccessControlContext
@@ -90,8 +91,7 @@ object Sandbox {
             val DEFAULT_UNSAFE_EXCEPTIONS = setOf<String>()
             val DEFAULT_ISOLATED_CLASSES = setOf<String>()
             val DEFAULT_BLACKLISTED_METHODS = setOf(
-                MethodFilter("java.lang.invoke.MethodHandles.Lookup", ""),
-                MethodFilter("java.lang.reflect.", "setAccessible")
+                MethodFilter("java.lang.invoke.MethodHandles.Lookup", "")
             )
             val PERMANENTLY_BLACKLISTED_CLASSES = setOf(
                 "edu.illinois.cs.cs125.jeed.",
@@ -102,7 +102,6 @@ object Sandbox {
             )
             val ALWAYS_UNSAFE_EXCEPTIONS = setOf("java.lang.Error")
             val ALWAYS_ISOLATED_CLASSES = setOf("kotlin.coroutines.", "kotlinx.coroutines.")
-            val COROUTINE_REQUIRED_CLASSES = setOf("java.lang.reflect.Constructor")
         }
     }
 
@@ -697,9 +696,6 @@ object Sandbox {
             if (name in ALWAYS_ALLOWED_CLASS_NAMES) {
                 return delegateClass(name)
             }
-            if (name in ClassLoaderConfiguration.COROUTINE_REQUIRED_CLASSES) {
-                return delegateClass(name)
-            }
             return if (isWhiteList) {
                 if (whitelistedClasses.any { name.startsWith(it) }) {
                     delegateClass(name)
@@ -788,6 +784,7 @@ object Sandbox {
         private val enclosureMethodDescription =
             Type.getMethodDescriptor(RewriteBytecode::checkSandboxEnclosure.javaMethod)
                 ?: error("should be able to retrieve method signature for enclosure checker")
+        private val permittedNoClassDefFoundErrorClasses = setOf(Constructor::class.java.name)
         private val syncNotifyMethods = mapOf(
             "wait:()V" to RewriteBytecode::conditionWait,
             "wait:(J)V" to RewriteBytecode::conditionWaitMs,
@@ -804,6 +801,13 @@ object Sandbox {
             val confinedTask = confinedTaskByThreadGroup() ?: error("only confined tasks should call this method")
             if (confinedTask.shuttingDown) {
                 throw SandboxDeath()
+            }
+            if (throwable.javaClass === NoClassDefFoundError::class.java) {
+                val notFoundClass = throwable.message?.let { binaryNameToClassName(it) } ?: throw throwable
+                if (notFoundClass in permittedNoClassDefFoundErrorClasses) {
+                    // Allow coroutines (DebugProbesImpl) to gracefully handle the lack of reflection capability
+                    return
+                }
             }
             // This check is required because of how we handle finally blocks
             if (confinedTask.classLoader.unsafeExceptionClasses.any { it.isAssignableFrom(throwable.javaClass) }) {
