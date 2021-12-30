@@ -12,6 +12,7 @@ import org.jacoco.core.runtime.RuntimeData
 import org.objectweb.asm.MethodVisitor
 import org.objectweb.asm.Opcodes
 import java.lang.reflect.InvocationTargetException
+import java.util.UUID
 
 @Throws(ExecutionFailed::class)
 @Suppress("ReturnCount")
@@ -67,7 +68,7 @@ suspend fun CompiledSource.jacoco(
 }
 
 class EmptyRuntime : AbstractRuntime() {
-    private val key = Integer.toHexString(hashCode())
+    private val key = UUID.randomUUID().toString()
 
     @Suppress("SpellCheckingInspection")
     override fun generateDataAccessor(classid: Long, classname: String, probecount: Int, mv: MethodVisitor): Int {
@@ -90,7 +91,6 @@ class EmptyRuntime : AbstractRuntime() {
 
     override fun shutdown() {
         remove(key)
-        return
     }
 
     companion object {

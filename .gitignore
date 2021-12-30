@@ -8,6 +8,7 @@ test-output/
 *.swp
 *.swo
 *.iml
+hs_err_*.log
 
 # User-specific stuff
 .idea/**/workspace.xml
