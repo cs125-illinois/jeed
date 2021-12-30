@@ -16,6 +16,7 @@ import io.kotest.matchers.collections.shouldHaveSize
 import io.kotest.matchers.should
 import io.kotest.matchers.shouldBe
 import io.kotest.matchers.shouldNot
+import io.kotest.matchers.types.instanceOf
 import java.io.ByteArrayOutputStream
 import java.io.PrintStream
 import java.lang.IllegalArgumentException
@@ -473,5 +474,19 @@ try {
         """.trim()
         ).compile().execute(SourceExecutionArguments(timeout = 10000))
         executionResult.permissionDenied shouldBe true
+    }
+    "should not allow calling forbidden methods" {
+        val executionResult = Source.fromSnippet(
+            """
+import java.lang.invoke.MethodHandles;
+
+MethodHandles.Lookup lookup = null;
+var clazz = lookup.findClass("edu.illinois.cs.cs125.jeed.core.Sandbox");
+System.out.println(clazz);
+        """.trim()
+        ).compile().execute(SourceExecutionArguments(timeout = 10000))
+        executionResult.permissionDenied shouldBe true
+        executionResult.threw shouldBe instanceOf<SecurityException>()
+        executionResult.threw!!.message shouldBe "invocation of forbidden method"
     }
 })

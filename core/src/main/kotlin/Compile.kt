@@ -252,6 +252,10 @@ fun pathToClassName(path: String): String {
     return path.removeSuffix(".class").replace("/", ".")
 }
 
+fun binaryNameToClassName(binaryClassName: String): String {
+    return binaryClassName.replace('/', '.').replace('$', '.')
+}
+
 class JeedFileManager(private val parentFileManager: JavaFileManager) :
     ForwardingJavaFileManager<JavaFileManager>(parentFileManager) {
     val classFiles: MutableMap<String, JavaFileObject> = mutableMapOf()

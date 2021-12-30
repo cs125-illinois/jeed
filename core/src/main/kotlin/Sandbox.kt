@@ -52,6 +52,7 @@ object Sandbox {
         blacklistedClasses: Set<String> = DEFAULT_BLACKLISTED_CLASSES,
         unsafeExceptions: Set<String> = DEFAULT_UNSAFE_EXCEPTIONS,
         isolatedClasses: Set<String> = DEFAULT_ISOLATED_CLASSES,
+        val blacklistedMethods: Set<MethodFilter> = DEFAULT_BLACKLISTED_METHODS,
         val isWhiteList: Boolean? = null
     ) {
         val blacklistedClasses = blacklistedClasses.union(PERMANENTLY_BLACKLISTED_CLASSES)
@@ -88,6 +89,7 @@ object Sandbox {
             val DEFAULT_BLACKLISTED_CLASSES = setOf("java.lang.reflect.")
             val DEFAULT_UNSAFE_EXCEPTIONS = setOf<String>()
             val DEFAULT_ISOLATED_CLASSES = setOf<String>()
+            val DEFAULT_BLACKLISTED_METHODS = setOf(MethodFilter("java.lang.invoke.MethodHandles.Lookup", ""))
             val PERMANENTLY_BLACKLISTED_CLASSES =
                 setOf(
                     "edu.illinois.cs.cs125.jeed.",
@@ -121,6 +123,9 @@ object Sandbox {
             const val DEFAULT_RETURN_TIMEOUT = 1
         }
     }
+
+    @JsonClass(generateAdapter = true)
+    data class MethodFilter(val ownerClassPrefix: String, val methodPrefix: String)
 
     @Suppress("LongParameterList")
     class TaskResults<T>(
@@ -623,6 +628,7 @@ object Sandbox {
         private val whitelistedClasses = classLoaderConfiguration.whitelistedClasses
         private val blacklistedClasses = classLoaderConfiguration.blacklistedClasses
         private val isolatedClasses = classLoaderConfiguration.isolatedClasses
+        private val blacklistedMethods = classLoaderConfiguration.blacklistedMethods
         val unsafeExceptionClasses: Set<Class<*>> = classLoaderConfiguration.unsafeExceptions.map { name ->
             val klass = Class.forName(name) ?: error("$name does not refer to a Java class")
             require(Throwable::class.java.isAssignableFrom(klass)) { "$name does not refer to a Java Throwable" }
@@ -641,7 +647,8 @@ object Sandbox {
             .mapValues { (_, unsafeByteArray) ->
                 RewriteBytecode.rewrite(
                     unsafeByteArray,
-                    unsafeExceptionClasses
+                    unsafeExceptionClasses,
+                    blacklistedMethods
                 )
             }
 
@@ -705,6 +712,12 @@ object Sandbox {
             } else {
                 if (blacklistedClasses.any { name.startsWith(it) }) {
                     if (name == "java.lang.invoke.MethodHandles${"$"}Lookup") {
+                        /*
+                         * Jacoco adds a dynamic constant, computed by a bootstrap method added to the same class.
+                         * This requires mentioning MethodHandles.Lookup in the bootstrap method signature.
+                         * However, Jacoco does not actually use the lookup, so all Lookup methods are still banned
+                         * by default by poisoning invoke instructions.
+                         */
                         delegateClass(name)
                     } else {
                         confinedTask.addPermissionRequest(
@@ -742,7 +755,8 @@ object Sandbox {
                         ?: throw ClassNotFoundException("failed to reload $name")
                     RewriteBytecode.rewrite(
                         originalBytes,
-                        unsafeExceptionClasses
+                        unsafeExceptionClasses,
+                        blacklistedMethods
                     )
                 }
                 loadedClasses.add(name)
@@ -841,6 +855,13 @@ object Sandbox {
         }
 
         @JvmStatic
+        fun forbiddenMethod() {
+            val confinedTask = confinedTaskByThreadGroup() ?: error("only confined tasks should call this method")
+            confinedTask.permissionRequests.add(TaskResults.PermissionRequest(RuntimePermission("callForbiddenMethod"), false))
+            throw SecurityException("invocation of forbidden method")
+        }
+
+        @JvmStatic
         fun checkSandboxEnclosure() {
             if (confinedTaskByThreadGroup() == null && Thread.currentThread() != safeUnconstrainedInvokerThread) {
                 throw SecurityException("invocation of untrusted code outside confined task")
@@ -849,7 +870,8 @@ object Sandbox {
 
         internal fun rewrite(
             originalByteArray: ByteArray,
-            unsafeExceptionClasses: Set<Class<*>>
+            unsafeExceptionClasses: Set<Class<*>>,
+            blacklistedMethods: Set<MethodFilter>
         ): ByteArray {
             require(originalByteArray.size <= MAX_CLASS_FILE_SIZE) { "bytecode is over 1 MB" }
             val classReader = ClassReader(originalByteArray)
@@ -908,6 +930,7 @@ object Sandbox {
                         }
                         SandboxingMethodVisitor(
                             unsafeExceptionClasses,
+                            blacklistedMethods,
                             preinspection.badTryCatchBlockPositions,
                             super.visitMethod(
                                 transformedModifiers,
@@ -1011,6 +1034,7 @@ object Sandbox {
 
         private class SandboxingMethodVisitor(
             val unsafeExceptionClasses: Set<Class<*>>,
+            val blacklistedMethods: Set<MethodFilter>,
             val badTryCatchBlockPositions: Set<Int>,
             methodVisitor: MethodVisitor
         ) : MonitorIsolatingMethodVisitor(methodVisitor) {
@@ -1106,6 +1130,20 @@ object Sandbox {
                 descriptor: String,
                 isInterface: Boolean
             ) {
+                val ownerClassName = binaryNameToClassName(owner)
+                val methodIsBlacklisted = blacklistedMethods.any {
+                    ownerClassName.startsWith(it.ownerClassPrefix) && name.startsWith(it.methodPrefix)
+                }
+                if (methodIsBlacklisted) {
+                    // Adding an extra call instead of replacing the call avoids the need for fiddly stack manipulation
+                    super.visitMethodInsn(
+                        Opcodes.INVOKESTATIC,
+                        rewriterClassName,
+                        RewriteBytecode::forbiddenMethod.javaMethod?.name ?: error("need forbidden method name"),
+                        Type.getMethodDescriptor(RewriteBytecode::forbiddenMethod.javaMethod),
+                        false
+                    )
+                }
                 val rewriteTarget = if (!isInterface && opcode == Opcodes.INVOKEVIRTUAL &&
                     owner == classNameToPath(Object::class.java.name)
                 ) {
@@ -1381,9 +1419,6 @@ object Sandbox {
      * stuff doesn't get forwarded, and we have to make sure that nothing is shared.
      *
      * Hence, this sadness.
-     *
-     * PS: also fuck you Java for leaving me no choice but to resort to this. There are a half-dozen different terrible
-     * design decisions that led us to this place. Please do better next time.
      */
     @Suppress("EmptyFunctionBlock")
     private val nullOutputStream = object : OutputStream() {
