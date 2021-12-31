@@ -3,6 +3,7 @@
 package edu.illinois.cs.cs125.jeed.core.sandbox
 
 import edu.illinois.cs.cs125.jeed.core.Sandbox
+import edu.illinois.cs.cs125.jeed.core.SnippetArguments
 import edu.illinois.cs.cs125.jeed.core.Source
 import edu.illinois.cs.cs125.jeed.core.SourceExecutionArguments
 import edu.illinois.cs.cs125.jeed.core.compile
@@ -10,6 +11,7 @@ import edu.illinois.cs.cs125.jeed.core.execute
 import edu.illinois.cs.cs125.jeed.core.fromSnippet
 import edu.illinois.cs.cs125.jeed.core.haveCompleted
 import edu.illinois.cs.cs125.jeed.core.haveOutput
+import edu.illinois.cs.cs125.jeed.core.kompile
 import io.kotest.assertions.throwables.shouldThrow
 import io.kotest.core.spec.style.StringSpec
 import io.kotest.matchers.collections.shouldHaveSize
@@ -87,6 +89,45 @@ import java.io.*;
 System.out.println(new File("/").listFiles().length);
         """.trim()
         ).compile().execute()
+
+        executionResult shouldNot haveCompleted()
+        executionResult.permissionDenied shouldBe true
+    }
+    "should prevent snippets from writing files" {
+        val executionResult = Source.fromSnippet(
+            """
+import java.io.*;
+var writer = new PrintWriter("test.txt", "UTF-8");
+writer.println("Uh oh");
+writer.close();
+        """.trim()
+        ).compile().execute()
+
+        executionResult shouldNot haveCompleted()
+        executionResult.permissionDenied shouldBe true
+    }
+    "should prevent snippets from writing files through the Files API" {
+        val executionResult = Source.fromSnippet(
+            """
+import java.nio.file.*;
+import java.nio.charset.StandardCharsets;
+import java.util.Arrays;
+Path file = Paths.get("test.txt");
+Files.write(file, Arrays.asList("oh", "no"), StandardCharsets.UTF_8);
+        """.trim()
+        ).compile().execute()
+
+        executionResult shouldNot haveCompleted()
+        executionResult.permissionDenied shouldBe true
+    }
+    "should prevent writing files through the Kotlin stdlib" {
+        val executionResult = Source.fromSnippet(
+            """
+import java.io.File
+File("test.txt").writeText("uh oh")
+                """.trim(),
+            SnippetArguments(fileType = Source.FileType.KOTLIN)
+        ).kompile().execute()
 
         executionResult shouldNot haveCompleted()
         executionResult.permissionDenied shouldBe true
@@ -277,6 +318,17 @@ while ((line = in.readLine()) != null) {
 
         executionResult shouldNot haveCompleted()
         executionResult.permissionDenied shouldBe true
+    }
+    "it should not allow snippets to examine other processes" {
+        val executionResult = Source.fromSnippet(
+            """
+ProcessHandle.allProcesses().forEach(p -> System.out.println(p.info()));
+        """.trim()
+        ).compile().execute()
+
+        executionResult shouldNot haveCompleted()
+        executionResult.permissionDenied shouldBe true
+        executionResult should haveOutput("")
     }
     "should not allow SecurityManager to be created again through reflection" {
         val executionResult = Source.fromSnippet(

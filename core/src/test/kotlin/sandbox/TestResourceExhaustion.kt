@@ -682,4 +682,44 @@ countedLoop(1000000);
         executionResult shouldNot haveCompleted()
         executionResult should haveOutput("Warmed up")
     }
+    "should terminate a console-scanning thread" {
+        val compileResult = Source(
+            mapOf(
+                "Main.java" to """
+import java.util.Scanner;
+public class Main {
+    public static void main() {
+        var scanner = new Scanner(System.in);
+        scanner.nextLine();
+    }
+}""".trim()
+            )
+        ).compile()
+
+        (1..8).forEach { _ ->
+            val executionResult = compileResult.execute()
+            executionResult shouldNot haveCompleted()
+        }
+    }
+    "should terminate a console-reading thread" {
+        val compileResult = Source(
+            mapOf(
+                "Main.java" to """
+public class Main {
+    public static void main() throws Exception {
+        while (true) {
+            int b = -1;
+            while ((b = System.in.read()) < 0) {}
+            System.out.println(b);
+        }
+    }
+}""".trim()
+            )
+        ).compile()
+
+        (1..8).forEach { _ ->
+            val executionResult = compileResult.execute()
+            executionResult shouldNot haveCompleted()
+        }
+    }
 })
