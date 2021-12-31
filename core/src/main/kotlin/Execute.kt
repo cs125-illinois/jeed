@@ -21,7 +21,8 @@ class SourceExecutionArguments(
     val dryRun: Boolean = false,
     waitForShutdown: Boolean = DEFAULT_WAIT_FOR_SHUTDOWN,
     @Transient
-    var methodToRun: Method? = null
+    var methodToRun: Method? = null,
+    val plugins: List<SandboxPlugin<*>> = listOf()
 ) : Sandbox.ExecutionArguments(
     timeout,
     permissions.union(REQUIRED_PERMISSIONS),
@@ -96,7 +97,7 @@ suspend fun CompiledSource.execute(
     executionArguments: SourceExecutionArguments = SourceExecutionArguments()
 ): Sandbox.TaskResults<out Any?> {
     val actualArguments = updateExecutionArguments(executionArguments)
-    return Sandbox.execute(classLoader, actualArguments) sandbox@{ (classLoader) ->
+    return Sandbox.execute(classLoader, actualArguments, actualArguments.plugins) sandbox@{ (classLoader) ->
         if (actualArguments.dryRun) {
             return@sandbox null
         }

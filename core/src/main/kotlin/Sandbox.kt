@@ -6,6 +6,7 @@ import com.squareup.moshi.JsonClass
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.runBlocking
+import org.jetbrains.kotlin.util.capitalizeDecapitalize.decapitalizeAsciiOnly
 import org.objectweb.asm.ClassReader
 import org.objectweb.asm.ClassVisitor
 import org.objectweb.asm.ClassWriter
@@ -142,7 +143,9 @@ object Sandbox {
         @Transient val sandboxedClassLoader: SandboxedClassLoader? = null,
         val truncatedLines: Int,
         @Suppress("unused")
-        val executionArguments: ExecutionArguments
+        val executionArguments: ExecutionArguments,
+        @Suppress("MemberVisibilityCanBePrivate") // For serialization
+        val pluginResults: Map<String, Any>
     ) {
         @JsonClass(generateAdapter = true)
         data class OutputLine(
@@ -189,6 +192,10 @@ object Sandbox {
             get() {
                 return Duration.between(interval.start, interval.end)
             }
+        fun <V : Any> pluginResult(plugin: SandboxPlugin<V>): V {
+            @Suppress("UNCHECKED_CAST")
+            return pluginResults[plugin.id] as V
+        }
     }
 
     private val BLACKLISTED_PERMISSIONS = setOf(
@@ -219,7 +226,8 @@ object Sandbox {
     suspend fun <T> execute(
         sandboxedClassLoader: SandboxedClassLoader,
         executionArguments: ExecutionArguments,
-        callable: SandboxCallableArguments<T>
+        callable: SandboxCallableArguments<T>,
+        plugins: List<SandboxPlugin<*>> = listOf()
     ): TaskResults<out T?> {
         require(executionArguments.permissions.intersect(BLACKLISTED_PERMISSIONS).isEmpty()) {
             "attempt to allow unsafe permissions"
@@ -233,7 +241,7 @@ object Sandbox {
 
         return coroutineScope {
             val resultsChannel = Channel<ExecutorResult<T>>()
-            val executor = Executor(callable, sandboxedClassLoader, executionArguments, resultsChannel)
+            val executor = Executor(callable, sandboxedClassLoader, executionArguments, plugins, resultsChannel)
             threadPool.submit(executor)
             val result = executor.resultChannel.receive()
             result.taskResults ?: throw result.executionException
@@ -243,14 +251,15 @@ object Sandbox {
     suspend fun <T> execute(
         sandboxableClassLoader: SandboxableClassLoader = EmptyClassLoader,
         executionArguments: ExecutionArguments = ExecutionArguments(),
+        plugins: List<SandboxPlugin<*>> = listOf(),
         callable: SandboxCallableArguments<T>
     ): TaskResults<out T?> {
         val sandboxedClassLoader = try {
-            SandboxedClassLoader(sandboxableClassLoader, executionArguments.classLoaderConfiguration)
+            SandboxedClassLoader(sandboxableClassLoader, executionArguments.classLoaderConfiguration, plugins)
         } catch (e: OutOfMemoryError) {
             throw SandboxStartFailed("Out of memory while transforming bytecode", e)
         }
-        return execute(sandboxedClassLoader, executionArguments, callable)
+        return execute(sandboxedClassLoader, executionArguments, callable, plugins)
     }
 
     private const val MAX_THREAD_SHUTDOWN_RETRIES = 256
@@ -262,6 +271,7 @@ object Sandbox {
         val callable: SandboxCallableArguments<T>,
         val sandboxedClassLoader: SandboxedClassLoader,
         val executionArguments: ExecutionArguments,
+        val plugins: List<SandboxPlugin<*>>,
         val resultChannel: Channel<ExecutorResult<T>>
     ) : Callable<Any> {
         private data class TaskResult<T>(val returned: T, val threw: Throwable? = null, val timeout: Boolean = false)
@@ -270,7 +280,7 @@ object Sandbox {
         override fun call() {
             @Suppress("TooGenericExceptionCaught")
             try {
-                val confinedTask = confine(callable, sandboxedClassLoader, executionArguments)
+                val confinedTask = confine(callable, sandboxedClassLoader, executionArguments, plugins)
                 val executionStarted = Instant.now()
                 val taskResult = try {
                     confinedTask.thread.start()
@@ -357,7 +367,10 @@ object Sandbox {
                     Interval(executionStarted, executionEnded),
                     sandboxedClassLoader,
                     confinedTask.truncatedLines,
-                    executionArguments
+                    executionArguments,
+                    confinedTask.pluginData.map { (plugin, workingData) ->
+                        plugin.id to plugin.createFinalData(workingData)
+                    }.toMap()
                 )
                 @Suppress("ThrowingExceptionsWithoutMessageOrCause")
                 runBlocking { resultChannel.send(ExecutorResult(executionResult, Exception())) }
@@ -373,7 +386,8 @@ object Sandbox {
         val classLoader: SandboxedClassLoader,
         val task: FutureTask<T>,
         val thread: Thread,
-        executionArguments: ExecutionArguments
+        executionArguments: ExecutionArguments,
+        plugins: List<SandboxPlugin<*>>
     ) {
         val threadGroup = thread.threadGroup ?: error("thread should be in thread group")
         val accessControlContext: AccessControlContext
@@ -404,6 +418,8 @@ object Sandbox {
         val permissionRequests: MutableList<TaskResults.PermissionRequest> = mutableListOf()
 
         val started: Instant = Instant.now()
+
+        val pluginData = plugins.associateWith { it.createInitialData() }
 
         private val isolatedLocksSyncRoot = Object()
         private val isolatedLocks = mutableMapOf<Any, ReentrantLock>()
@@ -513,11 +529,18 @@ object Sandbox {
         return confinedTasks[Thread.currentThread().threadGroup]
     }
 
+    fun <W> confinedTaskWorkingData(plugin: SandboxPlugin<*>): W {
+        val confinedTask = confinedTaskByThreadGroup() ?: error("attempt to access current task data outside any task")
+        @Suppress("UNCHECKED_CAST")
+        return confinedTask.pluginData[plugin] as W
+    }
+
     @Synchronized
     private fun <T> confine(
         callable: SandboxCallableArguments<T>,
         sandboxedClassLoader: SandboxedClassLoader,
-        executionArguments: ExecutionArguments
+        executionArguments: ExecutionArguments,
+        plugins: List<SandboxPlugin<*>>
     ): ConfinedTask<T> {
         val threadGroup = object : ThreadGroup("Sandbox") {
             @Suppress("EmptyFunctionBlock")
@@ -533,7 +556,7 @@ object Sandbox {
         threadGroup.maxPriority = Thread.MIN_PRIORITY
         val task = FutureTask(SandboxedCallable<T>(callable, sandboxedClassLoader))
         val thread = Thread(threadGroup, task, "main")
-        val confinedTask = ConfinedTask(sandboxedClassLoader, task, thread, executionArguments)
+        val confinedTask = ConfinedTask(sandboxedClassLoader, task, thread, executionArguments, plugins)
         confinedTasks[threadGroup] = confinedTask
         confinedClassLoaders.add(sandboxedClassLoader)
         return confinedTask
@@ -598,6 +621,10 @@ object Sandbox {
             }
         }
 
+        confinedTask.pluginData.forEach { (plugin, _) ->
+            plugin.executionFinished()
+        }
+
         confinedTasks.remove(threadGroup)
         confinedClassLoaders.remove(confinedTask.classLoader)
     }
@@ -624,11 +651,15 @@ object Sandbox {
 
     class SandboxedClassLoader(
         private val sandboxableClassLoader: SandboxableClassLoader,
-        classLoaderConfiguration: ClassLoaderConfiguration
+        classLoaderConfiguration: ClassLoaderConfiguration,
+        private val plugins: List<SandboxPlugin<*>>
     ) : ClassLoader(sandboxableClassLoader.classLoader.parent), EnumerableClassLoader {
         private val whitelistedClasses = classLoaderConfiguration.whitelistedClasses
         private val blacklistedClasses = classLoaderConfiguration.blacklistedClasses
         private val isolatedClasses = classLoaderConfiguration.isolatedClasses
+        private val sandboxRequiredClasses = plugins.fold(ALWAYS_ALLOWED_CLASS_NAMES) { set, plugin ->
+            set.union(plugin.requiredClasses.map { clazz -> clazz.name })
+        }
         private val blacklistedMethods = classLoaderConfiguration.blacklistedMethods
         val unsafeExceptionClasses: Set<Class<*>> = classLoaderConfiguration.unsafeExceptions.map { name ->
             val klass = Class.forName(name) ?: error("$name does not refer to a Java class")
@@ -649,7 +680,9 @@ object Sandbox {
                 RewriteBytecode.rewrite(
                     unsafeByteArray,
                     unsafeExceptionClasses,
-                    blacklistedMethods
+                    blacklistedMethods,
+                    plugins,
+                    RewritingContext.UNTRUSTED
                 )
             }
 
@@ -693,7 +726,7 @@ object Sandbox {
             if (knownClasses.containsKey(name)) {
                 return delegateClass(name)
             }
-            if (name in ALWAYS_ALLOWED_CLASS_NAMES) {
+            if (name in sandboxRequiredClasses) {
                 return delegateClass(name)
             }
             return if (isWhiteList) {
@@ -754,7 +787,9 @@ object Sandbox {
                     RewriteBytecode.rewrite(
                         originalBytes,
                         unsafeExceptionClasses,
-                        blacklistedMethods
+                        blacklistedMethods,
+                        plugins,
+                        RewritingContext.RELOADED
                     )
                 }
                 loadedClasses.add(name)
@@ -877,10 +912,15 @@ object Sandbox {
         internal fun rewrite(
             originalByteArray: ByteArray,
             unsafeExceptionClasses: Set<Class<*>>,
-            blacklistedMethods: Set<MethodFilter>
+            blacklistedMethods: Set<MethodFilter>,
+            plugins: List<SandboxPlugin<*>>,
+            context: RewritingContext
         ): ByteArray {
             require(originalByteArray.size <= MAX_CLASS_FILE_SIZE) { "bytecode is over 1 MB" }
-            val classReader = ClassReader(originalByteArray)
+            val pretransformed = plugins.fold(originalByteArray) { bytecode, plugin ->
+                plugin.transformBeforeSandbox(bytecode, context)
+            }
+            val classReader = ClassReader(pretransformed)
             val allPreinspections = preInspectMethods(classReader)
             val classWriter = ClassWriter(classReader, 0)
             var className: String? = null
@@ -950,7 +990,10 @@ object Sandbox {
                 }
             }
             classReader.accept(sandboxingVisitor, 0)
-            return classWriter.toByteArray()
+            val sandboxed = classWriter.toByteArray()
+            return plugins.fold(sandboxed) { bytecode, plugin ->
+                plugin.transformAfterSandbox(bytecode, context)
+            }
         }
 
         @Suppress("LongParameterList", "ComplexMethod")
@@ -1670,9 +1713,26 @@ fun <T> withSandbox(run: () -> T): T {
 }
 
 fun Sandbox.SandboxableClassLoader.sandbox(
-    classLoaderConfiguration: Sandbox.ClassLoaderConfiguration
+    classLoaderConfiguration: Sandbox.ClassLoaderConfiguration,
+    plugins: List<SandboxPlugin<*>> = listOf()
 ): Sandbox.SandboxedClassLoader {
-    return Sandbox.SandboxedClassLoader(this, classLoaderConfiguration)
+    return Sandbox.SandboxedClassLoader(this, classLoaderConfiguration, plugins)
 }
 
 data class JeedOutputCapture(val returned: Any?, val threw: Throwable?, val stdout: String, val stderr: String)
+
+interface SandboxPlugin<V : Any> {
+    val id: String
+        get() = javaClass.simpleName.decapitalizeAsciiOnly()
+    fun createInitialData(): Any?
+    fun transformBeforeSandbox(bytecode: ByteArray, context: RewritingContext): ByteArray = bytecode
+    fun transformAfterSandbox(bytecode: ByteArray, context: RewritingContext): ByteArray = bytecode
+    fun executionFinished() { }
+    fun createFinalData(workingData: Any?): V
+    val requiredClasses: Set<Class<*>>
+        get() = setOf()
+}
+
+enum class RewritingContext {
+    UNTRUSTED, RELOADED
+}
