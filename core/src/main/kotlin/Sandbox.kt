@@ -1302,6 +1302,7 @@ object Sandbox {
             if (threadGroup != Thread.currentThread().threadGroup) {
                 confinedTask.addPermissionRequest(RuntimePermission("changeThreadGroup"), false)
             } else {
+                checkThreadLimits(confinedTask)
                 systemSecurityManager?.checkAccess(threadGroup)
             }
         }
@@ -1311,6 +1312,11 @@ object Sandbox {
             val threadGroup = Thread.currentThread().threadGroup
             val confinedTask = confinedTaskByThreadGroup()
                 ?: return systemSecurityManager?.threadGroup ?: return threadGroup
+            checkThreadLimits(confinedTask)
+            return systemSecurityManager?.threadGroup ?: threadGroup
+        }
+
+        private fun checkThreadLimits(confinedTask: ConfinedTask<*>) {
             if (confinedTask.shuttingDown) {
                 confinedTask.permissionRequests.add(
                     TaskResults.PermissionRequest(
@@ -1328,8 +1334,6 @@ object Sandbox {
                     )
                 )
                 throw SecurityException()
-            } else {
-                return systemSecurityManager?.threadGroup ?: threadGroup
             }
         }
 

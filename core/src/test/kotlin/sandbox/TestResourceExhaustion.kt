@@ -133,9 +133,36 @@ for (long i = 0;; i++) {
 
         executionResult shouldNot haveCompleted()
         executionResult.permissionDenied shouldBe true
+        executionResult.permissionRequests.map { it.permission.name } shouldContain "exceedThreadLimit"
         executionResult should haveTimedOut()
         // FIXME? If some threads complete their 512M loop new ones can start
         // executionResult.stdoutLines shouldHaveSize 16
+        executionResult.stdoutLines.map { it.line } shouldContain "15"
+    }
+    "should shut down thread bombs that specify their group" {
+        val executionResult = Source.fromSnippet(
+            """
+public class Example implements Runnable {
+    public void run() {
+        while (true);
+    }
+}
+ThreadGroup threadGroup = Thread.currentThread().getThreadGroup();
+for (long i = 0;; i++) {
+    try {
+        Thread thread = new Thread(threadGroup, new Example());
+        System.out.println(i);
+        thread.start();
+    } catch (Throwable e) {}
+}
+        """.trim()
+        ).compile().execute(SourceExecutionArguments(maxExtraThreads = 16, timeout = 1000L))
+
+        executionResult shouldNot haveCompleted()
+        executionResult.permissionDenied shouldBe true
+        executionResult.permissionRequests.map { it.permission.name } shouldContain "exceedThreadLimit"
+        executionResult should haveTimedOut()
+        executionResult.stdoutLines shouldHaveSize 16
         executionResult.stdoutLines.map { it.line } shouldContain "15"
     }
     "should shut down nasty thread bombs" {
@@ -337,7 +364,7 @@ try {
         executionResult shouldNot haveCompleted()
         executionResult should haveTimedOut()
     }
-    "should shut down parallel recursive thread bombs" {
+    "should shut down parallel recursive thread bombs".config(enabled = System.getenv("VERYSLOWTESTS") == "1") {
         @Suppress("MagicNumber")
         (0..16).toList().map {
             async {
