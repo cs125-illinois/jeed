@@ -11,19 +11,37 @@ import org.objectweb.asm.Opcodes
 import org.objectweb.asm.Type
 import kotlin.reflect.jvm.javaMethod
 
-@Suppress("UNCHECKED_CAST")
 object LineTrace : SandboxPlugin<LineTraceResult> {
     private const val TRACING_STACK_ITEMS = 2
     private val tracingClassName = classNameToPath(TracingSink::class.java.name)
     private val tracingLineMethodName = TracingSink::enterLine.javaMethod?.name ?: error("missing tracing method name")
     private val tracingLineMethodDesc = Type.getMethodDescriptor(TracingSink::enterLine.javaMethod)
 
+    private val threadSteps = ThreadLocal.withInitial {
+        val data: LineTraceWorkingData = Sandbox.confinedTaskWorkingData(this)
+        synchronized(data.threadTrackingSyncRoot) {
+            mutableListOf<LineTraceResult.LineStep>().also {
+                data.threadSteps[data.nextThreadIndex] = it
+                threadIndex.set(data.nextThreadIndex)
+                data.nextThreadIndex++
+            }
+        }
+    }
+    private val threadIndex: ThreadLocal<Int> = ThreadLocal.withInitial {
+        error("threadSteps should have initialized this thread-local variable")
+    }
+
     override fun createInitialData(): Any {
-        return mutableListOf<LineTraceResult.LineStep>()
+        return LineTraceWorkingData()
     }
 
     override fun createFinalData(workingData: Any?): LineTraceResult {
-        return LineTraceResult(workingData as List<LineTraceResult.LineStep>)
+        workingData as LineTraceWorkingData
+        val allSteps = mutableListOf<LineTraceResult.LineStep>()
+        synchronized(workingData.threadTrackingSyncRoot) {
+            workingData.threadSteps.values.forEach { allSteps.addAll(it) }
+        }
+        return LineTraceResult(allSteps)
     }
 
     override val requiredClasses: Set<Class<*>>
@@ -32,8 +50,8 @@ object LineTrace : SandboxPlugin<LineTraceResult> {
     object TracingSink {
         @JvmStatic
         fun enterLine(file: String, line: Int) {
-            val data: MutableList<LineTraceResult.LineStep> = Sandbox.confinedTaskWorkingData(LineTrace)
-            data.add(LineTraceResult.LineStep(file, line))
+            val steps = threadSteps.get()
+            steps.add(LineTraceResult.LineStep(file, line, threadIndex.get()))
         }
     }
 
@@ -237,10 +255,16 @@ object LineTrace : SandboxPlugin<LineTraceResult> {
     }
 }
 
+private class LineTraceWorkingData(
+    val threadSteps: MutableMap<Int, MutableList<LineTraceResult.LineStep>> = mutableMapOf(),
+    var nextThreadIndex: Int = 0,
+    val threadTrackingSyncRoot: Any = Object()
+)
+
 @JsonClass(generateAdapter = true)
 data class LineTraceResult(val steps: List<LineStep>) {
     @JsonClass(generateAdapter = true)
-    data class LineStep(val source: String, val line: Int)
+    data class LineStep(val source: String, val line: Int, val threadIndex: Int)
 
     fun remap(source: Source): LineTraceResult {
         val remappedSteps = steps.mapNotNull { step ->

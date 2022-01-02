@@ -26,7 +26,7 @@ public class Main {
         result should haveOutput("5")
         val trace = result.pluginResult(LineTrace)
         trace.steps shouldHaveAtLeastSize 3
-        trace.steps[0] shouldBe LineTraceResult.LineStep("Main.java", 3)
+        trace.steps[0] shouldBe LineTraceResult.LineStep("Main.java", 3, 0)
     }
 
     "should trace an if statement" {
@@ -341,8 +341,8 @@ fun test(): List<String> {
         result should haveOutput("[test, me]")
         val trace = result.pluginResult(LineTrace).remap(source)
         trace.steps shouldHaveAtLeastSize 2
-        trace.steps[0] shouldBe LineTraceResult.LineStep("Main.kt", 2)
-        trace.steps[1] shouldBe LineTraceResult.LineStep("Test.kt", 2)
+        trace.steps[0] shouldBe LineTraceResult.LineStep("Main.kt", 2, 0)
+        trace.steps[1] shouldBe LineTraceResult.LineStep("Test.kt", 2, 0)
     }
 
     "should trace a simple Kotlin snippet" {
@@ -375,6 +375,7 @@ fun test(): List<String> {
         trace.steps shouldHaveAtLeastSize 3
         trace.steps[0].line shouldBe 1
         // NOTE: The Kotlin compiler sometimes adds an extra line number entry, double-counting a line
+        // TODO: Decide what to do about this
         trace.steps.filter { it.line == 3 }.size shouldBeGreaterThanOrEqual 2
         trace.steps.filter { it.line == 4 }.size shouldBe 2
     }
@@ -400,5 +401,66 @@ fun test(): List<String> {
         trace.steps.filter { it.line == 2 }.size shouldBeGreaterThanOrEqual 2
         trace.steps.filter { it.line == 3 }.size shouldBe 2
         trace.steps.filter { it.line == 4 }.size shouldBe 0
+    }
+
+    "should trace multiple threads" {
+        val source = Source.fromSnippet(
+            """
+public class Example implements Runnable {
+    public void run() {
+        System.out.println("Ended");
+    }
+}
+Thread thread = new Thread(new Example());
+thread.start();
+System.out.println("Started");
+try {
+    thread.join();
+} catch (Exception e) {
+    throw new RuntimeException(e);
+}
+        """.trim()
+        )
+        val result = source.compile().execute(SourceExecutionArguments(maxExtraThreads = 1, plugins = listOf(LineTrace)))
+        result should haveCompleted()
+        result should haveOutput("Started\nEnded")
+        val trace = result.pluginResult(LineTrace).remap(source)
+        val mainLines = trace.steps.filter { it.threadIndex == 0 }.map { it.line }
+        mainLines shouldContain 6
+        mainLines shouldContain 10
+        mainLines shouldNotContain 3
+        val extraLines = trace.steps.filter { it.threadIndex == 1 }.map { it.line }
+        extraLines shouldContain 3
+        extraLines shouldNotContain 6
+        trace.steps.filter { it.threadIndex >= 2 }.size shouldBe 0
+    }
+
+    "should trace multiple threads using coroutines" {
+        val source = Source.fromKotlin(
+            """
+            import kotlinx.coroutines.*
+            fun main() {
+                GlobalScope.launch {
+                    delay(100)
+                    println("Finished")
+                }
+                println("Started")
+            }
+            """.trimIndent()
+        )
+        val executionArgs = SourceExecutionArguments(waitForShutdown = true, timeout = 2000, plugins = listOf(LineTrace))
+        val result = source.kompile().execute(executionArgs)
+        result should haveCompleted()
+        result should haveOutput("Started\nFinished")
+        val trace = result.pluginResult(LineTrace).remap(source)
+        val mainLines = trace.steps.filter { it.threadIndex == 0 }.map { it.line }
+        mainLines shouldContain 3
+        mainLines shouldContain 7
+        mainLines shouldNotContain 5
+        val extraLines = trace.steps.filter { it.threadIndex == 1 }.map { it.line }
+        extraLines shouldContain 5
+        extraLines shouldNotContain 7
+        trace.steps.filter { it.threadIndex >= 2 }.size shouldBe 0
+        trace.steps.filter { it.source != "Main.kt" }.size shouldBe 0
     }
 })
