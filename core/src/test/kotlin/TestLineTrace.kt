@@ -6,7 +6,9 @@ import io.kotest.matchers.collections.shouldHaveAtLeastSize
 import io.kotest.matchers.collections.shouldHaveAtMostSize
 import io.kotest.matchers.collections.shouldHaveSize
 import io.kotest.matchers.collections.shouldNotContain
+import io.kotest.matchers.ints.shouldBeGreaterThan
 import io.kotest.matchers.ints.shouldBeGreaterThanOrEqual
+import io.kotest.matchers.ints.shouldBeLessThanOrEqual
 import io.kotest.matchers.should
 import io.kotest.matchers.shouldBe
 
@@ -285,6 +287,43 @@ public class ShowIfOdd {
         trace.steps.filter { it.line == 12 }.size shouldBe 0
     }
 
+    "should report multiple calls during external iteration" {
+        val source = Source.fromSnippet(
+            """
+            import java.util.ArrayList;
+            var list = new ArrayList<String>();
+            list.add("a");
+            list.add("b");
+            list.add("c");
+            list.forEach(s -> {
+                System.out.println(s); }); // Crazy bracing to ensure only this line is called
+            """.trimIndent()
+        )
+        val result = source.compile().execute(SourceExecutionArguments(plugins = listOf(LineTrace)))
+        result should haveCompleted()
+        result should haveOutput("a\nb\nc")
+        val trace = result.pluginResult(LineTrace).remap(source)
+        trace.steps.filter { it.line == 6 }.size shouldBe 1
+        trace.steps.filter { it.line == 7 }.size shouldBe 3
+    }
+
+    "should survive a runaway trace" {
+        val source = Source.fromSnippet(
+            """
+            long i = 0;
+            while (true) {
+                i += 2;
+                i -= 1;
+            }
+            """.trimIndent()
+        )
+        val result = source.compile().execute(SourceExecutionArguments(plugins = listOf(LineTrace)))
+        result should haveTimedOut()
+        val trace = result.pluginResult(LineTrace).remap(source)
+        trace.steps[0].line shouldBe 1
+        trace.steps.filter { it.line == 3 }.size shouldBeGreaterThan 100
+    }
+
     "should trace a Kotlin method" {
         val result = Source.fromKotlin(
             """
@@ -363,6 +402,50 @@ fun test(): List<String> {
             """
                 val fruits = listOf("apple", "banana")
                 fruits.forEach {
+                    println(it + ".")
+                }
+            """.trimIndent(),
+            SnippetArguments(fileType = Source.FileType.KOTLIN)
+        )
+        val result = source.kompile().execute(SourceExecutionArguments(plugins = listOf(LineTrace)))
+        result should haveCompleted()
+        result should haveOutput("apple.\nbanana.")
+        val trace = result.pluginResult(LineTrace).remap(source)
+        trace.steps shouldHaveAtLeastSize 5
+        trace.steps[0].line shouldBe 1
+        trace.steps.filter { it.line == 3 }.size shouldBe 2
+    }
+
+    "should trace a Kotlin snippet with an if expression" {
+        val source = Source.fromSnippet(
+            """
+                val i = System.currentTimeMillis() // Avoid compile-time evaluation
+                val verdict = if (i > 0) {
+                    "Positive"
+                } else {
+                    "Non-positive"
+                }
+                println(verdict)
+            """.trimIndent(),
+            SnippetArguments(fileType = Source.FileType.KOTLIN)
+        )
+        val result = source.kompile().execute(SourceExecutionArguments(plugins = listOf(LineTrace)))
+        result should haveCompleted()
+        result should haveOutput("Positive")
+        val trace = result.pluginResult(LineTrace).remap(source)
+        trace.steps shouldHaveAtLeastSize 4 // NOTE: Storing the if expression's result visits line 2 again
+        trace.steps[0].line shouldBe 1
+        trace.steps[1].line shouldBe 2
+        trace.steps[2].line shouldBe 3
+        trace.steps.last().line shouldBe 7
+        trace.steps.filter { it.line == 5 }.size shouldBe 0
+    }
+
+    "should trace a Kotlin snippet with a loop and inlined method" {
+        val source = Source.fromSnippet(
+            """
+                val fruits = listOf("apple", "banana")
+                fruits.forEach {
                     println(it.uppercase())
                 }
             """.trimIndent(),
@@ -374,10 +457,22 @@ fun test(): List<String> {
         val trace = result.pluginResult(LineTrace).remap(source)
         trace.steps shouldHaveAtLeastSize 3
         trace.steps[0].line shouldBe 1
-        // NOTE: The Kotlin compiler sometimes adds an extra line number entry, double-counting a line
-        // TODO: Decide what to do about this
-        trace.steps.filter { it.line == 3 }.size shouldBeGreaterThanOrEqual 2
-        trace.steps.filter { it.line == 4 }.size shouldBe 2
+        trace.steps.filter { it.line == 3 }.size shouldBe 2
+    }
+
+    "should skip Kotlin inline/loop duplicates" {
+        val source = Source.fromSnippet(
+            """
+                val fruits = listOf("apple", "banana")
+                fruits.forEach { println(it.uppercase()) }
+            """.trimIndent(),
+            SnippetArguments(fileType = Source.FileType.KOTLIN)
+        )
+        val result = source.kompile().execute(SourceExecutionArguments(plugins = listOf(LineTrace)))
+        result should haveCompleted()
+        result should haveOutput("APPLE\nBANANA")
+        val trace = result.pluginResult(LineTrace).remap(source)
+        trace.steps.filter { it.line == 2 }.size shouldBeLessThanOrEqual 3
     }
 
     "should trace a Kotlin snippet with a method" {

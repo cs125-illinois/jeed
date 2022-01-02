@@ -12,30 +12,40 @@ import org.objectweb.asm.Type
 import kotlin.reflect.jvm.javaMethod
 
 object LineTrace : SandboxPlugin<LineTraceResult> {
-    private const val TRACING_STACK_ITEMS = 2
+    private const val TRACING_STACK_ITEMS = 4
     private val tracingClassName = classNameToPath(TracingSink::class.java.name)
     private val tracingLineMethodName = TracingSink::enterLine.javaMethod?.name ?: error("missing tracing method name")
     private val tracingLineMethodDesc = Type.getMethodDescriptor(TracingSink::enterLine.javaMethod)
 
-    private val threadSteps = ThreadLocal.withInitial {
+    private val threadSteps: ThreadLocal<MutableList<LineTraceResult.LineStep>> = ThreadLocal()
+    private val threadIndex: ThreadLocal<Int> = ThreadLocal()
+    private val threadLastMethodId: ThreadLocal<Int?> = ThreadLocal()
+    private val threadLastLabelSequence: ThreadLocal<Int?> = ThreadLocal()
+    private val initializedThreadLocals = ThreadLocal.withInitial { false }
+    private fun ensureThreadLocalsInitialized() {
+        if (initializedThreadLocals.get()) return
         val data: LineTraceWorkingData = Sandbox.confinedTaskWorkingData(this)
         synchronized(data.threadTrackingSyncRoot) {
-            mutableListOf<LineTraceResult.LineStep>().also {
-                data.threadSteps[data.nextThreadIndex] = it
-                threadIndex.set(data.nextThreadIndex)
-                data.nextThreadIndex++
-            }
+            val steps = mutableListOf<LineTraceResult.LineStep>()
+            threadSteps.set(steps)
+            data.threadSteps[data.nextThreadIndex] = steps
+            threadIndex.set(data.nextThreadIndex)
+            data.nextThreadIndex++
         }
-    }
-    private val threadIndex: ThreadLocal<Int> = ThreadLocal.withInitial {
-        error("threadSteps should have initialized this thread-local variable")
+        threadLastMethodId.set(null)
+        threadLastLabelSequence.set(null)
+        initializedThreadLocals.set(true)
     }
 
-    override fun createInitialData(): Any {
+    override fun createInstrumentationData(): Any {
+        return LineTraceInstrumentationData()
+    }
+
+    override fun createInitialData(instrumentationData: Any?): Any {
         return LineTraceWorkingData()
     }
 
-    override fun createFinalData(workingData: Any?): LineTraceResult {
+    override fun createFinalData(instrumentationData: Any?, workingData: Any?): LineTraceResult {
         workingData as LineTraceWorkingData
         val allSteps = mutableListOf<LineTraceResult.LineStep>()
         synchronized(workingData.threadTrackingSyncRoot) {
@@ -49,13 +59,23 @@ object LineTrace : SandboxPlugin<LineTraceResult> {
 
     object TracingSink {
         @JvmStatic
-        fun enterLine(file: String, line: Int) {
+        fun enterLine(file: String, methodId: Int, sequence: Int, line: Int) {
+            ensureThreadLocalsInitialized()
             val steps = threadSteps.get()
-            steps.add(LineTraceResult.LineStep(file, line, threadIndex.get()))
+            val isDuplicate = steps.lastOrNull()?.let { previous ->
+                previous.line == line &&
+                    threadLastMethodId.get() == methodId &&
+                    threadLastLabelSequence.get() == sequence - 1
+            } ?: false
+            threadLastMethodId.set(methodId)
+            threadLastLabelSequence.set(sequence)
+            if (!isDuplicate) {
+                steps.add(LineTraceResult.LineStep(file, line, threadIndex.get()))
+            }
         }
     }
 
-    override fun transformBeforeSandbox(bytecode: ByteArray, context: RewritingContext): ByteArray {
+    override fun transformBeforeSandbox(bytecode: ByteArray, instrumentationData: Any?, context: RewritingContext): ByteArray {
         if (context != RewritingContext.UNTRUSTED) return bytecode
         val classReader = ClassReader(bytecode)
         val preinspectingClassVisitor = PreinspectingClassVisitor()
@@ -63,7 +83,7 @@ object LineTrace : SandboxPlugin<LineTraceResult> {
         val preinspection = preinspectingClassVisitor.getPreinspection()
         if (preinspection.sourceFile == null) return bytecode
         val classWriter = ClassWriter(classReader, 0)
-        val rewritingVisitor = TracingClassVisitor(classWriter, preinspection)
+        val rewritingVisitor = TracingClassVisitor(classWriter, preinspection, instrumentationData as LineTraceInstrumentationData)
         classReader.accept(rewritingVisitor, 0)
         return classWriter.toByteArray()
     }
@@ -74,7 +94,17 @@ object LineTrace : SandboxPlugin<LineTraceResult> {
     )
     private data class MethodId(val name: String, val descriptor: String)
     private data class LabelInfo(val index: Int, var line: Int?, var waitForFrame: Boolean)
-    private data class LabelLine(val line: Int, val waitForFrame: Boolean)
+    private data class LabelLine(val line: Int, val labelSequence: Int, val waitForFrame: Boolean)
+
+    private class LineTraceInstrumentationData(
+        var nextMethodId: Int = 0
+    )
+
+    private class LineTraceWorkingData(
+        val threadSteps: MutableMap<Int, MutableList<LineTraceResult.LineStep>> = mutableMapOf(),
+        var nextThreadIndex: Int = 0,
+        val threadTrackingSyncRoot: Any = Object()
+    )
 
     private class PreinspectingClassVisitor : ClassVisitor(Opcodes.ASM9) {
         private var sourceFile: String? = null
@@ -121,9 +151,11 @@ object LineTrace : SandboxPlugin<LineTraceResult> {
                 mightNeedFrame = null
             }
             override fun visitEnd() {
-                knownLabels.values.forEach { info ->
+                var lineLabelSequence = 0
+                knownLabels.values.sortedBy { it.index }.forEach { info ->
                     info.line?.let {
-                        labelLines[info.index] = LabelLine(it, info.waitForFrame)
+                        lineLabelSequence++
+                        labelLines[info.index] = LabelLine(it, lineLabelSequence, info.waitForFrame)
                     }
                 }
             }
@@ -186,7 +218,8 @@ object LineTrace : SandboxPlugin<LineTraceResult> {
 
     private class TracingClassVisitor(
         visitor: ClassVisitor,
-        private val preinspection: ClassPreinspection
+        private val preinspection: ClassPreinspection,
+        private val instrumentationData: LineTraceInstrumentationData
     ) : ClassVisitor(Opcodes.ASM9, visitor) {
         override fun visitMethod(
             access: Int,
@@ -195,10 +228,13 @@ object LineTrace : SandboxPlugin<LineTraceResult> {
             signature: String?,
             exceptions: Array<out String>?
         ): MethodVisitor {
+            val methodId = instrumentationData.nextMethodId
+            instrumentationData.nextMethodId++
             return TracingMethodVisitor(
                 super.visitMethod(access, name, descriptor, signature, exceptions),
                 preinspection.sourceFile ?: error("should only trace a class with a source file"),
-                preinspection.methodPreinspections[MethodId(name, descriptor)] ?: error("missing preinspection")
+                preinspection.methodPreinspections[MethodId(name, descriptor)] ?: error("missing preinspection"),
+                methodId
             )
         }
     }
@@ -206,18 +242,19 @@ object LineTrace : SandboxPlugin<LineTraceResult> {
     private class TracingMethodVisitor(
         visitor: MethodVisitor,
         private val sourceFile: String,
-        private val labelLines: Map<Int, LabelLine>
+        private val labelLines: Map<Int, LabelLine>,
+        private val methodId: Int
     ) : MethodVisitor(Opcodes.ASM9, visitor) {
         private var currentLabelIndex = 0
-        private var waitingForFrameLine: Int? = null
+        private var waitingForFrameLabel: LabelLine? = null
 
         override fun visitLabel(label: Label?) {
             super.visitLabel(label)
             labelLines[currentLabelIndex]?.let { labelInfo ->
                 if (labelInfo.waitForFrame) {
-                    waitingForFrameLine = labelInfo.line
+                    waitingForFrameLabel = labelInfo
                 } else {
-                    addTraceCall(labelInfo.line)
+                    addTraceCall(labelInfo)
                 }
             }
             currentLabelIndex++
@@ -231,19 +268,21 @@ object LineTrace : SandboxPlugin<LineTraceResult> {
             stack: Array<out Any>?
         ) {
             super.visitFrame(type, numLocal, local, numStack, stack)
-            waitingForFrameLine?.let {
+            waitingForFrameLabel?.let {
                 addTraceCall(it)
             }
-            waitingForFrameLine = null
+            waitingForFrameLabel = null
         }
 
         override fun visitMaxs(maxStack: Int, maxLocals: Int) {
             super.visitMaxs(maxStack + TRACING_STACK_ITEMS, maxLocals)
         }
 
-        private fun addTraceCall(line: Int) {
+        private fun addTraceCall(label: LabelLine) {
             visitLdcInsn(sourceFile)
-            visitLdcInsn(line)
+            visitLdcInsn(methodId)
+            visitLdcInsn(label.labelSequence)
+            visitLdcInsn(label.line)
             visitMethodInsn(
                 Opcodes.INVOKESTATIC,
                 tracingClassName,
@@ -254,12 +293,6 @@ object LineTrace : SandboxPlugin<LineTraceResult> {
         }
     }
 }
-
-private class LineTraceWorkingData(
-    val threadSteps: MutableMap<Int, MutableList<LineTraceResult.LineStep>> = mutableMapOf(),
-    var nextThreadIndex: Int = 0,
-    val threadTrackingSyncRoot: Any = Object()
-)
 
 @JsonClass(generateAdapter = true)
 data class LineTraceResult(val steps: List<LineStep>) {

@@ -369,7 +369,7 @@ object Sandbox {
                     confinedTask.truncatedLines,
                     executionArguments,
                     confinedTask.pluginData.map { (plugin, workingData) ->
-                        plugin.id to plugin.createFinalData(workingData)
+                        plugin.id to plugin.createFinalData(confinedTask.classLoader.pluginInstrumentationData[plugin], workingData)
                     }.toMap()
                 )
                 @Suppress("ThrowingExceptionsWithoutMessageOrCause")
@@ -419,7 +419,7 @@ object Sandbox {
 
         val started: Instant = Instant.now()
 
-        val pluginData = plugins.associateWith { it.createInitialData() }
+        val pluginData = plugins.associateWith { it.createInitialData(classLoader.pluginInstrumentationData[it]) }
 
         private val isolatedLocksSyncRoot = Object()
         private val isolatedLocks = mutableMapOf<Any, ReentrantLock>()
@@ -527,6 +527,13 @@ object Sandbox {
 
     private fun confinedTaskByThreadGroup(): ConfinedTask<*>? {
         return confinedTasks[Thread.currentThread().threadGroup]
+    }
+
+    @Suppress("unused")
+    fun <I> confinedTaskInstrumentationData(plugin: SandboxPlugin<*>): I {
+        val confinedTask = confinedTaskByThreadGroup() ?: error("attempt to access current task data outside any task")
+        @Suppress("UNCHECKED_CAST")
+        return confinedTask.classLoader.pluginInstrumentationData[plugin] as I
     }
 
     fun <W> confinedTaskWorkingData(plugin: SandboxPlugin<*>): W {
@@ -652,7 +659,7 @@ object Sandbox {
     class SandboxedClassLoader(
         private val sandboxableClassLoader: SandboxableClassLoader,
         classLoaderConfiguration: ClassLoaderConfiguration,
-        private val plugins: List<SandboxPlugin<*>>
+        plugins: List<SandboxPlugin<*>>
     ) : ClassLoader(sandboxableClassLoader.classLoader.parent), EnumerableClassLoader {
         private val whitelistedClasses = classLoaderConfiguration.whitelistedClasses
         private val blacklistedClasses = classLoaderConfiguration.blacklistedClasses
@@ -666,6 +673,8 @@ object Sandbox {
             require(Throwable::class.java.isAssignableFrom(klass)) { "$name does not refer to a Java Throwable" }
             klass
         }.toSet()
+
+        internal val pluginInstrumentationData = plugins.associateWith { it.createInstrumentationData() }
 
         override val definedClasses: Set<String> get() = knownClasses.keys.toSet()
         override val providedClasses: MutableSet<String> = mutableSetOf()
@@ -681,7 +690,7 @@ object Sandbox {
                     unsafeByteArray,
                     unsafeExceptionClasses,
                     blacklistedMethods,
-                    plugins,
+                    pluginInstrumentationData,
                     RewritingContext.UNTRUSTED
                 )
             }
@@ -788,7 +797,7 @@ object Sandbox {
                         originalBytes,
                         unsafeExceptionClasses,
                         blacklistedMethods,
-                        plugins,
+                        pluginInstrumentationData,
                         RewritingContext.RELOADED
                     )
                 }
@@ -913,12 +922,12 @@ object Sandbox {
             originalByteArray: ByteArray,
             unsafeExceptionClasses: Set<Class<*>>,
             blacklistedMethods: Set<MethodFilter>,
-            plugins: List<SandboxPlugin<*>>,
+            plugins: Map<SandboxPlugin<*>, Any?>,
             context: RewritingContext
         ): ByteArray {
             require(originalByteArray.size <= MAX_CLASS_FILE_SIZE) { "bytecode is over 1 MB" }
-            val pretransformed = plugins.fold(originalByteArray) { bytecode, plugin ->
-                plugin.transformBeforeSandbox(bytecode, context)
+            val pretransformed = plugins.toList().fold(originalByteArray) { bytecode, (plugin, instrumentationData) ->
+                plugin.transformBeforeSandbox(bytecode, instrumentationData, context)
             }
             val classReader = ClassReader(pretransformed)
             val allPreinspections = preInspectMethods(classReader)
@@ -991,8 +1000,8 @@ object Sandbox {
             }
             classReader.accept(sandboxingVisitor, 0)
             val sandboxed = classWriter.toByteArray()
-            return plugins.fold(sandboxed) { bytecode, plugin ->
-                plugin.transformAfterSandbox(bytecode, context)
+            return plugins.toList().fold(sandboxed) { bytecode, (plugin, instrumentationData) ->
+                plugin.transformAfterSandbox(bytecode, instrumentationData, context)
             }
         }
 
@@ -1724,11 +1733,12 @@ data class JeedOutputCapture(val returned: Any?, val threw: Throwable?, val stdo
 interface SandboxPlugin<V : Any> {
     val id: String
         get() = javaClass.simpleName.decapitalizeAsciiOnly()
-    fun createInitialData(): Any?
-    fun transformBeforeSandbox(bytecode: ByteArray, context: RewritingContext): ByteArray = bytecode
-    fun transformAfterSandbox(bytecode: ByteArray, context: RewritingContext): ByteArray = bytecode
+    fun createInstrumentationData(): Any? = null
+    fun createInitialData(instrumentationData: Any?): Any?
+    fun transformBeforeSandbox(bytecode: ByteArray, instrumentationData: Any?, context: RewritingContext): ByteArray = bytecode
+    fun transformAfterSandbox(bytecode: ByteArray, instrumentationData: Any?, context: RewritingContext): ByteArray = bytecode
     fun executionFinished() { }
-    fun createFinalData(workingData: Any?): V
+    fun createFinalData(instrumentationData: Any?, workingData: Any?): V
     val requiredClasses: Set<Class<*>>
         get() = setOf()
 }
