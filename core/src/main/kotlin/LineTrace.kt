@@ -239,4 +239,33 @@ object LineTrace : SandboxPlugin<LineTraceResult> {
 data class LineTraceResult(val steps: List<LineStep>) {
     @JsonClass(generateAdapter = true)
     data class LineStep(val source: String, val line: Int)
+
+    fun remap(source: Source): LineTraceResult {
+        val remappedSteps = steps.mapNotNull { step ->
+            source.sources[step.source]?.let { code ->
+                // The Kotlin compiler adds fake line number entries past the end of the source e.g. for inlined code.
+                // That can be checked for first because the sources map always has the full compilable code.
+                var lines = code.count { it == '\n' }
+                if (!code.endsWith("\n")) {
+                    // On Windows, there are line separators, not line terminators
+                    lines += 1
+                }
+                if (step.line > lines) return@mapNotNull null
+            }
+            val originalLocation = SourceLocation(step.source, step.line, COLUMN_UNKNOWN)
+            val mappedLocation = try {
+                source.mapLocation(originalLocation)
+            } catch (_: SourceMappingException) {
+                // HACK: This exception is thrown if this line wasn't derived from the snippet and so can't be mapped.
+                // Ideally mapLocation could return null, but it may be too late to change that.
+                return@mapNotNull null
+            }
+            step.copy(source = mappedLocation.source, line = mappedLocation.line)
+        }
+        return copy(steps = remappedSteps)
+    }
+
+    companion object {
+        private const val COLUMN_UNKNOWN = -1
+    }
 }
