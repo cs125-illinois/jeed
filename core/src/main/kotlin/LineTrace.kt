@@ -52,14 +52,15 @@ object LineTrace : SandboxPlugin<LineTraceResult> {
 
     private data class ClassPreinspection(
         val sourceFile: String?,
-        val methodPreinspections: Map<MethodId, Map<Int, LabelInfo>>
+        val methodPreinspections: Map<MethodId, Map<Int, LabelLine>>
     )
     private data class MethodId(val name: String, val descriptor: String)
-    private data class LabelInfo(val line: Int, var waitForFrame: Boolean)
+    private data class LabelInfo(val index: Int, var line: Int?, var waitForFrame: Boolean)
+    private data class LabelLine(val line: Int, val waitForFrame: Boolean)
 
     private class PreinspectingClassVisitor : ClassVisitor(Opcodes.ASM9) {
         private var sourceFile: String? = null
-        private val inspectedMethods = mutableMapOf<MethodId, Map<Int, LabelInfo>>()
+        private val inspectedMethods = mutableMapOf<MethodId, Map<Int, LabelLine>>()
 
         override fun visitSource(source: String?, debug: String?) {
             sourceFile = source
@@ -72,25 +73,24 @@ object LineTrace : SandboxPlugin<LineTraceResult> {
             signature: String?,
             exceptions: Array<out String>?
         ): MethodVisitor {
-            val labelLines = mutableMapOf<Int, LabelInfo>()
+            val labelLines = mutableMapOf<Int, LabelLine>()
             inspectedMethods[MethodId(name, descriptor)] = labelLines
             return PreinspectingMethodVisitor(labelLines)
         }
 
         private class PreinspectingMethodVisitor(
-            val labelLines: MutableMap<Int, LabelInfo>
+            val labelLines: MutableMap<Int, LabelLine>
         ) : MethodVisitor(Opcodes.ASM9) {
-            private val labelIndexes = mutableMapOf<Label, Int>()
-            private val needsFrame = mutableMapOf<Label, Boolean>()
-            private var mightNeedFrame: Label? = null
+            private val knownLabels = mutableMapOf<Label, LabelInfo>()
+            private var mightNeedFrame: LabelInfo? = null
             override fun visitLabel(label: Label) {
-                labelIndexes[label] = labelIndexes.size
-                needsFrame[label] = false
-                mightNeedFrame = label
+                val labelInfo = LabelInfo(knownLabels.size, null, false)
+                knownLabels[label] = labelInfo
+                mightNeedFrame = labelInfo
             }
             override fun visitLineNumber(line: Int, start: Label) {
-                val index = labelIndexes[start] ?: error("must have visited the line label")
-                labelLines[index] = LabelInfo(line, false)
+                val info = knownLabels[start] ?: error("must have visited the line label")
+                info.line = line
             }
             override fun visitFrame(
                 type: Int,
@@ -99,12 +99,14 @@ object LineTrace : SandboxPlugin<LineTraceResult> {
                 numStack: Int,
                 stack: Array<out Any>?
             ) {
-                mightNeedFrame?.let { needsFrame[it] = true } // If it's still pending, no insn was visited
+                mightNeedFrame?.let { it.waitForFrame = true } // If it's still pending, no insn was visited
                 mightNeedFrame = null
             }
             override fun visitEnd() {
-                needsFrame.forEach { (label, wait) ->
-                    labelLines[labelIndexes[label]]?.let { it.waitForFrame = wait }
+                knownLabels.values.forEach { info ->
+                    info.line?.let {
+                        labelLines[info.index] = LabelLine(it, info.waitForFrame)
+                    }
                 }
             }
             override fun visitFieldInsn(opcode: Int, owner: String?, name: String?, descriptor: String?) {
@@ -186,7 +188,7 @@ object LineTrace : SandboxPlugin<LineTraceResult> {
     private class TracingMethodVisitor(
         visitor: MethodVisitor,
         private val sourceFile: String,
-        private val labelLines: Map<Int, LabelInfo>
+        private val labelLines: Map<Int, LabelLine>
     ) : MethodVisitor(Opcodes.ASM9, visitor) {
         private var currentLabelIndex = 0
         private var waitingForFrameLine: Int? = null
