@@ -850,4 +850,11 @@ public class Catcher {
             )
         ).features()
     }
+    "should not find static in snippets" {
+        Source.fromSnippet(
+            "int i = 0;"
+        ).features().also {
+            it.lookup(".").features.featureMap[FeatureName.STATIC_METHOD] shouldBe 0
+        }
+    }
 })

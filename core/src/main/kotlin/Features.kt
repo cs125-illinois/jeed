@@ -114,7 +114,7 @@ enum class FeatureName(val description: String) {
     DOTTED_VARIABLE_ACCESS("dotted variable access")
 }
 
-val ALL_FEATURES = FeatureName.values().map { it.name to it.description }.toMap()
+val ALL_FEATURES = FeatureName.values().associate { it.name to it.description }
 
 class FeatureMap(val map: MutableMap<FeatureName, Int> = mutableMapOf()) : MutableMap<FeatureName, Int> by map {
     override fun get(key: FeatureName): Int = map.getOrDefault(key, 0)
