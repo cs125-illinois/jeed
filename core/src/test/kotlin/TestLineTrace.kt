@@ -23,7 +23,7 @@ public class Main {
     System.out.println(i);
   }
 }""".trim()
-        ).compile().execute(SourceExecutionArguments(plugins = listOf(LineTrace)))
+        ).compile().execute(SourceExecutionArguments().addPlugin(LineTrace))
         result should haveCompleted()
         result should haveOutput("5")
         val trace = result.pluginResult(LineTrace)
@@ -42,7 +42,7 @@ public class Main {
     }
   }
 }""".trim()
-        ).compile().execute(SourceExecutionArguments(plugins = listOf(LineTrace)))
+        ).compile().execute(SourceExecutionArguments().addPlugin(LineTrace))
         result should haveCompleted()
         result should haveOutput("yes")
         val trace = result.pluginResult(LineTrace)
@@ -63,7 +63,7 @@ public class Main {
     }
   }
 }""".trim()
-        ).compile().execute(SourceExecutionArguments(plugins = listOf(LineTrace)))
+        ).compile().execute(SourceExecutionArguments().addPlugin(LineTrace))
         result should haveCompleted()
         result should haveOutput("")
         val trace = result.pluginResult(LineTrace)
@@ -84,7 +84,7 @@ public class Main {
     }
   }
 }""".trim()
-        ).compile().execute(SourceExecutionArguments(plugins = listOf(LineTrace)))
+        ).compile().execute(SourceExecutionArguments().addPlugin(LineTrace))
         result should haveCompleted()
         result should haveOutput("no")
         val trace = result.pluginResult(LineTrace)
@@ -102,7 +102,7 @@ public class Main {
     }
   }
 }""".trim()
-        ).compile().execute(SourceExecutionArguments(plugins = listOf(LineTrace)))
+        ).compile().execute(SourceExecutionArguments().addPlugin(LineTrace))
         result should haveCompleted()
         result should haveOutput("0\n1\n2")
         val trace = result.pluginResult(LineTrace)
@@ -125,7 +125,7 @@ public class Main {
     }
   }
 }""".trim()
-        ).compile().execute(SourceExecutionArguments(plugins = listOf(LineTrace)))
+        ).compile().execute(SourceExecutionArguments().addPlugin(LineTrace))
         result should haveCompleted()
         result should haveOutput("20\n10\n4\n2")
         val trace = result.pluginResult(LineTrace)
@@ -150,7 +150,7 @@ public class Main {
     }
   }
 }""".trim()
-        ).compile().execute(SourceExecutionArguments(plugins = listOf(LineTrace)))
+        ).compile().execute(SourceExecutionArguments().addPlugin(LineTrace))
         result should haveCompleted()
         result should haveOutput("Try\nCatch\nFinally")
         val trace = result.pluginResult(LineTrace)
@@ -176,7 +176,7 @@ public class Main {
     }
   }
 }""".trim()
-        ).compile().execute(SourceExecutionArguments(plugins = listOf(LineTrace)))
+        ).compile().execute(SourceExecutionArguments().addPlugin(LineTrace))
         result should haveCompleted()
         result should haveOutput("1\n3\n5\n7\n9\nDone")
         val trace = result.pluginResult(LineTrace)
@@ -204,7 +204,7 @@ public class ShowIfOdd {
     }
   }
 }""".trim()
-        ).compile().execute(SourceExecutionArguments(plugins = listOf(LineTrace)))
+        ).compile().execute(SourceExecutionArguments().addPlugin(LineTrace))
         result should haveCompleted()
         result should haveOutput("1\n3\n5\n7\n9\nDone")
         val trace = result.pluginResult(LineTrace)
@@ -235,7 +235,7 @@ public class ShowIfOdd {
   }
 }""".trim()
             )
-        ).compile().execute(SourceExecutionArguments(plugins = listOf(LineTrace)))
+        ).compile().execute(SourceExecutionArguments().addPlugin(LineTrace))
         result should haveCompleted()
         result should haveOutput("1\n3\n5\n7\n9\nDone")
         val trace = result.pluginResult(LineTrace)
@@ -249,7 +249,7 @@ public class ShowIfOdd {
         val source = Source.fromSnippet(
             """System.out.println("Hello");""".trim()
         )
-        val result = source.compile().execute(SourceExecutionArguments(plugins = listOf(LineTrace)))
+        val result = source.compile().execute(SourceExecutionArguments().addPlugin(LineTrace))
         result should haveCompleted()
         result should haveOutput("Hello")
         val trace = result.pluginResult(LineTrace).remap(source)
@@ -276,7 +276,7 @@ public class ShowIfOdd {
             }
             """.trimIndent().trim()
         )
-        val result = source.compile().execute(SourceExecutionArguments(plugins = listOf(LineTrace)))
+        val result = source.compile().execute(SourceExecutionArguments().addPlugin(LineTrace))
         result should haveCompleted()
         result should haveOutput("Hello")
         val trace = result.pluginResult(LineTrace).remap(source)
@@ -299,7 +299,7 @@ public class ShowIfOdd {
                 System.out.println(s); }); // Crazy bracing to ensure only this line is called
             """.trimIndent()
         )
-        val result = source.compile().execute(SourceExecutionArguments(plugins = listOf(LineTrace)))
+        val result = source.compile().execute(SourceExecutionArguments().addPlugin(LineTrace))
         result should haveCompleted()
         result should haveOutput("a\nb\nc")
         val trace = result.pluginResult(LineTrace).remap(source)
@@ -317,7 +317,7 @@ public class ShowIfOdd {
             }
             """.trimIndent()
         )
-        val result = source.compile().execute(SourceExecutionArguments(plugins = listOf(LineTrace)))
+        val result = source.compile().execute(SourceExecutionArguments().addPlugin(LineTrace))
         result should haveTimedOut()
         val trace = result.pluginResult(LineTrace).remap(source)
         trace.steps[0].line shouldBe 1
@@ -331,7 +331,7 @@ public class ShowIfOdd {
                 println("Hello")
             }
             """.trimIndent()
-        ).kompile().execute(SourceExecutionArguments(plugins = listOf(LineTrace)))
+        ).kompile().execute(SourceExecutionArguments().addPlugin(LineTrace))
         result should haveCompleted()
         result should haveOutput("Hello")
         val trace = result.pluginResult(LineTrace)
@@ -349,7 +349,7 @@ public class ShowIfOdd {
             }
             """.trimIndent()
         )
-        val result = source.kompile().execute(SourceExecutionArguments(plugins = listOf(LineTrace)))
+        val result = source.kompile().execute(SourceExecutionArguments().addPlugin(LineTrace))
         result should haveCompleted()
         result should haveOutput("1\n4\n9")
         val trace = result.pluginResult(LineTrace).remap(source)
@@ -375,7 +375,7 @@ fun test(): List<String> {
                 """.trim()
             )
         )
-        val result = source.kompile().execute(SourceExecutionArguments(plugins = listOf(LineTrace)))
+        val result = source.kompile().execute(SourceExecutionArguments().addPlugin(LineTrace))
         result should haveCompleted()
         result should haveOutput("[test, me]")
         val trace = result.pluginResult(LineTrace).remap(source)
@@ -389,7 +389,7 @@ fun test(): List<String> {
             """println("Hi")""",
             SnippetArguments(fileType = Source.FileType.KOTLIN)
         )
-        val result = source.kompile().execute(SourceExecutionArguments(plugins = listOf(LineTrace)))
+        val result = source.kompile().execute(SourceExecutionArguments().addPlugin(LineTrace))
         result should haveCompleted()
         result should haveOutput("Hi")
         val trace = result.pluginResult(LineTrace).remap(source)
@@ -407,7 +407,7 @@ fun test(): List<String> {
             """.trimIndent(),
             SnippetArguments(fileType = Source.FileType.KOTLIN)
         )
-        val result = source.kompile().execute(SourceExecutionArguments(plugins = listOf(LineTrace)))
+        val result = source.kompile().execute(SourceExecutionArguments().addPlugin(LineTrace))
         result should haveCompleted()
         result should haveOutput("apple.\nbanana.")
         val trace = result.pluginResult(LineTrace).remap(source)
@@ -429,7 +429,7 @@ fun test(): List<String> {
             """.trimIndent(),
             SnippetArguments(fileType = Source.FileType.KOTLIN)
         )
-        val result = source.kompile().execute(SourceExecutionArguments(plugins = listOf(LineTrace)))
+        val result = source.kompile().execute(SourceExecutionArguments().addPlugin(LineTrace))
         result should haveCompleted()
         result should haveOutput("Positive")
         val trace = result.pluginResult(LineTrace).remap(source)
@@ -451,7 +451,7 @@ fun test(): List<String> {
             """.trimIndent(),
             SnippetArguments(fileType = Source.FileType.KOTLIN)
         )
-        val result = source.kompile().execute(SourceExecutionArguments(plugins = listOf(LineTrace)))
+        val result = source.kompile().execute(SourceExecutionArguments().addPlugin(LineTrace))
         result should haveCompleted()
         result should haveOutput("APPLE\nBANANA")
         val trace = result.pluginResult(LineTrace).remap(source)
@@ -468,7 +468,7 @@ fun test(): List<String> {
             """.trimIndent(),
             SnippetArguments(fileType = Source.FileType.KOTLIN)
         )
-        val result = source.kompile().execute(SourceExecutionArguments(plugins = listOf(LineTrace)))
+        val result = source.kompile().execute(SourceExecutionArguments().addPlugin(LineTrace))
         result should haveCompleted()
         result should haveOutput("APPLE\nBANANA")
         val trace = result.pluginResult(LineTrace).remap(source)
@@ -487,7 +487,7 @@ fun test(): List<String> {
             """.trimIndent(),
             SnippetArguments(fileType = Source.FileType.KOTLIN)
         )
-        val result = source.kompile().execute(SourceExecutionArguments(plugins = listOf(LineTrace)))
+        val result = source.kompile().execute(SourceExecutionArguments().addPlugin(LineTrace))
         result should haveCompleted()
         result should haveOutput("APPLE\nBANANA")
         val trace = result.pluginResult(LineTrace).remap(source)
@@ -516,7 +516,7 @@ try {
 }
         """.trim()
         )
-        val result = source.compile().execute(SourceExecutionArguments(maxExtraThreads = 1, plugins = listOf(LineTrace)))
+        val result = source.compile().execute(SourceExecutionArguments(maxExtraThreads = 1).addPlugin(LineTrace))
         result should haveCompleted()
         result should haveOutput("Started\nEnded")
         val trace = result.pluginResult(LineTrace).remap(source)
@@ -543,7 +543,7 @@ try {
             }
             """.trimIndent()
         )
-        val executionArgs = SourceExecutionArguments(waitForShutdown = true, timeout = 2000, plugins = listOf(LineTrace))
+        val executionArgs = SourceExecutionArguments(waitForShutdown = true, timeout = 2000).addPlugin(LineTrace)
         val result = source.kompile().execute(executionArgs)
         result should haveCompleted()
         result should haveOutput("Started\nFinished")

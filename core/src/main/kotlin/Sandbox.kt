@@ -685,8 +685,9 @@ object Sandbox {
 
         @Suppress("MemberVisibilityCanBePrivate")
         val knownClasses = sandboxableClassLoader.bytecodeForClasses
-            .mapValues { (_, unsafeByteArray) ->
+            .mapValues { (name, unsafeByteArray) ->
                 RewriteBytecode.rewrite(
+                    name,
                     unsafeByteArray,
                     unsafeExceptionClasses,
                     blacklistedMethods,
@@ -781,8 +782,7 @@ object Sandbox {
             private val ALWAYS_ALLOWED_CLASS_NAMES =
                 setOf(
                     RewriteBytecode::class.java.name,
-                    InvocationTargetException::class.java.name,
-                    EmptyRuntime::class.java.name
+                    InvocationTargetException::class.java.name
                 )
             private val reloadedBytecodeCache = mutableMapOf<String, ByteArray>()
         }
@@ -794,6 +794,7 @@ object Sandbox {
                         .getResourceAsStream("${name.replace('.', '/')}.class")?.readAllBytes()
                         ?: throw ClassNotFoundException("failed to reload $name")
                     RewriteBytecode.rewrite(
+                        name,
                         originalBytes,
                         unsafeExceptionClasses,
                         blacklistedMethods,
@@ -919,6 +920,7 @@ object Sandbox {
         }
 
         internal fun rewrite(
+            name: String,
             originalByteArray: ByteArray,
             unsafeExceptionClasses: Set<Class<*>>,
             blacklistedMethods: Set<MethodFilter>,
@@ -927,7 +929,7 @@ object Sandbox {
         ): ByteArray {
             require(originalByteArray.size <= MAX_CLASS_FILE_SIZE) { "bytecode is over 1 MB" }
             val pretransformed = plugins.toList().fold(originalByteArray) { bytecode, (plugin, instrumentationData) ->
-                plugin.transformBeforeSandbox(bytecode, instrumentationData, context)
+                plugin.transformBeforeSandbox(bytecode, name, instrumentationData, context)
             }
             val classReader = ClassReader(pretransformed)
             val allPreinspections = preInspectMethods(classReader)
@@ -1001,7 +1003,7 @@ object Sandbox {
             classReader.accept(sandboxingVisitor, 0)
             val sandboxed = classWriter.toByteArray()
             return plugins.toList().fold(sandboxed) { bytecode, (plugin, instrumentationData) ->
-                plugin.transformAfterSandbox(bytecode, instrumentationData, context)
+                plugin.transformAfterSandbox(bytecode, name, instrumentationData, context)
             }
         }
 
@@ -1734,11 +1736,11 @@ interface SandboxPlugin<V : Any> {
     val id: String
         get() = javaClass.simpleName.decapitalizeAsciiOnly()
     fun createInstrumentationData(): Any? = null
+    fun transformBeforeSandbox(bytecode: ByteArray, name: String, instrumentationData: Any?, context: RewritingContext): ByteArray = bytecode
+    fun transformAfterSandbox(bytecode: ByteArray, name: String, instrumentationData: Any?, context: RewritingContext): ByteArray = bytecode
     fun createInitialData(instrumentationData: Any?): Any?
-    fun transformBeforeSandbox(bytecode: ByteArray, instrumentationData: Any?, context: RewritingContext): ByteArray = bytecode
-    fun transformAfterSandbox(bytecode: ByteArray, instrumentationData: Any?, context: RewritingContext): ByteArray = bytecode
-    fun executionFinished() { }
     fun createFinalData(instrumentationData: Any?, workingData: Any?): V
+    fun executionFinished() { }
     val requiredClasses: Set<Class<*>>
         get() = setOf()
 }

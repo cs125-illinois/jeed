@@ -75,7 +75,7 @@ object LineTrace : SandboxPlugin<LineTraceResult> {
         }
     }
 
-    override fun transformBeforeSandbox(bytecode: ByteArray, instrumentationData: Any?, context: RewritingContext): ByteArray {
+    override fun transformBeforeSandbox(bytecode: ByteArray, name: String, instrumentationData: Any?, context: RewritingContext): ByteArray {
         if (context != RewritingContext.UNTRUSTED) return bytecode
         val classReader = ClassReader(bytecode)
         val preinspectingClassVisitor = PreinspectingClassVisitor()

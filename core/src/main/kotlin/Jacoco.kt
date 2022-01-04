@@ -1,117 +1,97 @@
 package edu.illinois.cs.cs125.jeed.core
 
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.withContext
 import org.jacoco.core.analysis.Analyzer
 import org.jacoco.core.analysis.CoverageBuilder
 import org.jacoco.core.data.ExecutionDataStore
 import org.jacoco.core.data.SessionInfoStore
 import org.jacoco.core.instr.Instrumenter
-import org.jacoco.core.runtime.AbstractRuntime
+import org.jacoco.core.runtime.IRuntime
 import org.jacoco.core.runtime.RuntimeData
 import org.objectweb.asm.MethodVisitor
 import org.objectweb.asm.Opcodes
-import java.lang.reflect.InvocationTargetException
-import java.util.UUID
 
-@Throws(ExecutionFailed::class)
-@Suppress("ReturnCount")
-suspend fun CompiledSource.jacoco(
-    executionArguments: SourceExecutionArguments = SourceExecutionArguments()
-): Pair<Sandbox.TaskResults<out Any?>, CoverageBuilder> {
-    val actualArguments = updateExecutionArguments(executionArguments)
-    check(!actualArguments.dryRun) { "Dry run not supported for Jacoco" }
+object Jacoco : SandboxPlugin<CoverageBuilder> {
+    private val instrumenter = Instrumenter(IsolatedJacocoRuntime)
 
-    val runtime = EmptyRuntime()
-    val instrumenter = Instrumenter(runtime)
-
-    val instrumentedClassLoader =
-        MemoryClassLoader(
-            classLoader.parent,
-            classLoader.bytecodeForClasses.mapValues { (name, bytes) ->
-                instrumenter.instrument(bytes, name)
-            }
-        )
-
-    val data = RuntimeData()
-    runtime.startup(data)
-    val executionData = ExecutionDataStore()
-
-    val taskResults = Sandbox.execute(instrumentedClassLoader, actualArguments) { (safeClassLoader) ->
-        try {
-            val method = safeClassLoader
-                .loadClass(executionArguments.methodToRun!!.declaringClass.name)
-                .getMethod(executionArguments.methodToRun!!.name)
-            if (method.parameterTypes.isEmpty()) {
-                method.invoke(null)
-            } else {
-                method.invoke(null, null)
-            }
-        } catch (e: InvocationTargetException) {
-            throw(e.cause ?: e)
-        }
+    override fun createInstrumentationData(): Any {
+        return JacocoInstrumentationData()
     }
 
-    val coverageBuilder = CoverageBuilder()
-    data.collect(executionData, SessionInfoStore(), false)
-    runtime.shutdown()
-    withContext(Dispatchers.IO) {
-        runCatching {
-            Analyzer(executionData, coverageBuilder).apply {
-                for ((name, bytes) in classLoader.bytecodeForClasses) {
+    override fun transformBeforeSandbox(
+        bytecode: ByteArray,
+        name: String,
+        instrumentationData: Any?,
+        context: RewritingContext
+    ): ByteArray {
+        if (context != RewritingContext.UNTRUSTED) return bytecode
+        instrumentationData as JacocoInstrumentationData
+        instrumentationData.coverageClasses[name] = bytecode
+        return instrumenter.instrument(bytecode, name)
+    }
+
+    override val requiredClasses: Set<Class<*>>
+        get() = setOf(IsolatedJacocoRuntime.RuntimeDataAccessor::class.java)
+
+    override fun createInitialData(instrumentationData: Any?): Any {
+        return RuntimeData()
+    }
+
+    override fun createFinalData(instrumentationData: Any?, workingData: Any?): CoverageBuilder {
+        instrumentationData as JacocoInstrumentationData
+        workingData as RuntimeData
+        val executionData = ExecutionDataStore()
+        workingData.collect(executionData, SessionInfoStore(), false)
+        val coverageBuilder = CoverageBuilder()
+        Analyzer(executionData, coverageBuilder).apply {
+            try {
+                for ((name, bytes) in instrumentationData.coverageClasses) {
                     analyzeClass(bytes, name)
                 }
-            }
+            } catch (_: Exception) {}
         }
+        return coverageBuilder
     }
-    return Pair(taskResults, coverageBuilder)
+
+    private class JacocoInstrumentationData(
+        val coverageClasses: MutableMap<String, ByteArray> = mutableMapOf()
+    )
 }
 
-class EmptyRuntime : AbstractRuntime() {
-    private val key = UUID.randomUUID().toString()
+object IsolatedJacocoRuntime : IRuntime {
+    private const val STACK_SIZE = 6
 
-    @Suppress("SpellCheckingInspection")
-    override fun generateDataAccessor(classid: Long, classname: String, probecount: Int, mv: MethodVisitor): Int {
-        mv.visitLdcInsn(key)
+    override fun generateDataAccessor(classid: Long, classname: String?, probecount: Int, mv: MethodVisitor): Int {
         mv.visitMethodInsn(
             Opcodes.INVOKESTATIC,
-            classNameToPath(EmptyRuntime::class.java.name),
+            classNameToPath(RuntimeDataAccessor::class.java.name),
             "get",
-            "(Ljava/lang/String;)Ljava/lang/Object;",
+            "()Ljava/lang/Object;",
             false
         )
         RuntimeData.generateAccessCall(classid, classname, probecount, mv)
         return STACK_SIZE
     }
 
-    override fun startup(data: RuntimeData) {
-        super.startup(data)
-        put(key, data)
+    override fun startup(data: RuntimeData?) {
+        // Nothing to do - the data is owned by the sandbox task
     }
 
     override fun shutdown() {
-        remove(key)
+        // Nothing to do - the data is owned by the sandbox task
     }
 
-    companion object {
-        private val map = mutableMapOf<String, RuntimeData>()
-
-        fun put(name: String, data: RuntimeData) {
-            map[name] = data
-        }
-
+    object RuntimeDataAccessor {
         @JvmStatic
-        fun get(name: String) = map[name]!! as Any
-
-        fun remove(name: String) = map.remove(name)
-
-        const val STACK_SIZE = 6
+        fun get(): Any = Sandbox.confinedTaskWorkingData(Jacoco)
     }
 }
 
-class MemoryClassLoader(
-    parent: ClassLoader,
-    override val bytecodeForClasses: Map<String, ByteArray>
-) : ClassLoader(parent), Sandbox.SandboxableClassLoader {
-    override val classLoader = this
+@Throws(ExecutionFailed::class)
+@Suppress("ReturnCount")
+suspend fun CompiledSource.jacoco(
+    executionArguments: SourceExecutionArguments = SourceExecutionArguments()
+): Pair<Sandbox.TaskResults<out Any?>, CoverageBuilder> {
+    check(!executionArguments.dryRun) { "Dry run not supported for Jacoco" }
+    val taskResults = execute(executionArguments.addPlugin(Jacoco))
+    return Pair(taskResults, taskResults.pluginResult(Jacoco))
 }

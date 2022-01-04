@@ -22,7 +22,8 @@ class SourceExecutionArguments(
     waitForShutdown: Boolean = DEFAULT_WAIT_FOR_SHUTDOWN,
     @Transient
     var methodToRun: Method? = null,
-    val plugins: List<SandboxPlugin<*>> = listOf()
+    @Transient
+    internal val plugins: MutableList<SandboxPlugin<*>> = mutableListOf()
 ) : Sandbox.ExecutionArguments(
     timeout,
     permissions.union(REQUIRED_PERMISSIONS),
@@ -48,6 +49,11 @@ class SourceExecutionArguments(
             // ClassLoader enumeration is probably not unsafe...
             RuntimePermission("getClassLoader"),
         )
+    }
+
+    fun addPlugin(plugin: SandboxPlugin<*>): SourceExecutionArguments {
+        plugins.add(plugin)
+        return this
     }
 }
 
