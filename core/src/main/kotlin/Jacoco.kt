@@ -10,10 +10,10 @@ import org.jacoco.core.runtime.RuntimeData
 import org.objectweb.asm.MethodVisitor
 import org.objectweb.asm.Opcodes
 
-object Jacoco : SandboxPlugin<CoverageBuilder> {
+object Jacoco : SandboxPlugin<Unit, CoverageBuilder> {
     private val instrumenter = Instrumenter(IsolatedJacocoRuntime)
 
-    override fun createInstrumentationData(): Any {
+    override fun createInstrumentationData(arguments: Unit): Any {
         return JacocoInstrumentationData()
     }
 
@@ -33,29 +33,33 @@ object Jacoco : SandboxPlugin<CoverageBuilder> {
         get() = setOf(IsolatedJacocoRuntime.RuntimeDataAccessor::class.java)
 
     override fun createInitialData(instrumentationData: Any?): Any {
-        return RuntimeData()
+        return JacocoWorkingData(instrumentationData as JacocoInstrumentationData)
     }
 
-    override fun createFinalData(instrumentationData: Any?, workingData: Any?): CoverageBuilder {
-        instrumentationData as JacocoInstrumentationData
-        workingData as RuntimeData
+    override fun createFinalData(workingData: Any?): CoverageBuilder {
+        workingData as JacocoWorkingData
         val executionData = ExecutionDataStore()
-        workingData.collect(executionData, SessionInfoStore(), false)
+        workingData.runtimeData.collect(executionData, SessionInfoStore(), false)
         val coverageBuilder = CoverageBuilder()
         Analyzer(executionData, coverageBuilder).apply {
             try {
-                for ((name, bytes) in instrumentationData.coverageClasses) {
+                for ((name, bytes) in workingData.instrumentationData.coverageClasses) {
                     analyzeClass(bytes, name)
                 }
             } catch (_: Exception) {}
         }
         return coverageBuilder
     }
-
-    private class JacocoInstrumentationData(
-        val coverageClasses: MutableMap<String, ByteArray> = mutableMapOf()
-    )
 }
+
+private class JacocoInstrumentationData(
+    val coverageClasses: MutableMap<String, ByteArray> = mutableMapOf()
+)
+
+private class JacocoWorkingData(
+    val instrumentationData: JacocoInstrumentationData,
+    val runtimeData: RuntimeData = RuntimeData()
+)
 
 object IsolatedJacocoRuntime : IRuntime {
     private const val STACK_SIZE = 6
@@ -82,7 +86,10 @@ object IsolatedJacocoRuntime : IRuntime {
 
     object RuntimeDataAccessor {
         @JvmStatic
-        fun get(): Any = Sandbox.confinedTaskWorkingData(Jacoco)
+        fun get(): Any {
+            val workingData: JacocoWorkingData = Sandbox.confinedTaskWorkingData(Jacoco)
+            return workingData.runtimeData
+        }
     }
 }
 

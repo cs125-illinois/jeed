@@ -192,7 +192,7 @@ object Sandbox {
             get() {
                 return Duration.between(interval.start, interval.end)
             }
-        fun <V : Any> pluginResult(plugin: SandboxPlugin<V>): V {
+        fun <V : Any> pluginResult(plugin: SandboxPlugin<*, V>): V {
             @Suppress("UNCHECKED_CAST")
             return pluginResults[plugin.id] as V
         }
@@ -226,8 +226,7 @@ object Sandbox {
     suspend fun <T> execute(
         sandboxedClassLoader: SandboxedClassLoader,
         executionArguments: ExecutionArguments,
-        callable: SandboxCallableArguments<T>,
-        plugins: List<SandboxPlugin<*>> = listOf()
+        callable: SandboxCallableArguments<T>
     ): TaskResults<out T?> {
         require(executionArguments.permissions.intersect(BLACKLISTED_PERMISSIONS).isEmpty()) {
             "attempt to allow unsafe permissions"
@@ -241,7 +240,7 @@ object Sandbox {
 
         return coroutineScope {
             val resultsChannel = Channel<ExecutorResult<T>>()
-            val executor = Executor(callable, sandboxedClassLoader, executionArguments, plugins, resultsChannel)
+            val executor = Executor(callable, sandboxedClassLoader, executionArguments, resultsChannel)
             threadPool.submit(executor)
             val result = executor.resultChannel.receive()
             result.taskResults ?: throw result.executionException
@@ -251,15 +250,15 @@ object Sandbox {
     suspend fun <T> execute(
         sandboxableClassLoader: SandboxableClassLoader = EmptyClassLoader,
         executionArguments: ExecutionArguments = ExecutionArguments(),
-        plugins: List<SandboxPlugin<*>> = listOf(),
+        configuredPlugins: List<ConfiguredSandboxPlugin<*, *>> = listOf(),
         callable: SandboxCallableArguments<T>
     ): TaskResults<out T?> {
         val sandboxedClassLoader = try {
-            SandboxedClassLoader(sandboxableClassLoader, executionArguments.classLoaderConfiguration, plugins)
+            SandboxedClassLoader(sandboxableClassLoader, executionArguments.classLoaderConfiguration, configuredPlugins)
         } catch (e: OutOfMemoryError) {
             throw SandboxStartFailed("Out of memory while transforming bytecode", e)
         }
-        return execute(sandboxedClassLoader, executionArguments, callable, plugins)
+        return execute(sandboxedClassLoader, executionArguments, callable)
     }
 
     private const val MAX_THREAD_SHUTDOWN_RETRIES = 256
@@ -271,7 +270,6 @@ object Sandbox {
         val callable: SandboxCallableArguments<T>,
         val sandboxedClassLoader: SandboxedClassLoader,
         val executionArguments: ExecutionArguments,
-        val plugins: List<SandboxPlugin<*>>,
         val resultChannel: Channel<ExecutorResult<T>>
     ) : Callable<Any> {
         private data class TaskResult<T>(val returned: T, val threw: Throwable? = null, val timeout: Boolean = false)
@@ -280,7 +278,7 @@ object Sandbox {
         override fun call() {
             @Suppress("TooGenericExceptionCaught")
             try {
-                val confinedTask = confine(callable, sandboxedClassLoader, executionArguments, plugins)
+                val confinedTask = confine(callable, sandboxedClassLoader, executionArguments)
                 val executionStarted = Instant.now()
                 val taskResult = try {
                     confinedTask.thread.start()
@@ -369,7 +367,7 @@ object Sandbox {
                     confinedTask.truncatedLines,
                     executionArguments,
                     confinedTask.pluginData.map { (plugin, workingData) ->
-                        plugin.id to plugin.createFinalData(confinedTask.classLoader.pluginInstrumentationData[plugin], workingData)
+                        plugin.id to plugin.createFinalData(workingData)
                     }.toMap()
                 )
                 @Suppress("ThrowingExceptionsWithoutMessageOrCause")
@@ -386,8 +384,7 @@ object Sandbox {
         val classLoader: SandboxedClassLoader,
         val task: FutureTask<T>,
         val thread: Thread,
-        executionArguments: ExecutionArguments,
-        plugins: List<SandboxPlugin<*>>
+        executionArguments: ExecutionArguments
     ) {
         val threadGroup = thread.threadGroup ?: error("thread should be in thread group")
         val accessControlContext: AccessControlContext
@@ -419,7 +416,9 @@ object Sandbox {
 
         val started: Instant = Instant.now()
 
-        val pluginData = plugins.associateWith { it.createInitialData(classLoader.pluginInstrumentationData[it]) }
+        val pluginData = classLoader.pluginInstrumentationData.associate { (plugin, instrumentationData) ->
+            plugin to plugin.createInitialData(instrumentationData)
+        }
 
         private val isolatedLocksSyncRoot = Object()
         private val isolatedLocks = mutableMapOf<Any, ReentrantLock>()
@@ -529,14 +528,7 @@ object Sandbox {
         return confinedTasks[Thread.currentThread().threadGroup]
     }
 
-    @Suppress("unused")
-    fun <I> confinedTaskInstrumentationData(plugin: SandboxPlugin<*>): I {
-        val confinedTask = confinedTaskByThreadGroup() ?: error("attempt to access current task data outside any task")
-        @Suppress("UNCHECKED_CAST")
-        return confinedTask.classLoader.pluginInstrumentationData[plugin] as I
-    }
-
-    fun <W> confinedTaskWorkingData(plugin: SandboxPlugin<*>): W {
+    fun <W> confinedTaskWorkingData(plugin: SandboxPlugin<*, *>): W {
         val confinedTask = confinedTaskByThreadGroup() ?: error("attempt to access current task data outside any task")
         @Suppress("UNCHECKED_CAST")
         return confinedTask.pluginData[plugin] as W
@@ -546,8 +538,7 @@ object Sandbox {
     private fun <T> confine(
         callable: SandboxCallableArguments<T>,
         sandboxedClassLoader: SandboxedClassLoader,
-        executionArguments: ExecutionArguments,
-        plugins: List<SandboxPlugin<*>>
+        executionArguments: ExecutionArguments
     ): ConfinedTask<T> {
         val threadGroup = object : ThreadGroup("Sandbox") {
             @Suppress("EmptyFunctionBlock")
@@ -563,7 +554,7 @@ object Sandbox {
         threadGroup.maxPriority = Thread.MIN_PRIORITY
         val task = FutureTask(SandboxedCallable<T>(callable, sandboxedClassLoader))
         val thread = Thread(threadGroup, task, "main")
-        val confinedTask = ConfinedTask(sandboxedClassLoader, task, thread, executionArguments, plugins)
+        val confinedTask = ConfinedTask(sandboxedClassLoader, task, thread, executionArguments)
         confinedTasks[threadGroup] = confinedTask
         confinedClassLoaders.add(sandboxedClassLoader)
         return confinedTask
@@ -659,13 +650,13 @@ object Sandbox {
     class SandboxedClassLoader(
         private val sandboxableClassLoader: SandboxableClassLoader,
         classLoaderConfiguration: ClassLoaderConfiguration,
-        plugins: List<SandboxPlugin<*>>
+        configuredPlugins: List<ConfiguredSandboxPlugin<*, *>>
     ) : ClassLoader(sandboxableClassLoader.classLoader.parent), EnumerableClassLoader {
         private val whitelistedClasses = classLoaderConfiguration.whitelistedClasses
         private val blacklistedClasses = classLoaderConfiguration.blacklistedClasses
         private val isolatedClasses = classLoaderConfiguration.isolatedClasses
-        private val sandboxRequiredClasses = plugins.fold(ALWAYS_ALLOWED_CLASS_NAMES) { set, plugin ->
-            set.union(plugin.requiredClasses.map { clazz -> clazz.name })
+        private val sandboxRequiredClasses = configuredPlugins.fold(ALWAYS_ALLOWED_CLASS_NAMES) { set, plugin ->
+            set.union(plugin.plugin.requiredClasses.map { clazz -> clazz.name })
         }
         private val blacklistedMethods = classLoaderConfiguration.blacklistedMethods
         val unsafeExceptionClasses: Set<Class<*>> = classLoaderConfiguration.unsafeExceptions.map { name ->
@@ -674,7 +665,11 @@ object Sandbox {
             klass
         }.toSet()
 
-        internal val pluginInstrumentationData = plugins.associateWith { it.createInstrumentationData() }
+        internal val pluginInstrumentationData = configuredPlugins.map {
+            @Suppress("UNCHECKED_CAST")
+            it as ConfiguredSandboxPlugin<Any, Any>
+            it.plugin to it.plugin.createInstrumentationData(it.arguments)
+        } // Intentionally not toMap'd so that order is preserved
 
         override val definedClasses: Set<String> get() = knownClasses.keys.toSet()
         override val providedClasses: MutableSet<String> = mutableSetOf()
@@ -924,11 +919,11 @@ object Sandbox {
             originalByteArray: ByteArray,
             unsafeExceptionClasses: Set<Class<*>>,
             blacklistedMethods: Set<MethodFilter>,
-            plugins: Map<SandboxPlugin<*>, Any?>,
+            plugins: List<Pair<SandboxPlugin<*, *>, Any?>>,
             context: RewritingContext
         ): ByteArray {
             require(originalByteArray.size <= MAX_CLASS_FILE_SIZE) { "bytecode is over 1 MB" }
-            val pretransformed = plugins.toList().fold(originalByteArray) { bytecode, (plugin, instrumentationData) ->
+            val pretransformed = plugins.fold(originalByteArray) { bytecode, (plugin, instrumentationData) ->
                 plugin.transformBeforeSandbox(bytecode, name, instrumentationData, context)
             }
             val classReader = ClassReader(pretransformed)
@@ -1725,25 +1720,34 @@ fun <T> withSandbox(run: () -> T): T {
 
 fun Sandbox.SandboxableClassLoader.sandbox(
     classLoaderConfiguration: Sandbox.ClassLoaderConfiguration,
-    plugins: List<SandboxPlugin<*>> = listOf()
+    configuredPlugins: List<ConfiguredSandboxPlugin<*, *>> = listOf()
 ): Sandbox.SandboxedClassLoader {
-    return Sandbox.SandboxedClassLoader(this, classLoaderConfiguration, plugins)
+    return Sandbox.SandboxedClassLoader(this, classLoaderConfiguration, configuredPlugins)
 }
 
 data class JeedOutputCapture(val returned: Any?, val threw: Throwable?, val stdout: String, val stderr: String)
 
-interface SandboxPlugin<V : Any> {
+interface SandboxPlugin<A : Any, V : Any> {
     val id: String
         get() = javaClass.simpleName.decapitalizeAsciiOnly()
-    fun createInstrumentationData(): Any? = null
+    fun createInstrumentationData(arguments: A): Any? = null
     fun transformBeforeSandbox(bytecode: ByteArray, name: String, instrumentationData: Any?, context: RewritingContext): ByteArray = bytecode
     fun transformAfterSandbox(bytecode: ByteArray, name: String, instrumentationData: Any?, context: RewritingContext): ByteArray = bytecode
     fun createInitialData(instrumentationData: Any?): Any?
-    fun createFinalData(instrumentationData: Any?, workingData: Any?): V
+    fun createFinalData(workingData: Any?): V
     fun executionFinished() { }
     val requiredClasses: Set<Class<*>>
         get() = setOf()
 }
+
+interface SandboxPluginWithDefaultArguments<A : Any, V : Any> : SandboxPlugin<A, V> {
+    fun createDefaultArguments(): A
+}
+
+data class ConfiguredSandboxPlugin<A : Any, V : Any>(
+    val plugin: SandboxPlugin<A, V>,
+    val arguments: A
+)
 
 enum class RewritingContext {
     UNTRUSTED, RELOADED

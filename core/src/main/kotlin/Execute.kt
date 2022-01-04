@@ -23,7 +23,7 @@ class SourceExecutionArguments(
     @Transient
     var methodToRun: Method? = null,
     @Transient
-    internal val plugins: MutableList<SandboxPlugin<*>> = mutableListOf()
+    internal val plugins: MutableList<ConfiguredSandboxPlugin<*, *>> = mutableListOf()
 ) : Sandbox.ExecutionArguments(
     timeout,
     permissions.union(REQUIRED_PERMISSIONS),
@@ -51,9 +51,19 @@ class SourceExecutionArguments(
         )
     }
 
-    fun addPlugin(plugin: SandboxPlugin<*>): SourceExecutionArguments {
-        plugins.add(plugin)
+    fun addPlugin(plugin: SandboxPlugin<Unit, *>): SourceExecutionArguments {
+        plugins.add(ConfiguredSandboxPlugin(plugin, Unit))
         return this
+    }
+
+    @Suppress("MemberVisibilityCanBePrivate")
+    fun <A : Any> addPlugin(plugin: SandboxPlugin<A, *>, arguments: A): SourceExecutionArguments {
+        plugins.add(ConfiguredSandboxPlugin(plugin, arguments))
+        return this
+    }
+
+    fun <A : Any> addPlugin(plugin: SandboxPluginWithDefaultArguments<A, *>): SourceExecutionArguments {
+        return addPlugin(plugin, plugin.createDefaultArguments())
     }
 }
 

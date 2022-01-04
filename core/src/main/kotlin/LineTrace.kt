@@ -11,7 +11,7 @@ import org.objectweb.asm.Opcodes
 import org.objectweb.asm.Type
 import kotlin.reflect.jvm.javaMethod
 
-object LineTrace : SandboxPlugin<LineTraceResult> {
+object LineTrace : SandboxPluginWithDefaultArguments<LineTraceArguments, LineTraceResult> {
     private const val TRACING_STACK_ITEMS = 4
     private val tracingClassName = classNameToPath(TracingSink::class.java.name)
     private val tracingLineMethodName = TracingSink::enterLine.javaMethod?.name ?: error("missing tracing method name")
@@ -37,21 +37,12 @@ object LineTrace : SandboxPlugin<LineTraceResult> {
         initializedThreadLocals.set(true)
     }
 
-    override fun createInstrumentationData(): Any {
-        return LineTraceInstrumentationData()
+    override fun createDefaultArguments(): LineTraceArguments {
+        return LineTraceArguments()
     }
 
-    override fun createInitialData(instrumentationData: Any?): Any {
-        return LineTraceWorkingData()
-    }
-
-    override fun createFinalData(instrumentationData: Any?, workingData: Any?): LineTraceResult {
-        workingData as LineTraceWorkingData
-        val allSteps = mutableListOf<LineTraceResult.LineStep>()
-        synchronized(workingData.threadTrackingSyncRoot) {
-            workingData.threadSteps.values.forEach { allSteps.addAll(it) }
-        }
-        return LineTraceResult(allSteps)
+    override fun createInstrumentationData(arguments: LineTraceArguments): Any {
+        return LineTraceInstrumentationData(arguments)
     }
 
     override val requiredClasses: Set<Class<*>>
@@ -88,6 +79,20 @@ object LineTrace : SandboxPlugin<LineTraceResult> {
         return classWriter.toByteArray()
     }
 
+    override fun createInitialData(instrumentationData: Any?): Any {
+        instrumentationData as LineTraceInstrumentationData
+        return LineTraceWorkingData(instrumentationData.arguments)
+    }
+
+    override fun createFinalData(workingData: Any?): LineTraceResult {
+        workingData as LineTraceWorkingData
+        val allSteps = mutableListOf<LineTraceResult.LineStep>()
+        synchronized(workingData.threadTrackingSyncRoot) {
+            workingData.threadSteps.values.forEach { allSteps.addAll(it) }
+        }
+        return LineTraceResult(workingData.arguments, allSteps)
+    }
+
     private data class ClassPreinspection(
         val sourceFile: String?,
         val methodPreinspections: Map<MethodId, Map<Int, LabelLine>>
@@ -97,10 +102,12 @@ object LineTrace : SandboxPlugin<LineTraceResult> {
     private data class LabelLine(val line: Int, val labelSequence: Int, val waitForFrame: Boolean)
 
     private class LineTraceInstrumentationData(
+        val arguments: LineTraceArguments,
         var nextMethodId: Int = 0
     )
 
     private class LineTraceWorkingData(
+        val arguments: LineTraceArguments,
         val threadSteps: MutableMap<Int, MutableList<LineTraceResult.LineStep>> = mutableMapOf(),
         var nextThreadIndex: Int = 0,
         val threadTrackingSyncRoot: Any = Object()
@@ -295,7 +302,10 @@ object LineTrace : SandboxPlugin<LineTraceResult> {
 }
 
 @JsonClass(generateAdapter = true)
-data class LineTraceResult(val steps: List<LineStep>) {
+class LineTraceArguments
+
+@JsonClass(generateAdapter = true)
+data class LineTraceResult(val arguments: LineTraceArguments, val steps: List<LineStep>) {
     @JsonClass(generateAdapter = true)
     data class LineStep(val source: String, val line: Int, val threadIndex: Int)
 
