@@ -586,4 +586,19 @@ System.out.println(cons.newInstance());
         executionResult.permissionDenied shouldBe true
         executionResult.completed shouldBe false
     }
+    "should not allow loading sun.misc classes" {
+        val executionResult = Source.fromSnippet(
+            """
+import sun.misc.Unsafe;
+
+Unsafe unsafe = null;
+unsafe.getInt(null, 0); // obvious NPE, but should fail in classloading first
+        """.trim()
+        ).compile().execute(SourceExecutionArguments(timeout = 10000))
+        executionResult.permissionDenied shouldBe true
+        executionResult.permissionRequests.find {
+            it.permission.name.startsWith("accessClassInPackage.sun")
+        } shouldNot beNull()
+        executionResult.completed shouldBe false
+    }
 })
