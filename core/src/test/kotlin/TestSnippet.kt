@@ -504,7 +504,7 @@ class Tester implements Test {
             """.trim()
         ).compile()
     }
-    "should allow generic methods in snippets" {
+    "should allow generic methods in Java snippets" {
         Source.fromSnippet(
             """
 <T> T max(T[] array) {
@@ -512,6 +512,14 @@ class Tester implements Test {
 }
             """.trim()
         ).compile()
+    }
+    "should allow generic methods in Kotlin snippets" {
+        Source.fromSnippet(
+            """
+class Test<T>
+fun <T> Test<T>.requireIndexIsNotNegative(index: Int): Unit = require(index >= 0)
+            """.trim(), SnippetArguments(fileType = Source.FileType.KOTLIN)
+        ).kompile()
     }
     "should allow anonymous classes in snippets" {
         Source.fromSnippet(
