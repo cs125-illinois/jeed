@@ -518,7 +518,8 @@ class Tester implements Test {
             """
 class Test<T>
 fun <T> Test<T>.requireIndexIsNotNegative(index: Int): Unit = require(index >= 0)
-            """.trim(), SnippetArguments(fileType = Source.FileType.KOTLIN)
+            """.trim(),
+            SnippetArguments(fileType = Source.FileType.KOTLIN)
         ).kompile()
     }
     "should allow anonymous classes in snippets" {
