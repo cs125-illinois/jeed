@@ -16,7 +16,9 @@ import io.kotest.matchers.longs.shouldBeLessThanOrEqual
 import io.kotest.matchers.should
 import io.kotest.matchers.shouldBe
 import io.kotest.matchers.shouldNot
+import io.kotest.matchers.string.endWith
 import io.kotest.matchers.types.beInstanceOf
+import java.lang.reflect.InvocationTargetException
 
 class TestLineTrace : StringSpec({
     "should trace a main method" {
@@ -764,5 +766,41 @@ public class Main {
         subtaskLinesRun[0] shouldBeGreaterThan 7
         subtaskLinesRun[1] shouldBeGreaterThan 9
         subtaskLinesRun[2] shouldBeGreaterThan 11 // At least 27 lines run in total
+    }
+
+    "should allow trusted code to handle the limit exception" {
+        val compiledSource = Source.fromJava(
+            """
+public class Main {
+  public static void print(String text, int times) {
+    try {
+      for (int i = 0; i < times; i++) {
+        System.out.print(text);
+      }
+      System.out.println("");
+    } catch (Throwable t) {}
+  }
+}""".trim()
+        ).compile()
+        val lineTraceArgs = LineTraceArguments(
+            recordedLineLimit = 0,
+            runLineLimit = 15,
+            runLineLimitExceededAction = LineTraceArguments.RunLineLimitAction.THROW_ERROR
+        )
+        val plugins = listOf(ConfiguredSandboxPlugin(LineTrace, lineTraceArgs))
+        var hitLimit = false
+        val result = Sandbox.execute(compiledSource.classLoader, configuredPlugins = plugins) { (loader, _) ->
+            val method = loader.loadClass("Main").getMethod("print", String::class.java, Int::class.java)
+            try {
+                method(null, "A", 15)
+            } catch (e: InvocationTargetException) {
+                hitLimit = e.cause is LineLimitExceeded
+            }
+            LineTrace.resetLineCounts()
+            method(null, "B", 2)
+        }
+        result should haveCompleted()
+        result.output should endWith("BB")
+        hitLimit shouldBe true
     }
 })
