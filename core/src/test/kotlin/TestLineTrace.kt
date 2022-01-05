@@ -16,6 +16,7 @@ import io.kotest.matchers.longs.shouldBeLessThanOrEqual
 import io.kotest.matchers.should
 import io.kotest.matchers.shouldBe
 import io.kotest.matchers.shouldNot
+import io.kotest.matchers.shouldNotBe
 import io.kotest.matchers.string.endWith
 import io.kotest.matchers.types.beInstanceOf
 import java.lang.reflect.InvocationTargetException
@@ -802,5 +803,37 @@ public class Main {
         result should haveCompleted()
         result.output should endWith("BB")
         hitLimit shouldBe true
+    }
+
+    "should be compatible with Jacoco" {
+        val result = Source.fromJava(
+            """
+public class Test {
+  private int value;
+  public Test() {
+    value = 10;
+  }
+  public Test(int setValue) {
+    value = setValue;
+  }
+}
+public class Main {
+  public static void main() {
+    Test test = new Test(10);
+    System.out.println("Done");
+  }
+}""".trim()
+        ).compile().execute(SourceExecutionArguments().addPlugin(Jacoco).addPlugin(LineTrace))
+        result.completed shouldBe true
+        result.permissionDenied shouldNotBe true
+        result should haveOutput("Done")
+        val coverage = result.pluginResult(Jacoco)
+        val testCoverage = coverage.classes.find { it.name == "Test" }!!
+        testCoverage.lineCounter.missedCount shouldBeGreaterThanOrEqual 1
+        testCoverage.lineCounter.coveredCount shouldBe 3
+        val trace = result.pluginResult(LineTrace)
+        trace.steps[0].line shouldBe 12
+        trace.steps.map { it.line } shouldContain 7
+        trace.steps.map { it.line } shouldNotContain 4
     }
 })
