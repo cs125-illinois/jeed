@@ -621,8 +621,8 @@ object Sandbox {
             }
         }
 
-        confinedTask.pluginData.forEach { (plugin, _) ->
-            plugin.executionFinished()
+        confinedTask.pluginData.forEach { (plugin, data) ->
+            plugin.executionFinished(data)
         }
 
         confinedTasks.remove(threadGroup)
@@ -1758,8 +1758,8 @@ interface SandboxPlugin<A : Any, V : Any> {
     fun transformBeforeSandbox(bytecode: ByteArray, name: String, instrumentationData: Any?, context: RewritingContext): ByteArray = bytecode
     fun transformAfterSandbox(bytecode: ByteArray, name: String, instrumentationData: Any?, context: RewritingContext): ByteArray = bytecode
     fun createInitialData(instrumentationData: Any?): Any?
+    fun executionFinished(workingData: Any?) { }
     fun createFinalData(workingData: Any?): V
-    fun executionFinished() { }
     val requiredClasses: Set<Class<*>>
         get() = setOf()
 }

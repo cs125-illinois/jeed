@@ -94,7 +94,6 @@ object IsolatedJacocoRuntime : IRuntime {
 }
 
 @Throws(ExecutionFailed::class)
-@Suppress("ReturnCount")
 suspend fun CompiledSource.jacoco(
     executionArguments: SourceExecutionArguments = SourceExecutionArguments()
 ): Pair<Sandbox.TaskResults<out Any?>, CoverageBuilder> {

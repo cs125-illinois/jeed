@@ -55,7 +55,8 @@ object LineTrace : SandboxPluginWithDefaultArguments<LineTraceArguments, LineTra
             val args = threadArguments.get()
             val data = threadData.get()
             if (args.coalesceDuplicates) {
-                val isDuplicate = data.steps.lastOrNull()?.let { previous ->
+                val lastStep = synchronized(data.syncRoot) { data.steps.lastOrNull() }
+                val isDuplicate = lastStep?.let { previous ->
                     previous.line == line &&
                         data.lastMethodId == methodId &&
                         data.lastLabelSequence == sequence - 1
@@ -70,17 +71,22 @@ object LineTrace : SandboxPluginWithDefaultArguments<LineTraceArguments, LineTra
                     LineTraceArguments.RunLineLimitAction.KILL_SANDBOX -> Sandbox.CurrentTask.kill(KILL_REASON)
                     LineTraceArguments.RunLineLimitAction.THROW_ERROR -> throw LineLimitExceeded()
                 }
-            } else if (args.recordedLineLimit >= totalLinesRun) {
-                data.steps.add(LineTraceResult.LineStep(file, line, threadIndex.get()))
             }
-            data.linesRun++
-            data.unsynchronizedLines++
+            synchronized(data.syncRoot) {
+                if (args.recordedLineLimit >= totalLinesRun) {
+                    data.steps.add(LineTraceResult.LineStep(file, line, threadIndex.get()))
+                }
+                data.linesRun++
+                data.unsynchronizedLines++
+            }
             if (data.unsynchronizedLines > args.maxUnsynchronizedLines) {
                 val outerWorkingData: LineTraceWorkingData = Sandbox.CurrentTask.getWorkingData(LineTrace)
                 synchronized(outerWorkingData.threadTrackingSyncRoot) {
                     data.linesRunByOtherThreads = 0
                     outerWorkingData.threads.forEach { (i, otherData) ->
-                        if (i != threadIndex.get()) data.linesRunByOtherThreads += otherData.linesRun
+                        if (i != threadIndex.get()) {
+                            data.linesRunByOtherThreads += otherData.linesRun
+                        }
                     }
                 }
                 data.unsynchronizedLines = 0
@@ -112,11 +118,35 @@ object LineTrace : SandboxPluginWithDefaultArguments<LineTraceArguments, LineTra
         var totalLines = 0L
         synchronized(workingData.threadTrackingSyncRoot) {
             workingData.threads.values.forEach {
-                allSteps.addAll(it.steps)
-                totalLines += it.linesRun
+                synchronized(it.syncRoot) {
+                    allSteps.addAll(it.steps)
+                    totalLines += it.linesRun
+                }
             }
         }
         return LineTraceResult(workingData.arguments, allSteps, totalLines)
+    }
+
+    @Suppress("unused") // For trusted code inside the task
+    fun getCurrentReport(): LineTraceResult {
+        return createFinalData(Sandbox.CurrentTask.getWorkingData(this))
+    }
+
+    @Suppress("unused") // For trusted code inside the task
+    fun resetLineCounts() {
+        val workingData: LineTraceWorkingData = Sandbox.CurrentTask.getWorkingData(this)
+        synchronized(workingData.threadTrackingSyncRoot) {
+            workingData.threads.values.forEach {
+                synchronized(it.syncRoot) {
+                    it.linesRun = 0
+                    it.linesRunByOtherThreads = 0
+                    it.unsynchronizedLines = 0
+                    it.steps = mutableListOf()
+                    it.lastMethodId = null
+                    it.lastLabelSequence = null
+                }
+            }
+        }
     }
 
     private data class ClassPreinspection(
@@ -140,11 +170,12 @@ object LineTrace : SandboxPluginWithDefaultArguments<LineTraceArguments, LineTra
     ) {
         class PerThreadWorkingData(
             var linesRun: Long = 0,
-            val steps: MutableList<LineTraceResult.LineStep> = mutableListOf(),
+            var steps: MutableList<LineTraceResult.LineStep> = mutableListOf(),
             var lastMethodId: Int? = null,
             var lastLabelSequence: Int? = null,
             var unsynchronizedLines: Int = 0,
-            var linesRunByOtherThreads: Long = 0
+            var linesRunByOtherThreads: Long = 0,
+            val syncRoot: Any = Object()
         )
     }
 

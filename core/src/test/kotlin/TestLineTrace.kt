@@ -11,6 +11,7 @@ import io.kotest.matchers.ints.beGreaterThan
 import io.kotest.matchers.ints.shouldBeGreaterThan
 import io.kotest.matchers.ints.shouldBeGreaterThanOrEqual
 import io.kotest.matchers.ints.shouldBeLessThanOrEqual
+import io.kotest.matchers.longs.shouldBeGreaterThan
 import io.kotest.matchers.longs.shouldBeLessThanOrEqual
 import io.kotest.matchers.should
 import io.kotest.matchers.shouldBe
@@ -685,7 +686,7 @@ while (true) {
         trace.linesRun shouldBeLessThanOrEqual lineTraceArgs.runLineLimit!! + lineTraceArgs.maxUnsynchronizedLines
     }
 
-    "should precisely limit total lines if required" {
+    "should closely limit total lines if required" {
         val source = Source.fromSnippet(
             """
 public class Example implements Runnable {
@@ -709,9 +710,59 @@ while (true) {
             recordedLineLimit = 0,
             maxUnsynchronizedLines = 0
         )
-        val result = source.compile().execute(SourceExecutionArguments(maxExtraThreads = 1).addPlugin(LineTrace, lineTraceArgs))
-        result should haveBeenKilled()
-        val rawTrace = result.pluginResult(LineTrace)
-        rawTrace.linesRun shouldBe lineTraceArgs.runLineLimit!!
+        val compiledSource = source.compile()
+        repeat(10) {
+            val result = compiledSource.execute(SourceExecutionArguments(maxExtraThreads = 1).addPlugin(LineTrace, lineTraceArgs))
+            result should haveBeenKilled()
+            val rawTrace = result.pluginResult(LineTrace)
+            rawTrace.linesRun shouldBeLessThanOrEqual lineTraceArgs.runLineLimit!! + 1
+        }
+    }
+
+    "should not allow untrusted code to reset the line counter" {
+        val source = Source.fromSnippet(
+            """edu.illinois.cs.cs125.jeed.core.LineTrace.resetLineCounts()""",
+            SnippetArguments(fileType = Source.FileType.KOTLIN)
+        )
+        val result = source.kompile().execute(SourceExecutionArguments().addPlugin(LineTrace))
+        result shouldNot haveCompleted()
+        result.permissionDenied shouldBe true
+    }
+
+    "should allow trusted code to reset the line counter" {
+        val compiledSource = Source.fromJava(
+            """
+public class Main {
+  public static void print(String text, int times) {
+    for (int i = 0; i < times; i++) {
+      System.out.print(text);
+    } // At least 2, probably 3 lines per iteration
+    System.out.println("");
+  }
+}""".trim()
+        ).compile()
+        val lineTraceArgs = LineTraceArguments(
+            recordedLineLimit = 0,
+            runLineLimit = 25
+        )
+        val plugins = listOf(ConfiguredSandboxPlugin(LineTrace, lineTraceArgs))
+        val subtaskLinesRun = mutableListOf<Long>()
+        val result = Sandbox.execute(compiledSource.classLoader, configuredPlugins = plugins) { (loader, _) ->
+            val method = loader.loadClass("Main").getMethod("print", String::class.java, Int::class.java)
+            method(null, "A", 3)
+            subtaskLinesRun.add(LineTrace.getCurrentReport().linesRun)
+            LineTrace.resetLineCounts()
+            method(null, "B", 4)
+            subtaskLinesRun.add(LineTrace.getCurrentReport().linesRun)
+            LineTrace.resetLineCounts()
+            method(null, "C", 5)
+            subtaskLinesRun.add(LineTrace.getCurrentReport().linesRun)
+        }
+        result should haveCompleted()
+        result should haveOutput("AAA\nBBBB\nCCCCC")
+        subtaskLinesRun.size shouldBe 3
+        subtaskLinesRun[0] shouldBeGreaterThan 7
+        subtaskLinesRun[1] shouldBeGreaterThan 9
+        subtaskLinesRun[2] shouldBeGreaterThan 11 // At least 27 lines run in total
     }
 })
