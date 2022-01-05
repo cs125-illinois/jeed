@@ -12,28 +12,28 @@ import org.objectweb.asm.Type
 import kotlin.reflect.jvm.javaMethod
 
 object LineTrace : SandboxPluginWithDefaultArguments<LineTraceArguments, LineTraceResult> {
+    const val KILL_REASON = "exceededLineLimit"
+
     private const val TRACING_STACK_ITEMS = 4
     private val tracingClassName = classNameToPath(TracingSink::class.java.name)
     private val tracingLineMethodName = TracingSink::enterLine.javaMethod?.name ?: error("missing tracing method name")
     private val tracingLineMethodDesc = Type.getMethodDescriptor(TracingSink::enterLine.javaMethod)
 
-    private val threadSteps: ThreadLocal<MutableList<LineTraceResult.LineStep>> = ThreadLocal()
+    private val threadArguments: ThreadLocal<LineTraceArguments> = ThreadLocal()
+    private val threadData: ThreadLocal<LineTraceWorkingData.PerThreadWorkingData> = ThreadLocal()
     private val threadIndex: ThreadLocal<Int> = ThreadLocal()
-    private val threadLastMethodId: ThreadLocal<Int?> = ThreadLocal()
-    private val threadLastLabelSequence: ThreadLocal<Int?> = ThreadLocal()
     private val initializedThreadLocals = ThreadLocal.withInitial { false }
     private fun ensureThreadLocalsInitialized() {
         if (initializedThreadLocals.get()) return
-        val data: LineTraceWorkingData = Sandbox.confinedTaskWorkingData(this)
-        synchronized(data.threadTrackingSyncRoot) {
-            val steps = mutableListOf<LineTraceResult.LineStep>()
-            threadSteps.set(steps)
-            data.threadSteps[data.nextThreadIndex] = steps
-            threadIndex.set(data.nextThreadIndex)
-            data.nextThreadIndex++
+        val workingData: LineTraceWorkingData = Sandbox.CurrentTask.getWorkingData(this)
+        synchronized(workingData.threadTrackingSyncRoot) {
+            val data = LineTraceWorkingData.PerThreadWorkingData()
+            threadData.set(data)
+            workingData.threads[workingData.nextThreadIndex] = data
+            threadIndex.set(workingData.nextThreadIndex)
+            workingData.nextThreadIndex++
         }
-        threadLastMethodId.set(null)
-        threadLastLabelSequence.set(null)
+        threadArguments.set(workingData.arguments)
         initializedThreadLocals.set(true)
     }
 
@@ -52,16 +52,38 @@ object LineTrace : SandboxPluginWithDefaultArguments<LineTraceArguments, LineTra
         @JvmStatic
         fun enterLine(file: String, methodId: Int, sequence: Int, line: Int) {
             ensureThreadLocalsInitialized()
-            val steps = threadSteps.get()
-            val isDuplicate = steps.lastOrNull()?.let { previous ->
-                previous.line == line &&
-                    threadLastMethodId.get() == methodId &&
-                    threadLastLabelSequence.get() == sequence - 1
-            } ?: false
-            threadLastMethodId.set(methodId)
-            threadLastLabelSequence.set(sequence)
-            if (!isDuplicate) {
-                steps.add(LineTraceResult.LineStep(file, line, threadIndex.get()))
+            val args = threadArguments.get()
+            val data = threadData.get()
+            if (args.coalesceDuplicates) {
+                val isDuplicate = data.steps.lastOrNull()?.let { previous ->
+                    previous.line == line &&
+                        data.lastMethodId == methodId &&
+                        data.lastLabelSequence == sequence - 1
+                } ?: false
+                data.lastMethodId = methodId
+                data.lastLabelSequence = sequence
+                if (isDuplicate) return
+            }
+            val totalLinesRun = data.linesRun + data.linesRunByOtherThreads + 1
+            if (args.runLineLimit?.let { totalLinesRun > it } == true) {
+                when (args.runLineLimitExceededAction) {
+                    LineTraceArguments.RunLineLimitAction.KILL_SANDBOX -> Sandbox.CurrentTask.kill(KILL_REASON)
+                    LineTraceArguments.RunLineLimitAction.THROW_ERROR -> throw LineLimitExceeded()
+                }
+            } else if (args.recordedLineLimit >= totalLinesRun) {
+                data.steps.add(LineTraceResult.LineStep(file, line, threadIndex.get()))
+            }
+            data.linesRun++
+            data.unsynchronizedLines++
+            if (data.unsynchronizedLines > args.maxUnsynchronizedLines) {
+                val outerWorkingData: LineTraceWorkingData = Sandbox.CurrentTask.getWorkingData(LineTrace)
+                synchronized(outerWorkingData.threadTrackingSyncRoot) {
+                    data.linesRunByOtherThreads = 0
+                    outerWorkingData.threads.forEach { (i, otherData) ->
+                        if (i != threadIndex.get()) data.linesRunByOtherThreads += otherData.linesRun
+                    }
+                }
+                data.unsynchronizedLines = 0
             }
         }
     }
@@ -87,10 +109,14 @@ object LineTrace : SandboxPluginWithDefaultArguments<LineTraceArguments, LineTra
     override fun createFinalData(workingData: Any?): LineTraceResult {
         workingData as LineTraceWorkingData
         val allSteps = mutableListOf<LineTraceResult.LineStep>()
+        var totalLines = 0L
         synchronized(workingData.threadTrackingSyncRoot) {
-            workingData.threadSteps.values.forEach { allSteps.addAll(it) }
+            workingData.threads.values.forEach {
+                allSteps.addAll(it.steps)
+                totalLines += it.linesRun
+            }
         }
-        return LineTraceResult(workingData.arguments, allSteps)
+        return LineTraceResult(workingData.arguments, allSteps, totalLines)
     }
 
     private data class ClassPreinspection(
@@ -108,10 +134,19 @@ object LineTrace : SandboxPluginWithDefaultArguments<LineTraceArguments, LineTra
 
     private class LineTraceWorkingData(
         val arguments: LineTraceArguments,
-        val threadSteps: MutableMap<Int, MutableList<LineTraceResult.LineStep>> = mutableMapOf(),
+        val threads: MutableMap<Int, PerThreadWorkingData> = mutableMapOf(),
         var nextThreadIndex: Int = 0,
         val threadTrackingSyncRoot: Any = Object()
-    )
+    ) {
+        class PerThreadWorkingData(
+            var linesRun: Long = 0,
+            val steps: MutableList<LineTraceResult.LineStep> = mutableListOf(),
+            var lastMethodId: Int? = null,
+            var lastLabelSequence: Int? = null,
+            var unsynchronizedLines: Int = 0,
+            var linesRunByOtherThreads: Long = 0
+        )
+    }
 
     private class PreinspectingClassVisitor : ClassVisitor(Opcodes.ASM9) {
         private var sourceFile: String? = null
@@ -302,10 +337,29 @@ object LineTrace : SandboxPluginWithDefaultArguments<LineTraceArguments, LineTra
 }
 
 @JsonClass(generateAdapter = true)
-class LineTraceArguments
+data class LineTraceArguments(
+    val recordedLineLimit: Long = DEFAULT_RECORDED_LINE_LIMIT,
+    val runLineLimit: Long? = null,
+    val runLineLimitExceededAction: RunLineLimitAction = RunLineLimitAction.KILL_SANDBOX,
+    val maxUnsynchronizedLines: Int = DEFAULT_MAX_UNSYNCHRONIZED_LINES,
+    val coalesceDuplicates: Boolean = true
+) {
+    enum class RunLineLimitAction {
+        KILL_SANDBOX, THROW_ERROR
+    }
+
+    companion object {
+        const val DEFAULT_RECORDED_LINE_LIMIT = 100000L
+        const val DEFAULT_MAX_UNSYNCHRONIZED_LINES = 1000
+    }
+}
 
 @JsonClass(generateAdapter = true)
-data class LineTraceResult(val arguments: LineTraceArguments, val steps: List<LineStep>) {
+data class LineTraceResult(
+    val arguments: LineTraceArguments,
+    val steps: List<LineStep>,
+    val linesRun: Long
+) {
     @JsonClass(generateAdapter = true)
     data class LineStep(val source: String, val line: Int, val threadIndex: Int)
 
@@ -337,4 +391,8 @@ data class LineTraceResult(val arguments: LineTraceArguments, val steps: List<Li
     companion object {
         private const val COLUMN_UNKNOWN = -1
     }
+}
+
+class LineLimitExceeded : Error() {
+    override fun fillInStackTrace() = this
 }

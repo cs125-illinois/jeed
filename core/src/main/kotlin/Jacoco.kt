@@ -87,7 +87,7 @@ object IsolatedJacocoRuntime : IRuntime {
     object RuntimeDataAccessor {
         @JvmStatic
         fun get(): Any {
-            val workingData: JacocoWorkingData = Sandbox.confinedTaskWorkingData(Jacoco)
+            val workingData: JacocoWorkingData = Sandbox.CurrentTask.getWorkingData(Jacoco)
             return workingData.runtimeData
         }
     }

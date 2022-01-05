@@ -1,16 +1,21 @@
 package edu.illinois.cs.cs125.jeed.core
 
 import io.kotest.core.spec.style.StringSpec
+import io.kotest.matchers.collections.beEmpty
 import io.kotest.matchers.collections.shouldContain
 import io.kotest.matchers.collections.shouldHaveAtLeastSize
 import io.kotest.matchers.collections.shouldHaveAtMostSize
 import io.kotest.matchers.collections.shouldHaveSize
 import io.kotest.matchers.collections.shouldNotContain
+import io.kotest.matchers.ints.beGreaterThan
 import io.kotest.matchers.ints.shouldBeGreaterThan
 import io.kotest.matchers.ints.shouldBeGreaterThanOrEqual
 import io.kotest.matchers.ints.shouldBeLessThanOrEqual
+import io.kotest.matchers.longs.shouldBeLessThanOrEqual
 import io.kotest.matchers.should
 import io.kotest.matchers.shouldBe
+import io.kotest.matchers.shouldNot
+import io.kotest.matchers.types.beInstanceOf
 
 class TestLineTrace : StringSpec({
     "should trace a main method" {
@@ -212,6 +217,7 @@ public class ShowIfOdd {
         trace.steps.filter { it.line == 6 }.size shouldBe 1
         trace.steps.filter { it.line == 11 }.size shouldBe 10
         trace.steps.filter { it.line == 12 }.size shouldBe 5
+        trace.linesRun shouldBe trace.steps.size
     }
 
     "should trace multiple files" {
@@ -307,7 +313,25 @@ public class ShowIfOdd {
         trace.steps.filter { it.line == 7 }.size shouldBe 3
     }
 
-    "should survive a runaway trace" {
+    "should stop logging lines after reaching the recording limit" {
+        val source = Source.fromSnippet(
+            """
+            long i = 0;
+            while (true) {
+                i += 2;
+                i -= 1;
+            }
+            """.trimIndent()
+        )
+        val result = source.compile().execute(SourceExecutionArguments().addPlugin(LineTrace))
+        result should haveTimedOut()
+        val rawTrace = result.pluginResult(LineTrace)
+        val trace = rawTrace.remap(source)
+        trace.steps.filter { it.line == 3 }.size shouldBeGreaterThan 100
+        rawTrace.steps.size shouldBe rawTrace.arguments.recordedLineLimit
+    }
+
+    "should keep counting after reaching the recording limit" {
         val source = Source.fromSnippet(
             """
             long i = 0;
@@ -320,8 +344,7 @@ public class ShowIfOdd {
         val result = source.compile().execute(SourceExecutionArguments().addPlugin(LineTrace))
         result should haveTimedOut()
         val trace = result.pluginResult(LineTrace).remap(source)
-        trace.steps[0].line shouldBe 1
-        trace.steps.filter { it.line == 3 }.size shouldBeGreaterThan 100
+        trace.linesRun.toInt() should beGreaterThan(trace.arguments.recordedLineLimit.toInt())
     }
 
     "should trace a Kotlin method" {
@@ -475,6 +498,23 @@ fun test(): List<String> {
         trace.steps.filter { it.line == 2 }.size shouldBeLessThanOrEqual 3
     }
 
+    "should allow recording duplicates" {
+        val source = Source.fromSnippet(
+            """
+                val fruits = listOf("apple", "banana")
+                fruits.forEach { println(it.uppercase()) }
+            """.trimIndent(),
+            SnippetArguments(fileType = Source.FileType.KOTLIN)
+        )
+        val result = source.kompile().execute(
+            SourceExecutionArguments().addPlugin(LineTrace, LineTraceArguments(coalesceDuplicates = false))
+        )
+        result should haveCompleted()
+        result should haveOutput("APPLE\nBANANA")
+        val trace = result.pluginResult(LineTrace).remap(source)
+        trace.steps.filter { it.line == 2 }.size shouldBeGreaterThan 3
+    }
+
     "should trace a Kotlin snippet with a method" {
         val source = Source.fromSnippet(
             """
@@ -519,7 +559,9 @@ try {
         val result = source.compile().execute(SourceExecutionArguments(maxExtraThreads = 1).addPlugin(LineTrace))
         result should haveCompleted()
         result should haveOutput("Started\nEnded")
-        val trace = result.pluginResult(LineTrace).remap(source)
+        val rawTrace = result.pluginResult(LineTrace)
+        rawTrace.linesRun shouldBe rawTrace.steps.size
+        val trace = rawTrace.remap(source)
         val mainLines = trace.steps.filter { it.threadIndex == 0 }.map { it.line }
         mainLines shouldContain 6
         mainLines shouldContain 10
@@ -547,7 +589,9 @@ try {
         val result = source.kompile().execute(executionArgs)
         result should haveCompleted()
         result should haveOutput("Started\nFinished")
-        val trace = result.pluginResult(LineTrace).remap(source)
+        val rawTrace = result.pluginResult(LineTrace)
+        rawTrace.linesRun shouldBe rawTrace.steps.size
+        val trace = rawTrace.remap(source)
         val mainLines = trace.steps.filter { it.threadIndex == 0 }.map { it.line }
         mainLines shouldContain 3
         mainLines shouldContain 7
@@ -557,5 +601,117 @@ try {
         extraLines shouldNotContain 7
         trace.steps.filter { it.threadIndex >= 2 }.size shouldBe 0
         trace.steps.filter { it.source != "Main.kt" }.size shouldBe 0
+    }
+
+    "should limit executed lines by killing the sandbox" {
+        val source = Source.fromSnippet(
+            """
+            long i = 0;
+            while (true) {
+                i += 2;
+                i -= 1;
+            }
+            """.trimIndent()
+        )
+        val result = source.compile().execute(
+            SourceExecutionArguments().addPlugin(LineTrace, LineTraceArguments(recordedLineLimit = 0, runLineLimit = 100))
+        )
+        result should haveBeenKilled()
+        result.killReason shouldBe LineTrace.KILL_REASON
+        result shouldNot haveCompleted()
+        result shouldNot haveTimedOut()
+        val trace = result.pluginResult(LineTrace)
+        trace.linesRun shouldBe 100
+        trace.steps should beEmpty()
+    }
+
+    "should limit executed lines by throwing an error" {
+        val source = Source.fromSnippet(
+            """
+            try {
+              long i = 0;
+              while (true) {
+                i += 2;
+                i -= 1;
+              }
+            } catch (Throwable t) {}
+            """.trimIndent()
+        )
+        val lineTraceArgs = LineTraceArguments(
+            recordedLineLimit = 0,
+            runLineLimit = 100,
+            runLineLimitExceededAction = LineTraceArguments.RunLineLimitAction.THROW_ERROR
+        )
+        val result = source.compile().execute(SourceExecutionArguments().addPlugin(LineTrace, lineTraceArgs))
+        result shouldNot haveBeenKilled()
+        result shouldNot haveCompleted()
+        result shouldNot haveTimedOut()
+        result.threw should beInstanceOf<LineLimitExceeded>()
+        val trace = result.pluginResult(LineTrace)
+        trace.linesRun shouldBe 100
+    }
+
+    "should limit total lines from multiple threads" {
+        val source = Source.fromSnippet(
+            """
+public class Example implements Runnable {
+    public void run() {
+        long e = 0;
+        while (true) {
+            e += 1;
+        }
+    }
+}
+Thread thread = new Thread(new Example());
+thread.start();
+long i = 0;
+while (true) {
+    i += 1;
+}
+        """.trim()
+        )
+        val lineTraceArgs = LineTraceArguments(runLineLimit = 10000)
+        val result = source.compile().execute(SourceExecutionArguments(maxExtraThreads = 1).addPlugin(LineTrace, lineTraceArgs))
+        result should haveBeenKilled()
+        val rawTrace = result.pluginResult(LineTrace)
+        rawTrace.linesRun shouldBe rawTrace.steps.size
+        val trace = rawTrace.remap(source)
+        val mainLines = trace.steps.filter { it.threadIndex == 0 }.map { it.line }
+        mainLines shouldContain 10
+        mainLines shouldNotContain 5
+        val extraLines = trace.steps.filter { it.threadIndex == 1 }.map { it.line }
+        extraLines shouldContain 5
+        extraLines shouldNotContain 10
+        trace.linesRun shouldBeLessThanOrEqual lineTraceArgs.runLineLimit!! + lineTraceArgs.maxUnsynchronizedLines
+    }
+
+    "should precisely limit total lines if required" {
+        val source = Source.fromSnippet(
+            """
+public class Example implements Runnable {
+    public void run() {
+        long e = 0;
+        while (true) {
+            e += 1;
+        }
+    }
+}
+Thread thread = new Thread(new Example());
+thread.start();
+long i = 0;
+while (true) {
+    i += 1;
+}
+        """.trim()
+        )
+        val lineTraceArgs = LineTraceArguments(
+            runLineLimit = 10000,
+            recordedLineLimit = 0,
+            maxUnsynchronizedLines = 0
+        )
+        val result = source.compile().execute(SourceExecutionArguments(maxExtraThreads = 1).addPlugin(LineTrace, lineTraceArgs))
+        result should haveBeenKilled()
+        val rawTrace = result.pluginResult(LineTrace)
+        rawTrace.linesRun shouldBe lineTraceArgs.runLineLimit!!
     }
 })

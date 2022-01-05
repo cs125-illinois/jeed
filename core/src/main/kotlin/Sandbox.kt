@@ -31,6 +31,7 @@ import java.util.Collections
 import java.util.Locale
 import java.util.Properties
 import java.util.concurrent.Callable
+import java.util.concurrent.CancellationException
 import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.ExecutorService
 import java.util.concurrent.Executors
@@ -144,6 +145,7 @@ object Sandbox {
         val truncatedLines: Int,
         @Suppress("unused")
         val executionArguments: ExecutionArguments,
+        val killReason: String? = null,
         @Suppress("MemberVisibilityCanBePrivate") // For serialization
         val pluginResults: Map<String, Any>
     ) {
@@ -162,7 +164,7 @@ object Sandbox {
 
         val completed: Boolean
             get() {
-                return threw == null && !timeout
+                return threw == null && !timeout && killReason == null
             }
         val permissionDenied: Boolean
             get() {
@@ -298,6 +300,8 @@ object Sandbox {
                         Pair(null, e)
                     }
                     TaskResult(returnValue, threw, true)
+                } catch (e: CancellationException) {
+                    TaskResult(null, null)
                 } catch (e: Throwable) {
                     TaskResult(null, e.cause ?: e)
                 }
@@ -345,7 +349,7 @@ object Sandbox {
                     }
                     return false
                 }
-                if (executionArguments.waitForShutdown) {
+                if (executionArguments.waitForShutdown && !confinedTask.shuttingDown) {
                     while (Instant.now().isBefore(executionStarted.plusMillis(executionArguments.timeout)) &&
                         workPending()
                     ) {
@@ -366,6 +370,7 @@ object Sandbox {
                     sandboxedClassLoader,
                     confinedTask.truncatedLines,
                     executionArguments,
+                    confinedTask.killReason,
                     confinedTask.pluginData.map { (plugin, workingData) ->
                         plugin.id to plugin.createFinalData(workingData)
                     }.toMap()
@@ -400,6 +405,9 @@ object Sandbox {
 
         @Volatile
         var shuttingDown: Boolean = false
+
+        @Volatile
+        var killReason: String? = null
 
         var truncatedLines: Int = 0
         val currentLines: MutableMap<TaskResults.OutputLine.Console, CurrentLine> = mutableMapOf()
@@ -528,12 +536,6 @@ object Sandbox {
         return confinedTasks[Thread.currentThread().threadGroup]
     }
 
-    fun <W> confinedTaskWorkingData(plugin: SandboxPlugin<*, *>): W {
-        val confinedTask = confinedTaskByThreadGroup() ?: error("attempt to access current task data outside any task")
-        @Suppress("UNCHECKED_CAST")
-        return confinedTask.pluginData[plugin] as W
-    }
-
     @Synchronized
     private fun <T> confine(
         callable: SandboxCallableArguments<T>,
@@ -645,6 +647,28 @@ object Sandbox {
         val definedClasses: Set<String>
         val providedClasses: Set<String>
         val loadedClasses: Set<String>
+    }
+
+    // Part of the sandbox plugin API
+    object CurrentTask {
+        @JvmStatic // Might as well be friendly to Java plugins
+        fun <W> getWorkingData(plugin: SandboxPlugin<*, *>): W {
+            val confinedTask = confinedTaskByThreadGroup() ?: error("attempt to access current task data outside any task")
+            @Suppress("UNCHECKED_CAST")
+            return confinedTask.pluginData[plugin] as W
+        }
+
+        @JvmStatic
+        fun kill(reason: String): Nothing {
+            val confinedTask = confinedTaskByThreadGroup() ?: error("attempt to kill current task outside any task")
+            confinedTask.shuttingDown = true
+            confinedTask.killReason = reason
+            confinedTask.task.cancel(false)
+            while (true) {
+                // Wait for the sandbox to kill this thread
+                Thread.yield()
+            }
+        }
     }
 
     class SandboxedClassLoader(

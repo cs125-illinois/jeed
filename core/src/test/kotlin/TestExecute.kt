@@ -592,6 +592,16 @@ fun haveTimedOut() = object : Matcher<Sandbox.TaskResults<out Any?>> {
     }
 }
 
+fun haveBeenKilled() = object : Matcher<Sandbox.TaskResults<out Any?>> {
+    override fun test(value: Sandbox.TaskResults<out Any?>): MatcherResult {
+        return MatcherResult(
+            value.killReason != null,
+            { "Task should have been killed" },
+            { "Task should not have been killed" }
+        )
+    }
+}
+
 fun haveOutput(output: String = "") = object : Matcher<Sandbox.TaskResults<out Any?>> {
     override fun test(value: Sandbox.TaskResults<out Any?>): MatcherResult {
         val actualOutput = value.output.trim()
