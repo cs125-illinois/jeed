@@ -3,6 +3,7 @@
 package edu.illinois.cs.cs125.jeed.core.sandbox
 
 import edu.illinois.cs.cs125.jeed.core.Sandbox
+import edu.illinois.cs.cs125.jeed.core.SnippetArguments
 import edu.illinois.cs.cs125.jeed.core.Source
 import edu.illinois.cs.cs125.jeed.core.SourceExecutionArguments
 import edu.illinois.cs.cs125.jeed.core.compile
@@ -10,12 +11,15 @@ import edu.illinois.cs.cs125.jeed.core.execute
 import edu.illinois.cs.cs125.jeed.core.fromSnippet
 import edu.illinois.cs.cs125.jeed.core.haveCompleted
 import edu.illinois.cs.cs125.jeed.core.haveOutput
+import edu.illinois.cs.cs125.jeed.core.kompile
 import io.kotest.assertions.throwables.shouldThrow
 import io.kotest.core.spec.style.StringSpec
 import io.kotest.matchers.collections.shouldHaveSize
+import io.kotest.matchers.nulls.beNull
 import io.kotest.matchers.should
 import io.kotest.matchers.shouldBe
 import io.kotest.matchers.shouldNot
+import io.kotest.matchers.types.instanceOf
 import java.io.ByteArrayOutputStream
 import java.io.PrintStream
 import java.lang.IllegalArgumentException
@@ -85,6 +89,45 @@ import java.io.*;
 System.out.println(new File("/").listFiles().length);
         """.trim()
         ).compile().execute()
+
+        executionResult shouldNot haveCompleted()
+        executionResult.permissionDenied shouldBe true
+    }
+    "should prevent snippets from writing files" {
+        val executionResult = Source.fromSnippet(
+            """
+import java.io.*;
+var writer = new PrintWriter("test.txt", "UTF-8");
+writer.println("Uh oh");
+writer.close();
+        """.trim()
+        ).compile().execute()
+
+        executionResult shouldNot haveCompleted()
+        executionResult.permissionDenied shouldBe true
+    }
+    "should prevent snippets from writing files through the Files API" {
+        val executionResult = Source.fromSnippet(
+            """
+import java.nio.file.*;
+import java.nio.charset.StandardCharsets;
+import java.util.Arrays;
+Path file = Paths.get("test.txt");
+Files.write(file, Arrays.asList("oh", "no"), StandardCharsets.UTF_8);
+        """.trim()
+        ).compile().execute()
+
+        executionResult shouldNot haveCompleted()
+        executionResult.permissionDenied shouldBe true
+    }
+    "should prevent writing files through the Kotlin stdlib" {
+        val executionResult = Source.fromSnippet(
+            """
+import java.io.File
+File("test.txt").writeText("uh oh")
+                """.trim(),
+            SnippetArguments(fileType = Source.FileType.KOTLIN)
+        ).kompile().execute()
 
         executionResult shouldNot haveCompleted()
         executionResult.permissionDenied shouldBe true
@@ -276,15 +319,16 @@ while ((line = in.readLine()) != null) {
         executionResult shouldNot haveCompleted()
         executionResult.permissionDenied shouldBe true
     }
-    "should not allow SecurityManager to be set again through reflection" {
+    "it should not allow snippets to examine other processes" {
         val executionResult = Source.fromSnippet(
             """
-Class<System> c = System.class;
-System s = c.newInstance();
+ProcessHandle.allProcesses().forEach(p -> System.out.println(p.info()));
         """.trim()
         ).compile().execute()
 
         executionResult shouldNot haveCompleted()
+        executionResult.permissionDenied shouldBe true
+        executionResult should haveOutput("")
     }
     "should not allow SecurityManager to be created again through reflection" {
         val executionResult = Source.fromSnippet(
@@ -473,5 +517,88 @@ try {
         """.trim()
         ).compile().execute(SourceExecutionArguments(timeout = 10000))
         executionResult.permissionDenied shouldBe true
+    }
+    "should not allow calling forbidden methods" {
+        val executionResult = Source.fromSnippet(
+            """
+import java.lang.invoke.MethodHandles;
+
+MethodHandles.Lookup lookup = null;
+var clazz = lookup.findClass("edu.illinois.cs.cs125.jeed.core.Sandbox");
+System.out.println(clazz);
+        """.trim()
+        ).compile().execute(SourceExecutionArguments(timeout = 10000))
+        executionResult.permissionDenied shouldBe true
+        executionResult.threw shouldBe instanceOf<SecurityException>()
+        executionResult.threw!!.message shouldBe "invocation of forbidden method"
+    }
+    "should not allow installing an agent through ByteBuddy, coroutine-style" {
+        val executionResult = Source.fromSnippet(
+            """
+import net.bytebuddy.agent.ByteBuddyAgent;
+
+ByteBuddyAgent.install(ByteBuddyAgent.AttachmentProvider.ForEmulatedAttachment.INSTANCE);
+        """.trim()
+        ).compile().execute(SourceExecutionArguments(timeout = 10000))
+        executionResult.permissionDenied shouldBe true
+        executionResult.completed shouldBe false
+        executionResult.threw shouldNot beNull()
+    }
+    "should not allow installing an agent through ByteBuddy's default provider" {
+        val executionResult = Source.fromSnippet(
+            """
+import net.bytebuddy.agent.ByteBuddyAgent;
+
+ByteBuddyAgent.install();
+        """.trim()
+        ).compile().execute(SourceExecutionArguments(timeout = 10000))
+        executionResult.completed shouldBe false
+        executionResult.threw shouldNot beNull()
+    }
+    "should not allow using the attachment/VM API directly" {
+        val executionResult = Source.fromSnippet(
+            """
+import com.sun.tools.attach.VirtualMachine;
+
+var vms = VirtualMachine.list();
+var vmid = vms.get(0).id();
+var vm = VirtualMachine.attach(vmid);
+        """.trim()
+        ).compile().execute(SourceExecutionArguments(timeout = 10000))
+        executionResult.permissionDenied shouldBe true
+        executionResult.completed shouldBe false
+        executionResult.threw shouldNot beNull()
+    }
+    "should not allow access to private constructors" {
+        val executionResult = Source.fromSnippet(
+            """
+import java.lang.reflect.*;
+
+class Example {
+    private Example() { }
+}
+
+Constructor<?> cons = Example.class.getDeclaredConstructors()[0];
+cons.setAccessible(true);
+System.out.println(cons.newInstance());
+        """.trim()
+        ).compile().execute(SourceExecutionArguments(timeout = 10000))
+        executionResult.permissionDenied shouldBe true
+        executionResult.completed shouldBe false
+    }
+    "should not allow loading sun.misc classes" {
+        val executionResult = Source.fromSnippet(
+            """
+import sun.misc.Unsafe;
+
+Unsafe unsafe = null;
+unsafe.getInt(null, 0); // obvious NPE, but should fail in classloading first
+        """.trim()
+        ).compile().execute(SourceExecutionArguments(timeout = 10000))
+        executionResult.permissionDenied shouldBe true
+        executionResult.permissionRequests.find {
+            it.permission.name.startsWith("accessClassInPackage.sun")
+        } shouldNot beNull()
+        executionResult.completed shouldBe false
     }
 })

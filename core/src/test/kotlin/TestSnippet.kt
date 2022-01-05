@@ -298,6 +298,14 @@ System.out.println(countArray(array, new IncludeValue() {
         """.trim()
         ).compile()
     }
+    "should handle warnings from outside the snippet" {
+        Source.fromSnippet(
+            """
+import net.bytebuddy.agent.ByteBuddyAgent;
+ByteBuddyAgent.install(ByteBuddyAgent.AttachmentProvider.ForEmulatedAttachment.INSTANCE);
+        """.trim()
+        ).compile()
+    }
     "should parse kotlin snippets" {
         Source.fromSnippet(
             """
@@ -510,7 +518,8 @@ class Tester implements Test {
             """
 class Test<T>
 fun <T> Test<T>.requireIndexIsNotNegative(index: Int): Unit = require(index >= 0)
-            """.trim(), SnippetArguments(fileType = Source.FileType.KOTLIN)
+            """.trim(),
+            SnippetArguments(fileType = Source.FileType.KOTLIN)
         ).kompile()
     }
     "should allow anonymous classes in snippets" {

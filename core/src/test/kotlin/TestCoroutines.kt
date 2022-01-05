@@ -156,7 +156,7 @@ fun main() {
                 """.trimIndent()
             )
         ).kompile()
-        val executionArguments = SourceExecutionArguments(waitForShutdown = true)
+        val executionArguments = SourceExecutionArguments(waitForShutdown = true, timeout = 2000)
         repeat(16) { // Flaky
             val executionResult = kompileResult.execute(executionArguments = executionArguments)
             executionResult shouldNot haveTimedOut()

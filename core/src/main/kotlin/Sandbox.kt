@@ -6,6 +6,7 @@ import com.squareup.moshi.JsonClass
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.runBlocking
+import org.jetbrains.kotlin.util.capitalizeDecapitalize.decapitalizeAsciiOnly
 import org.objectweb.asm.ClassReader
 import org.objectweb.asm.ClassVisitor
 import org.objectweb.asm.ClassWriter
@@ -16,6 +17,7 @@ import org.objectweb.asm.Type
 import java.io.FilePermission
 import java.io.OutputStream
 import java.io.PrintStream
+import java.lang.reflect.Constructor
 import java.lang.reflect.InvocationTargetException
 import java.lang.reflect.Modifier
 import java.security.AccessControlContext
@@ -29,6 +31,7 @@ import java.util.Collections
 import java.util.Locale
 import java.util.Properties
 import java.util.concurrent.Callable
+import java.util.concurrent.CancellationException
 import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.ExecutorService
 import java.util.concurrent.Executors
@@ -52,6 +55,7 @@ object Sandbox {
         blacklistedClasses: Set<String> = DEFAULT_BLACKLISTED_CLASSES,
         unsafeExceptions: Set<String> = DEFAULT_UNSAFE_EXCEPTIONS,
         isolatedClasses: Set<String> = DEFAULT_ISOLATED_CLASSES,
+        val blacklistedMethods: Set<MethodFilter> = DEFAULT_BLACKLISTED_METHODS,
         val isWhiteList: Boolean? = null
     ) {
         val blacklistedClasses = blacklistedClasses.union(PERMANENTLY_BLACKLISTED_CLASSES)
@@ -88,15 +92,18 @@ object Sandbox {
             val DEFAULT_BLACKLISTED_CLASSES = setOf("java.lang.reflect.")
             val DEFAULT_UNSAFE_EXCEPTIONS = setOf<String>()
             val DEFAULT_ISOLATED_CLASSES = setOf<String>()
-            val PERMANENTLY_BLACKLISTED_CLASSES =
-                setOf(
-                    "edu.illinois.cs.cs125.jeed.",
-                    "org.objectweb.asm.",
-                    "java.lang.invoke.MethodHandles"
-                )
+            val DEFAULT_BLACKLISTED_METHODS = setOf(
+                MethodFilter("java.lang.invoke.MethodHandles.Lookup", "")
+            )
+            val PERMANENTLY_BLACKLISTED_CLASSES = setOf(
+                "edu.illinois.cs.cs125.jeed.",
+                "org.objectweb.asm.",
+                "com.sun.",
+                "net.bytebuddy.agent.",
+                "java.lang.invoke.MethodHandles"
+            )
             val ALWAYS_UNSAFE_EXCEPTIONS = setOf("java.lang.Error")
             val ALWAYS_ISOLATED_CLASSES = setOf("kotlin.coroutines.", "kotlinx.coroutines.")
-            val COROUTINE_REQUIRED_CLASSES = setOf("java.lang.reflect.Constructor")
         }
     }
 
@@ -122,6 +129,9 @@ object Sandbox {
         }
     }
 
+    @JsonClass(generateAdapter = true)
+    data class MethodFilter(val ownerClassPrefix: String, val methodPrefix: String)
+
     @Suppress("LongParameterList")
     class TaskResults<T>(
         val returned: T?,
@@ -134,7 +144,10 @@ object Sandbox {
         @Transient val sandboxedClassLoader: SandboxedClassLoader? = null,
         val truncatedLines: Int,
         @Suppress("unused")
-        val executionArguments: ExecutionArguments
+        val executionArguments: ExecutionArguments,
+        val killReason: String? = null,
+        @Suppress("MemberVisibilityCanBePrivate") // For serialization
+        val pluginResults: Map<String, Any>
     ) {
         @JsonClass(generateAdapter = true)
         data class OutputLine(
@@ -151,7 +164,7 @@ object Sandbox {
 
         val completed: Boolean
             get() {
-                return threw == null && !timeout
+                return threw == null && !timeout && killReason == null
             }
         val permissionDenied: Boolean
             get() {
@@ -181,6 +194,10 @@ object Sandbox {
             get() {
                 return Duration.between(interval.start, interval.end)
             }
+        fun <V : Any> pluginResult(plugin: SandboxPlugin<*, V>): V {
+            @Suppress("UNCHECKED_CAST")
+            return pluginResults[plugin.id] as V
+        }
     }
 
     private val BLACKLISTED_PERMISSIONS = setOf(
@@ -235,10 +252,11 @@ object Sandbox {
     suspend fun <T> execute(
         sandboxableClassLoader: SandboxableClassLoader = EmptyClassLoader,
         executionArguments: ExecutionArguments = ExecutionArguments(),
+        configuredPlugins: List<ConfiguredSandboxPlugin<*, *>> = listOf(),
         callable: SandboxCallableArguments<T>
     ): TaskResults<out T?> {
         val sandboxedClassLoader = try {
-            SandboxedClassLoader(sandboxableClassLoader, executionArguments.classLoaderConfiguration)
+            SandboxedClassLoader(sandboxableClassLoader, executionArguments.classLoaderConfiguration, configuredPlugins)
         } catch (e: OutOfMemoryError) {
             throw SandboxStartFailed("Out of memory while transforming bytecode", e)
         }
@@ -282,6 +300,8 @@ object Sandbox {
                         Pair(null, e)
                     }
                     TaskResult(returnValue, threw, true)
+                } catch (e: CancellationException) {
+                    TaskResult(null, null)
                 } catch (e: Throwable) {
                     TaskResult(null, e.cause ?: e)
                 }
@@ -297,21 +317,19 @@ object Sandbox {
                 val coroutinesUsed = sandboxedClassLoader.loadedClasses.any { it.startsWith("kotlinx.coroutines.") }
                 fun anyActiveCoroutines(): Boolean {
                     if (!coroutinesUsed) return false
-                    synchronized(safeUnconstrainedInvocationSyncRoot) {
-                        try {
-                            safeUnconstrainedInvokerThread = Thread.currentThread()
-                            val defaultExecutorName = "kotlinx.coroutines.DefaultExecutor"
-                            val defaultExecutorClass = sandboxedClassLoader.loadClass(defaultExecutorName)
-                            if (!sandboxedClassLoader.isClassReloaded(defaultExecutorClass)) return false // Shenanigans
-                            val defaultExecutor = defaultExecutorClass.kotlin.objectInstance
-                            val emptyProp = defaultExecutorClass.kotlin.memberProperties
-                                .first { it.name == "isEmpty" }.also { it.isAccessible = true } as KProperty<*>
-                            return emptyProp.getter.call(defaultExecutor) == false
-                        } catch (e: Throwable) {
-                            return false
-                        } finally {
-                            safeUnconstrainedInvokerThread = null
-                        }
+                    try {
+                        performingSafeUnconstrainedInvocation.set(true)
+                        val defaultExecutorName = "kotlinx.coroutines.DefaultExecutor"
+                        val defaultExecutorClass = sandboxedClassLoader.loadClass(defaultExecutorName)
+                        if (!sandboxedClassLoader.isClassReloaded(defaultExecutorClass)) return false // Shenanigans
+                        val defaultExecutor = defaultExecutorClass.kotlin.objectInstance
+                        val emptyProp = defaultExecutorClass.kotlin.memberProperties
+                            .first { it.name == "isEmpty" }.also { it.isAccessible = true } as KProperty<*>
+                        return emptyProp.getter.call(defaultExecutor) == false
+                    } catch (e: Throwable) {
+                        return false
+                    } finally {
+                        performingSafeUnconstrainedInvocation.set(false)
                     }
                 }
 
@@ -331,7 +349,7 @@ object Sandbox {
                     }
                     return false
                 }
-                if (executionArguments.waitForShutdown) {
+                if (executionArguments.waitForShutdown && !confinedTask.shuttingDown) {
                     while (Instant.now().isBefore(executionStarted.plusMillis(executionArguments.timeout)) &&
                         workPending()
                     ) {
@@ -351,7 +369,11 @@ object Sandbox {
                     Interval(executionStarted, executionEnded),
                     sandboxedClassLoader,
                     confinedTask.truncatedLines,
-                    executionArguments
+                    executionArguments,
+                    confinedTask.killReason,
+                    confinedTask.pluginData.map { (plugin, workingData) ->
+                        plugin.id to plugin.createFinalData(workingData)
+                    }.toMap()
                 )
                 @Suppress("ThrowingExceptionsWithoutMessageOrCause")
                 runBlocking { resultChannel.send(ExecutorResult(executionResult, Exception())) }
@@ -384,6 +406,9 @@ object Sandbox {
         @Volatile
         var shuttingDown: Boolean = false
 
+        @Volatile
+        var killReason: String? = null
+
         var truncatedLines: Int = 0
         val currentLines: MutableMap<TaskResults.OutputLine.Console, CurrentLine> = mutableMapOf()
         val outputLines: MutableList<TaskResults.OutputLine> = mutableListOf()
@@ -398,6 +423,10 @@ object Sandbox {
         val permissionRequests: MutableList<TaskResults.PermissionRequest> = mutableListOf()
 
         val started: Instant = Instant.now()
+
+        val pluginData = classLoader.pluginInstrumentationData.associate { (plugin, instrumentationData) ->
+            plugin to plugin.createInitialData(instrumentationData)
+        }
 
         private val isolatedLocksSyncRoot = Object()
         private val isolatedLocks = mutableMapOf<Any, ReentrantLock>()
@@ -592,6 +621,10 @@ object Sandbox {
             }
         }
 
+        confinedTask.pluginData.forEach { (plugin, data) ->
+            plugin.executionFinished(data)
+        }
+
         confinedTasks.remove(threadGroup)
         confinedClassLoaders.remove(confinedTask.classLoader)
     }
@@ -616,18 +649,51 @@ object Sandbox {
         val loadedClasses: Set<String>
     }
 
+    // Part of the sandbox plugin API
+    object CurrentTask {
+        @JvmStatic // Might as well be friendly to Java plugins
+        fun <W> getWorkingData(plugin: SandboxPlugin<*, *>): W {
+            val confinedTask = confinedTaskByThreadGroup() ?: error("attempt to access current task data outside any task")
+            @Suppress("UNCHECKED_CAST")
+            return confinedTask.pluginData[plugin] as W
+        }
+
+        @JvmStatic
+        fun kill(reason: String): Nothing {
+            val confinedTask = confinedTaskByThreadGroup() ?: error("attempt to kill current task outside any task")
+            confinedTask.shuttingDown = true
+            confinedTask.killReason = reason
+            confinedTask.task.cancel(false)
+            while (true) {
+                // Wait for the sandbox to kill this thread
+                Thread.yield()
+            }
+        }
+    }
+
     class SandboxedClassLoader(
         private val sandboxableClassLoader: SandboxableClassLoader,
-        classLoaderConfiguration: ClassLoaderConfiguration
+        classLoaderConfiguration: ClassLoaderConfiguration,
+        configuredPlugins: List<ConfiguredSandboxPlugin<*, *>>
     ) : ClassLoader(sandboxableClassLoader.classLoader.parent), EnumerableClassLoader {
         private val whitelistedClasses = classLoaderConfiguration.whitelistedClasses
         private val blacklistedClasses = classLoaderConfiguration.blacklistedClasses
         private val isolatedClasses = classLoaderConfiguration.isolatedClasses
+        private val sandboxRequiredClasses = configuredPlugins.fold(ALWAYS_ALLOWED_CLASS_NAMES) { set, plugin ->
+            set.union(plugin.plugin.requiredClasses.map { clazz -> clazz.name })
+        }
+        private val blacklistedMethods = classLoaderConfiguration.blacklistedMethods
         val unsafeExceptionClasses: Set<Class<*>> = classLoaderConfiguration.unsafeExceptions.map { name ->
             val klass = Class.forName(name) ?: error("$name does not refer to a Java class")
             require(Throwable::class.java.isAssignableFrom(klass)) { "$name does not refer to a Java Throwable" }
             klass
         }.toSet()
+
+        internal val pluginInstrumentationData = configuredPlugins.map {
+            @Suppress("UNCHECKED_CAST")
+            it as ConfiguredSandboxPlugin<Any, Any>
+            it.plugin to it.plugin.createInstrumentationData(it.arguments)
+        } // Intentionally not toMap'd so that order is preserved
 
         override val definedClasses: Set<String> get() = knownClasses.keys.toSet()
         override val providedClasses: MutableSet<String> = mutableSetOf()
@@ -638,10 +704,14 @@ object Sandbox {
 
         @Suppress("MemberVisibilityCanBePrivate")
         val knownClasses = sandboxableClassLoader.bytecodeForClasses
-            .mapValues { (_, unsafeByteArray) ->
+            .mapValues { (name, unsafeByteArray) ->
                 RewriteBytecode.rewrite(
+                    name,
                     unsafeByteArray,
-                    unsafeExceptionClasses
+                    unsafeExceptionClasses,
+                    blacklistedMethods,
+                    pluginInstrumentationData,
+                    RewritingContext.UNTRUSTED
                 )
             }
 
@@ -685,10 +755,7 @@ object Sandbox {
             if (knownClasses.containsKey(name)) {
                 return delegateClass(name)
             }
-            if (name in ALWAYS_ALLOWED_CLASS_NAMES) {
-                return delegateClass(name)
-            }
-            if (name in ClassLoaderConfiguration.COROUTINE_REQUIRED_CLASSES) {
+            if (name in sandboxRequiredClasses) {
                 return delegateClass(name)
             }
             return if (isWhiteList) {
@@ -705,6 +772,12 @@ object Sandbox {
             } else {
                 if (blacklistedClasses.any { name.startsWith(it) }) {
                     if (name == "java.lang.invoke.MethodHandles${"$"}Lookup") {
+                        /*
+                         * Jacoco adds a dynamic constant, computed by a bootstrap method added to the same class.
+                         * This requires mentioning MethodHandles.Lookup in the bootstrap method signature.
+                         * However, Jacoco does not actually use the lookup, so all Lookup methods are still banned
+                         * by default by poisoning invoke instructions.
+                         */
                         delegateClass(name)
                     } else {
                         confinedTask.addPermissionRequest(
@@ -728,8 +801,7 @@ object Sandbox {
             private val ALWAYS_ALLOWED_CLASS_NAMES =
                 setOf(
                     RewriteBytecode::class.java.name,
-                    InvocationTargetException::class.java.name,
-                    EmptyRuntime::class.java.name
+                    InvocationTargetException::class.java.name
                 )
             private val reloadedBytecodeCache = mutableMapOf<String, ByteArray>()
         }
@@ -741,8 +813,12 @@ object Sandbox {
                         .getResourceAsStream("${name.replace('.', '/')}.class")?.readAllBytes()
                         ?: throw ClassNotFoundException("failed to reload $name")
                     RewriteBytecode.rewrite(
+                        name,
                         originalBytes,
-                        unsafeExceptionClasses
+                        unsafeExceptionClasses,
+                        blacklistedMethods,
+                        pluginInstrumentationData,
+                        RewritingContext.RELOADED
                     )
                 }
                 loadedClasses.add(name)
@@ -772,6 +848,7 @@ object Sandbox {
         private val enclosureMethodDescription =
             Type.getMethodDescriptor(RewriteBytecode::checkSandboxEnclosure.javaMethod)
                 ?: error("should be able to retrieve method signature for enclosure checker")
+        private val permittedNoClassDefFoundErrorClasses = setOf(Constructor::class.java.name)
         private val syncNotifyMethods = mapOf(
             "wait:()V" to RewriteBytecode::conditionWait,
             "wait:(J)V" to RewriteBytecode::conditionWaitMs,
@@ -788,6 +865,13 @@ object Sandbox {
             val confinedTask = confinedTaskByThreadGroup() ?: error("only confined tasks should call this method")
             if (confinedTask.shuttingDown) {
                 throw SandboxDeath()
+            }
+            if (throwable.javaClass === NoClassDefFoundError::class.java) {
+                val notFoundClass = throwable.message?.let { binaryNameToClassName(it) } ?: throw throwable
+                if (notFoundClass in permittedNoClassDefFoundErrorClasses) {
+                    // Allow coroutines (DebugProbesImpl) to gracefully handle the lack of reflection capability
+                    return
+                }
             }
             // This check is required because of how we handle finally blocks
             if (confinedTask.classLoader.unsafeExceptionClasses.any { it.isAssignableFrom(throwable.javaClass) }) {
@@ -841,18 +925,32 @@ object Sandbox {
         }
 
         @JvmStatic
+        fun forbiddenMethod() {
+            val confinedTask = confinedTaskByThreadGroup() ?: error("only confined tasks should call this method")
+            confinedTask.permissionRequests.add(TaskResults.PermissionRequest(RuntimePermission("callForbiddenMethod"), false))
+            throw SecurityException("invocation of forbidden method")
+        }
+
+        @JvmStatic
         fun checkSandboxEnclosure() {
-            if (confinedTaskByThreadGroup() == null && Thread.currentThread() != safeUnconstrainedInvokerThread) {
+            if (confinedTaskByThreadGroup() == null && !performingSafeUnconstrainedInvocation.get()) {
                 throw SecurityException("invocation of untrusted code outside confined task")
             }
         }
 
         internal fun rewrite(
+            name: String,
             originalByteArray: ByteArray,
-            unsafeExceptionClasses: Set<Class<*>>
+            unsafeExceptionClasses: Set<Class<*>>,
+            blacklistedMethods: Set<MethodFilter>,
+            plugins: List<Pair<SandboxPlugin<*, *>, Any?>>,
+            context: RewritingContext
         ): ByteArray {
             require(originalByteArray.size <= MAX_CLASS_FILE_SIZE) { "bytecode is over 1 MB" }
-            val classReader = ClassReader(originalByteArray)
+            val pretransformed = plugins.fold(originalByteArray) { bytecode, (plugin, instrumentationData) ->
+                plugin.transformBeforeSandbox(bytecode, name, instrumentationData, context)
+            }
+            val classReader = ClassReader(pretransformed)
             val allPreinspections = preInspectMethods(classReader)
             val classWriter = ClassWriter(classReader, 0)
             var className: String? = null
@@ -908,6 +1006,7 @@ object Sandbox {
                         }
                         SandboxingMethodVisitor(
                             unsafeExceptionClasses,
+                            blacklistedMethods,
                             preinspection.badTryCatchBlockPositions,
                             super.visitMethod(
                                 transformedModifiers,
@@ -921,7 +1020,10 @@ object Sandbox {
                 }
             }
             classReader.accept(sandboxingVisitor, 0)
-            return classWriter.toByteArray()
+            val sandboxed = classWriter.toByteArray()
+            return plugins.toList().fold(sandboxed) { bytecode, (plugin, instrumentationData) ->
+                plugin.transformAfterSandbox(bytecode, name, instrumentationData, context)
+            }
         }
 
         @Suppress("LongParameterList", "ComplexMethod")
@@ -1011,6 +1113,7 @@ object Sandbox {
 
         private class SandboxingMethodVisitor(
             val unsafeExceptionClasses: Set<Class<*>>,
+            val blacklistedMethods: Set<MethodFilter>,
             val badTryCatchBlockPositions: Set<Int>,
             methodVisitor: MethodVisitor
         ) : MonitorIsolatingMethodVisitor(methodVisitor) {
@@ -1106,6 +1209,20 @@ object Sandbox {
                 descriptor: String,
                 isInterface: Boolean
             ) {
+                val ownerClassName = binaryNameToClassName(owner)
+                val methodIsBlacklisted = blacklistedMethods.any {
+                    ownerClassName.startsWith(it.ownerClassPrefix) && name.startsWith(it.methodPrefix)
+                }
+                if (methodIsBlacklisted) {
+                    // Adding an extra call instead of replacing the call avoids the need for fiddly stack manipulation
+                    super.visitMethodInsn(
+                        Opcodes.INVOKESTATIC,
+                        rewriterClassName,
+                        RewriteBytecode::forbiddenMethod.javaMethod?.name ?: error("need forbidden method name"),
+                        Type.getMethodDescriptor(RewriteBytecode::forbiddenMethod.javaMethod),
+                        false
+                    )
+                }
                 val rewriteTarget = if (!isInterface && opcode == Opcodes.INVOKEVIRTUAL &&
                     owner == classNameToPath(Object::class.java.name)
                 ) {
@@ -1258,6 +1375,7 @@ object Sandbox {
             if (threadGroup != Thread.currentThread().threadGroup) {
                 confinedTask.addPermissionRequest(RuntimePermission("changeThreadGroup"), false)
             } else {
+                checkThreadLimits(confinedTask)
                 systemSecurityManager?.checkAccess(threadGroup)
             }
         }
@@ -1267,6 +1385,11 @@ object Sandbox {
             val threadGroup = Thread.currentThread().threadGroup
             val confinedTask = confinedTaskByThreadGroup()
                 ?: return systemSecurityManager?.threadGroup ?: return threadGroup
+            checkThreadLimits(confinedTask)
+            return systemSecurityManager?.threadGroup ?: threadGroup
+        }
+
+        private fun checkThreadLimits(confinedTask: ConfinedTask<*>) {
             if (confinedTask.shuttingDown) {
                 confinedTask.permissionRequests.add(
                     TaskResults.PermissionRequest(
@@ -1284,8 +1407,6 @@ object Sandbox {
                     )
                 )
                 throw SecurityException()
-            } else {
-                return systemSecurityManager?.threadGroup ?: threadGroup
             }
         }
 
@@ -1381,9 +1502,6 @@ object Sandbox {
      * stuff doesn't get forwarded, and we have to make sure that nothing is shared.
      *
      * Hence, this sadness.
-     *
-     * PS: also fuck you Java for leaving me no choice but to resort to this. There are a half-dozen different terrible
-     * design decisions that led us to this place. Please do better next time.
      */
     @Suppress("EmptyFunctionBlock")
     private val nullOutputStream = object : OutputStream() {
@@ -1555,8 +1673,7 @@ object Sandbox {
 
     private lateinit var originalPrintStreams: Map<TaskResults.OutputLine.Console, PrintStream>
 
-    private val safeUnconstrainedInvocationSyncRoot = Object()
-    private var safeUnconstrainedInvokerThread: Thread? = null
+    private val performingSafeUnconstrainedInvocation: ThreadLocal<Boolean> = ThreadLocal.withInitial { false }
 
     @JvmStatic
     @Synchronized
@@ -1626,9 +1743,36 @@ fun <T> withSandbox(run: () -> T): T {
 }
 
 fun Sandbox.SandboxableClassLoader.sandbox(
-    classLoaderConfiguration: Sandbox.ClassLoaderConfiguration
+    classLoaderConfiguration: Sandbox.ClassLoaderConfiguration,
+    configuredPlugins: List<ConfiguredSandboxPlugin<*, *>> = listOf()
 ): Sandbox.SandboxedClassLoader {
-    return Sandbox.SandboxedClassLoader(this, classLoaderConfiguration)
+    return Sandbox.SandboxedClassLoader(this, classLoaderConfiguration, configuredPlugins)
 }
 
 data class JeedOutputCapture(val returned: Any?, val threw: Throwable?, val stdout: String, val stderr: String)
+
+interface SandboxPlugin<A : Any, V : Any> {
+    val id: String
+        get() = javaClass.simpleName.decapitalizeAsciiOnly()
+    fun createInstrumentationData(arguments: A): Any? = null
+    fun transformBeforeSandbox(bytecode: ByteArray, name: String, instrumentationData: Any?, context: RewritingContext): ByteArray = bytecode
+    fun transformAfterSandbox(bytecode: ByteArray, name: String, instrumentationData: Any?, context: RewritingContext): ByteArray = bytecode
+    fun createInitialData(instrumentationData: Any?): Any?
+    fun executionFinished(workingData: Any?) { }
+    fun createFinalData(workingData: Any?): V
+    val requiredClasses: Set<Class<*>>
+        get() = setOf()
+}
+
+interface SandboxPluginWithDefaultArguments<A : Any, V : Any> : SandboxPlugin<A, V> {
+    fun createDefaultArguments(): A
+}
+
+data class ConfiguredSandboxPlugin<A : Any, V : Any>(
+    val plugin: SandboxPlugin<A, V>,
+    val arguments: A
+)
+
+enum class RewritingContext {
+    UNTRUSTED, RELOADED
+}

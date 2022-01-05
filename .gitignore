@@ -8,6 +8,8 @@ test-output/
 *.swp
 *.swo
 *.iml
+hs_err_*.log
+.kotlintest/
 
 # User-specific stuff
 .idea/**/workspace.xml
@@ -16,6 +18,7 @@ test-output/
 .idea/**/dictionaries
 .idea/**/shelf
 .idea/**/checkstyle-idea.xml
+**/test/kotlin/Scratch.kt
 
 # Generated files
 .idea/**/contentModel.xml

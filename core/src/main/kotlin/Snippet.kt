@@ -50,7 +50,9 @@ class Snippet(
 
     companion object {
         fun mapLocation(input: SourceLocation, remappedLineMapping: Map<Int, RemappedLine>): SourceLocation {
-            check(input.source == SNIPPET_SOURCE) { "Incorrect input source: ${input.source}" }
+            if (input.source != SNIPPET_SOURCE) {
+                return input
+            }
             val remappedLineInfo = remappedLineMapping[input.line]
                 ?: throw SourceMappingException(
                     "can't remap line ${input.line}: ${
