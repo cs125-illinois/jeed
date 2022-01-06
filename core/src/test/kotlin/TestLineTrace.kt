@@ -412,8 +412,7 @@ fun test(): List<String> {
 
     "should trace a simple Kotlin snippet" {
         val source = Source.fromSnippet(
-            """println("Hi")""",
-            SnippetArguments(fileType = Source.FileType.KOTLIN)
+            """println("Hi")""", SnippetArguments(fileType = Source.FileType.KOTLIN)
         )
         val result = source.kompile().execute(SourceExecutionArguments().addPlugin(LineTrace))
         result should haveCompleted()
@@ -617,7 +616,9 @@ try {
             """.trimIndent()
         )
         val result = source.compile().execute(
-            SourceExecutionArguments().addPlugin(LineTrace, LineTraceArguments(recordedLineLimit = 0, runLineLimit = 100))
+            SourceExecutionArguments().addPlugin(
+                LineTrace, LineTraceArguments(recordedLineLimit = 0, runLineLimit = 100)
+            )
         )
         result should haveBeenKilled()
         result.killReason shouldBe LineTrace.KILL_REASON
@@ -674,7 +675,8 @@ while (true) {
         """.trim()
         )
         val lineTraceArgs = LineTraceArguments(runLineLimit = 10000)
-        val result = source.compile().execute(SourceExecutionArguments(maxExtraThreads = 1).addPlugin(LineTrace, lineTraceArgs))
+        val result =
+            source.compile().execute(SourceExecutionArguments(maxExtraThreads = 1).addPlugin(LineTrace, lineTraceArgs))
         result should haveBeenKilled()
         val rawTrace = result.pluginResult(LineTrace)
         rawTrace.linesRun shouldBe rawTrace.steps.size
@@ -708,13 +710,15 @@ while (true) {
         """.trim()
         )
         val lineTraceArgs = LineTraceArguments(
-            runLineLimit = 10000,
-            recordedLineLimit = 0,
-            maxUnsynchronizedLines = 0
+            runLineLimit = 10000, recordedLineLimit = 0, maxUnsynchronizedLines = 0
         )
         val compiledSource = source.compile()
         repeat(10) {
-            val result = compiledSource.execute(SourceExecutionArguments(maxExtraThreads = 1).addPlugin(LineTrace, lineTraceArgs))
+            val result = compiledSource.execute(
+                SourceExecutionArguments(maxExtraThreads = 1).addPlugin(
+                    LineTrace, lineTraceArgs
+                )
+            )
             result should haveBeenKilled()
             val rawTrace = result.pluginResult(LineTrace)
             rawTrace.linesRun shouldBeLessThanOrEqual lineTraceArgs.runLineLimit!! + 1
@@ -744,8 +748,7 @@ public class Main {
 }""".trim()
         ).compile()
         val lineTraceArgs = LineTraceArguments(
-            recordedLineLimit = 0,
-            runLineLimit = 25
+            recordedLineLimit = 0, runLineLimit = 25
         )
         val plugins = listOf(ConfiguredSandboxPlugin(LineTrace, lineTraceArgs))
         val subtaskLinesRun = mutableListOf<Long>()
@@ -761,6 +764,7 @@ public class Main {
             subtaskLinesRun.add(LineTrace.getCurrentReport().linesRun)
         }
         result should haveCompleted()
+        @Suppress("SpellCheckingInspection")
         result should haveOutput("AAA\nBBBB\nCCCCC")
         subtaskLinesRun.size shouldBe 3
         subtaskLinesRun[0] shouldBeGreaterThan 7

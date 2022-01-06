@@ -1,6 +1,7 @@
 package edu.illinois.cs.cs125.jeed.core
 
 import io.kotest.core.spec.style.StringSpec
+import io.kotest.matchers.collections.shouldHaveAtLeastSize
 import io.kotest.matchers.should
 import io.kotest.matchers.shouldBe
 import io.kotest.matchers.shouldNotBe
@@ -27,11 +28,11 @@ public class Main {
     System.out.println("Yay");
   }
 }""".trim()
-        ).compile().jacoco().also { (taskResults, coverage) ->
+        ).compile().execute(SourceExecutionArguments().addPlugin(Jacoco)).also { taskResults ->
             taskResults.completed shouldBe true
             taskResults.permissionDenied shouldNotBe true
 
-            val testCoverage = coverage.classes.find { it.name == "Test" }!!
+            val testCoverage = taskResults.pluginResult(Jacoco).classes.find { it.name == "Test" }!!
             testCoverage.lineCounter.missedCount shouldBe 0
             testCoverage.lineCounter.coveredCount shouldBe 6
         }
@@ -54,11 +55,11 @@ public class Main {
     System.out.println("Hmm");
   }
 }""".trim()
-        ).compile().jacoco().also { (taskResults, coverage) ->
+        ).compile().execute(SourceExecutionArguments().addPlugin(Jacoco)).also { taskResults ->
             taskResults.completed shouldBe true
             taskResults.permissionDenied shouldNotBe true
 
-            val testCoverage = coverage.classes.find { it.name == "Test" }!!
+            val testCoverage = taskResults.pluginResult(Jacoco).classes.find { it.name == "Test" }!!
             testCoverage.lineCounter.missedCount shouldNotBe 0
             testCoverage.lineCounter.coveredCount shouldBe 3
         }
@@ -77,7 +78,7 @@ public class Main {
             it should haveCompleted()
             it should haveOutput("1")
         }
-        source.jacoco().also { (it) ->
+        source.execute(SourceExecutionArguments().addPlugin(Jacoco)).also {
             it should haveCompleted()
             it should haveOutput("2")
         }
@@ -95,7 +96,29 @@ public class Main {
         ).compile()
         assertThrows<IOException> {
             // Jacoco refuses to re-instrument, which is good
-            source.jacoco()
+            source.execute(SourceExecutionArguments().addPlugin(Jacoco))
         }
+    }
+    "should combine line tracing and branch tracing for a main method" {
+        val result = Source.fromJava(
+            """
+public class Main {
+  public static void main() {
+    int i = 4;
+    i += 1;
+    System.out.println(i);
+  }
+}""".trim()
+        ).compile().execute(SourceExecutionArguments().addPlugin(LineTrace).addPlugin(Jacoco))
+        result should haveCompleted()
+        result should haveOutput("5")
+
+        val trace = result.pluginResult(LineTrace)
+        trace.steps shouldHaveAtLeastSize 3
+        trace.steps[0] shouldBe LineTraceResult.LineStep("Main.java", 3, 0)
+
+        val testCoverage = result.pluginResult(Jacoco).classes.find { it.name == "Main" }!!
+        testCoverage.lineCounter.missedCount shouldBe 1
+        testCoverage.lineCounter.coveredCount shouldBe 4
     }
 })

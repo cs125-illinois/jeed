@@ -364,6 +364,7 @@ try {
         executionResult shouldNot haveCompleted()
         executionResult should haveTimedOut()
     }
+    @Suppress("SpellCheckingInspection")
     "should shut down parallel recursive thread bombs".config(enabled = System.getenv("VERYSLOWTESTS") == "1") {
         @Suppress("MagicNumber")
         (0..16).toList().map {
@@ -452,7 +453,7 @@ while (true) {
         ).compile().execute(SourceExecutionArguments(maxExtraThreads = 256, timeout = 1000L))
     }
     "should recover from excessive console printing" {
-        @Suppress("MagicNumber")
+        @Suppress("MagicNumber", "UnusedPrivateMember")
         for (i in 0..32) {
             val result = Source.fromSnippet(
                 """

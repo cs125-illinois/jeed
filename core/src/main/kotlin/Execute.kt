@@ -20,17 +20,19 @@ class SourceExecutionArguments(
     classLoaderConfiguration: Sandbox.ClassLoaderConfiguration = Sandbox.ClassLoaderConfiguration(),
     val dryRun: Boolean = false,
     waitForShutdown: Boolean = DEFAULT_WAIT_FOR_SHUTDOWN,
+    returnTimeout: Int = DEFAULT_RETURN_TIMEOUT,
     @Transient
     var methodToRun: Method? = null,
     @Transient
-    internal val plugins: MutableList<ConfiguredSandboxPlugin<*, *>> = mutableListOf()
+    internal val plugins: MutableList<ConfiguredSandboxPlugin<*, *>> = mutableListOf(),
 ) : Sandbox.ExecutionArguments(
     timeout,
     permissions.union(REQUIRED_PERMISSIONS),
     maxExtraThreads,
     maxOutputLines,
     classLoaderConfiguration,
-    waitForShutdown
+    waitForShutdown,
+    returnTimeout
 ) {
     companion object {
         const val DEFAULT_KLASS = "Main"
@@ -78,7 +80,21 @@ class ExecutionFailed(
     constructor(methodNotFound: MethodNotFoundException) : this(null, methodNotFound)
 }
 
-fun CompiledSource.updateExecutionArguments(executionArguments: SourceExecutionArguments): SourceExecutionArguments {
+fun CompiledSource.updateExecutionArguments(
+    executionArguments: SourceExecutionArguments,
+    noFind: Boolean = false
+): SourceExecutionArguments {
+    // Coroutines need some extra time and threads to run.
+    if (this.source.type == Source.FileType.KOTLIN && this.usesCoroutines()) {
+        executionArguments.timeout = executionArguments.timeout.coerceAtLeast(KOTLIN_COROUTINE_MIN_TIMEOUT)
+        executionArguments.maxExtraThreads =
+            executionArguments.maxExtraThreads.coerceAtLeast(KOTLIN_COROUTINE_MIN_EXTRA_THREADS)
+    }
+
+    if (noFind) {
+        return executionArguments
+    }
+
     val defaultKlass = if (this.source is Snippet) {
         this.source.entryClassName
     } else {
@@ -86,13 +102,6 @@ fun CompiledSource.updateExecutionArguments(executionArguments: SourceExecutionA
             Source.FileType.JAVA -> "Main"
             Source.FileType.KOTLIN -> "MainKt"
         }
-    }
-
-    // Coroutines need some extra time and threads to run.
-    if (this.source.type == Source.FileType.KOTLIN && this.usesCoroutines()) {
-        executionArguments.timeout = executionArguments.timeout.coerceAtLeast(KOTLIN_COROUTINE_MIN_TIMEOUT)
-        executionArguments.maxExtraThreads =
-            executionArguments.maxExtraThreads.coerceAtLeast(KOTLIN_COROUTINE_MIN_EXTRA_THREADS)
     }
 
     // Fail fast if the class or method don't exist
@@ -128,6 +137,27 @@ suspend fun CompiledSource.execute(
             } else {
                 method.invoke(null, null)
             }
+        } catch (e: InvocationTargetException) {
+            throw(e.cause ?: e)
+        }
+    }
+}
+
+@Throws(ExecutionFailed::class)
+@Suppress("ReturnCount")
+suspend fun <T> CompiledSource.executeWith(
+    executionArguments: SourceExecutionArguments = SourceExecutionArguments(),
+    executor: (classLoader: Sandbox.SandboxedClassLoader) -> T
+): Sandbox.TaskResults<out T?> {
+    val actualArguments = updateExecutionArguments(executionArguments, noFind = true)
+    return Sandbox.execute(classLoader, actualArguments, actualArguments.plugins) sandbox@{ (classLoader) ->
+        if (actualArguments.dryRun) {
+            return@sandbox null
+        }
+        classLoader as Sandbox.SandboxedClassLoader
+        @Suppress("SpreadOperator")
+        try {
+            return@sandbox executor(classLoader)
         } catch (e: InvocationTargetException) {
             throw(e.cause ?: e)
         }

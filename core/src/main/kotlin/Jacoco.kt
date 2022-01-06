@@ -65,6 +65,7 @@ object IsolatedJacocoRuntime : IRuntime {
     private const val STACK_SIZE = 6
 
     override fun generateDataAccessor(classid: Long, classname: String?, probecount: Int, mv: MethodVisitor): Int {
+        @Suppress("SpellCheckingInspection")
         mv.visitMethodInsn(
             Opcodes.INVOKESTATIC,
             classNameToPath(RuntimeDataAccessor::class.java.name),
@@ -91,13 +92,4 @@ object IsolatedJacocoRuntime : IRuntime {
             return workingData.runtimeData
         }
     }
-}
-
-@Throws(ExecutionFailed::class)
-suspend fun CompiledSource.jacoco(
-    executionArguments: SourceExecutionArguments = SourceExecutionArguments()
-): Pair<Sandbox.TaskResults<out Any?>, CoverageBuilder> {
-    check(!executionArguments.dryRun) { "Dry run not supported for Jacoco" }
-    val taskResults = execute(executionArguments.addPlugin(Jacoco))
-    return Pair(taskResults, taskResults.pluginResult(Jacoco))
 }
