@@ -92,9 +92,9 @@ object LineTrace : SandboxPluginWithDefaultArguments<LineTraceArguments, LineTra
                 data.linesRun++
                 data.unsynchronizedLines++
             }
-            if (data.unsynchronizedLines > args.maxUnsynchronizedLines) {
+            if (data.unsynchronizedLines > args.maxUnsynchronizedLines && !threadInSingleThreadTask.get()) {
                 val outerWorkingData: LineTraceWorkingData = Sandbox.CurrentTask.getWorkingData(LineTrace)
-                synchronizedIfNeeded(outerWorkingData.threadTrackingSyncRoot) {
+                synchronized(outerWorkingData.threadTrackingSyncRoot) {
                     data.linesRunByOtherThreads = 0
                     outerWorkingData.threads.forEach { (i, otherData) ->
                         if (i != threadIndex.get()) {

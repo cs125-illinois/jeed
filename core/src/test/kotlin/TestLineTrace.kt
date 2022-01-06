@@ -682,7 +682,8 @@ while (true) {
             source.compile().execute(SourceExecutionArguments(maxExtraThreads = 1).addPlugin(LineTrace, lineTraceArgs))
         result should haveBeenKilled()
         val rawTrace = result.pluginResult(LineTrace)
-        rawTrace.linesRun shouldBe rawTrace.steps.size
+        rawTrace.linesRun.toInt() shouldBeGreaterThan rawTrace.steps.size - 3 // May be killed before incrementing
+        rawTrace.linesRun.toInt() shouldBeLessThanOrEqual rawTrace.steps.size
         val trace = rawTrace.remap(source)
         val mainLines = trace.steps.filter { it.threadIndex == 0 }.map { it.line }
         mainLines shouldContain 10
