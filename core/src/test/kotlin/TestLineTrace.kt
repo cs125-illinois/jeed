@@ -327,12 +327,13 @@ public class ShowIfOdd {
             }
             """.trimIndent()
         )
-        val result = source.compile().execute(SourceExecutionArguments().addPlugin(LineTrace))
+        val lineTraceArguments = LineTraceArguments(recordedLineLimit = 5000L) // Reduced because slow under debugger
+        val result = source.compile().execute(SourceExecutionArguments().addPlugin(LineTrace, lineTraceArguments))
         result should haveTimedOut()
         val rawTrace = result.pluginResult(LineTrace)
         val trace = rawTrace.remap(source)
         trace.steps.filter { it.line == 3 }.size shouldBeGreaterThan 100
-        rawTrace.steps.size shouldBe rawTrace.arguments.recordedLineLimit
+        rawTrace.steps.size shouldBe lineTraceArguments.recordedLineLimit
     }
 
     "should keep counting after reaching the recording limit" {
@@ -345,7 +346,8 @@ public class ShowIfOdd {
             }
             """.trimIndent()
         )
-        val result = source.compile().execute(SourceExecutionArguments().addPlugin(LineTrace))
+        val lineTraceArguments = LineTraceArguments(recordedLineLimit = 5000L)
+        val result = source.compile().execute(SourceExecutionArguments().addPlugin(LineTrace, lineTraceArguments))
         result should haveTimedOut()
         val trace = result.pluginResult(LineTrace).remap(source)
         trace.linesRun.toInt() should beGreaterThan(trace.arguments.recordedLineLimit.toInt())
