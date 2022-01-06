@@ -1,6 +1,7 @@
 package edu.illinois.cs.cs125.jeed.core
 
 import io.kotest.core.spec.style.StringSpec
+import io.kotest.matchers.collections.beEmpty
 import io.kotest.matchers.collections.shouldHaveAtLeastSize
 import io.kotest.matchers.should
 import io.kotest.matchers.shouldBe
@@ -120,5 +121,55 @@ public class Main {
         val testCoverage = result.pluginResult(Jacoco).classes.find { it.name == "Main" }!!
         testCoverage.lineCounter.missedCount shouldBe 1
         testCoverage.lineCounter.coveredCount shouldBe 4
+    }
+    "should combine line tracing and branch tracing for a Kotlin when statement" {
+        val compiledSource = Source(
+            mapOf(
+                "Main.kt" to """
+class PingPonger(setState: String) {
+  private var state = when (setState) {
+    "ping" -> true
+    "pong" -> false
+    else -> throw IllegalArgumentException()
+  }
+  fun ping(): Boolean {
+    state = true
+    return state
+  }
+  fun pong(): Boolean {
+    state = false
+    return state
+  }
+}
+fun main() {
+  val pingPonger = PingPonger("ping")
+  pingPonger.pong()
+  pingPonger.ping()
+
+  val pongPonger = PingPonger("pong")
+  pongPonger.ping()
+  pongPonger.pong()
+
+  try {
+    val pongPonger = PingPonger("barg")
+  } catch (e: Exception) {}
+}""".trim()
+            )
+        ).kompile()
+
+        compiledSource.execute(SourceExecutionArguments().addPlugin(Jacoco)).let { results ->
+            results should haveCompleted()
+            results.pluginResult(Jacoco).classes.find { it.name == "PingPonger" }!!.allMissedLines() should beEmpty()
+        }
+        // Line Trace after works
+        compiledSource.execute(SourceExecutionArguments().addPlugin(Jacoco).addPlugin(LineTrace)).let { results ->
+            results should haveCompleted()
+            results.pluginResult(Jacoco).classes.find { it.name == "PingPonger" }!!.allMissedLines() should beEmpty()
+        }
+        // Line trace before doesn't
+        compiledSource.execute(SourceExecutionArguments().addPlugin(LineTrace).addPlugin(Jacoco)).let { results ->
+            results should haveCompleted()
+            results.pluginResult(Jacoco).classes.find { it.name == "PingPonger" }!!.allMissedLines() should beEmpty()
+        }
     }
 })
