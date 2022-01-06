@@ -570,6 +570,18 @@ System.out.println(new Date(t).toString());
             it should haveCompleted()
         }
     }
+    "should executeWith properly" {
+        Source.fromSnippet(
+            """record Person(String name, int age) {}
+                |System.out.println(new Person("Geoffrey", 42));
+            """.trimMargin()
+        ).compile().executeWith {
+            return@executeWith 10
+        }.also {
+            it should haveCompleted()
+            it.returned shouldBe 10
+        }
+    }
 })
 
 fun haveCompleted() = object : Matcher<Sandbox.TaskResults<out Any?>> {

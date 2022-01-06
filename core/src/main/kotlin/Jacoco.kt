@@ -2,6 +2,8 @@ package edu.illinois.cs.cs125.jeed.core
 
 import org.jacoco.core.analysis.Analyzer
 import org.jacoco.core.analysis.CoverageBuilder
+import org.jacoco.core.analysis.IClassCoverage
+import org.jacoco.core.analysis.ICounter
 import org.jacoco.core.data.ExecutionDataStore
 import org.jacoco.core.data.SessionInfoStore
 import org.jacoco.core.instr.Instrumenter
@@ -46,7 +48,8 @@ object Jacoco : SandboxPlugin<Unit, CoverageBuilder> {
                 for ((name, bytes) in workingData.instrumentationData.coverageClasses) {
                     analyzeClass(bytes, name)
                 }
-            } catch (_: Exception) {}
+            } catch (_: Exception) {
+            }
         }
         return coverageBuilder
     }
@@ -65,6 +68,7 @@ object IsolatedJacocoRuntime : IRuntime {
     private const val STACK_SIZE = 6
 
     override fun generateDataAccessor(classid: Long, classname: String?, probecount: Int, mv: MethodVisitor): Int {
+        @Suppress("SpellCheckingInspection")
         mv.visitMethodInsn(
             Opcodes.INVOKESTATIC,
             classNameToPath(RuntimeDataAccessor::class.java.name),
@@ -93,11 +97,6 @@ object IsolatedJacocoRuntime : IRuntime {
     }
 }
 
-@Throws(ExecutionFailed::class)
-suspend fun CompiledSource.jacoco(
-    executionArguments: SourceExecutionArguments = SourceExecutionArguments()
-): Pair<Sandbox.TaskResults<out Any?>, CoverageBuilder> {
-    check(!executionArguments.dryRun) { "Dry run not supported for Jacoco" }
-    val taskResults = execute(executionArguments.addPlugin(Jacoco))
-    return Pair(taskResults, taskResults.pluginResult(Jacoco))
+fun IClassCoverage.allMissedLines() = (firstLine..lastLine).toList().filter {
+    getLine(it).status == ICounter.NOT_COVERED || getLine(it).status == ICounter.PARTLY_COVERED
 }
