@@ -16,6 +16,7 @@ import io.kotest.matchers.longs.shouldBeLessThanOrEqual
 import io.kotest.matchers.should
 import io.kotest.matchers.shouldBe
 import io.kotest.matchers.shouldNot
+import io.kotest.matchers.shouldNotBe
 import io.kotest.matchers.string.endWith
 import io.kotest.matchers.types.beInstanceOf
 import java.lang.reflect.InvocationTargetException
@@ -326,12 +327,13 @@ public class ShowIfOdd {
             }
             """.trimIndent()
         )
-        val result = source.compile().execute(SourceExecutionArguments().addPlugin(LineTrace))
+        val lineTraceArguments = LineTraceArguments(recordedLineLimit = 5000L) // Reduced because slow under debugger
+        val result = source.compile().execute(SourceExecutionArguments().addPlugin(LineTrace, lineTraceArguments))
         result should haveTimedOut()
         val rawTrace = result.pluginResult(LineTrace)
         val trace = rawTrace.remap(source)
         trace.steps.filter { it.line == 3 }.size shouldBeGreaterThan 100
-        rawTrace.steps.size shouldBe rawTrace.arguments.recordedLineLimit
+        rawTrace.steps.size shouldBe lineTraceArguments.recordedLineLimit
     }
 
     "should keep counting after reaching the recording limit" {
@@ -344,7 +346,8 @@ public class ShowIfOdd {
             }
             """.trimIndent()
         )
-        val result = source.compile().execute(SourceExecutionArguments().addPlugin(LineTrace))
+        val lineTraceArguments = LineTraceArguments(recordedLineLimit = 5000L)
+        val result = source.compile().execute(SourceExecutionArguments().addPlugin(LineTrace, lineTraceArguments))
         result should haveTimedOut()
         val trace = result.pluginResult(LineTrace).remap(source)
         trace.linesRun.toInt() should beGreaterThan(trace.arguments.recordedLineLimit.toInt())
@@ -679,7 +682,8 @@ while (true) {
             source.compile().execute(SourceExecutionArguments(maxExtraThreads = 1).addPlugin(LineTrace, lineTraceArgs))
         result should haveBeenKilled()
         val rawTrace = result.pluginResult(LineTrace)
-        rawTrace.linesRun shouldBe rawTrace.steps.size
+        rawTrace.linesRun.toInt() shouldBeGreaterThan rawTrace.steps.size - 3 // May be killed before incrementing
+        rawTrace.linesRun.toInt() shouldBeLessThanOrEqual rawTrace.steps.size
         val trace = rawTrace.remap(source)
         val mainLines = trace.steps.filter { it.threadIndex == 0 }.map { it.line }
         mainLines shouldContain 10
@@ -806,5 +810,37 @@ public class Main {
         result should haveCompleted()
         result.output should endWith("BB")
         hitLimit shouldBe true
+    }
+
+    "should be compatible with Jacoco" {
+        val result = Source.fromJava(
+            """
+public class Test {
+  private int value;
+  public Test() {
+    value = 10;
+  }
+  public Test(int setValue) {
+    value = setValue;
+  }
+}
+public class Main {
+  public static void main() {
+    Test test = new Test(10);
+    System.out.println("Done");
+  }
+}""".trim()
+        ).compile().execute(SourceExecutionArguments().addPlugin(Jacoco).addPlugin(LineTrace))
+        result.completed shouldBe true
+        result.permissionDenied shouldNotBe true
+        result should haveOutput("Done")
+        val coverage = result.pluginResult(Jacoco)
+        val testCoverage = coverage.classes.find { it.name == "Test" }!!
+        testCoverage.lineCounter.missedCount shouldBeGreaterThanOrEqual 1
+        testCoverage.lineCounter.coveredCount shouldBe 3
+        val trace = result.pluginResult(LineTrace)
+        trace.steps[0].line shouldBe 12
+        trace.steps.map { it.line } shouldContain 7
+        trace.steps.map { it.line } shouldNotContain 4
     }
 })

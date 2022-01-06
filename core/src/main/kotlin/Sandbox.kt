@@ -425,7 +425,7 @@ object Sandbox {
         val started: Instant = Instant.now()
 
         val pluginData = classLoader.pluginInstrumentationData.associate { (plugin, instrumentationData) ->
-            plugin to plugin.createInitialData(instrumentationData)
+            plugin to plugin.createInitialData(instrumentationData, executionArguments)
         }
 
         private val isolatedLocksSyncRoot = Object()
@@ -1649,6 +1649,10 @@ object Sandbox {
         override fun fillInStackTrace() = this
     }
 
+    class UnexpectedExtraThreadError : Error(
+        "An extra thread was detected by a feature not configured to support multiple threads"
+    )
+
     class SandboxStartFailed(message: String, cause: Throwable? = null) : RuntimeException(message, cause)
     class SandboxContainmentFailure(message: String) : Throwable(message)
 
@@ -1757,7 +1761,7 @@ interface SandboxPlugin<A : Any, V : Any> {
     fun createInstrumentationData(arguments: A): Any? = null
     fun transformBeforeSandbox(bytecode: ByteArray, name: String, instrumentationData: Any?, context: RewritingContext): ByteArray = bytecode
     fun transformAfterSandbox(bytecode: ByteArray, name: String, instrumentationData: Any?, context: RewritingContext): ByteArray = bytecode
-    fun createInitialData(instrumentationData: Any?): Any?
+    fun createInitialData(instrumentationData: Any?, executionArguments: Sandbox.ExecutionArguments): Any?
     fun executionFinished(workingData: Any?) { }
     fun createFinalData(workingData: Any?): V
     val requiredClasses: Set<Class<*>>

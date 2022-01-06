@@ -34,7 +34,7 @@ object Jacoco : SandboxPlugin<Unit, CoverageBuilder> {
     override val requiredClasses: Set<Class<*>>
         get() = setOf(IsolatedJacocoRuntime.RuntimeDataAccessor::class.java)
 
-    override fun createInitialData(instrumentationData: Any?): Any {
+    override fun createInitialData(instrumentationData: Any?, executionArguments: Sandbox.ExecutionArguments): Any {
         return JacocoWorkingData(instrumentationData as JacocoInstrumentationData)
     }
 
