@@ -262,4 +262,46 @@ fun holdOn(): String {
     "should not find bad words at boundaries" {
         "nextItem".getBadWords(true) shouldBe setOf()
     }
+    "should count lines in Java" {
+        """public class Test {
+          |  // Line comment
+          |  public static void main() { // End of line comment
+          |    /* Single-line block comment */ // And another
+          |    int i = 0;
+          |
+          |    int j = 0;
+          |    /*
+          |     Multi-line comment
+          |     */
+          |     /* Multi-line comment with blank
+          |
+          |     */
+          |  }
+          |}
+        """.trimMargin().countLines(Source.FileType.JAVA).also {
+            it.blank shouldBe 1
+            it.comment shouldBe 8
+        }
+    }
+    "should count lines in Kotlin" {
+        """class Test {
+          |  // Line comment
+          |  fun main() { // End of line comment
+          |    /* Single-line block comment */ // And another
+          |    val i = 0
+          |
+          |    val j = 0
+          |    /*
+          |     Multi-line comment
+          |     */
+          |     /* Multi-line comment with blank
+          |
+          |     */
+          |  }
+          |}
+        """.trimMargin().countLines(Source.FileType.KOTLIN).also {
+            it.blank shouldBe 1
+            it.comment shouldBe 8
+        }
+    }
 })

@@ -2,6 +2,7 @@
 
 package edu.illinois.cs.cs125.jeed.core
 
+import com.squareup.moshi.JsonClass
 import edu.illinois.cs.cs125.jeed.core.antlr.JavaLexer
 import edu.illinois.cs.cs125.jeed.core.antlr.JavaParser
 import edu.illinois.cs.cs125.jeed.core.antlr.JavaParserBaseListener
@@ -270,3 +271,51 @@ fun Source.getBadWords(whitelist: Set<String> = setOf()): Set<String> {
     }
     return badWords
 }
+
+@JsonClass(generateAdapter = true)
+data class LineCounts(val source: Int, val comment: Int, val blank: Int) {
+    operator fun plus(other: LineCounts) =
+        LineCounts(source + other.source, comment + other.comment, blank + other.blank)
+    operator fun minus(other: LineCounts) =
+        LineCounts(source - other.source, comment - other.comment, blank - other.blank)
+}
+
+@Suppress("NestedBlockDepth")
+fun String.countLines(type: Source.FileType): LineCounts {
+
+    val source = mutableSetOf<Int>()
+    val comment = mutableSetOf<Int>()
+
+    val charStream = CharStreams.fromString(this)
+    when (type) {
+        Source.FileType.JAVA ->
+            SnippetLexer(charStream).allTokens.forEach {
+                when (it.channel) {
+                    0 -> source.add(it.line)
+                    1 -> comment.addAll(it.line..(it.line + it.text.lines().size))
+                }
+            }
+        Source.FileType.KOTLIN ->
+            KotlinLexer(charStream).allTokens.forEach {
+                if (it.text.isNotBlank()) {
+                    when (it.channel) {
+                        0 -> source.add(it.line)
+                        1 -> comment.addAll(it.line..(it.line + it.text.lines().size))
+                    }
+                }
+            }
+    }
+
+    val blank = lines()
+        .mapIndexed { index, s -> Pair(index, s) }
+        .filter { (index, s) -> s.isBlank() && index + 1 !in comment }
+        .map { (index, _) -> index + 1 }
+        .toSet()
+
+    // Remove end-of-line comments
+    comment.removeAll(source)
+    check(source.size + comment.size + blank.size == lines().size)
+    return LineCounts(source.size, comment.size, blank.size)
+}
+
+fun Source.countLines() = sources.mapValues { (_, contents) -> contents.countLines(type) }

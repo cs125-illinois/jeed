@@ -194,6 +194,7 @@ object Sandbox {
             get() {
                 return Duration.between(interval.start, interval.end)
             }
+
         fun <V : Any> pluginResult(plugin: SandboxPlugin<*, V>): V {
             @Suppress("UNCHECKED_CAST")
             return pluginResults[plugin.id] as V
@@ -276,7 +277,7 @@ object Sandbox {
     ) : Callable<Any> {
         private data class TaskResult<T>(val returned: T, val threw: Throwable? = null, val timeout: Boolean = false)
 
-        @Suppress("ComplexMethod", "ReturnCount")
+        @Suppress("ComplexMethod", "ReturnCount", "LongMethod")
         override fun call() {
             @Suppress("TooGenericExceptionCaught")
             try {
@@ -653,7 +654,8 @@ object Sandbox {
     object CurrentTask {
         @JvmStatic // Might as well be friendly to Java plugins
         fun <W> getWorkingData(plugin: SandboxPlugin<*, *>): W {
-            val confinedTask = confinedTaskByThreadGroup() ?: error("attempt to access current task data outside any task")
+            val confinedTask =
+                confinedTaskByThreadGroup() ?: error("attempt to access current task data outside any task")
             @Suppress("UNCHECKED_CAST")
             return confinedTask.pluginData[plugin] as W
         }
@@ -860,6 +862,7 @@ object Sandbox {
         private const val MAX_CLASS_FILE_SIZE = 1000000
         private const val SYNC_WRAPPER_STACK_ITEMS = 2
 
+        @Suppress("ThrowsCount")
         @JvmStatic
         fun checkException(throwable: Throwable) {
             val confinedTask = confinedTaskByThreadGroup() ?: error("only confined tasks should call this method")
@@ -927,7 +930,12 @@ object Sandbox {
         @JvmStatic
         fun forbiddenMethod() {
             val confinedTask = confinedTaskByThreadGroup() ?: error("only confined tasks should call this method")
-            confinedTask.permissionRequests.add(TaskResults.PermissionRequest(RuntimePermission("callForbiddenMethod"), false))
+            confinedTask.permissionRequests.add(
+                TaskResults.PermissionRequest(
+                    RuntimePermission("callForbiddenMethod"),
+                    false
+                )
+            )
             throw SecurityException("invocation of forbidden method")
         }
 
@@ -938,6 +946,7 @@ object Sandbox {
             }
         }
 
+        @Suppress("LongParameterList")
         internal fun rewrite(
             name: String,
             originalByteArray: ByteArray,
@@ -1453,7 +1462,7 @@ object Sandbox {
         val result = try {
             Pair(block(), null)
         } catch (e: Throwable) {
-            if (e is ThreadDeath) {
+            if (e is ThreadDeath || e is LineLimitExceeded) {
                 throw e
             }
             Pair(null, e)
@@ -1758,11 +1767,24 @@ data class JeedOutputCapture(val returned: Any?, val threw: Throwable?, val stdo
 interface SandboxPlugin<A : Any, V : Any> {
     val id: String
         get() = javaClass.simpleName.decapitalizeAsciiOnly()
+
     fun createInstrumentationData(arguments: A): Any? = null
-    fun transformBeforeSandbox(bytecode: ByteArray, name: String, instrumentationData: Any?, context: RewritingContext): ByteArray = bytecode
-    fun transformAfterSandbox(bytecode: ByteArray, name: String, instrumentationData: Any?, context: RewritingContext): ByteArray = bytecode
+    fun transformBeforeSandbox(
+        bytecode: ByteArray,
+        name: String,
+        instrumentationData: Any?,
+        context: RewritingContext
+    ): ByteArray = bytecode
+
+    fun transformAfterSandbox(
+        bytecode: ByteArray,
+        name: String,
+        instrumentationData: Any?,
+        context: RewritingContext
+    ): ByteArray = bytecode
+
     fun createInitialData(instrumentationData: Any?, executionArguments: Sandbox.ExecutionArguments): Any?
-    fun executionFinished(workingData: Any?) { }
+    fun executionFinished(workingData: Any?) {}
     fun createFinalData(workingData: Any?): V
     val requiredClasses: Set<Class<*>>
         get() = setOf()
