@@ -694,7 +694,7 @@ object Sandbox {
         internal val pluginInstrumentationData = configuredPlugins.map {
             @Suppress("UNCHECKED_CAST")
             it as ConfiguredSandboxPlugin<Any, Any>
-            it.plugin to it.plugin.createInstrumentationData(it.arguments)
+            it.plugin to it.plugin.createInstrumentationData(it.arguments, classLoaderConfiguration, configuredPlugins)
         } // Intentionally not toMap'd so that order is preserved
 
         override val definedClasses: Set<String> get() = knownClasses.keys.toSet()
@@ -1768,7 +1768,12 @@ interface SandboxPlugin<A : Any, V : Any> {
     val id: String
         get() = javaClass.simpleName.decapitalizeAsciiOnly()
 
-    fun createInstrumentationData(arguments: A): Any? = null
+    fun createInstrumentationData(
+        arguments: A,
+        classLoaderConfiguration: Sandbox.ClassLoaderConfiguration,
+        allPlugins: List<ConfiguredSandboxPlugin<*, *>>
+    ): Any? = null
+
     fun transformBeforeSandbox(
         bytecode: ByteArray,
         name: String,
