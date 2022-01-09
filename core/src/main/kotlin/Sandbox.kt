@@ -598,10 +598,10 @@ object Sandbox {
             existingActiveThreads.filter { !stoppedThreads.contains(it) }.forEach {
                 // TEMP: Report any platform classes the thread is currently initializing
                 if (existingActiveThreads.size == 1) { // Slow!
-                    @Suppress("DEPRECATION") it.suspend()
                     runCatching {
                         it.stackTrace.filterNotNull().filter { frame ->
-                            frame.moduleName?.startsWith("java.") == true && frame.methodName == "<clinit>"
+                            (frame.classLoaderName != null || frame.className.contains(".")) &&
+                                frame.methodName == "<clinit>"
                         }.forEach { frame ->
                             confinedTask.killedClassInitializers.add(frame.className)
                         }
