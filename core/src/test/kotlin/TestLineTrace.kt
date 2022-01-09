@@ -18,7 +18,9 @@ import io.kotest.matchers.shouldBe
 import io.kotest.matchers.shouldNot
 import io.kotest.matchers.shouldNotBe
 import io.kotest.matchers.string.endWith
+import io.kotest.matchers.string.shouldStartWith
 import io.kotest.matchers.types.beInstanceOf
+import org.junit.jupiter.api.assertThrows
 import java.lang.reflect.InvocationTargetException
 
 class TestLineTrace : StringSpec({
@@ -842,5 +844,19 @@ public class Main {
         trace.steps[0].line shouldBe 12
         trace.steps.map { it.line } shouldContain 7
         trace.steps.map { it.line } shouldNotContain 4
+    }
+
+    "should not be installable as a duplicate" {
+        val source = Source.fromJava(
+            """
+public class Main {
+  public static void main() {
+    System.out.println("Done");
+  }
+}""".trim()
+        )
+        assertThrows<IllegalStateException> {
+            source.compile().execute(SourceExecutionArguments().addPlugin(LineTrace).addPlugin(LineTrace))
+        }.message shouldStartWith "Duplicate plugin: edu.illinois.cs.cs125.jeed.core.LineTrace"
     }
 })

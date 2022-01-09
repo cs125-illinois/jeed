@@ -691,6 +691,14 @@ object Sandbox {
             klass
         }.toSet()
 
+        init {
+            val plugins = configuredPlugins.map { it.plugin }
+            plugins.forEachIndexed { index, plugin ->
+                if (plugins.lastIndexOf(plugin) > index) {
+                    error("Duplicate plugin: $plugin")
+                }
+            }
+        }
         internal val pluginInstrumentationData = configuredPlugins.map {
             @Suppress("UNCHECKED_CAST")
             it as ConfiguredSandboxPlugin<Any, Any>

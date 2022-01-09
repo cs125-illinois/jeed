@@ -21,6 +21,7 @@ import io.kotest.matchers.shouldBe
 import io.kotest.matchers.shouldNot
 import io.kotest.matchers.types.instanceOf
 import java.io.ByteArrayOutputStream
+import java.io.File
 import java.io.PrintStream
 import java.lang.IllegalArgumentException
 import java.util.PropertyPermission
@@ -390,6 +391,14 @@ Map confinedTasks = (Map) field.get(null);
         }
 
         executionResult should haveCompleted()
+    }
+    "should not prevent trusted code from accessing files" {
+        val executionResult = Sandbox.execute {
+            File("test.txt").exists()
+        }
+
+        executionResult should haveCompleted()
+        executionResult.permissionDenied shouldBe false
     }
     "should not allow static{} to escape the sandbox" {
         val executionResult = Source(
