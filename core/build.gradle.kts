@@ -34,7 +34,7 @@ dependencies {
     implementation("net.java.dev.jna:jna:5.10.0")
     implementation("io.github.java-diff-utils:java-diff-utils:4.11")
     implementation("com.google.googlejavaformat:google-java-format:1.13.0")
-    implementation("net.sf.extjwnl:extjwnl:2.0.3")
+    implementation("net.sf.extjwnl:extjwnl:2.0.4")
     implementation("net.sf.extjwnl:extjwnl-data-wn31:1.2")
 
     api("org.jacoco:org.jacoco.core:0.8.7")
