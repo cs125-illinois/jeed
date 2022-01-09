@@ -610,4 +610,38 @@ unsafe.getInt(null, 0); // obvious NPE, but should fail in classloading first
         } shouldNot beNull()
         executionResult.completed shouldBe false
     }
+    "should not allow Class.forName by default" {
+        val executionResult = Source.fromSnippet(
+            """
+class X {}
+var cl = X.class.getClassLoader().getParent();
+System.out.println(Class.forName("edu.illinois.cs.cs125.jeed.core.Sandbox", true, cl));
+        """.trim()
+        ).compile().execute(SourceExecutionArguments(timeout = 10000))
+        executionResult shouldNot haveCompleted()
+        executionResult.permissionDenied shouldBe true
+    }
+    "should not allow using classloaders by default" {
+        val executionResult = Source.fromSnippet(
+            """
+class X {}
+var cl = X.class.getClassLoader().getParent();
+System.out.println(cl.loadClass("edu.illinois.cs.cs125.jeed.core.Sandbox"));
+        """.trim()
+        ).compile().execute(SourceExecutionArguments(timeout = 10000))
+        executionResult shouldNot haveCompleted()
+        executionResult.permissionDenied shouldBe true
+    }
+    "should not allow using classloaders through a cast to SecureClassLoader" {
+        val executionResult = Source.fromSnippet(
+            """
+import com.puppycrawl.tools.checkstyle.api.CheckstyleException;
+import java.security.SecureClassLoader;
+var cl = (SecureClassLoader) CheckstyleException.class.getClassLoader();
+System.out.println(cl.loadClass("edu.illinois.cs.cs125.jeed.core.Sandbox"));
+        """.trim()
+        ).compile().execute(SourceExecutionArguments(timeout = 10000))
+        executionResult shouldNot haveCompleted()
+        executionResult.permissionDenied shouldBe true
+    }
 })
