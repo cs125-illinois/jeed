@@ -750,4 +750,23 @@ public class Main {
             executionResult shouldNot haveCompleted()
         }
     }
+    "should terminate a runaway static initializer" {
+        val executionResult = Source(
+            mapOf(
+                "Main.java" to """
+public class Main {
+    static {
+        while ("".hashCode() != 124) {}
+    }
+    public static void main() {
+        System.out.println("Main");
+    }
+}
+        """.trim()
+            )
+        ).compile().execute()
+
+        executionResult shouldNot haveCompleted()
+        executionResult should haveTimedOut()
+    }
 })

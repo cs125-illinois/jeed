@@ -153,7 +153,9 @@ object Sandbox {
         val executionArguments: ExecutionArguments,
         val killReason: String? = null,
         @Suppress("MemberVisibilityCanBePrivate") // For serialization
-        val pluginResults: Map<String, Any>
+        val pluginResults: Map<String, Any>,
+        @Suppress("unused") // TEMP: Report any platform class initializers interrupted by sandbox death
+        val killedClassInitializers: List<String>
     ) {
         @JsonClass(generateAdapter = true)
         data class OutputLine(
@@ -380,7 +382,8 @@ object Sandbox {
                     confinedTask.killReason,
                     confinedTask.pluginData.map { (plugin, workingData) ->
                         plugin.id to plugin.createFinalData(workingData)
-                    }.toMap()
+                    }.toMap(),
+                    confinedTask.killedClassInitializers
                 )
                 @Suppress("ThrowingExceptionsWithoutMessageOrCause")
                 runBlocking { resultChannel.send(ExecutorResult(executionResult, Exception())) }
@@ -434,6 +437,8 @@ object Sandbox {
         val pluginData = classLoader.pluginInstrumentationData.associate { (plugin, instrumentationData) ->
             plugin to plugin.createInitialData(instrumentationData, executionArguments)
         }
+
+        val killedClassInitializers: MutableList<String> = mutableListOf()
 
         private val isolatedLocksSyncRoot = Object()
         private val isolatedLocks = mutableMapOf<Any, ReentrantLock>()
@@ -589,7 +594,20 @@ object Sandbox {
             }
             val activeThreads = arrayOfNulls<Thread>(threadGroup.activeCount() * 2)
             threadGroup.enumerate(activeThreads)
-            activeThreads.filterNotNull().filter { !stoppedThreads.contains(it) }.forEach {
+            val existingActiveThreads = activeThreads.filterNotNull()
+            existingActiveThreads.filter { !stoppedThreads.contains(it) }.forEach {
+                // TEMP: Report any platform classes the thread is currently initializing
+                if (existingActiveThreads.size == 1) { // Slow!
+                    @Suppress("DEPRECATION") it.suspend()
+                    runCatching {
+                        it.stackTrace.filterNotNull().filter { frame ->
+                            frame.moduleName?.startsWith("java.") == true && frame.methodName == "<clinit>"
+                        }.forEach { frame ->
+                            confinedTask.killedClassInitializers.add(frame.className)
+                        }
+                    }
+                }
+
                 stoppedThreads.add(it)
                 @Suppress("DEPRECATION") it.stop()
             }
