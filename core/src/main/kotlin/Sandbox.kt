@@ -49,6 +49,10 @@ import kotlin.reflect.jvm.javaMethod
 private typealias SandboxCallableArguments<T> = (Pair<ClassLoader, (() -> Any?) -> JeedOutputCapture>) -> T
 
 object Sandbox {
+    init {
+        warmPlatform()
+    }
+
     @JsonClass(generateAdapter = true)
     class ClassLoaderConfiguration(
         val whitelistedClasses: Set<String> = DEFAULT_WHITELISTED_CLASSES,
