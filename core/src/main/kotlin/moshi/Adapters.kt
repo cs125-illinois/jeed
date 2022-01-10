@@ -350,7 +350,9 @@ class SourceTaskResults(
     val permissionRequests: List<Sandbox.TaskResults.PermissionRequest> = listOf(),
     val interval: Interval,
     val executionInterval: Interval,
-    val truncatedLines: Int
+    val truncatedLines: Int,
+    @Transient
+    val taskResults: Sandbox.TaskResults<*>? = null
 ) {
     constructor(
         source: Source,
@@ -370,7 +372,8 @@ class SourceTaskResults(
         taskResults.permissionRequests.toList(),
         taskResults.interval,
         taskResults.executionInterval,
-        taskResults.truncatedLines
+        taskResults.truncatedLines,
+        taskResults
     )
 }
 

@@ -38,10 +38,10 @@ suspend fun warm(indent: Int = 4, failLint: Boolean = true, quiet: Boolean = fal
         SnippetArguments(indent = indent, fileType = Source.FileType.KOTLIN)
     ).kompile()
         .execute(SourceExecutionArguments(waitForShutdown = true, timeout = COROUTINE_INIT_TIMEOUT)).output.also {
-        if (!quiet) {
-            logger.info(it)
+            if (!quiet) {
+                logger.info(it)
+            }
         }
-    }
     if (!isWindows && useDocker) {
         ProcessBuilder(listOf("/bin/sh", "-c", "docker pull ${ContainerExecutionArguments.DEFAULT_IMAGE}"))
             .start().also {
