@@ -8,6 +8,7 @@ import io.kotest.matchers.shouldBe
 import io.kotest.matchers.shouldNotBe
 import org.junit.jupiter.api.assertThrows
 import java.io.IOException
+import java.lang.IllegalStateException
 
 class TestJacoco : StringSpec({
     "it should calculate full coverage properly" {
@@ -110,7 +111,7 @@ public class Main {
     System.out.println(i);
   }
 }""".trim()
-        ).compile().execute(SourceExecutionArguments().addPlugin(LineTrace).addPlugin(Jacoco))
+        ).compile().execute(SourceExecutionArguments().addPlugin(Jacoco).addPlugin(LineTrace))
         result should haveCompleted()
         result should haveOutput("5")
 
@@ -161,18 +162,14 @@ fun main() {
             results should haveCompleted()
             results.pluginResult(Jacoco).classes.find { it.name == "PingPonger" }!!.allMissedLines() should beEmpty()
         }
-        // Line Trace after works
+        // LineTrace after works
         compiledSource.execute(SourceExecutionArguments().addPlugin(Jacoco).addPlugin(LineTrace)).let { results ->
             results should haveCompleted()
             results.pluginResult(Jacoco).classes.find { it.name == "PingPonger" }!!.allMissedLines() should beEmpty()
         }
-        /*
-        // Line trace before doesn't
-        // TODO: Decide what to do about LineTrace tracing calls interfering with Jacoco filters' recognition
-        compiledSource.execute(SourceExecutionArguments().addPlugin(LineTrace).addPlugin(Jacoco)).let { results ->
-            results should haveCompleted()
-            results.pluginResult(Jacoco).classes.find { it.name == "PingPonger" }!!.allMissedLines() should beEmpty()
+        // LineTrace before doesn't (because LineTrace interferes with Jacoco's avoidance of hash-collision branches)
+        assertThrows<IllegalStateException> {
+            compiledSource.execute(SourceExecutionArguments().addPlugin(LineTrace).addPlugin(Jacoco))
         }
-         */
     }
 })

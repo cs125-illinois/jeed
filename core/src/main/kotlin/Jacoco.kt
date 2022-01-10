@@ -15,7 +15,11 @@ import org.objectweb.asm.Opcodes
 object Jacoco : SandboxPlugin<Unit, CoverageBuilder> {
     private val instrumenter = Instrumenter(IsolatedJacocoRuntime)
 
-    override fun createInstrumentationData(arguments: Unit): Any {
+    override fun createInstrumentationData(
+        arguments: Unit,
+        classLoaderConfiguration: Sandbox.ClassLoaderConfiguration,
+        allPlugins: List<ConfiguredSandboxPlugin<*, *>>
+    ): Any {
         return JacocoInstrumentationData()
     }
 

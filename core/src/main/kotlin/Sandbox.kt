@@ -17,7 +17,6 @@ import org.objectweb.asm.Type
 import java.io.FilePermission
 import java.io.OutputStream
 import java.io.PrintStream
-import java.lang.reflect.Constructor
 import java.lang.reflect.InvocationTargetException
 import java.lang.reflect.Modifier
 import java.security.AccessControlContext
@@ -49,6 +48,10 @@ import kotlin.reflect.jvm.javaMethod
 private typealias SandboxCallableArguments<T> = (Pair<ClassLoader, (() -> Any?) -> JeedOutputCapture>) -> T
 
 object Sandbox {
+    init {
+        warmPlatform()
+    }
+
     @JsonClass(generateAdapter = true)
     class ClassLoaderConfiguration(
         val whitelistedClasses: Set<String> = DEFAULT_WHITELISTED_CLASSES,
@@ -93,7 +96,10 @@ object Sandbox {
             val DEFAULT_UNSAFE_EXCEPTIONS = setOf<String>()
             val DEFAULT_ISOLATED_CLASSES = setOf<String>()
             val DEFAULT_BLACKLISTED_METHODS = setOf(
-                MethodFilter("java.lang.invoke.MethodHandles.Lookup", "")
+                MethodFilter("java.lang.invoke.MethodHandles.Lookup", ""),
+                MethodFilter("java.lang.Class", "forName"),
+                MethodFilter("java.lang.Class", "getClassLoader", allowInReload = true),
+                MethodFilter("java.lang.ClassLoader", "", allowInReload = true)
             )
             val PERMANENTLY_BLACKLISTED_CLASSES = setOf(
                 "edu.illinois.cs.cs125.jeed.",
@@ -130,7 +136,7 @@ object Sandbox {
     }
 
     @JsonClass(generateAdapter = true)
-    data class MethodFilter(val ownerClassPrefix: String, val methodPrefix: String)
+    data class MethodFilter(val ownerClassPrefix: String, val methodPrefix: String, val allowInReload: Boolean = false)
 
     @Suppress("LongParameterList")
     class TaskResults<T>(
@@ -147,7 +153,9 @@ object Sandbox {
         val executionArguments: ExecutionArguments,
         val killReason: String? = null,
         @Suppress("MemberVisibilityCanBePrivate") // For serialization
-        val pluginResults: Map<String, Any>
+        val pluginResults: Map<String, Any>,
+        @Suppress("unused") // TEMP: Report any platform class initializers interrupted by sandbox death
+        val killedClassInitializers: List<String>
     ) {
         @JsonClass(generateAdapter = true)
         data class OutputLine(
@@ -374,7 +382,8 @@ object Sandbox {
                     confinedTask.killReason,
                     confinedTask.pluginData.map { (plugin, workingData) ->
                         plugin.id to plugin.createFinalData(workingData)
-                    }.toMap()
+                    }.toMap(),
+                    confinedTask.killedClassInitializers
                 )
                 @Suppress("ThrowingExceptionsWithoutMessageOrCause")
                 runBlocking { resultChannel.send(ExecutorResult(executionResult, Exception())) }
@@ -428,6 +437,8 @@ object Sandbox {
         val pluginData = classLoader.pluginInstrumentationData.associate { (plugin, instrumentationData) ->
             plugin to plugin.createInitialData(instrumentationData, executionArguments)
         }
+
+        val killedClassInitializers: MutableList<String> = mutableListOf()
 
         private val isolatedLocksSyncRoot = Object()
         private val isolatedLocks = mutableMapOf<Any, ReentrantLock>()
@@ -583,7 +594,20 @@ object Sandbox {
             }
             val activeThreads = arrayOfNulls<Thread>(threadGroup.activeCount() * 2)
             threadGroup.enumerate(activeThreads)
-            activeThreads.filterNotNull().filter { !stoppedThreads.contains(it) }.forEach {
+            val existingActiveThreads = activeThreads.filterNotNull()
+            existingActiveThreads.filter { !stoppedThreads.contains(it) }.forEach {
+                // TEMP: Report any platform classes the thread is currently initializing
+                if (existingActiveThreads.size == 1) { // Slow!
+                    runCatching {
+                        it.stackTrace.filterNotNull().filter { frame ->
+                            (frame.classLoaderName != null || frame.className.contains(".")) &&
+                                frame.methodName == "<clinit>"
+                        }.forEach { frame ->
+                            confinedTask.killedClassInitializers.add(frame.className)
+                        }
+                    }
+                }
+
                 stoppedThreads.add(it)
                 @Suppress("DEPRECATION") it.stop()
             }
@@ -691,10 +715,18 @@ object Sandbox {
             klass
         }.toSet()
 
+        init {
+            val plugins = configuredPlugins.map { it.plugin }
+            plugins.forEachIndexed { index, plugin ->
+                if (plugins.lastIndexOf(plugin) > index) {
+                    error("Duplicate plugin: $plugin")
+                }
+            }
+        }
         internal val pluginInstrumentationData = configuredPlugins.map {
             @Suppress("UNCHECKED_CAST")
             it as ConfiguredSandboxPlugin<Any, Any>
-            it.plugin to it.plugin.createInstrumentationData(it.arguments)
+            it.plugin to it.plugin.createInstrumentationData(it.arguments, classLoaderConfiguration, configuredPlugins)
         } // Intentionally not toMap'd so that order is preserved
 
         override val definedClasses: Set<String> get() = knownClasses.keys.toSet()
@@ -850,7 +882,6 @@ object Sandbox {
         private val enclosureMethodDescription =
             Type.getMethodDescriptor(RewriteBytecode::checkSandboxEnclosure.javaMethod)
                 ?: error("should be able to retrieve method signature for enclosure checker")
-        private val permittedNoClassDefFoundErrorClasses = setOf(Constructor::class.java.name)
         private val syncNotifyMethods = mapOf(
             "wait:()V" to RewriteBytecode::conditionWait,
             "wait:(J)V" to RewriteBytecode::conditionWaitMs,
@@ -868,13 +899,6 @@ object Sandbox {
             val confinedTask = confinedTaskByThreadGroup() ?: error("only confined tasks should call this method")
             if (confinedTask.shuttingDown) {
                 throw SandboxDeath()
-            }
-            if (throwable.javaClass === NoClassDefFoundError::class.java) {
-                val notFoundClass = throwable.message?.let { binaryNameToClassName(it) } ?: throw throwable
-                if (notFoundClass in permittedNoClassDefFoundErrorClasses) {
-                    // Allow coroutines (DebugProbesImpl) to gracefully handle the lack of reflection capability
-                    return
-                }
             }
             // This check is required because of how we handle finally blocks
             if (confinedTask.classLoader.unsafeExceptionClasses.any { it.isAssignableFrom(throwable.javaClass) }) {
@@ -909,6 +933,7 @@ object Sandbox {
 
         @JvmStatic
         fun conditionWaitMsNs(monitor: Any, timeout: Long, plusNanos: Int) {
+            require(timeout >= 0) { "timeout cannot be negative" }
             require(plusNanos >= 0) { "nanos cannot be negative" }
             require(plusNanos < NS_PER_MS) { "nanos cannot specify another full ms" }
             val confinedTask = confinedTaskByThreadGroup() ?: error("only confined tasks should call this method")
@@ -1017,6 +1042,7 @@ object Sandbox {
                             unsafeExceptionClasses,
                             blacklistedMethods,
                             preinspection.badTryCatchBlockPositions,
+                            context,
                             super.visitMethod(
                                 transformedModifiers,
                                 transformedMethodName,
@@ -1124,6 +1150,7 @@ object Sandbox {
             val unsafeExceptionClasses: Set<Class<*>>,
             val blacklistedMethods: Set<MethodFilter>,
             val badTryCatchBlockPositions: Set<Int>,
+            val rewritingContext: RewritingContext,
             methodVisitor: MethodVisitor
         ) : MonitorIsolatingMethodVisitor(methodVisitor) {
             private val labelsToRewrite: MutableSet<Label> = mutableSetOf()
@@ -1220,7 +1247,9 @@ object Sandbox {
             ) {
                 val ownerClassName = binaryNameToClassName(owner)
                 val methodIsBlacklisted = blacklistedMethods.any {
-                    ownerClassName.startsWith(it.ownerClassPrefix) && name.startsWith(it.methodPrefix)
+                    ownerClassName.startsWith(it.ownerClassPrefix) &&
+                        name.startsWith(it.methodPrefix) &&
+                        (rewritingContext == RewritingContext.UNTRUSTED || !it.allowInReload)
                 }
                 if (methodIsBlacklisted) {
                     // Adding an extra call instead of replacing the call avoids the need for fiddly stack manipulation
@@ -1770,7 +1799,12 @@ interface SandboxPlugin<A : Any, V : Any> {
     val id: String
         get() = javaClass.simpleName.decapitalizeAsciiOnly()
 
-    fun createInstrumentationData(arguments: A): Any? = null
+    fun createInstrumentationData(
+        arguments: A,
+        classLoaderConfiguration: Sandbox.ClassLoaderConfiguration,
+        allPlugins: List<ConfiguredSandboxPlugin<*, *>>
+    ): Any? = null
+
     fun transformBeforeSandbox(
         bytecode: ByteArray,
         name: String,

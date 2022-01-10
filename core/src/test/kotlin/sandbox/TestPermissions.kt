@@ -21,6 +21,7 @@ import io.kotest.matchers.shouldBe
 import io.kotest.matchers.shouldNot
 import io.kotest.matchers.types.instanceOf
 import java.io.ByteArrayOutputStream
+import java.io.File
 import java.io.PrintStream
 import java.lang.IllegalArgumentException
 import java.util.PropertyPermission
@@ -391,6 +392,14 @@ Map confinedTasks = (Map) field.get(null);
 
         executionResult should haveCompleted()
     }
+    "should not prevent trusted code from accessing files" {
+        val executionResult = Sandbox.execute {
+            File("test.txt").exists()
+        }
+
+        executionResult should haveCompleted()
+        executionResult.permissionDenied shouldBe false
+    }
     "should not allow static{} to escape the sandbox" {
         val executionResult = Source(
             mapOf(
@@ -600,5 +609,39 @@ unsafe.getInt(null, 0); // obvious NPE, but should fail in classloading first
             it.permission.name.startsWith("accessClassInPackage.sun")
         } shouldNot beNull()
         executionResult.completed shouldBe false
+    }
+    "should not allow Class.forName by default" {
+        val executionResult = Source.fromSnippet(
+            """
+class X {}
+var cl = X.class.getClassLoader().getParent();
+System.out.println(Class.forName("edu.illinois.cs.cs125.jeed.core.Sandbox", true, cl));
+        """.trim()
+        ).compile().execute(SourceExecutionArguments(timeout = 10000))
+        executionResult shouldNot haveCompleted()
+        executionResult.permissionDenied shouldBe true
+    }
+    "should not allow using classloaders by default" {
+        val executionResult = Source.fromSnippet(
+            """
+class X {}
+var cl = X.class.getClassLoader().getParent();
+System.out.println(cl.loadClass("edu.illinois.cs.cs125.jeed.core.Sandbox"));
+        """.trim()
+        ).compile().execute(SourceExecutionArguments(timeout = 10000))
+        executionResult shouldNot haveCompleted()
+        executionResult.permissionDenied shouldBe true
+    }
+    "should not allow using classloaders through a cast to SecureClassLoader" {
+        val executionResult = Source.fromSnippet(
+            """
+import com.puppycrawl.tools.checkstyle.api.CheckstyleException;
+import java.security.SecureClassLoader;
+var cl = (SecureClassLoader) CheckstyleException.class.getClassLoader();
+System.out.println(cl.loadClass("edu.illinois.cs.cs125.jeed.core.Sandbox"));
+        """.trim()
+        ).compile().execute(SourceExecutionArguments(timeout = 10000))
+        executionResult shouldNot haveCompleted()
+        executionResult.permissionDenied shouldBe true
     }
 })

@@ -54,7 +54,17 @@ object LineTrace : SandboxPluginWithDefaultArguments<LineTraceArguments, LineTra
         return LineTraceArguments()
     }
 
-    override fun createInstrumentationData(arguments: LineTraceArguments): Any {
+    override fun createInstrumentationData(
+        arguments: LineTraceArguments,
+        classLoaderConfiguration: Sandbox.ClassLoaderConfiguration,
+        allPlugins: List<ConfiguredSandboxPlugin<*, *>>
+    ): Any {
+        val plugins = allPlugins.map { it.plugin }
+        val thisIndex = plugins.indexOf(this)
+        val jacocoIndex = plugins.indexOf(Jacoco).takeIf { it >= 0 }
+        if (jacocoIndex != null && thisIndex < jacocoIndex) {
+            error("LineTrace should run after Jacoco to avoid interfering with probe placement")
+        }
         return LineTraceInstrumentationData(arguments)
     }
 
@@ -440,6 +450,6 @@ data class LineTraceResult(
     }
 }
 
-class LineLimitExceeded : UnknownError(LineTrace.KILL_REASON) {
+class LineLimitExceeded : Error(LineTrace.KILL_REASON) {
     override fun fillInStackTrace() = this
 }
