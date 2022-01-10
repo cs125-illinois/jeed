@@ -102,7 +102,7 @@ private val backgroundScope = CoroutineScope(Dispatchers.IO)
 fun main() = runBlocking<Unit> {
     logger.info(configuration.toJson.toText())
 
-    backgroundScope.launch { warm(2) }
+    backgroundScope.launch { warm(2, failLint = false) }
     backgroundScope.launch {
         delay(Duration.ofMinutes(configuration[TopLevel.sentinelDelay]))
         try {

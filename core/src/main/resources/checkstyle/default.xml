@@ -191,5 +191,9 @@
         <module name="OneStatementPerLine"/>
         <module name="EmptyStatement"/>
 
+        <!-- Jeed: new checks 1-9-2022 -->
+        <module name="ParameterAssignment"/>
+        <module name="StringLiteralEquality"/>
+
     </module>
 </module>
