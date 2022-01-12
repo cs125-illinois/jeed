@@ -2,29 +2,20 @@ import { Request, Response, ServerStatus } from "@cs124/jeed-types"
 import { googleLogin } from "@cs124/koa-google-login"
 import cors from "@koa/cors"
 import Router from "@koa/router"
-import { createHttpTerminator } from "http-terminator"
+import retryBuilder from "fetch-retry"
+import originalFetch from "isomorphic-fetch"
 import Koa, { Context } from "koa"
 import koaBody from "koa-body"
 import ratelimit from "koa-ratelimit"
 import { MongoClient } from "mongodb"
 import mongodbUri from "mongodb-uri"
-import originalFetch, { Response as FetchResponse } from "node-fetch"
 import { String } from "runtypes"
-// eslint-disable-next-line @typescript-eslint/no-var-requires
-const fetch = require("fetch-retry")(originalFetch)
+const fetch = retryBuilder(originalFetch)
 
 const BACKEND = String.check(process.env.JEED_SERVER)
 
-const { username, database } = String.guard(process.env.MONGODB)
-  ? mongodbUri.parse(process.env.MONGODB)
-  : { username: undefined, database: undefined }
-const client = String.guard(process.env.MONGODB)
-  ? MongoClient.connect(process.env.MONGODB, {
-      useNewUrlParser: true,
-      useUnifiedTopology: true,
-      ...(username && { authMechanism: "SCRAM-SHA-1" }),
-    })
-  : undefined
+const { database } = String.guard(process.env.MONGODB) ? mongodbUri.parse(process.env.MONGODB) : { database: undefined }
+const client = String.guard(process.env.MONGODB) ? MongoClient.connect(process.env.MONGODB) : undefined
 const _collection = client?.then((c) => c.db(database).collection(process.env.MONGODB_COLLECTION || "jeed"))
 const validDomains = process.env.VALID_DOMAINS?.split(",").map((s) => s.trim())
 
@@ -45,11 +36,15 @@ const STATUS = Object.assign(
   { mongoDB: client !== undefined }
 )
 const getStatus = async (retries = 0) => {
-  return {
-    ...STATUS,
-    status: ServerStatus.check(
-      await fetch(BACKEND, { retries, retryDelay: 1000 }).then((r: FetchResponse) => r.json())
-    ),
+  try {
+    return {
+      ...STATUS,
+      status: ServerStatus.check(
+        await fetch(BACKEND, { retries, retryOn: (attempt) => attempt < retries }).then((r) => r.json())
+      ),
+    }
+  } catch (err) {
+    return { ...STATUS }
   }
 }
 
@@ -68,7 +63,7 @@ router.post("/", async (ctx) => {
         "Content-Type": "application/json",
       },
       body: JSON.stringify(request),
-    }).then(async (r: FetchResponse) => {
+    }).then(async (r) => {
       if (r.status === 200) {
         return Response.check(await r.json())
       } else {
@@ -144,17 +139,17 @@ const server = new Koa({ proxy: true })
 
 Promise.resolve().then(async () => {
   await _collection
-  console.log(await getStatus(process.env.STARTUP_RETRY_COUNT ? parseInt(process.env.STARTUP_RETRY_COUNT) : 4))
-  const s = server.listen(process.env.PORT || 8888)
+  getStatus(process.env.STARTUP_RETRY_COUNT ? parseInt(process.env.STARTUP_RETRY_COUNT) : 32).then((s) => {
+    console.log(s)
+  })
+  server.listen(process.env.PORT || 8888)
   server.on("error", (err) => {
     console.error(err)
   })
-  const terminator = createHttpTerminator({ server: s })
-  process.on("SIGTERM", async () => {
-    await terminator.terminate()
-    process.exit(0)
-  })
 })
 process.on("uncaughtException", (err) => {
+  console.error(err)
+})
+process.on("unhandledRejection", (err) => {
   console.error(err)
 })

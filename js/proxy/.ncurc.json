@@ -1,3 +1,3 @@
 {
-  "reject": ["mongodb", "@types/mongodb", "node-fetch"]
+  "reject": ["node-fetch"]
 }

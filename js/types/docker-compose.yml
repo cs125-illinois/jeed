@@ -1,9 +1,0 @@
-version: "3"
-services:
-  jeed:
-    image: "cs125/jeed:latest"
-    ports:
-      - "8888:8888"
-    environment:
-      - "LIMITS_EXECUTION_TIMEOUT=1000"
-      - "LIMITS_EXECUTION_MAXEXTRATHREADS=8"
