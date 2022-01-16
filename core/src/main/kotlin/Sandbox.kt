@@ -659,6 +659,9 @@ object Sandbox {
         val sandboxedClassLoader: SandboxedClassLoader
     ) : Callable<T> {
         override fun call(): T {
+            sandboxedClassLoader.pluginInstrumentationData.forEach { (plugin, _) ->
+                plugin.executionStartedInSandbox()
+            }
             return callable(Pair(sandboxedClassLoader, Sandbox::redirectOutput))
         }
     }
@@ -1818,6 +1821,7 @@ interface SandboxPlugin<A : Any, V : Any> {
     ): ByteArray = bytecode
 
     fun createInitialData(instrumentationData: Any?, executionArguments: Sandbox.ExecutionArguments): Any?
+    fun executionStartedInSandbox() {}
     fun executionFinished(workingData: Any?) {}
     fun createFinalData(workingData: Any?): V
     val requiredClasses: Set<Class<*>>

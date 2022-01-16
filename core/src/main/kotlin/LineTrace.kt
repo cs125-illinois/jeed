@@ -11,6 +11,8 @@ import org.objectweb.asm.Opcodes
 import org.objectweb.asm.Type
 import kotlin.reflect.jvm.javaMethod
 
+typealias LineCallback = (source: String, line: Int) -> Unit
+
 object LineTrace : SandboxPluginWithDefaultArguments<LineTraceArguments, LineTraceResult> {
     const val KILL_REASON = "exceededLineLimit"
 
@@ -23,6 +25,7 @@ object LineTrace : SandboxPluginWithDefaultArguments<LineTraceArguments, LineTra
     private val threadData: ThreadLocal<LineTraceWorkingData.PerThreadWorkingData> = ThreadLocal()
     private val threadIndex: ThreadLocal<Int> = ThreadLocal()
     private val threadInSingleThreadTask: ThreadLocal<Boolean> = ThreadLocal()
+    private val threadCallbacks: ThreadLocal<List<LineCallback>> = ThreadLocal()
     private val initializedThreadLocals = ThreadLocal.withInitial { false }
     private fun ensureThreadLocalsInitialized() {
         if (initializedThreadLocals.get()) return
@@ -36,6 +39,7 @@ object LineTrace : SandboxPluginWithDefaultArguments<LineTraceArguments, LineTra
             workingData.threads[workingData.nextThreadIndex] = data
             threadIndex.set(workingData.nextThreadIndex)
             workingData.nextThreadIndex++
+            threadCallbacks.set(workingData.lineCallbacks.toList())
         }
         threadArguments.set(workingData.arguments)
         threadInSingleThreadTask.set(workingData.singleThread)
@@ -94,6 +98,9 @@ object LineTrace : SandboxPluginWithDefaultArguments<LineTraceArguments, LineTra
                     LineTraceArguments.RunLineLimitAction.KILL_SANDBOX -> Sandbox.CurrentTask.kill(KILL_REASON)
                     LineTraceArguments.RunLineLimitAction.THROW_ERROR -> throw LineLimitExceeded()
                 }
+            }
+            threadCallbacks.get().forEach {
+                it(file, line)
             }
             synchronizedIfNeeded(data.syncLock) {
                 if (args.recordedLineLimit >= totalLinesRun) {
@@ -173,6 +180,14 @@ object LineTrace : SandboxPluginWithDefaultArguments<LineTraceArguments, LineTra
         }
     }
 
+    fun addLineCallback(callback: LineCallback) {
+        require(!initializedThreadLocals.get()) { "This thread already began collecting line data" }
+        val workingData: LineTraceWorkingData = Sandbox.CurrentTask.getWorkingData(this)
+        synchronized(workingData.threadTrackingSyncRoot) {
+            workingData.lineCallbacks.add(callback)
+        }
+    }
+
     private data class ClassPreinspection(
         val sourceFile: String?,
         val methodPreinspections: Map<MethodId, Map<Int, LabelLine>>
@@ -191,6 +206,7 @@ object LineTrace : SandboxPluginWithDefaultArguments<LineTraceArguments, LineTra
         val singleThread: Boolean,
         val threads: MutableMap<Int, PerThreadWorkingData> = mutableMapOf(),
         var nextThreadIndex: Int = LineTraceResult.MAIN_THREAD,
+        val lineCallbacks: MutableList<LineCallback> = mutableListOf(),
         val threadTrackingSyncRoot: Any = Object()
     ) {
         class PerThreadWorkingData(

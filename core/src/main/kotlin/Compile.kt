@@ -11,6 +11,7 @@ import java.net.URI
 import java.nio.charset.Charset
 import java.time.Instant
 import java.util.Locale
+import java.util.Objects
 import javax.tools.Diagnostic
 import javax.tools.DiagnosticListener
 import javax.tools.FileObject
@@ -54,7 +55,8 @@ data class CompilationArguments(
     val useCache: Boolean? = null,
     val waitForCache: Boolean = false,
     val isolatedClassLoader: Boolean = false,
-    val parameters: Boolean = DEFAULT_PARAMETERS
+    val parameters: Boolean = DEFAULT_PARAMETERS,
+    val debugInfo: Boolean = DEFAULT_DEBUG
 ) {
     companion object {
         const val DEFAULT_WERROR = false
@@ -62,6 +64,7 @@ data class CompilationArguments(
         const val DEFAULT_ENABLE_PREVIEW = true
         const val PREVIEW_STARTED = 11
         const val DEFAULT_PARAMETERS = false
+        const val DEFAULT_DEBUG = false
     }
 
     override fun equals(other: Any?): Boolean {
@@ -76,18 +79,13 @@ data class CompilationArguments(
         if (useCache != other.useCache) return false
         if (waitForCache != other.waitForCache) return false
         if (parameters != other.parameters) return false
+        if (debugInfo != other.debugInfo) return false
 
         return true
     }
 
     override fun hashCode(): Int {
-        var result = wError.hashCode()
-        result = 31 * result + enablePreview.hashCode()
-        result = 31 * result + Xlint.hashCode()
-        result = 31 * result + useCache.hashCode()
-        result = 31 * result + waitForCache.hashCode()
-        result = 31 * result + parameters.hashCode()
-        return result
+        return Objects.hash(wError, enablePreview, Xlint, useCache, waitForCache, parameters, debugInfo)
     }
 }
 
@@ -143,6 +141,9 @@ private fun compile(
     }
     if (compilationArguments.enablePreview && systemCompilerVersion >= CompilationArguments.PREVIEW_STARTED) {
         options.addAll(listOf("--enable-preview", "--release", systemCompilerVersion.toString()))
+    }
+    if (compilationArguments.debugInfo) {
+        options.add("-g")
     }
 
     synchronized(javacSyncRoot) {
