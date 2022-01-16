@@ -1495,11 +1495,13 @@ object Sandbox {
             Pair(block(), null)
         } catch (e: Throwable) {
             if (e is ThreadDeath || e is LineLimitExceeded) {
+                confinedTask.currentRedirectedLines = null
                 throw e
             }
             Pair(null, e)
+        } finally {
+            confinedTask.redirectingOutput = false
         }
-        confinedTask.redirectingOutput = false
 
         val flushedStdout =
             confinedTask.currentRedirectedLines!![TaskResults.OutputLine.Console.STDOUT]?.toString() ?: ""

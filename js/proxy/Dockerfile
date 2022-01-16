@@ -1,13 +1,13 @@
 FROM node:14.8-alpine
 
-ARG VERSION
-ENV VERSION=$VERSION
-ARG GIT_COMMIT
-ENV GIT_COMMIT=$GIT_COMMIT
-ARG BUILD_DATE
-ENV BUILD_DATE=$BUILD_DATE
+RUN apk add --no-cache tini
+RUN apk add --no-cache entr --repository=http://dl-cdn.alpinelinux.org/alpine/edge/community
+ENV ENTR_INOTIFY_WORKAROUND 1
 
-COPY dist/index.js .
-COPY dist/index.js.map .
+WORKDIR /server/
+COPY dist dist
 
-CMD [ "node", "--enable-source-maps", "index.js"]
+ENTRYPOINT ["/sbin/tini", "--"]
+CMD [ "sh", "-c", "echo /server/dist/index.js | entr -rn node --enable-source-maps /_"]
+
+# vim: tw=0

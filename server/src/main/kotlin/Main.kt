@@ -82,6 +82,11 @@ fun Application.jeed() {
                 try {
                     val result = job.run()
                     currentStatus.lastRequest = Instant.now()
+                    result.completed.execution?.taskResults?.killedClassInitializers?.also {
+                        if (it.isNotEmpty()) {
+                            logger.warn("Execution killed class initializers: $it")
+                        }
+                    }
                     call.respond(result)
                 } catch (e: Exception) {
                     logger.warn(e.getStackTraceAsString())
@@ -97,11 +102,11 @@ private val backgroundScope = CoroutineScope(Dispatchers.IO)
 fun main() = runBlocking<Unit> {
     logger.info(configuration.toJson.toText())
 
-    backgroundScope.launch { warm(2) }
+    backgroundScope.launch { warm(2, failLint = false) }
     backgroundScope.launch {
         delay(Duration.ofMinutes(configuration[TopLevel.sentinelDelay]))
         try {
-            warm(2)
+            warm(2, failLint = false)
             logger.debug("Sentinel succeeded")
         } catch (e: CancellationException) {
             return@launch

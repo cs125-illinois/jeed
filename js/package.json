@@ -1,4 +1,7 @@
 {
-    "private": true,
-    "workspaces": ["types", "output", "react", "jquery", "proxy", "demo"]
+  "private": true,
+  "workspaces": ["types", "output", "react", "jquery", "proxy", "demo"],
+  "scripts": {
+    "backend": "docker compose --env-file .env.development up"
+  }
 }
