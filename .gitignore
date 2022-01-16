@@ -9,6 +9,7 @@ test-output/
 *.swo
 *.iml
 hs_err_*.log
+*.asm
 .kotlintest/
 
 # User-specific stuff
