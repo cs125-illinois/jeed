@@ -1,7 +1,7 @@
 {
   "private": true,
   "name": "proxy",
-  "version": "2022.1.0",
+  "version": "2022.1.1",
   "scripts": {
     "build": "rimraf dist && esbuild src/index.ts --sourcemap --bundle --platform=node --outfile=dist/index.js",
     "clean": "rimraf dist",
@@ -16,7 +16,7 @@
     "prettier": "prettier -w --plugin=prettier-plugin-organize-imports . && prettier-package-json --write"
   },
   "dependencies": {
-    "@cs124/jeed-types": "2022.1.0",
+    "@cs124/jeed-types": "2022.1.1",
     "@cs124/koa-google-login": "2021.11.0",
     "@koa/cors": "^3.1.0",
     "@koa/router": "^10.1.1",

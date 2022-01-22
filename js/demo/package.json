@@ -13,8 +13,8 @@
     "prettier": "prettier -w --plugin=prettier-plugin-organize-imports . && prettier-package-json --write"
   },
   "dependencies": {
-    "@cs124/jeed-output": "2022.1.0",
-    "@cs124/jeed-react": "2022.1.0",
+    "@cs124/jeed-output": "2022.1.1",
+    "@cs124/jeed-react": "2022.1.1",
     "@cs124/react-google-login": "^2021.11.0",
     "next": "12.0.8",
     "react": "17.0.2",
