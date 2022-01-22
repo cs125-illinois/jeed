@@ -10,7 +10,6 @@ services:
       - JEED_SERVER=http://jeed:8888
       - MONGODB=mongodb://mongodb:27017/jeed_demo
       - GOOGLE_CLIENT_IDS=${NEXT_PUBLIC_GOOGLE_CLIENT_ID}
-      - PORT=8889
     depends_on:
       - jeed
       - mongodb
