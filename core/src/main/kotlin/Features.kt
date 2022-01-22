@@ -47,6 +47,7 @@ enum class FeatureName(val description: String) {
 
     // Methods
     METHOD("method declarations"),
+    RETURN("method return"),
     CONSTRUCTOR("constructor declarations"),
     GETTER("getters"),
     SETTER("setters"),
@@ -134,8 +135,7 @@ data class Features(
     var featureMap: FeatureMap = FeatureMap(),
     var importList: MutableSet<String> = mutableSetOf(),
     var typeList: MutableSet<String> = mutableSetOf(),
-    var identifierList: MutableSet<String> = mutableSetOf(),
-    var skeleton: String = ""
+    var identifierList: MutableSet<String> = mutableSetOf()
 ) {
     operator fun plus(other: Features): Features {
         val map = FeatureMap()
@@ -146,8 +146,7 @@ data class Features(
             map,
             (importList + other.importList).toMutableSet(),
             (typeList + other.typeList).toMutableSet(),
-            (identifierList + other.identifierList).toMutableSet(),
-            skeleton + " " + other.skeleton
+            (identifierList + other.identifierList).toMutableSet()
         )
     }
 }
@@ -632,7 +631,15 @@ private class FeatureListener(val source: Source, entry: Map.Entry<String, Strin
         val numBrackets = ctx.typeType().text.filter { it == '[' || it == ']' }.length
         when {
             numBrackets > 2 -> count(FeatureName.MULTIDIMENSIONAL_ARRAYS, 1)
-            numBrackets > 0 -> count(FeatureName.ARRAYS, 1)
+            numBrackets > 0 -> {
+                count(FeatureName.ARRAYS, 1)
+                if (ctx.variableDeclarators().variableDeclarator().filter {
+                    it.variableInitializer()?.arrayInitializer() != null
+                }.isEmpty()
+                ) {
+                    count(FeatureName.NEW_KEYWORD, -1)
+                }
+            }
         }
         for (declarator in ctx.variableDeclarators().variableDeclarator()) {
             currentFeatures.features.identifierList.add(declarator.variableDeclaratorId().identifier().text)
@@ -656,6 +663,7 @@ private class FeatureListener(val source: Source, entry: Map.Entry<String, Strin
 
     @Suppress("LongMethod", "ComplexMethod", "NestedBlockDepth")
     override fun enterStatement(ctx: JavaParser.StatementContext) {
+        /*
         if (currentFeatures.features.skeleton.isEmpty()) {
             val skeleton = ctx.text
             for (i in skeleton.indices) {
@@ -691,6 +699,7 @@ private class FeatureListener(val source: Source, entry: Map.Entry<String, Strin
                 currentFeatures.features.skeleton = currentFeatures.features.skeleton.replace("{ } ", "")
             }
         }
+         */
         ctx.statementExpression?.also {
             @Suppress("ComplexCondition")
             if (it.text.startsWith("System.out.println(") ||
@@ -700,6 +709,8 @@ private class FeatureListener(val source: Source, entry: Map.Entry<String, Strin
             ) {
                 count(FeatureName.PRINT_STATEMENTS, 1)
                 count(FeatureName.DOTTED_VARIABLE_ACCESS, -1)
+                count(FeatureName.DOTTED_METHOD_CALL, -1)
+                count(FeatureName.DOT_NOTATION, -2)
             }
             if (it.bop?.text == "=") {
                 count(FeatureName.VARIABLE_ASSIGNMENTS, 1)
@@ -769,6 +780,9 @@ private class FeatureListener(val source: Source, entry: Map.Entry<String, Strin
         }
         ctx.CONTINUE()?.also {
             count(FeatureName.CONTINUE, 1)
+        }
+        ctx.RETURN()?.also {
+            count(FeatureName.RETURN, 1)
         }
         // Count nested statements
         for (ctxStatement in ctx.statement()) {
@@ -976,97 +990,5 @@ fun Source.features(names: Set<String> = sources.keys.toSet()): FeaturesResults 
         )
     } catch (e: JeedParsingException) {
         throw FeaturesFailed(e.errors)
-    }
-}
-
-@Suppress("MagicNumber", "UNUSED")
-val lessonMap = mapOf(
-    FeatureName.LOCAL_VARIABLE_DECLARATIONS to 0,
-    FeatureName.VARIABLE_ASSIGNMENTS to 0,
-    FeatureName.VARIABLE_REASSIGNMENTS to 1,
-    FeatureName.ARITHMETIC_OPERATORS to 1,
-    FeatureName.ASSIGNMENT_OPERATORS to 1,
-    FeatureName.UNARY_OPERATORS to 1,
-    FeatureName.COMPARISON_OPERATORS to 2,
-    FeatureName.IF_STATEMENTS to 2,
-    FeatureName.ELSE_STATEMENTS to 2,
-    FeatureName.ELSE_IF to 3,
-    FeatureName.LOGICAL_OPERATORS to 3,
-    FeatureName.ARRAYS to 4,
-    FeatureName.ARRAY_ACCESS to 4,
-    FeatureName.NEW_KEYWORD to 4,
-    FeatureName.ARRAY_LITERAL to 4,
-    FeatureName.WHILE_LOOPS to 5,
-    FeatureName.FOR_LOOPS to 5,
-    FeatureName.BREAK to 6,
-    FeatureName.METHOD to 7,
-    FeatureName.ENHANCED_FOR to 8,
-    FeatureName.STRING to 9,
-    FeatureName.CASTING to 10,
-    FeatureName.NULL to 11,
-    FeatureName.MULTIDIMENSIONAL_ARRAYS to 12,
-    FeatureName.DO_WHILE_LOOPS to 13,
-    FeatureName.TYPE_INFERENCE to 14,
-    FeatureName.ASSERT to 15,
-    FeatureName.SWITCH to 15,
-    FeatureName.CONTINUE to 15,
-    FeatureName.CLASS to 16,
-    FeatureName.GETTER to 17,
-    FeatureName.SETTER to 17,
-    FeatureName.CONSTRUCTOR to 18,
-    FeatureName.VISIBILITY_MODIFIERS to 19,
-    FeatureName.RECORD to 20,
-    FeatureName.STATIC_METHOD to 21,
-    FeatureName.THIS to 21,
-    FeatureName.EXTENDS to 22,
-    FeatureName.SUPER to 22,
-    FeatureName.OVERRIDE to 22,
-    FeatureName.INSTANCEOF to 23,
-    FeatureName.REFERENCE_EQUALITY to 24,
-    FeatureName.IMPORT to 25,
-    FeatureName.FINAL_METHOD to 26,
-    FeatureName.FINAL_CLASS to 26,
-    FeatureName.INTERFACE to 27,
-    FeatureName.ABSTRACT_CLASS to 27,
-    FeatureName.ABSTRACT_METHOD to 27,
-    FeatureName.COMPARABLE to 27,
-    FeatureName.IMPLEMENTS to 28,
-    FeatureName.BOXING_CLASSES to 29,
-    FeatureName.ANONYMOUS_CLASSES to 30,
-    FeatureName.LAMBDA_EXPRESSIONS to 31,
-    FeatureName.TYPE_PARAMETERS to 32,
-    FeatureName.NESTED_CLASS to 33,
-    FeatureName.TRY_BLOCK to 34,
-    FeatureName.THROW to 35,
-    FeatureName.FINALLY to 36,
-    FeatureName.THROWS to 36,
-    FeatureName.RECURSION to 37,
-    FeatureName.GENERIC_CLASS to 38,
-    FeatureName.STREAM to 39
-)
-
-fun generateComparator() = Comparator<FeatureValue> { first, second ->
-    val firstFeatures = first.features.featureMap.filterValues { it > 0 }
-    val secondFeatures = second.features.featureMap.filterValues { it > 0 }
-    var firstLevel = 0
-    for (featureValue in firstFeatures.keys) {
-        firstLevel = if (lessonMap[featureValue]!! > firstLevel) {
-            lessonMap[featureValue]!!
-        } else {
-            firstLevel
-        }
-    }
-    var secondLevel = 0
-    for (featureValue in secondFeatures.keys) {
-        secondLevel = if (lessonMap[featureValue]!! > secondLevel) {
-            lessonMap[featureValue]!!
-        } else {
-            secondLevel
-        }
-    }
-    when {
-        firstLevel > secondLevel -> 1
-        firstLevel < secondLevel -> -1
-        else -> 0
     }
 }
