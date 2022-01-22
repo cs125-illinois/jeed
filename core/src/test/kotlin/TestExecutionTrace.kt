@@ -3,7 +3,9 @@ package edu.illinois.cs.cs125.jeed.core
 import io.kotest.core.spec.style.StringSpec
 import io.kotest.matchers.collections.beEmpty
 import io.kotest.matchers.collections.shouldContain
+import io.kotest.matchers.collections.shouldHaveSingleElement
 import io.kotest.matchers.collections.shouldHaveSize
+import io.kotest.matchers.maps.shouldHaveSize
 import io.kotest.matchers.nulls.beNull
 import io.kotest.matchers.should
 import io.kotest.matchers.shouldBe
@@ -24,6 +26,7 @@ public class Main {
 }""".trim()
         ).compile(CompilationArguments(debugInfo = true))
             .execute(SourceExecutionArguments().addPlugin(LineTrace).addPlugin(ExecutionTrace))
+        result should haveCompleted()
         val executionTrace = result.pluginResult(ExecutionTrace)
         executionTrace.steps shouldContain ExecutionStep.Line("Main.java", 3)
     }
@@ -69,13 +72,13 @@ printSum((short) 6, (short) 4);
         methodSteps[1].receiver should beNull()
         methodSteps[1].arguments.size shouldBe 2
         methodSteps[1].arguments[0].argumentName shouldBe "a"
-        methodSteps[1].arguments[0].value shouldBe 6
+        methodSteps[1].arguments[0].value.value shouldBe 6
         methodSteps[1].arguments[1].argumentName shouldBe "b"
         methodSteps[2].method.method shouldBe "printInt"
         methodSteps[2].receiver should beNull()
         methodSteps[2].arguments.size shouldBe 1
         methodSteps[2].arguments[0].argumentName shouldBe "number"
-        methodSteps[2].arguments[0].value shouldBe 10
+        methodSteps[2].arguments[0].value.value shouldBe 10
     }
 
     "should record method entry with receivers" {
@@ -101,7 +104,7 @@ System.out.println(adder.add(2));
         val methodSteps = executionTrace.steps.filterIsInstance<ExecutionStep.EnterMethod>()
         val addStep = methodSteps.find { it.method.className == "Adder" && it.method.method == "add" }!!
         addStep.arguments[0].argumentName shouldBe "plus"
-        addStep.arguments[0].value shouldBe 2
+        addStep.arguments[0].value.value shouldBe 2
         addStep.receiver shouldNot beNull()
     }
 
@@ -122,7 +125,8 @@ printSum(10, 2);
         enterStep shouldNot beNull()
         val exitSteps = executionTrace.steps.filterIsInstance<ExecutionStep.ExitMethodNormally>()
         exitSteps shouldHaveSize 2 // One for printSum, one for main
-        exitSteps[0].returnValue should beNull()
+        exitSteps[0].returnValue.type shouldBe ExecutionTraceResults.ValueType.VOID
+        exitSteps[0].returnValue.value should beNull()
     }
 
     "should record method return" {
@@ -144,9 +148,9 @@ addOrSubtract(10, 5, true);
         enterSteps shouldHaveSize 2
         val exitSteps = executionTrace.steps.filterIsInstance<ExecutionStep.ExitMethodNormally>()
         exitSteps shouldHaveSize 3
-        exitSteps[0].returnValue shouldBe 15
-        exitSteps[1].returnValue shouldBe 5
-        exitSteps[2].returnValue should beNull()
+        exitSteps[0].returnValue.value shouldBe 15
+        exitSteps[1].returnValue.value shouldBe 5
+        exitSteps[2].returnValue.value should beNull()
     }
 
     "should record exceptional method exit" {
@@ -179,5 +183,63 @@ try {
         enterStep shouldNot beNull()
         val exitStep = executionTrace.steps.find { it is ExecutionStep.ExitMethodExceptionally }
         exitStep shouldNot beNull()
+    }
+
+    "should record local variable lifecycle events" {
+        val result = Source.fromSnippet(
+            """
+for (int i = 0; i < 3; i++) {
+    int iSquared = i * i;
+    int iCubed = iSquared * i;
+    System.out.println(iCubed);
+}
+""".trim()
+        ).compile(CompilationArguments(debugInfo = true))
+            .execute(SourceExecutionArguments().addPlugin(ExecutionTrace))
+        result should haveCompleted()
+        result should haveOutput("0\n1\n8")
+        val steps = result.pluginResult(ExecutionTrace).steps
+        val scopeChanges = steps.filterIsInstance<ExecutionStep.ChangeScope>()
+        scopeChanges[0].newLocals.keys shouldBe setOf("i")
+        scopeChanges[0].deadLocals should beEmpty()
+        scopeChanges[1].deadLocals should beEmpty()
+        scopeChanges[1].newLocals shouldHaveSize 1
+        scopeChanges[1].newLocals["iSquared"]!!.value shouldBe 0
+        scopeChanges[2].deadLocals should beEmpty()
+        scopeChanges[2].newLocals shouldHaveSize 1
+        scopeChanges[2].newLocals["iCubed"]!!.value shouldBe 0
+        scopeChanges[3].deadLocals.toSet() shouldBe setOf("iSquared", "iCubed")
+        scopeChanges[4].newLocals["iSquared"]!!.value shouldBe 1
+        scopeChanges shouldHaveSize 11
+        scopeChanges[10].deadLocals shouldHaveSingleElement "i"
+    }
+
+    "should record local variable lifecycle events caused by exceptions" {
+        val result = Source.fromSnippet(
+            """
+try {
+    long a = 10;
+    long b = 0;
+    long quotient = a / b;
+    System.out.println(quotient);
+} catch (Exception e) {
+    System.out.println("oops");
+}
+""".trim()
+        ).compile(CompilationArguments(debugInfo = true))
+            .execute(SourceExecutionArguments().addPlugin(ExecutionTrace))
+        result should haveCompleted()
+        result should haveOutput("oops")
+        val steps = result.pluginResult(ExecutionTrace).steps
+        val scopeChanges = steps.filterIsInstance<ExecutionStep.ChangeScope>()
+        scopeChanges[0].newLocals.keys shouldBe setOf("a")
+        scopeChanges[0].newLocals["a"]!!.value shouldBe 10L
+        scopeChanges[0].deadLocals should beEmpty()
+        scopeChanges[1].deadLocals should beEmpty()
+        scopeChanges[1].newLocals.keys shouldBe setOf("b")
+        scopeChanges[2].deadLocals.toSet() shouldBe setOf("a", "b")
+        scopeChanges[2].newLocals shouldHaveSize 1
+        scopeChanges[2].newLocals["e"]!!.type shouldBe ExecutionTraceResults.ValueType.REFERENCE
+        scopeChanges[3].deadLocals shouldHaveSingleElement "e"
     }
 })

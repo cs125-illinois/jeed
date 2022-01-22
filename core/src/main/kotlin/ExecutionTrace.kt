@@ -6,13 +6,17 @@ import org.objectweb.asm.ClassWriter
 import org.objectweb.asm.Handle
 import org.objectweb.asm.Opcodes
 import org.objectweb.asm.Type
+import org.objectweb.asm.tree.AbstractInsnNode
 import org.objectweb.asm.tree.ClassNode
 import org.objectweb.asm.tree.FrameNode
 import org.objectweb.asm.tree.InsnList
 import org.objectweb.asm.tree.InsnNode
 import org.objectweb.asm.tree.InvokeDynamicInsnNode
+import org.objectweb.asm.tree.JumpInsnNode
 import org.objectweb.asm.tree.LabelNode
+import org.objectweb.asm.tree.LookupSwitchInsnNode
 import org.objectweb.asm.tree.MethodNode
+import org.objectweb.asm.tree.TableSwitchInsnNode
 import org.objectweb.asm.tree.TryCatchBlockNode
 import org.objectweb.asm.tree.VarInsnNode
 import java.lang.invoke.CallSite
@@ -27,6 +31,19 @@ import kotlin.reflect.jvm.javaMethod
 object ExecutionTrace : SandboxPluginWithDefaultArguments<ExecutionTraceArguments, ExecutionTraceResults> {
     private val RETURN_OPCODES =
         setOf(Opcodes.RETURN, Opcodes.IRETURN, Opcodes.LRETURN, Opcodes.FRETURN, Opcodes.DRETURN, Opcodes.ARETURN)
+    private val NEVER_FALLTHROUGH_OPCODES =
+        RETURN_OPCODES.union(setOf(Opcodes.GOTO, Opcodes.TABLESWITCH, Opcodes.LOOKUPSWITCH, Opcodes.ATHROW))
+    private val PRIMITIVE_TYPES =
+        mapOf(
+            Type.BOOLEAN_TYPE to ExecutionTraceResults.ValueType.BOOLEAN,
+            Type.BYTE_TYPE to ExecutionTraceResults.ValueType.BYTE,
+            Type.CHAR_TYPE to ExecutionTraceResults.ValueType.CHAR,
+            Type.DOUBLE_TYPE to ExecutionTraceResults.ValueType.DOUBLE,
+            Type.FLOAT_TYPE to ExecutionTraceResults.ValueType.FLOAT,
+            Type.INT_TYPE to ExecutionTraceResults.ValueType.INT,
+            Type.LONG_TYPE to ExecutionTraceResults.ValueType.LONG,
+            Type.SHORT_TYPE to ExecutionTraceResults.ValueType.SHORT
+        )
 
     private val threadData: ThreadLocal<ExecutionTraceWorkingData> = ThreadLocal.withInitial {
         Sandbox.CurrentTask.getWorkingData(this)
@@ -72,8 +89,7 @@ object ExecutionTrace : SandboxPluginWithDefaultArguments<ExecutionTraceArgument
             return
         }
         val methodStart = method.instructions.first { it is LabelNode } as? LabelNode ?: return // No locals
-        val methodIndex = data.nextMethodIndex
-        data.nextMethodIndex++
+        val methodIndex = data.nextUniqueId()
         val methodDesc = Type.getType(method.desc)
         val methodKey = "m$methodIndex"
         val localVariables = method.localVariables ?: listOf()
@@ -82,17 +98,19 @@ object ExecutionTrace : SandboxPluginWithDefaultArguments<ExecutionTraceArgument
         }.sortedBy {
             it.index
         }.map {
-            ExecutionTraceInstrumentationData.ArgumentInfo(it.index, it.name, Type.getType(it.desc))
+            ExecutionTraceInstrumentationData.LocalInfo(it.index, it.name, Type.getType(it.desc))
         }
         val methodInfo = ExecutionTraceInstrumentationData.MethodInfo(
             methodIndex,
             className,
             method.name,
-            method.desc,
+            methodDesc,
             passableArguments,
             method.access.and(Opcodes.ACC_STATIC) == 0 && method.name != "<init>"
         )
         data.instrumentedMethods[methodKey] = methodInfo
+        val liveLocalIndexes = mutableMapOf<Int, ExecutionTraceInstrumentationData.LocalInfo>()
+        val reachableLabels = findReachableLabels(method)
         method.instructions.toList().forEach { insn ->
             if (insn.opcode in RETURN_OPCODES) {
                 val returnTracing = InsnList()
@@ -108,6 +126,32 @@ object ExecutionTrace : SandboxPluginWithDefaultArguments<ExecutionTraceArgument
                 }
                 returnTracing.add(InvokeDynamicInsnNode(methodKey, exitMethodNormallyDesc, exitMethodNormallyHandle))
                 method.instructions.insertBefore(insn, returnTracing)
+            } else if (insn is LabelNode) {
+                localVariables.filter { it.end == insn }.forEach {
+                    liveLocalIndexes.remove(it.index)
+                }
+                localVariables.filter {
+                    it.start == insn && it.name != "this"
+                }.forEach {
+                    liveLocalIndexes[it.index] = ExecutionTraceInstrumentationData.LocalInfo(
+                        it.index,
+                        it.name,
+                        Type.getType(it.desc)
+                    )
+                }
+                if (insn in reachableLabels) {
+                    val currentLocals = liveLocalIndexes.values.toList()
+                    val siteKey = "c${data.nextUniqueId()}"
+                    data.scopeSites[siteKey] = ExecutionTraceInstrumentationData.ScopeSite(currentLocals)
+                    val scopeTracing = InsnList()
+                    currentLocals.forEach {
+                        scopeTracing.add(VarInsnNode(it.type.getOpcode(Opcodes.ILOAD), it.localIndex))
+                    }
+                    val newScopeHandle = TracingSupport::bootstrapNewScope.asAsmHandle()
+                    val newScopeDesc = Type.getMethodDescriptor(Type.VOID_TYPE, *currentLocals.map { it.type }.toTypedArray())
+                    scopeTracing.add(InvokeDynamicInsnNode(siteKey, newScopeDesc, newScopeHandle))
+                    method.instructions.insert(insn.skipToBeforeRealInsn(), scopeTracing)
+                }
             }
         }
         val methodPrologue = InsnList()
@@ -130,6 +174,24 @@ object ExecutionTrace : SandboxPluginWithDefaultArguments<ExecutionTraceArgument
         method.instructions.add(InvokeDynamicInsnNode(methodKey, exitMethodExceptionallyDesc, exitMethodExceptionallyHandle))
         method.instructions.add(InsnNode(Opcodes.ATHROW))
         method.tryCatchBlocks.add(TryCatchBlockNode(tryLabel, handlerLabel, handlerLabel, null))
+    }
+
+    private fun findReachableLabels(method: MethodNode): Set<LabelNode> {
+        val reachable = mutableSetOf<LabelNode>()
+        method.instructions.forEach { insn ->
+            when (insn) {
+                is JumpInsnNode -> reachable.add(insn.label)
+                is LookupSwitchInsnNode -> reachable.addAll(insn.labels)
+                is TableSwitchInsnNode -> reachable.addAll(insn.labels)
+                is LabelNode -> {
+                    val previous = insn.previousRealInsn()
+                    if (previous == null || previous.opcode !in NEVER_FALLTHROUGH_OPCODES) {
+                        reachable.add(insn)
+                    }
+                }
+            }
+        }
+        return reachable
     }
 
     override fun createInitialData(instrumentationData: Any?, executionArguments: Sandbox.ExecutionArguments): Any {
@@ -161,6 +223,7 @@ object ExecutionTrace : SandboxPluginWithDefaultArguments<ExecutionTraceArgument
         private val enterMethodHandle = lookup.unreflect(TracingSupport::enterMethod.javaMethod)
         private val exitMethodNormallyHandle = lookup.unreflect(TracingSupport::exitMethodNormally.javaMethod)
         private val exitMethodExceptionallyHandle = lookup.unreflect(TracingSupport::exitMethodExceptionally.javaMethod)
+        private val newScopeHandle = lookup.unreflect(TracingSupport::newScope.javaMethod)
 
         @JvmStatic
         @Suppress("UNUSED_PARAMETER") // The first MethodHandles.Lookup parameter is required by the JVM
@@ -178,13 +241,15 @@ object ExecutionTrace : SandboxPluginWithDefaultArguments<ExecutionTraceArgument
             if (data.atCapacity()) return
             val methodInfo = data.instrumentationData.instrumentedMethods[methodKey] ?: error("uninstrumented method")
             val receiver = if (methodInfo.local0IsReceiver) passableArguments[0] else null
+            val frame = ExecutionTraceWorkingData.Frame(methodInfo, receiver?.let { findObjectId(receiver) })
             val passedArgumentInfo = methodInfo.passableArguments.zip(passableArguments).filter { (iai, _) ->
                 !methodInfo.local0IsReceiver || iai.localIndex > 0
             }.map { (iai, value) ->
-                ExecutionTraceResults.PassedArgument(iai.name, value)
+                val serializableValue = serializeValue(value, iai.type)
+                frame.locals[iai.name] = serializableValue
+                ExecutionTraceResults.PassedArgument(iai.name, serializableValue)
             }
             data.steps.add(ExecutionStep.EnterMethod(methodInfo.asPublishableInfo(), receiver, passedArgumentInfo))
-            val frame = ExecutionTraceWorkingData.Frame(methodInfo)
             data.callStack.push(frame)
         }
 
@@ -210,7 +275,8 @@ object ExecutionTrace : SandboxPluginWithDefaultArguments<ExecutionTraceArgument
             val methodInfo = data.instrumentationData.instrumentedMethods[methodKey] ?: error("uninstrumented method")
             val thisFrame = data.callStack.pop()
             if (thisFrame.method != methodInfo) error("mismatched enterMethod/exitMethodNormally")
-            data.steps.add(ExecutionStep.ExitMethodNormally(returnValue))
+            val serializableValue = serializeValue(returnValue, methodInfo.type.returnType)
+            data.steps.add(ExecutionStep.ExitMethodNormally(serializableValue))
         }
 
         @JvmStatic
@@ -231,7 +297,80 @@ object ExecutionTrace : SandboxPluginWithDefaultArguments<ExecutionTraceArgument
             val methodInfo = data.instrumentationData.instrumentedMethods[methodKey] ?: error("uninstrumented method")
             val thisFrame = data.callStack.pop()
             if (thisFrame.method != methodInfo) error("mismatched enterMethod/exitMethodExceptionally")
-            data.steps.add(ExecutionStep.ExitMethodExceptionally(throwable))
+            data.steps.add(ExecutionStep.ExitMethodExceptionally(findObjectId(throwable)))
+        }
+
+        @JvmStatic
+        @Suppress("UNUSED_PARAMETER")
+        fun bootstrapNewScope(caller: MethodHandles.Lookup, siteKey: String, callSignature: MethodType): CallSite {
+            val handle = newScopeHandle
+                .bindTo(siteKey)
+                .asCollector(Array<Any?>::class.java, callSignature.parameterCount())
+                .asType(callSignature)
+            return ConstantCallSite(handle)
+        }
+
+        @JvmStatic
+        private fun newScope(siteKey: String, localValues: Array<Any?>) {
+            val data = threadData.get()
+            if (data.atCapacity()) return
+            val siteInfo = data.instrumentationData.scopeSites[siteKey] ?: error("unknown scope site")
+            val thisFrame = data.callStack.peek()
+            val destroyedLocals = mutableListOf<String>()
+            val existingLocals = siteInfo.localsInScope.map { it.name }.toSet()
+            val oldLocals = thisFrame.locals.keys.toSet()
+            oldLocals.minus(existingLocals).forEach {
+                destroyedLocals.add(it)
+                thisFrame.locals.remove(it)
+            }
+            val createdLocals = mutableMapOf<String, ExecutionTraceResults.Value>()
+            siteInfo.localsInScope.zip(localValues).filter { (local, _) ->
+                local.name !in oldLocals
+            }.forEach { (local, value) ->
+                val serializableValue = serializeValue(value, local.type)
+                createdLocals[local.name] = serializableValue
+                thisFrame.locals[local.name] = serializableValue
+            }
+            if (destroyedLocals.isNotEmpty() || createdLocals.isNotEmpty()) {
+                data.steps.add(ExecutionStep.ChangeScope(createdLocals, destroyedLocals))
+            }
+        }
+
+        @JvmStatic
+        @Suppress("UNUSED_PARAMETER")
+        fun bootstrapSetVariable(caller: MethodHandles.Lookup, localName: String, callSignature: MethodType): CallSite {
+            TODO()
+        }
+
+        @JvmStatic
+        private fun setVariable() {
+            TODO()
+        }
+
+        @JvmStatic
+        private fun serializeValue(value: Any?, type: Type): ExecutionTraceResults.Value {
+            return when (type.sort) {
+                Type.OBJECT, Type.ARRAY -> {
+                    val objId = value?.let { findObjectId(it) }
+                    ExecutionTraceResults.Value(ExecutionTraceResults.ValueType.REFERENCE, objId)
+                }
+                Type.VOID -> {
+                    ExecutionTraceResults.Value(ExecutionTraceResults.ValueType.VOID, null)
+                }
+                Type.METHOD -> {
+                    error("instances of method types are impossible")
+                }
+                else -> {
+                    val publishableType = PRIMITIVE_TYPES[type] ?: error("unknown type $type")
+                    val box = value ?: error("primitives cannot be null")
+                    ExecutionTraceResults.Value(publishableType, box)
+                }
+            }
+        }
+
+        @JvmStatic
+        private fun findObjectId(obj: Any): Int {
+            return 1 // TODO
         }
     }
 }
@@ -248,15 +387,23 @@ data class ExecutionTraceArguments(
 private class ExecutionTraceInstrumentationData(
     val arguments: ExecutionTraceArguments,
     val hasLineTrace: Boolean,
-    var nextMethodIndex: Int = 1,
-    val instrumentedMethods: MutableMap<String, MethodInfo> = mutableMapOf()
+    val instrumentedMethods: MutableMap<String, MethodInfo> = mutableMapOf(),
+    val scopeSites: MutableMap<String, ScopeSite> = mutableMapOf()
 ) {
-    data class MethodInfo(
+    private var nextIndex = 1
+
+    fun nextUniqueId(): Int {
+        return nextIndex.also { nextIndex += 1 }
+    }
+
+    class LocalInfo(val localIndex: Int, val name: String, val type: Type)
+
+    class MethodInfo(
         val index: Int,
         val className: String,
         val name: String,
-        val descriptor: String,
-        val passableArguments: List<ArgumentInfo>,
+        val type: Type,
+        val passableArguments: List<LocalInfo>,
         val local0IsReceiver: Boolean
     ) {
         fun asPublishableInfo(): ExecutionTraceResults.MethodInfo {
@@ -267,7 +414,7 @@ private class ExecutionTraceInstrumentationData(
         }
     }
 
-    data class ArgumentInfo(val localIndex: Int, val name: String, val type: Type)
+    class ScopeSite(val localsInScope: List<LocalInfo>)
 }
 
 private class ExecutionTraceWorkingData(
@@ -280,7 +427,9 @@ private class ExecutionTraceWorkingData(
     }
 
     class Frame(
-        val method: ExecutionTraceInstrumentationData.MethodInfo
+        val method: ExecutionTraceInstrumentationData.MethodInfo,
+        val receiverId: Int?,
+        val locals: MutableMap<String, ExecutionTraceResults.Value> = mutableMapOf()
     )
 }
 
@@ -292,8 +441,26 @@ data class ExecutionTraceResults(
     @JsonClass(generateAdapter = true)
     data class MethodInfo(val className: String, val method: String, val argumentTypes: List<String>)
 
+    /* ktlint-disable no-multi-spaces */
+    enum class ValueType {
+        REFERENCE, // value is an Integer object ID or null if null reference
+        VOID,      // value is always null
+        INT,       // otherwise value is a box of the primitive value
+        SHORT,
+        CHAR,
+        BYTE,
+        BOOLEAN,
+        FLOAT,
+        DOUBLE,
+        LONG
+    }
+    /* ktlint-enable no-multi-spaces */
+
     @JsonClass(generateAdapter = true)
-    data class PassedArgument(val argumentName: String, val value: Any?)
+    data class Value(val type: ValueType, val value: Any?)
+
+    @JsonClass(generateAdapter = true)
+    data class PassedArgument(val argumentName: String, val value: Value)
 }
 
 sealed class ExecutionStep {
@@ -303,8 +470,12 @@ sealed class ExecutionStep {
         val receiver: Any?,
         val arguments: List<ExecutionTraceResults.PassedArgument>
     ) : ExecutionStep()
-    data class ExitMethodNormally(val returnValue: Any?) : ExecutionStep()
-    data class ExitMethodExceptionally(val throwable: Any) : ExecutionStep()
+    data class ExitMethodNormally(val returnValue: ExecutionTraceResults.Value) : ExecutionStep()
+    data class ExitMethodExceptionally(val throwableObjectId: Int) : ExecutionStep()
+    data class ChangeScope(
+        val newLocals: Map<String, ExecutionTraceResults.Value>,
+        val deadLocals: List<String>
+    ) : ExecutionStep()
 }
 
 private fun KFunction<*>.asAsmHandle(): Handle {
@@ -317,4 +488,20 @@ private fun KFunction<*>.asAsmHandle(): Handle {
         Type.getMethodDescriptor(javaMethod),
         false
     )
+}
+
+private fun AbstractInsnNode.skipToBeforeRealInsn(): AbstractInsnNode {
+    var currentInsn = this
+    while ((currentInsn.next?.opcode ?: 0) < 0) {
+        currentInsn = currentInsn.next
+    }
+    return currentInsn
+}
+
+private fun AbstractInsnNode.previousRealInsn(): AbstractInsnNode? {
+    var currentInsn: AbstractInsnNode? = this.previous
+    while (currentInsn != null && currentInsn.opcode < 0) {
+        currentInsn = currentInsn.previous
+    }
+    return currentInsn
 }
