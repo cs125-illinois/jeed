@@ -441,8 +441,8 @@ object Sandbox {
         val killedClassInitializers: MutableList<String> = mutableListOf()
 
         private val isolatedLocksSyncRoot = Object()
-        private val isolatedLocks = mutableMapOf<Any, ReentrantLock>()
-        private val isolatedConditions = mutableMapOf<Any, Condition>()
+        private val isolatedLocks = mutableMapOf<IdentityHolder, ReentrantLock>()
+        private val isolatedConditions = mutableMapOf<IdentityHolder, Condition>()
 
         data class CurrentLine(
             var started: Instant = Instant.now(),
@@ -450,16 +450,6 @@ object Sandbox {
             val startedThread: Long = Thread.currentThread().id
         ) {
             override fun toString() = bytes.toByteArray().decodeToString()
-        }
-
-        private class IdentityHolder(val item: Any) {
-            override fun equals(other: Any?): Boolean {
-                return other is IdentityHolder && other.item === item
-            }
-
-            override fun hashCode(): Int {
-                return System.identityHashCode(item)
-            }
         }
 
         fun addPermissionRequest(permission: Permission, granted: Boolean, throwException: Boolean = true) {

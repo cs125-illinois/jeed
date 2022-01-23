@@ -10,6 +10,7 @@ import io.kotest.matchers.nulls.beNull
 import io.kotest.matchers.should
 import io.kotest.matchers.shouldBe
 import io.kotest.matchers.shouldNot
+import io.kotest.matchers.shouldNotBe
 import io.kotest.matchers.string.shouldContain
 import io.kotest.matchers.types.beInstanceOf
 
@@ -288,5 +289,72 @@ System.out.println(text);
         varChanges[0].value.value shouldBe 255
         varChanges[1].local shouldBe "text"
         varChanges[1].value.value shouldNot beNull()
+    }
+
+    "should distinguish string equality from reference equality" {
+        val result = Source.fromSnippet(
+            """
+String greeting = "hello";
+String newGreeting = new String(greeting);
+System.out.println(newGreeting);
+""".trim()
+        ).compile(CompilationArguments(debugInfo = true))
+            .execute(SourceExecutionArguments().addPlugin(ExecutionTrace))
+        result should haveCompleted()
+        result should haveOutput("hello")
+        val steps = result.pluginResult(ExecutionTrace).steps
+        val scopeChanges = steps.filterIsInstance<ExecutionStep.ChangeScope>()
+        scopeChanges[0].newLocals.keys shouldBe setOf("greeting")
+        scopeChanges[0].newLocals["greeting"]!!.type shouldBe ExecutionTraceResults.ValueType.REFERENCE
+        val firstGreeting = scopeChanges[0].newLocals["greeting"]!!.value as Int
+        scopeChanges[1].newLocals.keys shouldBe setOf("newGreeting")
+        scopeChanges[1].newLocals["newGreeting"]!!.type shouldBe ExecutionTraceResults.ValueType.REFERENCE
+        val secondGreeting = scopeChanges[1].newLocals["newGreeting"]!!.value as Int
+        firstGreeting shouldNotBe secondGreeting
+        val objects = steps.filterIsInstance<ExecutionStep.ObtainObject>()
+        objects[0].id shouldBe firstGreeting
+        objects[0].obj.stringRepresentation shouldBe "hello"
+        objects[1].id shouldBe secondGreeting
+        objects[1].obj.stringRepresentation shouldBe "hello"
+    }
+
+    "should record initial array values" {
+        val result = Source.fromSnippet(
+            """
+var chars = "hi".toCharArray();
+System.out.println(chars);
+""".trim()
+        ).compile(CompilationArguments(debugInfo = true))
+            .execute(SourceExecutionArguments().addPlugin(ExecutionTrace))
+        result should haveCompleted()
+        val steps = result.pluginResult(ExecutionTrace).steps
+        val objects = steps.filterIsInstance<ExecutionStep.ObtainObject>()
+        objects[0].obj.stringRepresentation should beNull()
+        objects[0].obj.indexedComponents shouldNot beNull()
+        val chars = objects[0].obj.indexedComponents!!
+        chars shouldHaveSize 2
+        chars[0].type shouldBe ExecutionTraceResults.ValueType.CHAR
+        chars[0].value shouldBe 'h'
+        chars[1].type shouldBe ExecutionTraceResults.ValueType.CHAR
+        chars[1].value shouldBe 'i'
+    }
+
+    "should recognize multidimensional arrays" {
+        val result = Source.fromSnippet(
+            """
+var array = new int[3][10];
+System.out.println(array);
+""".trim()
+        ).compile(CompilationArguments(debugInfo = true))
+            .execute(SourceExecutionArguments().addPlugin(ExecutionTrace))
+        result should haveCompleted()
+        val steps = result.pluginResult(ExecutionTrace).steps
+        val objects = steps.filterIsInstance<ExecutionStep.ObtainObject>()
+        objects shouldHaveSize 4
+        val outer = objects.find { it.obj.indexedComponents!!.size == 3 }!!
+        outer.obj.indexedComponents!![0].type shouldBe ExecutionTraceResults.ValueType.REFERENCE
+        val inners = objects.filter { it.obj.indexedComponents!!.size == 10 }
+        inners shouldHaveSize 3
+        inners[0].obj.indexedComponents!![0].type shouldBe ExecutionTraceResults.ValueType.INT
     }
 })

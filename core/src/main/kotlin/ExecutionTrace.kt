@@ -28,6 +28,7 @@ import java.lang.reflect.Modifier
 import java.util.Stack
 import kotlin.reflect.KFunction
 import kotlin.reflect.jvm.javaMethod
+import java.lang.reflect.Array as ReflectArray
 
 object ExecutionTrace : SandboxPluginWithDefaultArguments<ExecutionTraceArguments, ExecutionTraceResults> {
     private val RETURN_OPCODES =
@@ -259,7 +260,7 @@ object ExecutionTrace : SandboxPluginWithDefaultArguments<ExecutionTraceArgument
             if (data.atCapacity()) return
             val methodInfo = data.instrumentationData.instrumentedMethods[methodKey] ?: error("uninstrumented method")
             val receiver = if (methodInfo.local0IsReceiver) passableArguments[0] else null
-            val frame = ExecutionTraceWorkingData.Frame(methodInfo, receiver?.let { findObjectId(receiver) })
+            val frame = ExecutionTraceWorkingData.Frame(methodInfo, receiver?.let { lookupOrTrackObject(receiver) })
             val passedArgumentInfo = methodInfo.passableArguments.zip(passableArguments).filter { (iai, _) ->
                 !methodInfo.local0IsReceiver || iai.localIndex > 0
             }.map { (iai, value) ->
@@ -397,7 +398,46 @@ object ExecutionTrace : SandboxPluginWithDefaultArguments<ExecutionTraceArgument
 
         @JvmStatic
         private fun findObjectId(obj: Any): Int {
-            return 1 // TODO
+            return lookupOrTrackObject(obj).id
+        }
+
+        @JvmStatic
+        private fun lookupOrTrackObject(obj: Any): ExecutionTraceWorkingData.TrackedObject {
+            val data = threadData.get()
+            val holder = IdentityHolder(obj)
+            if (holder !in data.knownObjects) {
+                val tracking = trackObject(obj) // Adds to map, avoiding circularity during state gathering
+                data.steps.add(ExecutionStep.ObtainObject(tracking.id, tracking.asPublishableState()))
+            }
+            return data.knownObjects[holder]!!
+        }
+
+        @JvmStatic
+        private fun trackObject(obj: Any): ExecutionTraceWorkingData.TrackedObject {
+            val data = threadData.get()
+            val tracking = ExecutionTraceWorkingData.TrackedObject(data.nextUniqueId(), obj.javaClass)
+            data.knownObjects[IdentityHolder(obj)] = tracking // Avoid circularity during state gathering
+            gatherObjectState(obj, tracking)
+            return tracking
+        }
+
+        @JvmStatic
+        private fun gatherObjectState(obj: Any, state: ExecutionTraceWorkingData.TrackedObject) {
+            // TODO: Untrusted class instances, boxes, common collections, etc.
+            when {
+                obj.javaClass.isPrimitive -> error("primitives are not objects")
+                obj is String -> state.stringRepresentation = obj
+                obj is Enum<*> -> state.stringRepresentation = obj.name
+                obj.javaClass.isArray -> {
+                    val length = ReflectArray.getLength(obj)
+                    val asmElemType = Type.getType(obj.javaClass.componentType)
+                    val elements = mutableListOf<ExecutionTraceResults.Value>()
+                    state.indexedComponents = elements
+                    (0 until length).mapTo(elements) { i ->
+                        serializeValue(ReflectArray.get(obj, i), asmElemType)
+                    }
+                }
+            }
         }
     }
 }
@@ -447,17 +487,45 @@ private class ExecutionTraceInstrumentationData(
 private class ExecutionTraceWorkingData(
     val instrumentationData: ExecutionTraceInstrumentationData,
     val steps: MutableList<ExecutionStep> = mutableListOf(),
-    val callStack: Stack<Frame> = Stack()
+    val callStack: Stack<Frame> = Stack(),
+    val knownObjects: MutableMap<IdentityHolder, TrackedObject> = mutableMapOf()
 ) {
+    private var nextObjectId = 1
+
     fun atCapacity(): Boolean {
         return steps.size >= instrumentationData.arguments.recordedStepLimit
     }
 
+    fun nextUniqueId(): Int {
+        return nextObjectId.also { nextObjectId++ }
+    }
+
     class Frame(
         val method: ExecutionTraceInstrumentationData.MethodInfo,
-        val receiverId: Int?,
+        val receiver: TrackedObject?,
         val locals: MutableMap<String, ExecutionTraceResults.Value> = mutableMapOf()
     )
+
+    class TrackedObject(
+        val id: Int,
+        val type: Class<*>,
+        var stringRepresentation: String? = null,
+        var primaryValue: ExecutionTraceResults.Value? = null,
+        var namedComponents: MutableMap<String, ExecutionTraceResults.Value>? = null,
+        var indexedComponents: MutableList<ExecutionTraceResults.Value>? = null,
+        var unorderedRowsValue: Set<List<ExecutionTraceResults.Value>>? = null
+    ) {
+        fun asPublishableState(): ExecutionTraceResults.ObjectState {
+            return ExecutionTraceResults.ObjectState(
+                type.name,
+                stringRepresentation,
+                primaryValue,
+                namedComponents?.toMap(),
+                indexedComponents?.toList(),
+                unorderedRowsValue
+            )
+        }
+    }
 }
 
 @JsonClass(generateAdapter = true)
@@ -488,6 +556,16 @@ data class ExecutionTraceResults(
 
     @JsonClass(generateAdapter = true)
     data class PassedArgument(val argumentName: String, val value: Value)
+
+    @JsonClass(generateAdapter = true)
+    data class ObjectState(
+        val type: String,
+        val stringRepresentation: String?,
+        val primaryValue: Value?,
+        val namedComponents: Map<String, Value>?,
+        val indexedComponents: List<Value>?,
+        val unorderedRowsValue: Set<List<Value>>?
+    )
 }
 
 sealed class ExecutionStep {
@@ -515,6 +593,9 @@ sealed class ExecutionStep {
 
     // Alter one existing local
     data class SetVariable(val local: String, val value: ExecutionTraceResults.Value) : ExecutionStep()
+
+    // Create new object in object table, coalesce with next step
+    data class ObtainObject(val id: Int, val obj: ExecutionTraceResults.ObjectState) : ExecutionStep()
 }
 
 private fun KFunction<*>.asAsmHandle(): Handle {
