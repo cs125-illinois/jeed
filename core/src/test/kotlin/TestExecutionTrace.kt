@@ -242,4 +242,51 @@ try {
         scopeChanges[2].newLocals["e"]!!.type shouldBe ExecutionTraceResults.ValueType.REFERENCE
         scopeChanges[3].deadLocals shouldHaveSingleElement "e"
     }
+
+    "should distinguish primitives from their boxes" {
+        val result = Source.fromSnippet(
+            """
+short raw = (short) 5;
+Short box = new Short(raw);
+""".trim()
+        ).compile(CompilationArguments(debugInfo = true))
+            .execute(SourceExecutionArguments().addPlugin(ExecutionTrace))
+        result should haveCompleted()
+        val steps = result.pluginResult(ExecutionTrace).steps
+        val scopeChanges = steps.filterIsInstance<ExecutionStep.ChangeScope>()
+        scopeChanges[0].newLocals.keys shouldBe setOf("raw")
+        scopeChanges[0].newLocals["raw"] shouldBe
+            ExecutionTraceResults.Value(ExecutionTraceResults.ValueType.SHORT, (5).toShort())
+        scopeChanges[1].newLocals.keys shouldBe setOf("box")
+        scopeChanges[1].newLocals["box"]!!.type shouldBe ExecutionTraceResults.ValueType.REFERENCE
+    }
+
+    "should record changes to local variables" {
+        val result = Source.fromSnippet(
+            """
+String text = null;
+int number = 254;
+number++;
+text = Integer.toHexString(number);
+System.out.println(text);
+""".trim()
+        ).compile(CompilationArguments(debugInfo = true))
+            .execute(SourceExecutionArguments().addPlugin(ExecutionTrace))
+        result should haveCompleted()
+        result should haveOutput("ff")
+        val steps = result.pluginResult(ExecutionTrace).steps
+        val scopeChanges = steps.filterIsInstance<ExecutionStep.ChangeScope>()
+        scopeChanges[0].newLocals.keys shouldBe setOf("text")
+        scopeChanges[0].newLocals["text"]!!.value should beNull()
+        scopeChanges[0].deadLocals should beEmpty()
+        scopeChanges[1].newLocals.keys shouldBe setOf("number")
+        scopeChanges[1].newLocals["number"]!!.value shouldBe 254
+        scopeChanges[1].deadLocals should beEmpty()
+        val varChanges = steps.filterIsInstance<ExecutionStep.SetVariable>()
+        varChanges shouldHaveSize 2
+        varChanges[0].local shouldBe "number"
+        varChanges[0].value.value shouldBe 255
+        varChanges[1].local shouldBe "text"
+        varChanges[1].value.value shouldNot beNull()
+    }
 })

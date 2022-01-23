@@ -9,6 +9,7 @@ import org.objectweb.asm.Type
 import org.objectweb.asm.tree.AbstractInsnNode
 import org.objectweb.asm.tree.ClassNode
 import org.objectweb.asm.tree.FrameNode
+import org.objectweb.asm.tree.IincInsnNode
 import org.objectweb.asm.tree.InsnList
 import org.objectweb.asm.tree.InsnNode
 import org.objectweb.asm.tree.InvokeDynamicInsnNode
@@ -31,6 +32,8 @@ import kotlin.reflect.jvm.javaMethod
 object ExecutionTrace : SandboxPluginWithDefaultArguments<ExecutionTraceArguments, ExecutionTraceResults> {
     private val RETURN_OPCODES =
         setOf(Opcodes.RETURN, Opcodes.IRETURN, Opcodes.LRETURN, Opcodes.FRETURN, Opcodes.DRETURN, Opcodes.ARETURN)
+    private val STORE_OPCODES =
+        setOf(Opcodes.ISTORE, Opcodes.LSTORE, Opcodes.FSTORE, Opcodes.DSTORE, Opcodes.ASTORE)
     private val NEVER_FALLTHROUGH_OPCODES =
         RETURN_OPCODES.union(setOf(Opcodes.GOTO, Opcodes.TABLESWITCH, Opcodes.LOOKUPSWITCH, Opcodes.ATHROW))
     private val PRIMITIVE_TYPES =
@@ -126,6 +129,20 @@ object ExecutionTrace : SandboxPluginWithDefaultArguments<ExecutionTraceArgument
                 }
                 returnTracing.add(InvokeDynamicInsnNode(methodKey, exitMethodNormallyDesc, exitMethodNormallyHandle))
                 method.instructions.insertBefore(insn, returnTracing)
+            } else if (insn.opcode in STORE_OPCODES || insn is IincInsnNode) {
+                val localIndex = when (insn) {
+                    is VarInsnNode -> insn.`var`
+                    is IincInsnNode -> insn.`var`
+                    else -> error("unknown instruction type")
+                }
+                liveLocalIndexes[localIndex]?.let { local ->
+                    val varTracing = InsnList()
+                    varTracing.add(VarInsnNode(local.type.getOpcode(Opcodes.ILOAD), localIndex))
+                    val setVariableHandle = TracingSupport::bootstrapSetVariable.asAsmHandle()
+                    val setVariableDesc = Type.getMethodDescriptor(Type.VOID_TYPE, local.type)
+                    varTracing.add(InvokeDynamicInsnNode(local.name, setVariableDesc, setVariableHandle))
+                    method.instructions.insert(insn, varTracing)
+                }
             } else if (insn is LabelNode) {
                 localVariables.filter { it.end == insn }.forEach {
                     liveLocalIndexes.remove(it.index)
@@ -224,6 +241,7 @@ object ExecutionTrace : SandboxPluginWithDefaultArguments<ExecutionTraceArgument
         private val exitMethodNormallyHandle = lookup.unreflect(TracingSupport::exitMethodNormally.javaMethod)
         private val exitMethodExceptionallyHandle = lookup.unreflect(TracingSupport::exitMethodExceptionally.javaMethod)
         private val newScopeHandle = lookup.unreflect(TracingSupport::newScope.javaMethod)
+        private val setVariableHandle = lookup.unreflect(TracingSupport::setVariable.javaMethod)
 
         @JvmStatic
         @Suppress("UNUSED_PARAMETER") // The first MethodHandles.Lookup parameter is required by the JVM
@@ -339,12 +357,21 @@ object ExecutionTrace : SandboxPluginWithDefaultArguments<ExecutionTraceArgument
         @JvmStatic
         @Suppress("UNUSED_PARAMETER")
         fun bootstrapSetVariable(caller: MethodHandles.Lookup, localName: String, callSignature: MethodType): CallSite {
-            TODO()
+            val localType = Type.getType(callSignature.parameterType(0))
+            val handle = MethodHandles
+                .insertArguments(setVariableHandle, 0, localName, localType)
+                .asType(callSignature)
+            return ConstantCallSite(handle)
         }
 
         @JvmStatic
-        private fun setVariable() {
-            TODO()
+        private fun setVariable(localName: String, localType: Type, newValue: Any?) {
+            val data = threadData.get()
+            if (data.atCapacity()) return
+            val thisFrame = data.callStack.peek()
+            val serializableValue = serializeValue(newValue, localType)
+            thisFrame.locals[localName] = serializableValue
+            data.steps.add(ExecutionStep.SetVariable(localName, serializableValue))
         }
 
         @JvmStatic
@@ -464,18 +491,30 @@ data class ExecutionTraceResults(
 }
 
 sealed class ExecutionStep {
+    // No change to state, coalesce with next step if LineTrace was installed after ExecutionTrace
     data class Line(val source: String, val line: Int) : ExecutionStep()
+
+    // Push call stack, initialize locals with arguments
     data class EnterMethod(
         val method: ExecutionTraceResults.MethodInfo,
         val receiver: Any?,
         val arguments: List<ExecutionTraceResults.PassedArgument>
     ) : ExecutionStep()
+
+    // Pop call stack
     data class ExitMethodNormally(val returnValue: ExecutionTraceResults.Value) : ExecutionStep()
+
+    // Pop call stack
     data class ExitMethodExceptionally(val throwableObjectId: Int) : ExecutionStep()
+
+    // Delete locals in deadLocals, create locals in newLocals
     data class ChangeScope(
         val newLocals: Map<String, ExecutionTraceResults.Value>,
         val deadLocals: List<String>
     ) : ExecutionStep()
+
+    // Alter one existing local
+    data class SetVariable(val local: String, val value: ExecutionTraceResults.Value) : ExecutionStep()
 }
 
 private fun KFunction<*>.asAsmHandle(): Handle {
