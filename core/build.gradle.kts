@@ -27,20 +27,20 @@ dependencies {
     implementation("com.squareup.moshi:moshi-kotlin:1.13.0")
     implementation("org.ow2.asm:asm:9.2")
     implementation("org.ow2.asm:asm-util:9.2")
-    implementation("org.slf4j:slf4j-api:1.7.32")
+    implementation("org.slf4j:slf4j-api:1.7.33")
     implementation("ch.qos.logback:logback-classic:1.2.10")
     implementation("io.github.microutils:kotlin-logging:2.1.21")
     implementation("io.github.classgraph:classgraph:4.8.138")
     implementation("net.java.dev.jna:jna:5.10.0")
     implementation("io.github.java-diff-utils:java-diff-utils:4.11")
     implementation("com.google.googlejavaformat:google-java-format:1.13.0")
-    implementation("net.sf.extjwnl:extjwnl:2.0.4")
+    implementation("net.sf.extjwnl:extjwnl:2.0.5")
     implementation("net.sf.extjwnl:extjwnl-data-wn31:1.2")
 
     api("org.jacoco:org.jacoco.core:0.8.7")
     api("com.github.ben-manes.caffeine:caffeine:3.0.5")
 
-    testImplementation("io.kotest:kotest-runner-junit5:5.0.3")
+    testImplementation("io.kotest:kotest-runner-junit5:5.1.0")
 }
 tasks.test {
     useJUnitPlatform()
