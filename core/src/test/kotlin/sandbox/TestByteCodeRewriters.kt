@@ -835,17 +835,21 @@ import kotlinx.coroutines.*;
 GlobalScope.class.toString();
             """.trim()
         ).compile()
-        val firstExecution = compileResult.execute(SourceExecutionArguments(
-            classLoaderConfiguration = Sandbox.ClassLoaderConfiguration(
-                unsafeExceptions = setOf("java.lang.StackOverflowError", "java.lang.InternalError")
+        val firstExecution = compileResult.execute(
+            SourceExecutionArguments(
+                classLoaderConfiguration = Sandbox.ClassLoaderConfiguration(
+                    unsafeExceptions = setOf("java.lang.StackOverflowError", "java.lang.InternalError")
+                )
             )
-        ))
+        )
         firstExecution.sandboxedClassLoader!!.transformedReloadedClasses shouldNotBe 0
-        val secondExecution = compileResult.execute(SourceExecutionArguments(
-            classLoaderConfiguration = Sandbox.ClassLoaderConfiguration(
-                unsafeExceptions = setOf("java.lang.InternalError")
+        val secondExecution = compileResult.execute(
+            SourceExecutionArguments(
+                classLoaderConfiguration = Sandbox.ClassLoaderConfiguration(
+                    unsafeExceptions = setOf("java.lang.InternalError")
+                )
             )
-        ))
+        )
         secondExecution.sandboxedClassLoader!!.transformedReloadedClasses shouldNotBe 0
     }
 })

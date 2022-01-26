@@ -419,6 +419,24 @@ println(test())
         executeMainResult should haveCompleted()
         executeMainResult should haveOutput("Hello, world!")
     }
+    "should execute Kotlin snippets that use method references" {
+        val executionMainResult = Source.fromSnippet(
+            """
+import java.io.PrintStream
+
+val print1: (String) -> Unit = ::println
+print1("Here")
+val print2: (String) -> Unit = System.out::println
+print2("There")
+val print3: PrintStream.(String) -> Unit = PrintStream::println
+print3(System.out, "Elsewhere")
+                """.trim(),
+            SnippetArguments(fileType = Source.FileType.KOTLIN)
+        ).kompile().execute()
+        executionMainResult should haveCompleted()
+        executionMainResult shouldNot haveTimedOut()
+        executionMainResult should haveStdout("Here\nThere\nElsewhere")
+    }
     "should execute simple Kotlin sources" {
         val executionMainResult = Source(
             mapOf(

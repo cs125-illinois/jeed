@@ -644,4 +644,18 @@ System.out.println(cl.loadClass("edu.illinois.cs.cs125.jeed.core.Sandbox"));
         executionResult shouldNot haveCompleted()
         executionResult.permissionDenied shouldBe true
     }
+    "should not allow Kotlin reflection by default" {
+        val executionMainResult = Source.fromSnippet(
+            """
+import edu.illinois.cs.cs125.jeed.core.Sandbox.RewriteBytecode
+
+val klass = RewriteBytecode::class
+val sandboxKlass = klass.java.enclosingClass.kotlin
+println(sandboxKlass.constructors)
+                """.trim(),
+            SnippetArguments(fileType = Source.FileType.KOTLIN)
+        ).kompile().execute()
+        executionMainResult shouldNot haveCompleted()
+        executionMainResult.permissionDenied shouldBe true
+    }
 })

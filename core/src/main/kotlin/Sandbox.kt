@@ -94,7 +94,7 @@ object Sandbox {
 
         companion object {
             val DEFAULT_WHITELISTED_CLASSES = setOf<String>()
-            val DEFAULT_BLACKLISTED_CLASSES = setOf("java.lang.reflect.")
+            val DEFAULT_BLACKLISTED_CLASSES = setOf("java.lang.reflect.", "kotlin.reflect.")
             val DEFAULT_UNSAFE_EXCEPTIONS = setOf<String>()
             val DEFAULT_ISOLATED_CLASSES = setOf<String>()
             val DEFAULT_BLACKLISTED_METHODS = setOf(
