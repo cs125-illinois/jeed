@@ -13,6 +13,7 @@ import io.kotest.core.spec.style.StringSpec
 import io.kotest.matchers.should
 import io.kotest.matchers.shouldBe
 import io.kotest.matchers.shouldNot
+import io.kotest.matchers.shouldNotBe
 import io.kotest.matchers.types.beInstanceOf
 import io.kotest.matchers.types.shouldBeTypeOf
 import kotlinx.coroutines.async
@@ -809,5 +810,42 @@ public class Main {
         ).compile().execute()
         executionResult should haveCompleted()
         executionResult should haveOutput("Implementation")
+    }
+    "should cache transformed reloaded bytecode" {
+        val compileResult = Source.fromSnippet(
+            """
+import kotlinx.coroutines.*;
+GlobalScope.class.toString();
+            """.trim()
+        ).compile()
+        val executeArgs = SourceExecutionArguments(
+            classLoaderConfiguration = Sandbox.ClassLoaderConfiguration(
+                unsafeExceptions = setOf("java.lang.ArithmeticException", "java.lang.StackOverflowError")
+            )
+        )
+        val firstExecution = compileResult.execute(executeArgs)
+        firstExecution.sandboxedClassLoader!!.transformedReloadedClasses shouldNotBe 0
+        val secondExecution = compileResult.execute(executeArgs)
+        secondExecution.sandboxedClassLoader!!.transformedReloadedClasses shouldBe 0
+    }
+    "should key the reloaded bytecode cache by rewriting configuration" {
+        val compileResult = Source.fromSnippet(
+            """
+import kotlinx.coroutines.*;
+GlobalScope.class.toString();
+            """.trim()
+        ).compile()
+        val firstExecution = compileResult.execute(SourceExecutionArguments(
+            classLoaderConfiguration = Sandbox.ClassLoaderConfiguration(
+                unsafeExceptions = setOf("java.lang.StackOverflowError", "java.lang.InternalError")
+            )
+        ))
+        firstExecution.sandboxedClassLoader!!.transformedReloadedClasses shouldNotBe 0
+        val secondExecution = compileResult.execute(SourceExecutionArguments(
+            classLoaderConfiguration = Sandbox.ClassLoaderConfiguration(
+                unsafeExceptions = setOf("java.lang.InternalError")
+            )
+        ))
+        secondExecution.sandboxedClassLoader!!.transformedReloadedClasses shouldNotBe 0
     }
 })

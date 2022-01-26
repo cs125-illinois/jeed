@@ -2,6 +2,8 @@
 
 package edu.illinois.cs.cs125.jeed.core
 
+import com.github.benmanes.caffeine.cache.Cache
+import com.github.benmanes.caffeine.cache.Caffeine
 import com.squareup.moshi.JsonClass
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.coroutineScope
@@ -727,7 +729,9 @@ object Sandbox {
         override val loadedClasses: MutableSet<String> = Collections.newSetFromMap(ConcurrentHashMap())
 
         private val reloadedClasses: MutableMap<String, Class<*>> = mutableMapOf()
+        private val canCacheReloadedClasses = configuredPlugins.none { it.plugin.transformsReloadedClasses }
         private val reloader = TrustedReloader()
+        var transformedReloadedClasses: Int = 0 // Not atomic, but used only for statistics purposes
 
         @Suppress("MemberVisibilityCanBePrivate")
         val knownClasses = sandboxableClassLoader.bytecodeForClasses
@@ -830,28 +834,49 @@ object Sandbox {
                     RewriteBytecode::class.java.name,
                     InvocationTargetException::class.java.name
                 )
-            private val reloadedBytecodeCache = mutableMapOf<String, ByteArray>()
+            private const val RELOAD_CACHE_SIZE_BYTES: Long = 256 * 1024 * 1024
+            private val reloadedBytecodeCache: Cache<ReloadCacheKey, ByteArray> = Caffeine.newBuilder()
+                .maximumWeight(RELOAD_CACHE_SIZE_BYTES)
+                .weigher<ReloadCacheKey, ByteArray> { _, value -> value.size }
+                .build()
         }
 
         internal inner class TrustedReloader {
             fun reload(name: String): Class<*> {
-                val classBytes = reloadedBytecodeCache.getOrPut(name) {
-                    val originalBytes = sandboxableClassLoader.classLoader.parent
-                        .getResourceAsStream("${name.replace('.', '/')}.class")?.readAllBytes()
-                        ?: throw ClassNotFoundException("failed to reload $name")
-                    RewriteBytecode.rewrite(
+                val classBytes = if (canCacheReloadedClasses) {
+                    val key = ReloadCacheKey(
                         name,
-                        originalBytes,
-                        unsafeExceptionClasses,
-                        blacklistedMethods,
-                        pluginInstrumentationData,
-                        RewritingContext.RELOADED
+                        unsafeExceptionClasses.map { it.name }.toSet(),
+                        blacklistedMethods
                     )
+                    reloadedBytecodeCache.get(key) { transformFromClasspath(name) }
+                } else {
+                    transformFromClasspath(name)
                 }
                 loadedClasses.add(name)
                 return defineClass(name, classBytes, 0, classBytes.size)
             }
+
+            private fun transformFromClasspath(name: String): ByteArray {
+                val originalBytes = sandboxableClassLoader.classLoader.parent
+                    .getResourceAsStream("${name.replace('.', '/')}.class")?.readAllBytes()
+                    ?: throw ClassNotFoundException("failed to reload $name")
+                return RewriteBytecode.rewrite(
+                    name,
+                    originalBytes,
+                    unsafeExceptionClasses,
+                    blacklistedMethods,
+                    pluginInstrumentationData.filter { (plugin, _) -> plugin.transformsReloadedClasses },
+                    RewritingContext.RELOADED
+                ).also { transformedReloadedClasses++ }
+            }
         }
+
+        private data class ReloadCacheKey(
+            val className: String,
+            val unsafeExceptionClasses: Set<String>,
+            val blacklistedMethods: Set<MethodFilter>
+        )
     }
 
     object EmptyClassLoader : ClassLoader(getSystemClassLoader()), SandboxableClassLoader {
@@ -1791,6 +1816,9 @@ data class JeedOutputCapture(val returned: Any?, val threw: Throwable?, val stdo
 interface SandboxPlugin<A : Any, V : Any> {
     val id: String
         get() = javaClass.simpleName.decapitalizeAsciiOnly()
+
+    val transformsReloadedClasses: Boolean
+        get() = false
 
     fun createInstrumentationData(
         arguments: A,
