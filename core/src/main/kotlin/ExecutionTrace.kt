@@ -16,6 +16,7 @@ import org.objectweb.asm.tree.InvokeDynamicInsnNode
 import org.objectweb.asm.tree.JumpInsnNode
 import org.objectweb.asm.tree.LabelNode
 import org.objectweb.asm.tree.LookupSwitchInsnNode
+import org.objectweb.asm.tree.MethodInsnNode
 import org.objectweb.asm.tree.MethodNode
 import org.objectweb.asm.tree.TableSwitchInsnNode
 import org.objectweb.asm.tree.TryCatchBlockNode
@@ -37,6 +38,16 @@ object ExecutionTrace : SandboxPluginWithDefaultArguments<ExecutionTraceArgument
         setOf(Opcodes.ISTORE, Opcodes.LSTORE, Opcodes.FSTORE, Opcodes.DSTORE, Opcodes.ASTORE)
     private val NEVER_FALLTHROUGH_OPCODES =
         RETURN_OPCODES.union(setOf(Opcodes.GOTO, Opcodes.TABLESWITCH, Opcodes.LOOKUPSWITCH, Opcodes.ATHROW))
+    private val UNAMBIGUOUS_ARRAYSTORE_OPCODES =
+        mapOf(
+            Opcodes.IASTORE to Type.INT_TYPE,
+            Opcodes.LASTORE to Type.LONG_TYPE,
+            Opcodes.FASTORE to Type.FLOAT_TYPE,
+            Opcodes.DASTORE to Type.DOUBLE_TYPE,
+            Opcodes.AASTORE to Type.getType(Object::class.java),
+            Opcodes.CASTORE to Type.CHAR_TYPE,
+            Opcodes.SASTORE to Type.SHORT_TYPE
+        )
     private val PRIMITIVE_TYPES =
         mapOf(
             Type.BOOLEAN_TYPE to ExecutionTraceResults.ValueType.BOOLEAN,
@@ -85,6 +96,7 @@ object ExecutionTrace : SandboxPluginWithDefaultArguments<ExecutionTraceArgument
         return writer.toByteArray()
     }
 
+    // TODO: Instrument method calls to check for in-place modifications of e.g. arrays
     private fun instrumentMethod(data: ExecutionTraceInstrumentationData, className: String, method: MethodNode) {
         if (method.instructions.size() == 0) return // Can't instrument an abstract method
         if (method.name == "<init>") {
@@ -144,6 +156,16 @@ object ExecutionTrace : SandboxPluginWithDefaultArguments<ExecutionTraceArgument
                     varTracing.add(InvokeDynamicInsnNode(local.name, setVariableDesc, setVariableHandle))
                     method.instructions.insert(insn, varTracing)
                 }
+            } else if (insn.opcode in UNAMBIGUOUS_ARRAYSTORE_OPCODES) {
+                val elementType = UNAMBIGUOUS_ARRAYSTORE_OPCODES[insn.opcode]!!
+                val arrayType = elementType.toArrayType()
+                val setArrayHandle = TracingSupport::bootstrapSetArray.asAsmHandle()
+                val setArrayDesc = Type.getMethodDescriptor(Type.VOID_TYPE, arrayType, Type.INT_TYPE, elementType)
+                val replacement = InvokeDynamicInsnNode("arraystore", setArrayDesc, setArrayHandle)
+                method.instructions.set(insn, replacement)
+            } else if (insn.opcode == Opcodes.BASTORE) {
+                // bastore can be used on either byte[] or boolean[], so there is no equivalent descriptor
+                method.instructions.set(insn, TracingSupport::bastore.asAsmMethodInsn())
             } else if (insn is LabelNode) {
                 localVariables.filter { it.end == insn }.forEach {
                     liveLocalIndexes.remove(it.index)
@@ -243,6 +265,7 @@ object ExecutionTrace : SandboxPluginWithDefaultArguments<ExecutionTraceArgument
         private val exitMethodExceptionallyHandle = lookup.unreflect(TracingSupport::exitMethodExceptionally.javaMethod)
         private val newScopeHandle = lookup.unreflect(TracingSupport::newScope.javaMethod)
         private val setVariableHandle = lookup.unreflect(TracingSupport::setVariable.javaMethod)
+        private val recordSetArrayHandle = lookup.unreflect(TracingSupport::recordSetArray.javaMethod)
 
         @JvmStatic
         @Suppress("UNUSED_PARAMETER") // The first MethodHandles.Lookup parameter is required by the JVM
@@ -373,6 +396,49 @@ object ExecutionTrace : SandboxPluginWithDefaultArguments<ExecutionTraceArgument
             val serializableValue = serializeValue(newValue, localType)
             thisFrame.locals[localName] = serializableValue
             data.steps.add(ExecutionStep.SetVariable(localName, serializableValue))
+        }
+
+        @JvmStatic
+        @Suppress("UNUSED_PARAMETER")
+        fun bootstrapSetArray(caller: MethodHandles.Lookup, name: String, callSignature: MethodType): CallSite {
+            val arrayClass = callSignature.parameterType(0) ?: error("must have a first parameter")
+            val elementType = arrayClass.componentType ?: error("first parameter should be an array")
+            val logger = recordSetArrayHandle
+                .bindTo(Type.getType(elementType))
+                .asType(callSignature)
+            val originalBehavior = MethodHandles.arrayElementSetter(arrayClass)
+            val handle = MethodHandles.foldArguments(logger, originalBehavior)
+            return ConstantCallSite(handle)
+        }
+
+        @JvmStatic
+        fun bastore(array: Any?, index: Int, value: Int) {
+            when (array) {
+                is ByteArray -> {
+                    val byteValue = value.toByte()
+                    array[index] = byteValue
+                    recordSetArray(Type.BYTE_TYPE, array, index, byteValue)
+                }
+                is BooleanArray -> {
+                    val booleanValue = (value and 1) != 0
+                    array[index] = booleanValue
+                    recordSetArray(Type.BOOLEAN_TYPE, array, index, booleanValue)
+                }
+                null -> throw NullPointerException("cannot store to byte/boolean array because it is null")
+                else -> error("bastore instructions only operate on byte[] or boolean[]")
+            }
+        }
+
+        @JvmStatic
+        private fun recordSetArray(elementType: Type, array: Any, index: Int, value: Any) {
+            val data = threadData.get()
+            if (data.atCapacity()) return
+            // Only log changes to explicitly created arrays, not e.g. varargs
+            val trackedObject = data.knownObjects[IdentityHolder(array)] ?: return
+            val indexedComponents = trackedObject.indexedComponents ?: error("arrays must have indexed components")
+            val serializedValue = serializeValue(value, elementType)
+            indexedComponents[index] = serializedValue
+            data.steps.add(ExecutionStep.SetIndexedComponent(trackedObject.id, index, serializedValue))
         }
 
         @JvmStatic
@@ -596,6 +662,13 @@ sealed class ExecutionStep {
 
     // Create new object in object table, coalesce with next step
     data class ObtainObject(val id: Int, val obj: ExecutionTraceResults.ObjectState) : ExecutionStep()
+
+    // Alter one indexed component in an object
+    data class SetIndexedComponent(
+        val objectId: Int,
+        val component: Int,
+        val value: ExecutionTraceResults.Value
+    ) : ExecutionStep()
 }
 
 private fun KFunction<*>.asAsmHandle(): Handle {
@@ -603,6 +676,18 @@ private fun KFunction<*>.asAsmHandle(): Handle {
     require(javaMethod.modifiers.and(Modifier.STATIC) != 0) { "must be a static method" }
     return Handle(
         Opcodes.H_INVOKESTATIC,
+        classNameToPath(javaMethod.declaringClass.name),
+        javaMethod.name,
+        Type.getMethodDescriptor(javaMethod),
+        false
+    )
+}
+
+private fun KFunction<*>.asAsmMethodInsn(): MethodInsnNode {
+    val javaMethod = this.javaMethod ?: error("must represent a JVM method")
+    require(javaMethod.modifiers.and(Modifier.STATIC) != 0) { "must be a static method" }
+    return MethodInsnNode(
+        Opcodes.INVOKESTATIC,
         classNameToPath(javaMethod.declaringClass.name),
         javaMethod.name,
         Type.getMethodDescriptor(javaMethod),
@@ -624,4 +709,8 @@ private fun AbstractInsnNode.previousRealInsn(): AbstractInsnNode? {
         currentInsn = currentInsn.previous
     }
     return currentInsn
+}
+
+private fun Type.toArrayType(): Type {
+    return Type.getType("[" + this.descriptor)
 }

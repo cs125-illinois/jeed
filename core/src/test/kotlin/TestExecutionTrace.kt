@@ -357,4 +357,162 @@ System.out.println(array);
         inners shouldHaveSize 3
         inners[0].obj.indexedComponents!![0].type shouldBe ExecutionTraceResults.ValueType.INT
     }
+
+    "should record array changes" {
+        val result = Source.fromSnippet(
+            """
+var numbers = new int[] { 2, 5 };
+numbers[1] = 10;
+numbers[0] = 3;
+System.out.println(numbers);
+""".trim()
+        ).compile(CompilationArguments(debugInfo = true))
+            .execute(SourceExecutionArguments().addPlugin(ExecutionTrace))
+        result should haveCompleted()
+        val steps = result.pluginResult(ExecutionTrace).steps
+        val objects = steps.filterIsInstance<ExecutionStep.ObtainObject>()
+        objects[0].obj.indexedComponents shouldNot beNull()
+        val numbers = objects[0].obj.indexedComponents!!
+        numbers shouldHaveSize 2
+        numbers[0].type shouldBe ExecutionTraceResults.ValueType.INT
+        numbers[0].value shouldBe 2
+        numbers[1].type shouldBe ExecutionTraceResults.ValueType.INT
+        numbers[1].value shouldBe 5
+        val changes = steps.filterIsInstance<ExecutionStep.SetIndexedComponent>()
+        changes shouldHaveSize 2
+        changes[0].objectId shouldBe objects[0].id
+        changes[0].component shouldBe 1
+        changes[0].value.type shouldBe ExecutionTraceResults.ValueType.INT
+        changes[0].value.value shouldBe 10
+        changes[1].objectId shouldBe objects[0].id
+        changes[1].component shouldBe 0
+        changes[1].value.type shouldBe ExecutionTraceResults.ValueType.INT
+        changes[1].value.value shouldBe 3
+    }
+
+    "should record array changes with large primitives" {
+        val result = Source.fromSnippet(
+            """
+var numbers = new long[2];
+numbers[1] = 100000000000L;
+System.out.println(numbers);
+""".trim()
+        ).compile(CompilationArguments(debugInfo = true))
+            .execute(SourceExecutionArguments().addPlugin(ExecutionTrace))
+        result should haveCompleted()
+        val steps = result.pluginResult(ExecutionTrace).steps
+        val changes = steps.filterIsInstance<ExecutionStep.SetIndexedComponent>()
+        changes shouldHaveSize 1
+        changes[0].component shouldBe 1
+        changes[0].value.type shouldBe ExecutionTraceResults.ValueType.LONG
+        changes[0].value.value shouldBe 100000000000L
+    }
+
+    "should not trace implicit array construction" {
+        val result = Source.fromSnippet(
+            """
+void sink(Object... things) {}
+sink("hi", 5, false);
+""".trim()
+        ).compile(CompilationArguments(debugInfo = true))
+            .execute(SourceExecutionArguments().addPlugin(ExecutionTrace))
+        result should haveCompleted()
+        val steps = result.pluginResult(ExecutionTrace).steps
+        val arrays = steps.filterIsInstance<ExecutionStep.ObtainObject>().filter { it.obj.indexedComponents != null }
+        arrays shouldHaveSize 1
+        arrays[0].obj.indexedComponents!! shouldHaveSize 3
+        val changes = steps.filterIsInstance<ExecutionStep.SetIndexedComponent>()
+        changes should beEmpty()
+    }
+
+    "should record object array changes" {
+        val result = Source.fromSnippet(
+            """
+var words = new String[2];
+words[0] = "hello";
+System.out.println(words);
+""".trim()
+        ).compile(CompilationArguments(debugInfo = true))
+            .execute(SourceExecutionArguments().addPlugin(ExecutionTrace))
+        result should haveCompleted()
+        val steps = result.pluginResult(ExecutionTrace).steps
+        val objects = steps.filterIsInstance<ExecutionStep.ObtainObject>()
+        objects[0].obj.indexedComponents shouldNot beNull()
+        objects[0].obj.indexedComponents!![0].value should beNull()
+        objects[1].obj.stringRepresentation shouldBe "hello"
+        val changes = steps.filterIsInstance<ExecutionStep.SetIndexedComponent>()
+        changes shouldHaveSize 1
+        changes[0].objectId shouldBe objects[0].id
+        changes[0].component shouldBe 0
+        changes[0].value.type shouldBe ExecutionTraceResults.ValueType.REFERENCE
+        changes[0].value.value shouldBe objects[1].id
+    }
+
+    "should record boolean and byte array changes" {
+        val result = Source.fromSnippet(
+            """
+var bytes = new byte[3];
+bytes[2] = (byte) 20;
+var bools = new boolean[2];
+bools[1] = true;
+""".trim()
+        ).compile(CompilationArguments(debugInfo = true))
+            .execute(SourceExecutionArguments().addPlugin(ExecutionTrace))
+        result should haveCompleted()
+        val steps = result.pluginResult(ExecutionTrace).steps
+        val objects = steps.filterIsInstance<ExecutionStep.ObtainObject>()
+        objects shouldHaveSize 2
+        val changes = steps.filterIsInstance<ExecutionStep.SetIndexedComponent>()
+        changes shouldHaveSize 2
+        changes[0].objectId shouldBe objects[0].id
+        changes[0].component shouldBe 2
+        changes[0].value.type shouldBe ExecutionTraceResults.ValueType.BYTE
+        changes[0].value.value shouldBe 20.toByte()
+        changes[1].objectId shouldBe objects[1].id
+        changes[1].component shouldBe 1
+        changes[1].value.type shouldBe ExecutionTraceResults.ValueType.BOOLEAN
+        changes[1].value.value shouldBe true
+    }
+
+    "should not record failed array stores" {
+        val result = Source.fromSnippet(
+            """
+try {
+  var longs = new long[1];
+  longs[3] = 10L;
+} catch (Exception e) {
+  System.out.println("oops");
+}
+
+try {
+  var bytes = new byte[1];
+  bytes[-1] = (byte) 4;
+} catch (Exception e) {
+  System.out.println("oops");
+}
+
+try {
+  ((boolean[]) null)[1] = true;
+} catch (Exception e) {
+  System.out.println("oops");
+}
+
+try {
+  Object[] strings = new String[1];
+  strings[0] = 5;
+} catch (Exception e) {
+  System.out.println("oops");
+}
+""".trim()
+        ).compile(CompilationArguments(debugInfo = true))
+            .execute(SourceExecutionArguments().addPlugin(ExecutionTrace))
+        result should haveCompleted()
+        val steps = result.pluginResult(ExecutionTrace).steps
+        val objects = steps.filterIsInstance<ExecutionStep.ObtainObject>().filter { it.obj.indexedComponents != null }
+        objects shouldHaveSize 3
+        val changes = steps.filterIsInstance<ExecutionStep.SetIndexedComponent>()
+        changes shouldHaveSize 0
+        val exceptions = steps.filterIsInstance<ExecutionStep.ChangeScope>().filter { "e" in it.newLocals }
+        exceptions shouldHaveSize 4
+    }
 })
