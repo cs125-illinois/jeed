@@ -2,10 +2,13 @@ package edu.illinois.cs.cs125.jeed.core
 
 import com.squareup.moshi.JsonClass
 import org.objectweb.asm.ClassReader
+import org.objectweb.asm.ClassVisitor
 import org.objectweb.asm.ClassWriter
 import org.objectweb.asm.Handle
+import org.objectweb.asm.MethodVisitor
 import org.objectweb.asm.Opcodes
 import org.objectweb.asm.Type
+import org.objectweb.asm.commons.AnalyzerAdapter
 import org.objectweb.asm.tree.AbstractInsnNode
 import org.objectweb.asm.tree.ClassNode
 import org.objectweb.asm.tree.FrameNode
@@ -86,10 +89,12 @@ object ExecutionTrace : SandboxPluginWithDefaultArguments<ExecutionTraceArgument
         if (context != RewritingContext.UNTRUSTED) return bytecode
         instrumentationData as ExecutionTraceInstrumentationData
         val reader = ClassReader(bytecode)
+        val constructorPreinspections = preinspectConstructors(reader)
         val classTree = ClassNode(Opcodes.ASM9)
         reader.accept(classTree, 0)
         classTree.methods.forEach {
-            instrumentMethod(instrumentationData, classTree.name, it)
+            val ctorPreinspection = if (it.name == "<init>") constructorPreinspections[it.desc]!! else null
+            instrumentMethod(instrumentationData, classTree.name, it, ctorPreinspection)
         }
         val writer = ClassWriter(reader, ClassWriter.COMPUTE_MAXS)
         classTree.accept(writer)
@@ -97,20 +102,22 @@ object ExecutionTrace : SandboxPluginWithDefaultArguments<ExecutionTraceArgument
     }
 
     // TODO: Instrument method calls to check for in-place modifications of e.g. arrays
-    private fun instrumentMethod(data: ExecutionTraceInstrumentationData, className: String, method: MethodNode) {
+    private fun instrumentMethod(
+        data: ExecutionTraceInstrumentationData,
+        className: String,
+        method: MethodNode,
+        constructorPreinspection: ConstructorPreinspection?
+    ) {
         if (method.instructions.size() == 0) return // Can't instrument an abstract method
-        if (method.name == "<init>") {
-            // TODO: Constructors are tricky because "this" can't be used immediately
-            // ...and because the chain constructor call can't be inside an exception handler
-            return
-        }
-        val methodStart = method.instructions.first { it is LabelNode } as? LabelNode ?: return // No locals
+        val firstInsnIndex = method.instructions.indexOfFirst { it.opcode >= 0 }
+        require(firstInsnIndex >= 0) { "a non-abstract method should have real instructions" }
+        val argumentsValidLabel = method.instructions.take(firstInsnIndex).find { it is LabelNode } as? LabelNode
         val methodIndex = data.nextUniqueId()
         val methodDesc = Type.getType(method.desc)
         val methodKey = "m$methodIndex"
         val localVariables = method.localVariables ?: listOf()
         val passableArguments = localVariables.filter {
-            it.start == methodStart && (it.index != 0 || method.name != "<init>")
+            it.start == argumentsValidLabel && (it.index != 0 || method.name != "<init>")
         }.sortedBy {
             it.index
         }.map {
@@ -125,6 +132,9 @@ object ExecutionTrace : SandboxPluginWithDefaultArguments<ExecutionTraceArgument
             method.access.and(Opcodes.ACC_STATIC) == 0 && method.name != "<init>"
         )
         data.instrumentedMethods[methodKey] = methodInfo
+        val invokeSpecialInsns = method.instructions
+            .filterIsInstance<MethodInsnNode>()
+            .filter { it.opcode == Opcodes.INVOKESPECIAL }
         val liveLocalIndexes = mutableMapOf<Int, ExecutionTraceInstrumentationData.LocalInfo>()
         val reachableLabels = findReachableLabels(method)
         method.instructions.toList().forEach { insn ->
@@ -204,16 +214,39 @@ object ExecutionTrace : SandboxPluginWithDefaultArguments<ExecutionTraceArgument
         val tryLabel = LabelNode()
         methodPrologue.add(tryLabel)
         method.instructions.insert(methodPrologue)
-        val handlerLabel = LabelNode()
-        method.instructions.add(handlerLabel)
-        val onlyThrowableOnStack = arrayOf<Any>(classNameToPath(Throwable::class.java.name))
-        method.instructions.add(FrameNode(Opcodes.F_FULL, 0, arrayOf(), 1, onlyThrowableOnStack))
-        method.instructions.add(InsnNode(Opcodes.DUP))
-        val exitMethodExceptionallyHandle = TracingSupport::bootstrapExitMethodExceptionally.asAsmHandle()
-        val exitMethodExceptionallyDesc = Type.getMethodDescriptor(Type.VOID_TYPE, Type.getType(Throwable::class.java))
-        method.instructions.add(InvokeDynamicInsnNode(methodKey, exitMethodExceptionallyDesc, exitMethodExceptionallyHandle))
-        method.instructions.add(InsnNode(Opcodes.ATHROW))
-        method.tryCatchBlocks.add(TryCatchBlockNode(tryLabel, handlerLabel, handlerLabel, null))
+        fun appendExceptionHandler(start: LabelNode, end: LabelNode, handler: LabelNode) {
+            method.instructions.add(InsnNode(Opcodes.DUP))
+            val exitMethodExceptionallyHandle = TracingSupport::bootstrapExitMethodExceptionally.asAsmHandle()
+            val exitMethodExceptionallyDesc = Type.getMethodDescriptor(Type.VOID_TYPE, Type.getType(Throwable::class.java))
+            method.instructions.add(InvokeDynamicInsnNode(methodKey, exitMethodExceptionallyDesc, exitMethodExceptionallyHandle))
+            method.instructions.add(InsnNode(Opcodes.ATHROW))
+            method.tryCatchBlocks.add(TryCatchBlockNode(start, end, handler, null))
+        }
+        val onlyThrowable = arrayOf<Any>(classNameToPath(Throwable::class.java.name))
+        val generalCatchFrame = FrameNode(Opcodes.F_FULL, 0, arrayOf(), 1, onlyThrowable)
+        if (constructorPreinspection != null) {
+            // Constructor - must wrap pre-chain-call and post-chain-call segments separately
+            val chainCallInsn = invokeSpecialInsns[constructorPreinspection.chainCallInvokespecialIndex]
+            val preChainTryEndLabel = LabelNode()
+            method.instructions.insertBefore(chainCallInsn, preChainTryEndLabel)
+            val preChainHandlerLabel = LabelNode()
+            method.instructions.add(preChainHandlerLabel)
+            val onlyUninitThis = arrayOf(Opcodes.UNINITIALIZED_THIS)
+            method.instructions.add(FrameNode(Opcodes.F_FULL, 1, onlyUninitThis, 1, onlyThrowable))
+            appendExceptionHandler(tryLabel, preChainTryEndLabel, preChainHandlerLabel)
+            val postChainTryLabel = LabelNode()
+            method.instructions.insert(chainCallInsn, postChainTryLabel)
+            val postChainHandlerLabel = LabelNode()
+            method.instructions.add(postChainHandlerLabel)
+            method.instructions.add(generalCatchFrame)
+            appendExceptionHandler(postChainTryLabel, preChainHandlerLabel, postChainHandlerLabel)
+        } else {
+            // Normal method - can wrap all instructions together
+            val handlerLabel = LabelNode()
+            method.instructions.add(handlerLabel)
+            method.instructions.add(generalCatchFrame)
+            appendExceptionHandler(tryLabel, handlerLabel, handlerLabel)
+        }
     }
 
     private fun findReachableLabels(method: MethodNode): Set<LabelNode> {
@@ -232,6 +265,83 @@ object ExecutionTrace : SandboxPluginWithDefaultArguments<ExecutionTraceArgument
             }
         }
         return reachable
+    }
+
+    private fun preinspectConstructors(reader: ClassReader): Map<String, ConstructorPreinspection> {
+        val preinspections = mutableMapOf<String, ConstructorPreinspection>()
+        val inspectingClassVisitor = object : ClassVisitor(Opcodes.ASM9) {
+            lateinit var className: String
+
+            override fun visit(
+                version: Int,
+                access: Int,
+                name: String,
+                signature: String?,
+                superName: String?,
+                interfaces: Array<out String>?
+            ) {
+                className = name
+            }
+
+            override fun visitMethod(
+                access: Int,
+                name: String,
+                descriptor: String,
+                signature: String?,
+                exceptions: Array<out String>?
+            ): MethodVisitor? {
+                if (name != "<init>") return null
+                var adapter: AnalyzerAdapter? = null
+                var currentInvokespecialIndex = -1
+                var chainCallInvokespecialIndex: Int? = null
+                var currentPutfieldIndex = -1
+                val uninitializedPutfieldIndexes = mutableSetOf<Int>()
+                val inspectingMethodVisitor = object : MethodVisitor(Opcodes.ASM9) {
+                    override fun visitMethodInsn(
+                        opcode: Int,
+                        owner: String?,
+                        calledMethodName: String,
+                        descriptor: String?,
+                        isInterface: Boolean
+                    ) {
+                        if (opcode != Opcodes.INVOKESPECIAL) return
+                        currentInvokespecialIndex++
+                        if (calledMethodName != "<init>") return
+                        val stack = adapter!!.stack ?: return
+                        val argSize = Type.getType(descriptor).argumentTypes.sumOf { it.size }
+                        if (stack[stack.size - argSize - 1] == Opcodes.UNINITIALIZED_THIS) {
+                            require(chainCallInvokespecialIndex == null) { "conditional chain call not supported" }
+                            require(adapter!!.locals.size > 0) { "should have a local before the chain call" }
+                            require(adapter!!.locals[0] == Opcodes.UNINITIALIZED_THIS) {
+                                "local 0 should still be uninitializedThis before the constructor chain call"
+                            }
+                            chainCallInvokespecialIndex = currentInvokespecialIndex
+                        }
+                    }
+
+                    override fun visitFieldInsn(opcode: Int, owner: String?, name: String?, descriptor: String) {
+                        if (opcode != Opcodes.PUTFIELD) return
+                        currentPutfieldIndex++
+                        val stack = adapter!!.stack ?: return
+                        val valueSize = Type.getType(descriptor).size
+                        if (stack[stack.size - valueSize - 1] == Opcodes.UNINITIALIZED_THIS) {
+                            uninitializedPutfieldIndexes.add(currentPutfieldIndex)
+                        }
+                    }
+
+                    override fun visitEnd() {
+                        preinspections[descriptor] = ConstructorPreinspection(
+                            chainCallInvokespecialIndex ?: error("should have found the chain call"),
+                            uninitializedPutfieldIndexes
+                        )
+                    }
+                }
+                adapter = AnalyzerAdapter(className, access, name, descriptor, inspectingMethodVisitor)
+                return adapter
+            }
+        }
+        reader.accept(inspectingClassVisitor, ClassReader.EXPAND_FRAMES)
+        return preinspections
     }
 
     override fun createInitialData(instrumentationData: Any?, executionArguments: Sandbox.ExecutionArguments): Any {
@@ -506,6 +616,11 @@ object ExecutionTrace : SandboxPluginWithDefaultArguments<ExecutionTraceArgument
             }
         }
     }
+
+    private class ConstructorPreinspection(
+        val chainCallInvokespecialIndex: Int,
+        val uninitializedPutfieldIndexes: Set<Int>
+    )
 }
 
 @JsonClass(generateAdapter = true)
