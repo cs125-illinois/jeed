@@ -132,9 +132,13 @@ object ExecutionTrace : SandboxPluginWithDefaultArguments<ExecutionTraceArgument
             method.access.and(Opcodes.ACC_STATIC) == 0 && method.name != "<init>"
         )
         data.instrumentedMethods[methodKey] = methodInfo
-        val invokeSpecialInsns = method.instructions
-            .filterIsInstance<MethodInsnNode>()
-            .filter { it.opcode == Opcodes.INVOKESPECIAL }
+        val chainInvokespecial = constructorPreinspection?.let {
+            // Future-proofing: use the chain index early in case new invokespecial insns are added for instrumentation
+            val invokespecials = method.instructions
+                .filterIsInstance<MethodInsnNode>()
+                .filter { it.opcode == Opcodes.INVOKESPECIAL }
+            invokespecials[it.chainCallInvokespecialIndex]
+        }
         val liveLocalIndexes = mutableMapOf<Int, ExecutionTraceInstrumentationData.LocalInfo>()
         val reachableLabels = findReachableLabels(method)
         method.instructions.toList().forEach { insn ->
@@ -226,16 +230,27 @@ object ExecutionTrace : SandboxPluginWithDefaultArguments<ExecutionTraceArgument
         val generalCatchFrame = FrameNode(Opcodes.F_FULL, 0, arrayOf(), 1, onlyThrowable)
         if (constructorPreinspection != null) {
             // Constructor - must wrap pre-chain-call and post-chain-call segments separately
-            val chainCallInsn = invokeSpecialInsns[constructorPreinspection.chainCallInvokespecialIndex]
+            // ASSUMPTION: control flow does not jump over the single chain call
+            val chainPrologue = InsnList()
             val preChainTryEndLabel = LabelNode()
-            method.instructions.insertBefore(chainCallInsn, preChainTryEndLabel)
+            chainPrologue.add(preChainTryEndLabel)
+            val beforeChainHandle = TracingSupport::bootstrapBeforeChain.asAsmHandle()
+            val beforeChainDesc = Type.getMethodDescriptor(Type.VOID_TYPE)
+            chainPrologue.add(InvokeDynamicInsnNode(methodKey, beforeChainDesc, beforeChainHandle))
+            method.instructions.insertBefore(chainInvokespecial, chainPrologue)
+            val chainEpilogue = InsnList()
+            chainEpilogue.add(VarInsnNode(Opcodes.ALOAD, 0))
+            val afterChainHandle = TracingSupport::bootstrapAfterChain.asAsmHandle()
+            val afterChainDesc = Type.getMethodDescriptor(Type.VOID_TYPE, Type.getType(Object::class.java))
+            chainEpilogue.add(InvokeDynamicInsnNode(methodKey, afterChainDesc, afterChainHandle))
+            method.instructions.insert(chainInvokespecial, chainEpilogue)
             val preChainHandlerLabel = LabelNode()
             method.instructions.add(preChainHandlerLabel)
             val onlyUninitThis = arrayOf(Opcodes.UNINITIALIZED_THIS)
             method.instructions.add(FrameNode(Opcodes.F_FULL, 1, onlyUninitThis, 1, onlyThrowable))
             appendExceptionHandler(tryLabel, preChainTryEndLabel, preChainHandlerLabel)
             val postChainTryLabel = LabelNode()
-            method.instructions.insert(chainCallInsn, postChainTryLabel)
+            method.instructions.insert(chainInvokespecial, postChainTryLabel)
             val postChainHandlerLabel = LabelNode()
             method.instructions.add(postChainHandlerLabel)
             method.instructions.add(generalCatchFrame)
@@ -373,27 +388,41 @@ object ExecutionTrace : SandboxPluginWithDefaultArguments<ExecutionTraceArgument
         private val enterMethodHandle = lookup.unreflect(TracingSupport::enterMethod.javaMethod)
         private val exitMethodNormallyHandle = lookup.unreflect(TracingSupport::exitMethodNormally.javaMethod)
         private val exitMethodExceptionallyHandle = lookup.unreflect(TracingSupport::exitMethodExceptionally.javaMethod)
+        private val beforeChainHandle = lookup.unreflect(TracingSupport::beforeChain.javaMethod)
+        private val afterChainHandle = lookup.unreflect(TracingSupport::afterChain.javaMethod)
         private val newScopeHandle = lookup.unreflect(TracingSupport::newScope.javaMethod)
         private val setVariableHandle = lookup.unreflect(TracingSupport::setVariable.javaMethod)
         private val recordSetArrayHandle = lookup.unreflect(TracingSupport::recordSetArray.javaMethod)
 
         @JvmStatic
-        @Suppress("UNUSED_PARAMETER") // The first MethodHandles.Lookup parameter is required by the JVM
         fun bootstrapEnterMethod(caller: MethodHandles.Lookup, methodKey: String, callSignature: MethodType): CallSite {
-            val handle = enterMethodHandle
-                .bindTo(methodKey)
+            val handle = MethodHandles
+                .insertArguments(enterMethodHandle, 0, caller.lookupClass(), methodKey)
                 .asCollector(Array<Any>::class.java, callSignature.parameterCount())
                 .asType(callSignature)
             return ConstantCallSite(handle)
         }
 
         @JvmStatic
-        private fun enterMethod(methodKey: String, passableArguments: Array<Any?>) {
+        private fun enterMethod(ownerClass: Class<*>, methodKey: String, passableArguments: Array<Any?>) {
             val data = threadData.get()
             if (data.atCapacity()) return
             val methodInfo = data.instrumentationData.instrumentedMethods[methodKey] ?: error("uninstrumented method")
-            val receiver = if (methodInfo.local0IsReceiver) passableArguments[0] else null
-            val frame = ExecutionTraceWorkingData.Frame(methodInfo, receiver?.let { lookupOrTrackObject(receiver) })
+            val isConstructor = methodInfo.name == "<init>"
+            val caller = if (data.callStack.isEmpty()) null else data.callStack.peek()
+            val receiver = if (methodInfo.local0IsReceiver) {
+                lookupOrTrackObject(passableArguments[0] ?: error("first local should be the receiver"))
+            } else if (caller?.chainingCtorInstance != null && isConstructor) {
+                // ASSUMPTION: uninstrumented code does not directly call instrumented constructor
+                caller.chainingCtorInstance
+            } else if (isConstructor) {
+                ExecutionTraceWorkingData.TrackedObject(data.nextUniqueId(), ownerClass, realized = false).also {
+                    data.steps.add(ExecutionStep.CreateObject(it.id, ownerClass.name))
+                }
+            } else {
+                null
+            }
+            val frame = ExecutionTraceWorkingData.Frame(methodInfo, receiver)
             val passedArgumentInfo = methodInfo.passableArguments.zip(passableArguments).filter { (iai, _) ->
                 !methodInfo.local0IsReceiver || iai.localIndex > 0
             }.map { (iai, value) ->
@@ -401,12 +430,12 @@ object ExecutionTrace : SandboxPluginWithDefaultArguments<ExecutionTraceArgument
                 frame.locals[iai.name] = serializableValue
                 ExecutionTraceResults.PassedArgument(iai.name, serializableValue)
             }
-            data.steps.add(ExecutionStep.EnterMethod(methodInfo.asPublishableInfo(), receiver, passedArgumentInfo))
+            data.steps.add(ExecutionStep.EnterMethod(methodInfo.asPublishableInfo(), receiver?.id, passedArgumentInfo))
             data.callStack.push(frame)
         }
 
         @JvmStatic
-        @Suppress("UNUSED_PARAMETER")
+        @Suppress("UNUSED_PARAMETER") // The first MethodHandles.Lookup parameter is required by the JVM
         fun bootstrapExitMethodNormally(
             caller: MethodHandles.Lookup,
             methodKey: String,
@@ -450,6 +479,49 @@ object ExecutionTrace : SandboxPluginWithDefaultArguments<ExecutionTraceArgument
             val thisFrame = data.callStack.pop()
             if (thisFrame.method != methodInfo) error("mismatched enterMethod/exitMethodExceptionally")
             data.steps.add(ExecutionStep.ExitMethodExceptionally(findObjectId(throwable)))
+        }
+
+        @JvmStatic
+        @Suppress("UNUSED_PARAMETER")
+        fun bootstrapBeforeChain(caller: MethodHandles.Lookup, methodKey: String, callSignature: MethodType): CallSite {
+            val handle = beforeChainHandle.bindTo(methodKey)
+            return ConstantCallSite(handle)
+        }
+
+        @JvmStatic
+        fun beforeChain(methodKey: String) {
+            val data = threadData.get()
+            if (data.atCapacity()) return
+            val methodInfo = data.instrumentationData.instrumentedMethods[methodKey] ?: error("uninstrumented method")
+            val thisFrame = data.callStack.peek()
+            if (thisFrame.method != methodInfo) error("mismatched beforeChain")
+            if (thisFrame.chainingCtorInstance != null) error("duplicate chain call")
+            thisFrame.chainingCtorInstance = thisFrame.receiver ?: error("should have a receiver for chain call")
+        }
+
+        @JvmStatic
+        @Suppress("UNUSED_PARAMETER")
+        fun bootstrapAfterChain(caller: MethodHandles.Lookup, methodKey: String, callSignature: MethodType): CallSite {
+            val handle = afterChainHandle.bindTo(methodKey)
+            return ConstantCallSite(handle)
+        }
+
+        @JvmStatic
+        fun afterChain(methodKey: String, instance: Any) {
+            val data = threadData.get()
+            if (data.atCapacity()) return
+            val methodInfo = data.instrumentationData.instrumentedMethods[methodKey] ?: error("uninstrumented method")
+            val thisFrame = data.callStack.peek()
+            if (thisFrame.method != methodInfo) error("mismatched afterChain")
+            val trackingPlaceholder = thisFrame.chainingCtorInstance ?: error("mismatched beforeChain/afterChain")
+            thisFrame.chainingCtorInstance = null
+            if (trackingPlaceholder.realized) return // Already realized by a parent constructor
+            val holder = IdentityHolder(instance)
+            if (holder in data.knownObjects) TODO("downcall from uninstrumented constructor")
+            data.knownObjects[holder] = trackingPlaceholder
+            trackingPlaceholder.realized = true
+            gatherObjectState(instance, trackingPlaceholder)
+            data.steps.add(ExecutionStep.SetState(trackingPlaceholder.id, trackingPlaceholder.asPublishableState()))
         }
 
         @JvmStatic
@@ -684,12 +756,14 @@ private class ExecutionTraceWorkingData(
     class Frame(
         val method: ExecutionTraceInstrumentationData.MethodInfo,
         val receiver: TrackedObject?,
-        val locals: MutableMap<String, ExecutionTraceResults.Value> = mutableMapOf()
+        val locals: MutableMap<String, ExecutionTraceResults.Value> = mutableMapOf(),
+        var chainingCtorInstance: TrackedObject? = null
     )
 
     class TrackedObject(
         val id: Int,
         val type: Class<*>,
+        var realized: Boolean = true,
         var stringRepresentation: String? = null,
         var primaryValue: ExecutionTraceResults.Value? = null,
         var namedComponents: MutableMap<String, ExecutionTraceResults.Value>? = null,
@@ -756,7 +830,7 @@ sealed class ExecutionStep {
     // Push call stack, initialize locals with arguments
     data class EnterMethod(
         val method: ExecutionTraceResults.MethodInfo,
-        val receiver: Any?,
+        val receiverId: Int?,
         val arguments: List<ExecutionTraceResults.PassedArgument>
     ) : ExecutionStep()
 
@@ -775,6 +849,9 @@ sealed class ExecutionStep {
     // Alter one existing local
     data class SetVariable(val local: String, val value: ExecutionTraceResults.Value) : ExecutionStep()
 
+    // Create new uninitialized object in object table, coalesce with next step
+    data class CreateObject(val id: Int, val type: String) : ExecutionStep()
+
     // Create new object in object table, coalesce with next step
     data class ObtainObject(val id: Int, val obj: ExecutionTraceResults.ObjectState) : ExecutionStep()
 
@@ -784,6 +861,9 @@ sealed class ExecutionStep {
         val component: Int,
         val value: ExecutionTraceResults.Value
     ) : ExecutionStep()
+
+    // Replace an existing object's state and mark it initialized
+    data class SetState(val objectId: Int, val state: ExecutionTraceResults.ObjectState) : ExecutionStep()
 }
 
 private fun KFunction<*>.asAsmHandle(): Handle {

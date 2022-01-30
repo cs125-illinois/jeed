@@ -48,7 +48,7 @@ public class Main {
         executionTrace.steps[0] should beInstanceOf<ExecutionStep.EnterMethod>()
         val methodStep = executionTrace.steps[0] as ExecutionStep.EnterMethod
         methodStep.method.method shouldBe "main"
-        methodStep.receiver should beNull()
+        methodStep.receiverId should beNull()
         methodStep.arguments should beEmpty()
     }
 
@@ -70,13 +70,13 @@ printSum((short) 6, (short) 4);
         val executionTrace = result.pluginResult(ExecutionTrace)
         val methodSteps = executionTrace.steps.filterIsInstance<ExecutionStep.EnterMethod>()
         methodSteps[1].method.method shouldBe "printSum"
-        methodSteps[1].receiver should beNull()
+        methodSteps[1].receiverId should beNull()
         methodSteps[1].arguments.size shouldBe 2
         methodSteps[1].arguments[0].argumentName shouldBe "a"
         methodSteps[1].arguments[0].value.value shouldBe 6
         methodSteps[1].arguments[1].argumentName shouldBe "b"
         methodSteps[2].method.method shouldBe "printInt"
-        methodSteps[2].receiver should beNull()
+        methodSteps[2].receiverId should beNull()
         methodSteps[2].arguments.size shouldBe 1
         methodSteps[2].arguments[0].argumentName shouldBe "number"
         methodSteps[2].arguments[0].value.value shouldBe 10
@@ -106,7 +106,74 @@ System.out.println(adder.add(2));
         val addStep = methodSteps.find { it.method.className == "Adder" && it.method.method == "add" }!!
         addStep.arguments[0].argumentName shouldBe "plus"
         addStep.arguments[0].value.value shouldBe 2
-        addStep.receiver shouldNot beNull()
+        addStep.receiverId shouldNot beNull()
+    }
+
+    "should trace constructors" {
+        val result = Source.fromSnippet(
+            """
+class Adder {
+    private int base;
+    Adder(int setBase) {
+        base = setBase;
+    }
+}
+Adder adder = new Adder(5);
+""".trim()
+        ).compile(CompilationArguments(debugInfo = true))
+            .execute(SourceExecutionArguments().addPlugin(ExecutionTrace))
+        result should haveCompleted()
+        val executionTrace = result.pluginResult(ExecutionTrace)
+        val createSteps = executionTrace.steps.filterIsInstance<ExecutionStep.CreateObject>()
+        createSteps shouldHaveSize 1
+        createSteps[0].type shouldBe "Adder"
+        val methodSteps = executionTrace.steps.filterIsInstance<ExecutionStep.EnterMethod>()
+        val addStep = methodSteps.find { it.method.className == "Adder" }!!
+        addStep.arguments[0].argumentName shouldBe "setBase"
+        addStep.arguments[0].value.value shouldBe 5
+        addStep.receiverId shouldBe createSteps[0].id
+        val exitSteps = executionTrace.steps.filterIsInstance<ExecutionStep.ExitMethodNormally>()
+        exitSteps shouldHaveSize 2
+        exitSteps[0].returnValue.type shouldBe ExecutionTraceResults.ValueType.VOID
+    }
+
+    "should trace chained constructors" {
+        val result = Source.fromSnippet(
+            """
+class Parent {
+    Parent(int x) {}
+}
+class Child extends Parent {
+    Child(String s) {
+        this(s.hashCode());
+    }
+    Child(int z) {
+        super(z + 1);
+    }
+}
+Child c = new Child("hi");
+""".trim()
+        ).compile(CompilationArguments(debugInfo = true))
+            .execute(SourceExecutionArguments().addPlugin(ExecutionTrace))
+        result should haveCompleted()
+        val executionTrace = result.pluginResult(ExecutionTrace)
+        val createSteps = executionTrace.steps.filterIsInstance<ExecutionStep.CreateObject>()
+        createSteps shouldHaveSize 1
+        createSteps[0].type shouldBe "Child"
+        val methodSteps = executionTrace.steps.filterIsInstance<ExecutionStep.EnterMethod>()
+        methodSteps[0].receiverId should beNull()
+        methodSteps[1].method.className shouldBe "Child"
+        methodSteps[1].arguments[0].argumentName shouldBe "s"
+        methodSteps[1].arguments[0].value.type shouldBe ExecutionTraceResults.ValueType.REFERENCE
+        methodSteps[1].receiverId shouldBe createSteps[0].id
+        methodSteps[2].method.className shouldBe "Child"
+        methodSteps[2].arguments[0].argumentName shouldBe "z"
+        methodSteps[2].arguments[0].value.value shouldBe "hi".hashCode()
+        methodSteps[2].receiverId shouldBe createSteps[0].id
+        methodSteps[3].method.className shouldBe "Parent"
+        methodSteps[3].arguments[0].argumentName shouldBe "x"
+        methodSteps[3].arguments[0].value.value shouldBe "hi".hashCode() + 1
+        methodSteps[3].receiverId shouldBe createSteps[0].id
     }
 
     "should record successful completion of a void method" {
