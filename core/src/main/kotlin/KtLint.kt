@@ -138,6 +138,10 @@ fun Source.ktFormat(ktLintArguments: KtLintArguments = KtLintArguments()): Sourc
     return Source(formattedSources)
 }
 
+private val unexpectedRegex = """Unexpected indentation \((\d+)\)""".toRegex()
+private val shouldBeRegex = """should be (\d+)""".toRegex()
+
+@Suppress("LongMethod")
 fun Source.ktLint(ktLintArguments: KtLintArguments = KtLintArguments()): KtLintResults {
     require(type == Source.FileType.KOTLIN) { "Can't run ktlint on non-Kotlin sources" }
 
@@ -160,14 +164,42 @@ fun Source.ktLint(ktLintArguments: KtLintArguments = KtLintArguments()): KtLintR
                     cb = { e, _ ->
                         @Suppress("EmptyCatchBlock")
                         try {
+                            val originalLocation = SourceLocation(filename, e.line, e.col)
+                            val mappedLocation = mapLocation(originalLocation)
+
+                            val detail = if (e.ruleId == "indent") {
+                                @Suppress("TooGenericExceptionCaught")
+                                try {
+                                    val addedIndent = originalLocation.column - mappedLocation.column
+                                    val (incorrectMessage, incorrectAmount) =
+                                        unexpectedRegex.find(e.detail)?.groups?.let { match ->
+                                            Pair(match[0]?.value, match[1]?.value?.toInt())
+                                        } ?: error("Couldn't parse indentation error")
+                                    val (expectedMessage, expectedAmount) =
+                                        shouldBeRegex.find(e.detail)?.groups?.let { match ->
+                                            Pair(match[0]?.value, match[1]?.value?.toInt())
+                                        } ?: error("Couldn't parse indentation error")
+
+                                    e.detail
+                                        .replace(
+                                            incorrectMessage!!,
+                                            "Unexpected indentation (${incorrectAmount!! - addedIndent})"
+                                        )
+                                        .replace(expectedMessage!!, "should be ${expectedAmount!! - addedIndent}")
+                                } catch (_: Exception) {
+                                    e.detail
+                                }
+                            } else {
+                                e.detail
+                            }
                             add(
                                 KtLintError(
                                     e.ruleId,
-                                    e.detail,
-                                    mapLocation(SourceLocation(filename, e.line, e.col))
+                                    detail,
+                                    mappedLocation
                                 )
                             )
-                        } catch (e: Exception) {
+                        } catch (_: Exception) {
                         }
                     },
                     editorConfigPath = editorConfigPath

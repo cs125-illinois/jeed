@@ -20,7 +20,7 @@ dependencies {
     implementation("org.jetbrains.kotlin:kotlin-reflect:1.6.10")
 
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-core:1.6.0")
-    implementation("com.puppycrawl.tools:checkstyle:9.2.1")
+    implementation("com.puppycrawl.tools:checkstyle:9.3")
     implementation("com.pinterest.ktlint:ktlint-core:0.43.2")
     implementation("com.pinterest.ktlint:ktlint-ruleset-standard:0.43.2")
     implementation("com.github.jknack:handlebars:4.3.0")

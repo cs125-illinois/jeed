@@ -8,6 +8,7 @@ import io.kotest.matchers.collections.shouldHaveSize
 import io.kotest.matchers.should
 import io.kotest.matchers.shouldBe
 import io.kotest.matchers.shouldNot
+import io.kotest.matchers.string.shouldContain
 
 class TestCheckstyle : StringSpec({
     "should retrieve the indentation level properly" {
@@ -124,6 +125,22 @@ public int add(int a, int b) {
         checkstyleErrors.errors shouldHaveSize 2
         checkstyleErrors should haveCheckstyleErrorAt(line = 2)
         checkstyleErrors should haveCheckstyleErrorAt(line = 3)
+    }
+    "should adjust indentation properly for snippets" {
+        val checkstyleErrors = Source.fromSnippet(
+            """
+public int add(int a, int b) {
+   return a + b;
+}
+""".trim()
+        ).checkstyle()
+        checkstyleErrors should haveCheckstyleErrors()
+        checkstyleErrors.errors shouldHaveSize 1
+        checkstyleErrors should haveCheckstyleErrorAt(line = 2)
+        checkstyleErrors.errors.first().let {
+            it.message shouldContain "indentation level 3"
+            it.message shouldContain "should be 4"
+        }
     }
     "should throw when configured" {
         val checkstyleError = shouldThrow<CheckstyleFailed> {

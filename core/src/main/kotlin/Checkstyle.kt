@@ -142,6 +142,9 @@ val defaultChecker = run {
     object {}::class.java.getResource("/checkstyle/default.xml")?.readText()?.let { ConfiguredChecker(it) }
 }
 
+private val incorrectLevelRegex = """incorrect indentation level (\d+)""".toRegex()
+private val expectedLevelRegex = """expected level should be (\d+)""".toRegex()
+
 @Throws(CheckstyleFailed::class)
 fun Source.checkstyle(
     checkstyleArguments: CheckstyleArguments = CheckstyleArguments(),
@@ -165,7 +168,28 @@ fun Source.checkstyle(
             null
         }
         if (mappedLocation != null) {
-            CheckstyleError(it.severity, it.key, mappedLocation, it.message)
+            val message = if (it.key == "indentation.child.error") {
+                @Suppress("TooGenericExceptionCaught")
+                try {
+                    val addedIndent = it.location.column - mappedLocation.column
+                    val (incorrectMessage, incorrectAmount) =
+                        incorrectLevelRegex.find(it.message)?.groups?.let { match ->
+                            Pair(match[0]?.value, match[1]?.value?.toInt())
+                        } ?: error("Couldn't parse indentation error")
+                    val (expectedMessage, expectedAmount) =
+                        expectedLevelRegex.find(it.message)?.groups?.let { match ->
+                            Pair(match[0]?.value, match[1]?.value?.toInt())
+                        } ?: error("Couldn't parse indentation error")
+                    it.message
+                        .replace(incorrectMessage!!, "incorrect indentation level ${incorrectAmount!! - addedIndent}")
+                        .replace(expectedMessage!!, "expected level should be ${expectedAmount!! - addedIndent}")
+                } catch (_: Exception) {
+                    it.message
+                }
+            } else {
+                it.message
+            }
+            CheckstyleError(it.severity, it.key, mappedLocation, message)
         } else {
             null
         }

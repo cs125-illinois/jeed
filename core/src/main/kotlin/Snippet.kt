@@ -398,7 +398,7 @@ private fun sourceFromJavaSnippet(originalSource: String, snippetArguments: Snip
 
             if (type != "import") {
                 sawNonImport = true
-            } else if (type == "import" && sawNonImport) {
+            } else if (sawNonImport) {
                 errors.add(
                     SnippetTransformationError(
                         start - 1,
