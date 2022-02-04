@@ -61,6 +61,7 @@ val editorConfigPath: String = run {
     tempFile.path
 }
 
+@Suppress("SpellCheckingInspection")
 val jeedRuleSet = RuleSet(
     "standard",
     ChainWrappingRule(),
@@ -170,7 +171,7 @@ fun Source.ktLint(ktLintArguments: KtLintArguments = KtLintArguments()): KtLintR
                             val detail = if (e.ruleId == "indent") {
                                 @Suppress("TooGenericExceptionCaught")
                                 try {
-                                    val addedIndent = originalLocation.column - mappedLocation.column
+                                    val addedIndent = leadingIndentation(originalLocation)
                                     val (incorrectMessage, incorrectAmount) =
                                         unexpectedRegex.find(e.detail)?.groups?.let { match ->
                                             Pair(match[0]?.value, match[1]?.value?.toInt())
