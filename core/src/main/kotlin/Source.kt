@@ -33,7 +33,8 @@ data class Sources(val sources: Map<String, String>) : Map<String, String> by so
 open class Source(
     sourceMap: Map<String, String>,
     checkSourceNames: (Sources) -> FileType = ::defaultCheckSourceNames,
-    @Transient val sourceMappingFunction: (SourceLocation) -> SourceLocation = { it }
+    @Transient val sourceMappingFunction: (SourceLocation) -> SourceLocation = { it },
+    @Transient val leadingIndentationFunction: (SourceLocation) -> Int = { 0 },
 ) {
     val sources = Sources(sourceMap.mapValues { (_, value) -> value.replace("""\r\n?""".toRegex(), "\n") })
 
@@ -64,6 +65,10 @@ open class Source(
 
     fun mapLocation(input: SourceLocation): SourceLocation {
         return sourceMappingFunction(input)
+    }
+
+    fun leadingIndentation(input: SourceLocation): Int {
+        return leadingIndentationFunction(input)
     }
 
     fun mapLocation(source: String, input: Location): Location {

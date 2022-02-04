@@ -7,22 +7,31 @@ class TemplatedSource(
     sources: Sources,
     val originalSources: Sources,
     @Transient private val remappedLineMapping: Map<String, RemappedLines>
-) : Source(sources, sourceMappingFunction = { mapLocation(it, remappedLineMapping) }) {
+) : Source(
+    sources,
+    sourceMappingFunction = { mapLocation(it, remappedLineMapping) },
+    leadingIndentationFunction = { leadingIndentation(it, remappedLineMapping) }
+) {
     data class RemappedLines(val start: Int, val end: Int, val addedIndentation: Int = 0)
     companion object {
         fun mapLocation(input: SourceLocation, remappedLineMapping: Map<String, RemappedLines>): SourceLocation {
             val remappedLineInfo = remappedLineMapping[input.source] ?: return input
-            if (remappedLineInfo.start > input.line) {
-                throw SourceMappingException("can't map line before template range: $input")
-            }
-            if (input.line < remappedLineInfo.start) {
-                throw SourceMappingException("can't map line after template range: $input")
+            if (input.line !in remappedLineInfo.start..remappedLineInfo.end) {
+                throw SourceMappingException("can't map line outside of template range: $input")
             }
             return SourceLocation(
                 input.source,
                 input.line - remappedLineInfo.start + 1,
                 input.column - remappedLineInfo.addedIndentation
             )
+        }
+
+        fun leadingIndentation(input: SourceLocation, remappedLineMapping: Map<String, RemappedLines>): Int {
+            val remappedLineInfo = remappedLineMapping[input.source] ?: return 0
+            if (input.line !in remappedLineInfo.start..remappedLineInfo.end) {
+                throw SourceMappingException("can't map line outside of template range: $input")
+            }
+            return remappedLineInfo.addedIndentation
         }
     }
 }

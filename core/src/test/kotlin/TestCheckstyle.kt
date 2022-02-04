@@ -128,18 +128,48 @@ public int add(int a, int b) {
     }
     "should adjust indentation properly for snippets" {
         val checkstyleErrors = Source.fromSnippet(
-            """
-public int add(int a, int b) {
+            """ public int add(int a, int b) {
    return a + b;
+ }
+""".trimEnd()
+        ).checkstyle()
+        checkstyleErrors should haveCheckstyleErrors()
+        checkstyleErrors.errors shouldHaveSize 3
+        checkstyleErrors should haveCheckstyleErrorAt(line = 1)
+        checkstyleErrors.errors[0].let {
+            it.message shouldContain "indentation level 1"
+            it.message shouldContain "should be 0"
+        }
+        checkstyleErrors should haveCheckstyleErrorAt(line = 2)
+        checkstyleErrors.errors[1].let {
+            it.message shouldContain "indentation level 3"
+            it.message shouldContain "should be 4"
+        }
+        checkstyleErrors should haveCheckstyleErrorAt(line = 3)
+        checkstyleErrors.errors[2].let {
+            it.message shouldContain "indentation level 1"
+            it.message shouldContain "should be 0"
+        }
+    }
+    "should adjust indentation properly for templates" {
+        val checkstyleErrors = Source.fromTemplates(
+            mapOf(
+                "Test.java" to " int i = 0;"
+            ),
+            mapOf(
+                "Test.java.hbs" to """
+public class Question {
+    {{{ contents }}}
 }
-""".trim()
+"""
+            )
         ).checkstyle()
         checkstyleErrors should haveCheckstyleErrors()
         checkstyleErrors.errors shouldHaveSize 1
-        checkstyleErrors should haveCheckstyleErrorAt(line = 2)
-        checkstyleErrors.errors.first().let {
-            it.message shouldContain "indentation level 3"
-            it.message shouldContain "should be 4"
+        checkstyleErrors should haveCheckstyleErrorAt(source = "Test.java", line = 1)
+        checkstyleErrors.errors[0].let {
+            it.message shouldContain "indentation level 1"
+            it.message shouldContain "should be 0"
         }
     }
     "should throw when configured" {

@@ -168,10 +168,10 @@ fun Source.checkstyle(
             null
         }
         if (mappedLocation != null) {
-            val message = if (it.key == "indentation.child.error") {
+            val message = if (it.key?.startsWith("indentation") == true) {
                 @Suppress("TooGenericExceptionCaught")
                 try {
-                    val addedIndent = it.location.column - mappedLocation.column
+                    val addedIndent = leadingIndentation(it.location)
                     val (incorrectMessage, incorrectAmount) =
                         incorrectLevelRegex.find(it.message)?.groups?.let { match ->
                             Pair(match[0]?.value, match[1]?.value?.toInt())

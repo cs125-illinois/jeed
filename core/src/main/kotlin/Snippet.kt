@@ -35,9 +35,15 @@ class Snippet(
         require(sources.keys.first() == "") { "snippets should use a blank string as their filename" }
         fileType
     },
-    { mapLocation(it, remappedLineMapping) }
+    { mapLocation(it, remappedLineMapping) },
+    { leadingIndentation(it, remappedLineMapping) }
 ) {
-    data class RemappedLine(val sourceLineNumber: Int, val rewrittenLineNumber: Int, val addedIndentation: Int = 0)
+    data class RemappedLine(
+        val sourceLineNumber: Int,
+        val rewrittenLineNumber: Int,
+        val addedIndentation: Int = 0,
+        val leadingIndentation: Int = addedIndentation
+    )
 
     fun originalSourceFromMap(): String {
         val lines = rewrittenSource.lines()
@@ -66,6 +72,21 @@ class Snippet(
                 remappedLineInfo.sourceLineNumber,
                 input.column - remappedLineInfo.addedIndentation
             )
+        }
+
+        fun leadingIndentation(input: SourceLocation, remappedLineMapping: Map<Int, RemappedLine>): Int {
+            if (input.source != SNIPPET_SOURCE) {
+                return 0
+            }
+            val remappedLineInfo = remappedLineMapping[input.line]
+                ?: throw SourceMappingException(
+                    "can't remap line ${input.line}: ${
+                    remappedLineMapping.values.joinToString(
+                        separator = ","
+                    )
+                    }"
+                )
+            return remappedLineInfo.leadingIndentation
         }
     }
 }
@@ -613,7 +634,8 @@ private fun sourceFromJavaSnippet(originalSource: String, snippetArguments: Snip
                 Snippet.RemappedLine(
                     lineNumber,
                     currentOutputLineNumber,
-                    snippetArguments.indent + extraIndentation
+                    snippetArguments.indent + extraIndentation,
+                    snippetArguments.indent
                 )
             currentOutputLineNumber++
         }
