@@ -206,7 +206,7 @@ private fun sourceFromKotlinSnippet(originalSource: String, snippetArguments: Sn
                 listOf(
                     SnippetTransformationError(
                         SourceLocation(SNIPPET_SOURCE, it.start.line, it.start.charPositionInLine),
-                        "package declarations not allowed in Jeed scripts"
+                        "package declarations not allowed in Kotlin snippets"
                     )
                 )
             )
@@ -218,7 +218,7 @@ private fun sourceFromKotlinSnippet(originalSource: String, snippetArguments: Sn
                 listOf(
                     SnippetTransformationError(
                         SourceLocation(SNIPPET_SOURCE, it.first().start.line, it.first().start.charPositionInLine),
-                        "file annotations not allowed in Jeed scripts"
+                        "file annotations not allowed in Kotlin snippets"
                     )
                 )
             )
@@ -240,9 +240,15 @@ ${" ".repeat(snippetArguments.indent * 2)}@JvmStatic fun main() {""".lines().let
         currentOutputLineNumber += it.size
     }
 
+    var sawMainMethod = false
+    var mainMethodLine = -1
     val methodLines = mutableSetOf<IntRange>()
     val klassLines = mutableSetOf<IntRange>()
     parseTree.statement().mapNotNull { it.declaration()?.functionDeclaration() }.forEach {
+        if (it.simpleIdentifier().text == "main" && it.functionValueParameters().functionValueParameter().isEmpty()) {
+            sawMainMethod = true
+            mainMethodLine = it.start.line
+        }
         methodLines.add(it.start.line..it.stop.line)
     }
     parseTree.statement().mapNotNull { it.declaration()?.classDeclaration() }.forEach {
@@ -269,7 +275,10 @@ ${" ".repeat(snippetArguments.indent * 2)}@JvmStatic fun main() {""".lines().let
         currentOutputLineNumber++
     }
 
-    if (sawMainLines || !snippetArguments.noEmptyMain) {
+    if (sawMainMethod && !sawMainLines) {
+        rewrittenSourceLines.pop()
+        currentOutputLineNumber--
+    } else if (sawMainLines || !snippetArguments.noEmptyMain) {
         rewrittenSourceLines.add("""${" ".repeat(snippetArguments.indent * 2)}}""")
         currentOutputLineNumber++
     } else {
@@ -285,9 +294,19 @@ ${" ".repeat(snippetArguments.indent * 2)}@JvmStatic fun main() {""".lines().let
             } else {
                 snippetArguments.indent * 2
             }
-            rewrittenSourceLines.add(" ".repeat(indentAmount) + sourceLines[lineNumber - 1].trimEnd())
+            val pushAmount = if (lineNumber == mainMethodLine) {
+                indentAmount + "@JvmStatic ".length
+            } else {
+                indentAmount
+            }
+            val line = " ".repeat(indentAmount) + if (lineNumber == mainMethodLine) {
+                "@JvmStatic "
+            } else {
+                ""
+            } + sourceLines[lineNumber - 1].trimEnd()
+            rewrittenSourceLines.add(line)
             remappedLineMapping[currentOutputLineNumber] =
-                Snippet.RemappedLine(lineNumber, currentOutputLineNumber, indentAmount)
+                Snippet.RemappedLine(lineNumber, currentOutputLineNumber, pushAmount, indentAmount)
             currentOutputLineNumber++
         }
     }

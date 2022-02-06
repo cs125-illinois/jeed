@@ -582,6 +582,19 @@ System.out.println(new Date(t).toString());
             it.returned shouldBe 10
         }
     }
+    "should execute top-level main in Kotlin snippets" {
+        val executionMainResult = Source.fromSnippet(
+            """
+fun main() {
+  println("Here")
+}
+                """.trim(),
+            SnippetArguments(fileType = Source.FileType.KOTLIN, noEmptyMain = true)
+        ).kompile().execute()
+        executionMainResult should haveCompleted()
+        executionMainResult shouldNot haveTimedOut()
+        executionMainResult should haveStdout("Here")
+    }
 })
 
 fun haveCompleted() = object : Matcher<Sandbox.TaskResults<out Any?>> {

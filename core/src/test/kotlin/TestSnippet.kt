@@ -762,6 +762,16 @@ fun test() {
             compilerError.errors[0].location?.line shouldBe 2
         }
     }
+    "should snippet Kotlin code with main method" {
+        Source.fromSnippet(
+            """
+fun main() {
+  println("Here")
+}
+                """.trim(),
+            SnippetArguments(fileType = Source.FileType.KOTLIN, noEmptyMain = true)
+        ).kompile()
+    }
 })
 
 fun haveParseErrorOnLine(line: Int) = object : Matcher<SnippetTransformationFailed> {
