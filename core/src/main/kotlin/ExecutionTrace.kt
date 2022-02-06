@@ -208,6 +208,12 @@ object ExecutionTrace : SandboxPluginWithDefaultArguments<ExecutionTraceArgument
                 }
             }
         }
+        method.tryCatchBlocks.map { it.handler }.distinct().forEach { handler ->
+            val catchPrologue = InsnList()
+            catchPrologue.add(InsnNode(Opcodes.DUP))
+            catchPrologue.add(TracingSupport::popFailedChainCalls.asAsmMethodInsn())
+            method.instructions.insert(handler.skipToBeforeRealInsn(), catchPrologue)
+        }
         val methodPrologue = InsnList()
         passableArguments.forEach {
             methodPrologue.add(VarInsnNode(it.type.getOpcode(Opcodes.ILOAD), it.localIndex))
@@ -476,9 +482,20 @@ object ExecutionTrace : SandboxPluginWithDefaultArguments<ExecutionTraceArgument
             val data = threadData.get()
             if (data.atCapacity()) return
             val methodInfo = data.instrumentationData.instrumentedMethods[methodKey] ?: error("uninstrumented method")
+            popFailedChainCalls(throwable)
             val thisFrame = data.callStack.pop()
             if (thisFrame.method != methodInfo) error("mismatched enterMethod/exitMethodExceptionally")
             data.steps.add(ExecutionStep.ExitMethodExceptionally(findObjectId(throwable)))
+        }
+
+        @JvmStatic
+        fun popFailedChainCalls(throwable: Throwable) {
+            val data = threadData.get()
+            if (data.atCapacity()) return
+            while (data.callStack.peek().chainingCtorInstance != null) {
+                data.steps.add(ExecutionStep.ExitMethodExceptionally(findObjectId(throwable)))
+                data.callStack.pop()
+            }
         }
 
         @JvmStatic

@@ -5,6 +5,9 @@ import io.kotest.matchers.collections.beEmpty
 import io.kotest.matchers.collections.shouldContain
 import io.kotest.matchers.collections.shouldHaveSingleElement
 import io.kotest.matchers.collections.shouldHaveSize
+import io.kotest.matchers.collections.shouldNotContain
+import io.kotest.matchers.ints.shouldBeGreaterThan
+import io.kotest.matchers.ints.shouldBeLessThan
 import io.kotest.matchers.maps.shouldHaveSize
 import io.kotest.matchers.nulls.beNull
 import io.kotest.matchers.should
@@ -221,6 +224,59 @@ addOrSubtract(10, 5, true);
         exitSteps[2].returnValue.value should beNull()
     }
 
+    "should distinguish the chain constructor call" {
+        val result = Source.fromSnippet(
+            """
+class Parent {
+    private int x;
+    Parent(int setX) { x = setX; }
+    int getX() { return x; }
+}
+class Child extends Parent {
+    Child() {
+        this(new Child(5).getX() + 1);
+    }
+    Child(int x) {
+        super(x);
+    }
+}
+Child c = new Child();
+""".trim()
+        ).compile(CompilationArguments(debugInfo = true))
+            .execute(SourceExecutionArguments().addPlugin(ExecutionTrace))
+        result should haveCompleted()
+        val executionTrace = result.pluginResult(ExecutionTrace)
+        val createSteps = executionTrace.steps.filterIsInstance<ExecutionStep.CreateObject>()
+        createSteps shouldHaveSize 2
+        createSteps[0].type shouldBe "Child"
+        createSteps[1].type shouldBe "Child"
+        val methodSteps = executionTrace.steps.filterIsInstance<ExecutionStep.EnterMethod>()
+        // Child()
+        methodSteps[1].method.className shouldBe "Child"
+        methodSteps[1].receiverId shouldBe createSteps[0].id
+        methodSteps[1].arguments shouldHaveSize 0
+        // Child(5)
+        methodSteps[2].method.className shouldBe "Child"
+        methodSteps[2].receiverId shouldBe createSteps[1].id
+        methodSteps[2].arguments[0].value shouldBe ExecutionTraceResults.Value(ExecutionTraceResults.ValueType.INT, 5)
+        // Parent(5)
+        methodSteps[3].method.className shouldBe "Parent"
+        methodSteps[3].receiverId shouldBe createSteps[1].id
+        methodSteps[3].arguments[0].value shouldBe methodSteps[2].arguments[0].value
+        // Child(5).getX()
+        methodSteps[4].method.className shouldBe "Parent"
+        methodSteps[4].method.method shouldBe "getX"
+        methodSteps[4].receiverId shouldBe createSteps[1].id
+        // Child(6)
+        methodSteps[5].method.className shouldBe "Child"
+        methodSteps[5].receiverId shouldBe createSteps[0].id
+        methodSteps[5].arguments[0].value shouldBe ExecutionTraceResults.Value(ExecutionTraceResults.ValueType.INT, 6)
+        // Parent(6)
+        methodSteps[6].method.className shouldBe "Parent"
+        methodSteps[6].receiverId shouldBe createSteps[0].id
+        methodSteps[6].arguments[0].value shouldBe methodSteps[5].arguments[0].value
+    }
+
     "should record exceptional method exit" {
         val result = Source.fromSnippet(
             """
@@ -251,6 +307,161 @@ try {
         enterStep shouldNot beNull()
         val exitStep = executionTrace.steps.find { it is ExecutionStep.ExitMethodExceptionally }
         exitStep shouldNot beNull()
+    }
+
+    "should record pre-chain constructor failure" {
+        val result = Source.fromSnippet(
+            """
+class Parent {
+    Parent(int x) {}
+}
+class Child extends Parent {
+    Child(String s) {
+        super(crash());
+    }
+    private static int crash() {
+        throw new RuntimeException("boom");
+    }
+}
+Child c = new Child("hi");
+""".trim()
+        ).compile(CompilationArguments(debugInfo = true))
+            .execute(SourceExecutionArguments().addPlugin(ExecutionTrace))
+        result.threw should beInstanceOf<RuntimeException>()
+        val executionTrace = result.pluginResult(ExecutionTrace)
+        val createSteps = executionTrace.steps.filterIsInstance<ExecutionStep.CreateObject>()
+        createSteps shouldHaveSize 1
+        createSteps[0].type shouldBe "Child"
+        val methodSteps = executionTrace.steps.filterIsInstance<ExecutionStep.EnterMethod>()
+        methodSteps shouldHaveSize 3 // main, Child("hi"), crash
+        methodSteps.map { it.method.className } shouldNotContain "Parent"
+        val exitSteps = executionTrace.steps.filterIsInstance<ExecutionStep.ExitMethodExceptionally>()
+        exitSteps shouldHaveSize 3
+        exitSteps.distinctBy { it.throwableObjectId } shouldHaveSize 1
+    }
+
+    "should record post-chain constructor failure" {
+        val result = Source.fromSnippet(
+            """
+class Parent {
+    Parent(int x) {}
+}
+class Child extends Parent {
+    Child(String s) {
+        super(s.hashCode());
+        throw new RuntimeException("boom");
+    }
+}
+Child c = new Child("hi");
+""".trim()
+        ).compile(CompilationArguments(debugInfo = true))
+            .execute(SourceExecutionArguments().addPlugin(ExecutionTrace))
+        result.threw should beInstanceOf<RuntimeException>()
+        val executionTrace = result.pluginResult(ExecutionTrace)
+        val createSteps = executionTrace.steps.filterIsInstance<ExecutionStep.CreateObject>()
+        createSteps shouldHaveSize 1
+        createSteps[0].type shouldBe "Child"
+        val methodSteps = executionTrace.steps.filterIsInstance<ExecutionStep.EnterMethod>()
+        methodSteps shouldHaveSize 3 // main, Child("hi"), Parent("hi".hashCode());
+        methodSteps.last().method.className shouldBe "Parent"
+        val finishSteps = executionTrace.steps.filterIsInstance<ExecutionStep.ExitMethodNormally>()
+        finishSteps shouldHaveSize 1
+        val failSteps = executionTrace.steps.filterIsInstance<ExecutionStep.ExitMethodExceptionally>()
+        failSteps shouldHaveSize 2
+        failSteps.distinctBy { it.throwableObjectId } shouldHaveSize 1
+        executionTrace.steps.indexOf(finishSteps[0]) shouldBeLessThan executionTrace.steps.indexOf(failSteps[0])
+    }
+
+    "should record chain constructor failure" {
+        val result = Source.fromSnippet(
+            """
+class Parent {
+    Parent() {
+        throw new RuntimeException("boom");
+    }
+}
+class Child extends Parent {
+    Child() {
+        System.out.println("hmm");
+    }
+}
+Child c = new Child();
+""".trim()
+        ).compile(CompilationArguments(debugInfo = true))
+            .execute(SourceExecutionArguments().addPlugin(ExecutionTrace))
+        result.threw!!.message shouldBe "boom"
+        result.output shouldBe ""
+        val executionTrace = result.pluginResult(ExecutionTrace)
+        val methodSteps = executionTrace.steps.filterIsInstance<ExecutionStep.EnterMethod>()
+        methodSteps shouldHaveSize 3 // main, Child(), Parent()
+        methodSteps[2].method.className shouldBe "Parent"
+        val exitSteps = executionTrace.steps.filterIsInstance<ExecutionStep.ExitMethodExceptionally>()
+        exitSteps shouldHaveSize 3
+        exitSteps.distinctBy { it.throwableObjectId } shouldHaveSize 1
+    }
+
+    "should record chain constructor failure in try-catch" {
+        val result = Source.fromSnippet(
+            """
+class Parent {
+    Parent() {
+        String s = null;
+        s.hashCode();
+    }
+}
+class Child extends Parent {
+    Child() {
+        System.out.println("hmm");
+    }
+}
+try {
+    Child c = new Child();
+} catch (NullPointerException e) {
+    System.out.println("NPE");
+}
+""".trim()
+        ).compile(CompilationArguments(debugInfo = true))
+            .execute(SourceExecutionArguments().addPlugin(ExecutionTrace))
+        result should haveCompleted()
+        result.output shouldBe "NPE"
+        val executionTrace = result.pluginResult(ExecutionTrace)
+        val methodSteps = executionTrace.steps.filterIsInstance<ExecutionStep.EnterMethod>()
+        methodSteps shouldHaveSize 3 // main, Child(), Parent()
+        methodSteps[2].method.className shouldBe "Parent"
+        val finishSteps = executionTrace.steps.filterIsInstance<ExecutionStep.ExitMethodNormally>()
+        finishSteps shouldHaveSize 1
+        val failSteps = executionTrace.steps.filterIsInstance<ExecutionStep.ExitMethodExceptionally>()
+        failSteps shouldHaveSize 2
+        failSteps.distinctBy { it.throwableObjectId } shouldHaveSize 1
+        executionTrace.steps.indexOf(finishSteps[0]) shouldBeGreaterThan executionTrace.steps.lastIndexOf(failSteps[1])
+    }
+
+    "should handle chain constructor failure in uninstrumented code" {
+        val result = Source.fromSnippet(
+            """
+class Parent extends ClassLoader { // should not be possible to create a new classloader
+    Parent() {
+        System.out.println("hmm");
+    }
+}
+class Child extends Parent {
+    Child() {
+        System.out.println("yikes");
+    }
+}
+Child c = new Child();
+""".trim()
+        ).compile(CompilationArguments(debugInfo = true))
+            .execute(SourceExecutionArguments().addPlugin(ExecutionTrace))
+        result.threw should beInstanceOf<SecurityException>()
+        result.output shouldBe ""
+        val executionTrace = result.pluginResult(ExecutionTrace)
+        val methodSteps = executionTrace.steps.filterIsInstance<ExecutionStep.EnterMethod>()
+        methodSteps shouldHaveSize 3 // main, Child(), Parent() -- ClassLoader() is not instrumented
+        methodSteps[2].method.className shouldBe "Parent"
+        val exitSteps = executionTrace.steps.filterIsInstance<ExecutionStep.ExitMethodExceptionally>()
+        exitSteps shouldHaveSize 3
+        exitSteps.distinctBy { it.throwableObjectId } shouldHaveSize 1
     }
 
     "should record local variable lifecycle events" {
