@@ -631,15 +631,7 @@ private class FeatureListener(val source: Source, entry: Map.Entry<String, Strin
         val numBrackets = ctx.typeType().text.filter { it == '[' || it == ']' }.length
         when {
             numBrackets > 2 -> count(FeatureName.MULTIDIMENSIONAL_ARRAYS, 1)
-            numBrackets > 0 -> {
-                count(FeatureName.ARRAYS, 1)
-                if (ctx.variableDeclarators().variableDeclarator().filter {
-                    it.variableInitializer()?.arrayInitializer() != null
-                }.isEmpty()
-                ) {
-                    count(FeatureName.NEW_KEYWORD, -1)
-                }
-            }
+            numBrackets > 0 -> count(FeatureName.ARRAYS, 1)
         }
         for (declarator in ctx.variableDeclarators().variableDeclarator()) {
             currentFeatures.features.identifierList.add(declarator.variableDeclaratorId().identifier().text)
@@ -862,7 +854,9 @@ private class FeatureListener(val source: Source, entry: Map.Entry<String, Strin
             }
         }
         ctx.NEW()?.also {
-            count(FeatureName.NEW_KEYWORD, 1)
+            if (ctx.creator()?.arrayCreatorRest() == null && ctx.creator()?.createdName()?.text != "String") {
+                count(FeatureName.NEW_KEYWORD, 1)
+            }
         }
         ctx.primary()?.THIS()?.also {
             count(FeatureName.THIS, 1)

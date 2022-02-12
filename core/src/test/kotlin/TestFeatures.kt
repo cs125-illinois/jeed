@@ -817,13 +817,35 @@ public class Catcher {
             it.lookup(".").features.featureMap[FeatureName.STATIC_METHOD] shouldBe 0
         }
     }
-    "should not could array.length as dotted variable access" {
+    "should not count array.length as dotted variable access" {
         Source.fromSnippet(
             """int[] array = new int[8];
               |int l = array.length;""".trimMargin()
         ).features().also {
             it.lookup(".").features.featureMap[FeatureName.DOTTED_VARIABLE_ACCESS] shouldBe 0
             it.lookup(".").features.featureMap[FeatureName.DOT_NOTATION] shouldBe 0
+        }
+    }
+    "should not count new with Strings and arrays" {
+        Source.fromSnippet(
+            """String test = new String("test");
+                |int[] test1 = new int[8];
+                |int[] test2 = new int[] {1, 2, 4};
+            """.trimMargin()
+        ).features().also {
+            it.lookup(".").features.featureMap[FeatureName.NEW_KEYWORD] shouldBe 0
+        }
+    }
+    "should not count new with arrays" {
+        Source.fromSnippet(
+            """int[] midThree(int[] values) {
+                |  return new int[] {
+                |    values[values.length / 2 - 1], values[values.length / 2], values[values.length / 2 + 1]
+                |  };
+                |}
+            """.trimMargin()
+        ).features().also {
+            it.lookup("").features.featureMap[FeatureName.NEW_KEYWORD] shouldBe 0
         }
     }
 })
