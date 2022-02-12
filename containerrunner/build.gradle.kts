@@ -6,7 +6,7 @@ plugins {
     kotlin("jvm")
     application
     id("com.github.johnrengelman.shadow") version "7.1.2"
-    id("com.palantir.docker") version "0.31.0"
+    id("com.palantir.docker") version "0.32.0"
     id("org.jmailen.kotlinter")
     id("io.gitlab.arturbosch.detekt")
 }
@@ -26,8 +26,6 @@ tasks.test {
 }
 docker {
     name = "cs125/jeed-containerrunner"
-    tag("latest", "cs125/jeed-containerrunner:latest")
-    tag(version.toString(), "cs125/jeed-containerrunner:$version")
     files(tasks["shadowJar"].outputs)
 }
 task("createProperties") {

@@ -817,4 +817,13 @@ public class Catcher {
             it.lookup(".").features.featureMap[FeatureName.STATIC_METHOD] shouldBe 0
         }
     }
+    "should not could array.length as dotted variable access" {
+        Source.fromSnippet(
+            """int[] array = new int[8];
+              |int l = array.length;""".trimMargin()
+        ).features().also {
+            it.lookup(".").features.featureMap[FeatureName.DOTTED_VARIABLE_ACCESS] shouldBe 0
+            it.lookup(".").features.featureMap[FeatureName.DOT_NOTATION] shouldBe 0
+        }
+    }
 })

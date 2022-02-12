@@ -820,7 +820,11 @@ private class FeatureListener(val source: Source, entry: Map.Entry<String, Strin
             "." -> {
                 count(FeatureName.DOT_NOTATION, 1)
                 if (ctx.identifier() != null) {
-                    count(FeatureName.DOTTED_VARIABLE_ACCESS, 1)
+                    if (ctx.identifier().text != "length") {
+                        count(FeatureName.DOTTED_VARIABLE_ACCESS, 1)
+                    } else {
+                        count(FeatureName.DOT_NOTATION, -1)
+                    }
                 }
                 if (ctx.methodCall() != null) {
                     count(FeatureName.DOTTED_METHOD_CALL, 1)

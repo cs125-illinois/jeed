@@ -8,7 +8,7 @@ plugins {
     application
     `maven-publish`
     id("com.github.johnrengelman.shadow") version "7.1.2"
-    id("com.palantir.docker") version "0.31.0"
+    id("com.palantir.docker") version "0.32.0"
     id("org.jmailen.kotlinter")
     id("io.gitlab.arturbosch.detekt")
 }
@@ -38,8 +38,6 @@ application {
 }
 docker {
     name = "cs125/jeed"
-    tag("latest", "cs125/jeed:latest")
-    tag(version.toString(), "cs125/jeed:$version")
     files(tasks["shadowJar"].outputs)
 }
 tasks.test {
