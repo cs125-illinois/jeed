@@ -8,6 +8,7 @@ import io.kotest.matchers.collections.shouldHaveSize
 import io.kotest.matchers.should
 import io.kotest.matchers.shouldBe
 import io.kotest.matchers.shouldNot
+import io.kotest.matchers.string.shouldContain
 
 class TestCheckstyle : StringSpec({
     "should retrieve the indentation level properly" {
@@ -124,6 +125,52 @@ public int add(int a, int b) {
         checkstyleErrors.errors shouldHaveSize 2
         checkstyleErrors should haveCheckstyleErrorAt(line = 2)
         checkstyleErrors should haveCheckstyleErrorAt(line = 3)
+    }
+    "should adjust indentation properly for snippets" {
+        val checkstyleErrors = Source.fromSnippet(
+            """ public int add(int a, int b) {
+   return a + b;
+ }
+""".trimEnd()
+        ).checkstyle()
+        checkstyleErrors should haveCheckstyleErrors()
+        checkstyleErrors.errors shouldHaveSize 3
+        checkstyleErrors should haveCheckstyleErrorAt(line = 1)
+        checkstyleErrors.errors[0].let {
+            it.message shouldContain "indentation level 1"
+            it.message shouldContain "should be 0"
+        }
+        checkstyleErrors should haveCheckstyleErrorAt(line = 2)
+        checkstyleErrors.errors[1].let {
+            it.message shouldContain "indentation level 3"
+            it.message shouldContain "should be 4"
+        }
+        checkstyleErrors should haveCheckstyleErrorAt(line = 3)
+        checkstyleErrors.errors[2].let {
+            it.message shouldContain "indentation level 1"
+            it.message shouldContain "should be 0"
+        }
+    }
+    "should adjust indentation properly for templates" {
+        val checkstyleErrors = Source.fromTemplates(
+            mapOf(
+                "Test.java" to " int i = 0;"
+            ),
+            mapOf(
+                "Test.java.hbs" to """
+public class Question {
+    {{{ contents }}}
+}
+"""
+            )
+        ).checkstyle()
+        checkstyleErrors should haveCheckstyleErrors()
+        checkstyleErrors.errors shouldHaveSize 1
+        checkstyleErrors should haveCheckstyleErrorAt(source = "Test.java", line = 1)
+        checkstyleErrors.errors[0].let {
+            it.message shouldContain "indentation level 1"
+            it.message shouldContain "should be 0"
+        }
     }
     "should throw when configured" {
         val checkstyleError = shouldThrow<CheckstyleFailed> {

@@ -292,7 +292,7 @@ fun String.countLines(type: Source.FileType): LineCounts {
             SnippetLexer(charStream).allTokens.forEach {
                 when (it.channel) {
                     0 -> source.add(it.line)
-                    1 -> comment.addAll(it.line..(it.line + it.text.lines().size))
+                    1 -> comment.addAll(it.line..(it.line + it.text.lines().size).coerceAtMost(lines().size))
                 }
             }
         Source.FileType.KOTLIN ->
@@ -300,7 +300,7 @@ fun String.countLines(type: Source.FileType): LineCounts {
                 if (it.text.isNotBlank()) {
                     when (it.channel) {
                         0 -> source.add(it.line)
-                        1 -> comment.addAll(it.line..(it.line + it.text.lines().size))
+                        1 -> comment.addAll(it.line..(it.line + it.text.lines().size).coerceAtMost(lines().size))
                     }
                 }
             }

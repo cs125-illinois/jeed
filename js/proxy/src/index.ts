@@ -152,4 +152,5 @@ process.on("uncaughtException", (err) => {
 })
 process.on("unhandledRejection", (err) => {
   console.error(err)
+  process.exit(-1)
 })

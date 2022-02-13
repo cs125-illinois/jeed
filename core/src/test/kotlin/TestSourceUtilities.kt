@@ -304,4 +304,10 @@ fun holdOn(): String {
             it.comment shouldBe 8
         }
     }
+    "should count only commented lines in Java" {
+        """// System.out.println(0);""".countLines(Source.FileType.JAVA).also {
+            it.blank shouldBe 0
+            it.comment shouldBe 1
+        }
+    }
 })

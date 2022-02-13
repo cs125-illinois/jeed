@@ -6,6 +6,7 @@ import io.kotest.assertions.throwables.shouldThrow
 import io.kotest.core.spec.style.StringSpec
 import io.kotest.matchers.collections.shouldHaveSize
 import io.kotest.matchers.shouldBe
+import io.kotest.matchers.string.shouldContain
 
 class TestKtLint : StringSpec({
     "it should check simple kotlin sources" {
@@ -45,6 +46,21 @@ class TestKtLint : StringSpec({
 
         ktLintFailed.errors shouldHaveSize 1
         ktLintFailed.errors.filterIsInstance<KtLintError>().filter { it.ruleId == "indent" } shouldHaveSize 1
+    }
+    "it should adjust indent for indentation errors" {
+        val ktLintFailed = shouldThrow<KtLintFailed> {
+            Source.fromSnippet(
+                """println("Hello, world!")""".trim(),
+                SnippetArguments(fileType = Source.FileType.KOTLIN, indent = 3)
+            ).ktLint(KtLintArguments(failOnError = true))
+        }
+
+        ktLintFailed.errors shouldHaveSize 1
+        ktLintFailed.errors.filterIsInstance<KtLintError>().filter { it.ruleId == "indent" } shouldHaveSize 1
+        ktLintFailed.errors.first().let {
+            it.message shouldContain "Unexpected indentation (0)"
+            it.message shouldContain "(should be 3)"
+        }
     }
     "it should check kotlin snippets and get the line numbers right" {
         val ktLintFailed = shouldThrow<KtLintFailed> {

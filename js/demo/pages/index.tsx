@@ -332,7 +332,7 @@ export default function Home() {
                 It also supports <em>snippet mode</em>, a relaxed Java and Kotlin syntax that allows top-level method
                 definitions and loose code.
               </p>
-              <p>Use the demo below to explore Jeed's features.</p>
+              <p>Use the demo below to explore Jeed&apos;s features.</p>
             </div>
             <JeedDemo />
           </JeedProvider>
