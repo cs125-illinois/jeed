@@ -22,9 +22,9 @@ import javax.tools.SimpleJavaFileObject
 import javax.tools.StandardLocation
 import javax.tools.ToolProvider
 
-private val systemCompiler = ToolProvider.getSystemJavaCompiler() ?: error {
+private val systemCompiler = ToolProvider.getSystemJavaCompiler() ?: error(
     "systemCompiler not found: you are probably running a JRE, not a JDK"
-}
+)
 const val DEFAULT_JAVA_VERSION = 10
 val systemCompilerName = systemCompiler.sourceVersions.maxOrNull().toString()
 val systemCompilerVersion = systemCompilerName.let {
@@ -43,7 +43,8 @@ val standardFileManager: JavaFileManager = run {
         }
     }
 }
-private val javacSyncRoot = Object()
+private val standardFileManagerSyncRoot = Object()
+private var lastMultireleaseOperand: String? = null
 
 @JsonClass(generateAdapter = true)
 data class CompilationArguments(
@@ -146,8 +147,16 @@ private fun compile(
         options.add("-g")
     }
 
-    synchronized(javacSyncRoot) {
+    val runCompilation = {
         systemCompiler.getTask(null, fileManager, results, options.toList(), null, units).call()
+    }
+    if (parentFileManager == null || parentFileManager is JeedFileManager) {
+        runCompilation()
+    } else {
+        // Custom file manager might not handle concurrency correctly
+        synchronized(standardFileManagerSyncRoot) {
+            runCompilation()
+        }
     }
 
     fun getMappedLocation(diagnostic: Diagnostic<out JavaFileObject>): SourceLocation? {
@@ -271,7 +280,7 @@ class JeedFileManager(private val parentFileManager: JavaFileManager) :
         }
 
     val size: Int
-        get() = classFiles.values.filterIsInstance<ByteSource>().map { it.buffer.size() }.sum()
+        get() = classFiles.values.filterIsInstance<ByteSource>().sumOf { it.buffer.size() }
 
     private class ByteSource(path: String) :
         SimpleJavaFileObject(URI.create("bytearray:///$path"), JavaFileObject.Kind.CLASS) {
@@ -340,7 +349,9 @@ class JeedFileManager(private val parentFileManager: JavaFileManager) :
         kinds: MutableSet<JavaFileObject.Kind>,
         recurse: Boolean
     ): MutableIterable<JavaFileObject> {
-        val parentList = super.list(location, packageName, kinds, recurse)
+        val parentList = synchronized(standardFileManagerSyncRoot) {
+            super.list(location, packageName, kinds, recurse)
+        }
         return if (!kinds.contains(JavaFileObject.Kind.CLASS)) {
             parentList
         } else {
@@ -368,6 +379,30 @@ class JeedFileManager(private val parentFileManager: JavaFileManager) :
             super.inferBinaryName(location, file)
         }
     }
+
+    override fun handleOption(current: String?, remaining: MutableIterator<String>?): Boolean {
+        return if (parentFileManager === standardFileManager && current == "--multi-release") {
+            val operand = remaining?.next() ?: error("MULTIRELEASE should have an operand")
+            synchronized(standardFileManagerSyncRoot) {
+                if (operand != lastMultireleaseOperand) {
+                    require(lastMultireleaseOperand == null) { "MULTIRELEASE should not have changed" }
+                    lastMultireleaseOperand = operand
+                    super.handleOption(current, listOf(operand).iterator())
+                } else {
+                    // Prevent JavacFileManager from clearing its caches, which would break concurrent tasks
+                    true
+                }
+            }
+        } else {
+            super.handleOption(current, remaining)
+        }
+    }
+
+    override fun flush() {
+        if (parentFileManager !== standardFileManager) {
+            super.flush()
+        }
+    }
 }
 
 class JeedClassLoader(private val fileManager: JeedFileManager, parentClassLoader: ClassLoader?) :
@@ -386,8 +421,8 @@ class JeedClassLoader(private val fileManager: JeedFileManager, parentClassLoade
     override var loadedClasses: MutableSet<String> = mutableSetOf()
 
     override fun findClass(name: String): Class<*> {
-        @Suppress("UNREACHABLE_CODE", "TooGenericExceptionCaught", "SwallowedException")
-        return try {
+        @Suppress("TooGenericExceptionCaught", "SwallowedException")
+        try {
             val classFile = fileManager.getJavaFileForInput(
                 StandardLocation.CLASS_OUTPUT,
                 name,
