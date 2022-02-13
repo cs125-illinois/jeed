@@ -94,14 +94,15 @@ object Sandbox {
 
         companion object {
             val DEFAULT_WHITELISTED_CLASSES = setOf<String>()
-            val DEFAULT_BLACKLISTED_CLASSES = setOf("java.lang.reflect.", "kotlin.reflect.")
+            val DEFAULT_BLACKLISTED_CLASSES = setOf("java.lang.reflect.")
             val DEFAULT_UNSAFE_EXCEPTIONS = setOf<String>()
             val DEFAULT_ISOLATED_CLASSES = setOf<String>()
             val DEFAULT_BLACKLISTED_METHODS = setOf(
                 MethodFilter("java.lang.invoke.MethodHandles.Lookup", ""),
                 MethodFilter("java.lang.Class", "forName"),
                 MethodFilter("java.lang.Class", "getClassLoader", allowInReload = true),
-                MethodFilter("java.lang.ClassLoader", "", allowInReload = true)
+                MethodFilter("java.lang.ClassLoader", "", allowInReload = true),
+                MethodFilter("kotlin.reflect.", "", allowInReload = true)
             )
             val PERMANENTLY_BLACKLISTED_CLASSES = setOf(
                 "edu.illinois.cs.cs125.jeed.",
