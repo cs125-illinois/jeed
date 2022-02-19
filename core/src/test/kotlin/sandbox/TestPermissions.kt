@@ -658,4 +658,14 @@ println(sandboxKlass.constructors)
         executionMainResult shouldNot haveCompleted()
         executionMainResult.permissionDenied shouldBe true
     }
+    "should not allow allocation of direct byte buffers" {
+        val executionResult = Source.fromSnippet(
+            """
+import java.nio.*;
+MappedByteBuffer.allocateDirect(1000);
+        """.trim()
+        ).compile().execute(SourceExecutionArguments(timeout = 10000))
+        executionResult shouldNot haveCompleted()
+        executionResult.permissionDenied shouldBe true
+    }
 })

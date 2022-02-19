@@ -100,8 +100,11 @@ object Sandbox {
             val DEFAULT_BLACKLISTED_METHODS = setOf(
                 MethodFilter("java.lang.invoke.MethodHandles.Lookup", ""),
                 MethodFilter("java.lang.Class", "forName"),
+                MethodFilter("java.lang.Module", "add"),
+                MethodFilter("java.nio.", "allocateDirect"), // can cause trouble for GC
                 MethodFilter("java.lang.Class", "getClassLoader", allowInReload = true),
                 MethodFilter("java.lang.ClassLoader", "", allowInReload = true),
+                MethodFilter("java.lang.ModuleLayer", "", allowInReload = true),
                 MethodFilter("kotlin.reflect.", "", allowInReload = true)
             )
             val PERMANENTLY_BLACKLISTED_CLASSES = setOf(
@@ -788,6 +791,11 @@ object Sandbox {
                 return delegateClass(name)
             }
             if (name in sandboxRequiredClasses) {
+                return delegateClass(name)
+            }
+            if (name.startsWith("jdk.internal.reflect.")) {
+                // Loaded when trusted code is reflectively accessing sandboxed members
+                // Standard access restrictions prevent untrusted code from using jdk.internal directly
                 return delegateClass(name)
             }
             return if (isWhiteList) {
