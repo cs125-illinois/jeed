@@ -82,7 +82,7 @@ const JeedDemo: React.FC = () => {
   const aceRef = useRef<IAceEditor>()
 
   const run = useCallback(
-    async (job: "run" | "lint" | "complexity" | "features") => {
+    async (job: "run" | "lint" | "complexity" | "features" | "disassemble") => {
       if (!aceRef.current) {
         return
       }
@@ -104,6 +104,8 @@ const JeedDemo: React.FC = () => {
           throw Error("features not yet supported for Kotlin")
         }
         tasks = ["features"]
+      } else if (job === "disassemble") {
+        tasks = mode === "java" ? ["compile", "disassemble"] : ["kompile", "disassemble"]
       } else {
         throw Error(mode)
       }
@@ -113,6 +115,9 @@ const JeedDemo: React.FC = () => {
       }
       if (tasks.includes("ktlint")) {
         args.ktlint = { failOnError: true }
+      }
+      if (tasks.includes("disassemble") && tasks.includes("compile")) {
+        args.compilation = { parameters: true, debugInfo: true }
       }
       if (mode === "kotlin") {
         args.snippet!.fileType = "KOTLIN"
@@ -261,6 +266,14 @@ const JeedDemo: React.FC = () => {
             Features
           </button>
         )}
+        <button
+          onClick={() => {
+            run("disassemble")
+          }}
+          style={{ marginRight: 8 }}
+        >
+          Disassembly
+        </button>
         <div style={{ float: "right" }}>
           <button style={{ marginRight: 8 }} onClick={() => setSnippet(!snippet)}>
             {snippet ? "Source" : "Snippet"}
@@ -287,7 +300,12 @@ const JeedDemo: React.FC = () => {
         <div style={{ marginTop: 8 }}>
           <p>Output processed to mimic terminal output:</p>
           <div className="output">
-            <span className={output.level}>{output.output}</span>
+            <span
+              className={output.level}
+              style={response?.response?.completed?.disassemble ? { whiteSpace: "pre" } : {}} // Long disassembly lines should not break
+            >
+              {output.output}
+            </span>
           </div>
         </div>
       )}

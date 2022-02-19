@@ -48,8 +48,6 @@ tasks.test {
         jvmArgs("-ea", "-Xmx1G")
     }
     systemProperties["logback.configurationFile"] = File(projectDir, "src/test/resources/logback-test.xml").absolutePath
-    environment["MONGODB"] = "mongodb://root:w8t@localhost:27017/code_jeed?authSource=admin"
-    environment["SEMESTER"] = "Fall2021"
     environment["JEED_USE_CACHE"] = "true"
 }
 task("createProperties") {

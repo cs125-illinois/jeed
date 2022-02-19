@@ -11,7 +11,8 @@ export const Task = Union(
   Literal("execute"),
   Literal("cexecute"),
   Literal("features"),
-  Literal("mutations")
+  Literal("mutations"),
+  Literal("disassemble"),
 )
 export type Task = Static<typeof Task>
 
@@ -107,6 +108,8 @@ export const CompilationArguments = Partial({
   enablePreview: Boolean,
   useCache: Boolean,
   waitForCache: Boolean,
+  parameters: Boolean,
+  debugInfo: Boolean,
 })
 export type CompilationArguments = Static<typeof CompilationArguments>
 
@@ -420,6 +423,11 @@ export const MutationsResults = Record({
 })
 export type MutationsResults = Static<typeof MutationsResults>
 
+export const DisassembleResults = Record({
+  disassemblies: Dictionary(String, String),
+})
+export type DisassembleResults = Static<typeof DisassembleResults>
+
 export const ThrownException = Record({
   klass: String,
   stacktrace: String,
@@ -494,6 +502,7 @@ export const CompletedTasks = Partial({
   execution: SourceTaskResults,
   cexecution: ContainerExecutionResults,
   mutations: MutationsResults,
+  disassemble: DisassembleResults,
 })
 export type CompletedTasks = Static<typeof CompletedTasks>
 
@@ -570,6 +579,11 @@ export const MutationsFailed = Record({
 })
 export type MutationsFailed = Static<typeof MutationsFailed>
 
+export const DisassembleFailed = Record({
+  message: String,
+})
+export type DisassembleFailed = Static<typeof DisassembleFailed>
+
 export const ExecutionFailedResult = Partial({
   classNotFound: String,
   methodNotFound: String,
@@ -588,6 +602,7 @@ export const FailedTasks = Partial({
   cexecution: ExecutionFailedResult,
   features: FeaturesFailed,
   mutations: MutationsFailed,
+  disassemble: DisassembleFailed,
 })
 export type FailedTasks = Static<typeof FailedTasks>
 
