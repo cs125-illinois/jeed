@@ -11,6 +11,8 @@ import edu.illinois.cs.cs125.jeed.core.ComplexityFailed
 import edu.illinois.cs.cs125.jeed.core.ComplexityResults
 import edu.illinois.cs.cs125.jeed.core.ComplexityValue
 import edu.illinois.cs.cs125.jeed.core.ContainerExecutionResults
+import edu.illinois.cs.cs125.jeed.core.DisassembleFailedResult
+import edu.illinois.cs.cs125.jeed.core.DisassembleResults
 import edu.illinois.cs.cs125.jeed.core.FeatureValue
 import edu.illinois.cs.cs125.jeed.core.Features
 import edu.illinois.cs.cs125.jeed.core.FeaturesFailed
@@ -43,7 +45,8 @@ class CompletedTasks(
     var execution: SourceTaskResults? = null,
     var cexecution: ContainerExecutionResults? = null,
     var features: FlatFeaturesResults? = null,
-    var mutations: MutationsResults? = null
+    var mutations: MutationsResults? = null,
+    var disassemble: DisassembleResults? = null
 )
 
 @JsonClass(generateAdapter = true)
@@ -59,7 +62,8 @@ class FailedTasks(
     var execution: ExecutionFailedResult? = null,
     var cexecution: ExecutionFailedResult? = null,
     var features: FeaturesFailed? = null,
-    var mutations: MutationsFailed? = null
+    var mutations: MutationsFailed? = null,
+    var disassemble: DisassembleFailedResult? = null
 )
 
 @JsonClass(generateAdapter = true)

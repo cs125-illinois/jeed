@@ -32,11 +32,17 @@ object Limits : ConfigSpec() {
             val whitelistedClasses by optional(Sandbox.ClassLoaderConfiguration.DEFAULT_WHITELISTED_CLASSES)
             val blacklistedClasses by optional(Sandbox.ClassLoaderConfiguration.DEFAULT_BLACKLISTED_CLASSES)
             val unsafeExceptions by optional(Sandbox.ClassLoaderConfiguration.DEFAULT_UNSAFE_EXCEPTIONS)
+            val blacklistedMethods by optional(Sandbox.ClassLoaderConfiguration.DEFAULT_BLACKLISTED_METHODS)
         }
     }
 
     object Cexecution : ConfigSpec() {
         val timeout by optional(ContainerExecutionArguments.DEFAULT_TIMEOUT)
+    }
+
+    object Disassembly : ConfigSpec() {
+        private const val DEFAULT_DISASSEMBLY_MAX_BYTES = 50 * 1024
+        val maxBytes by optional(DEFAULT_DISASSEMBLY_MAX_BYTES)
     }
 }
 

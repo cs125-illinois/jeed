@@ -95,6 +95,7 @@ class ResultAdapter {
         result.completed.cexecution = responseJson.completed.cexecution
         result.completed.features = responseJson.completed.features
         result.completed.mutations = responseJson.completed.mutations
+        result.completed.disassemble = responseJson.completed.disassemble
         result.completedTasks.addAll(responseJson.completedTasks)
 
         result.failed.snippet = responseJson.failed.snippet
@@ -108,6 +109,7 @@ class ResultAdapter {
         result.failed.cexecution = responseJson.failed.cexecution
         result.failed.features = responseJson.failed.features
         result.failed.mutations = responseJson.failed.mutations
+        result.failed.disassemble = responseJson.failed.disassemble
         result.failedTasks.addAll(responseJson.failedTasks)
 
         result.interval = responseJson.interval

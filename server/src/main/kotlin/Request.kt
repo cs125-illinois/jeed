@@ -3,6 +3,8 @@ package edu.illinois.cs.cs125.jeed.server
 import edu.illinois.cs.cs125.jeed.core.CheckstyleFailed
 import edu.illinois.cs.cs125.jeed.core.CompilationFailed
 import edu.illinois.cs.cs125.jeed.core.ComplexityFailed
+import edu.illinois.cs.cs125.jeed.core.DisassembleFailed
+import edu.illinois.cs.cs125.jeed.core.DisassembleFailedResult
 import edu.illinois.cs.cs125.jeed.core.ExecutionFailed
 import edu.illinois.cs.cs125.jeed.core.FeaturesFailed
 import edu.illinois.cs.cs125.jeed.core.Interval
@@ -17,6 +19,7 @@ import edu.illinois.cs.cs125.jeed.core.checkstyle
 import edu.illinois.cs.cs125.jeed.core.compile
 import edu.illinois.cs.cs125.jeed.core.complexity
 import edu.illinois.cs.cs125.jeed.core.defaultChecker
+import edu.illinois.cs.cs125.jeed.core.disassemble
 import edu.illinois.cs.cs125.jeed.core.distinguish
 import edu.illinois.cs.cs125.jeed.core.execute
 import edu.illinois.cs.cs125.jeed.core.features
@@ -149,7 +152,6 @@ class Request(
             }
 
             val blacklistedClasses = configuration[Limits.Execution.ClassLoaderConfiguration.blacklistedClasses]
-
             require(arguments.execution.classLoaderConfiguration.blacklistedClasses.containsAll(blacklistedClasses)) {
                 "job is trying to remove blacklisted classes"
             }
@@ -160,6 +162,10 @@ class Request(
             val unsafeExceptions = configuration[Limits.Execution.ClassLoaderConfiguration.unsafeExceptions]
             require(arguments.execution.classLoaderConfiguration.unsafeExceptions.containsAll(unsafeExceptions)) {
                 "job is trying to remove unsafe exceptions"
+            }
+            val blacklistedMethods = configuration[Limits.Execution.ClassLoaderConfiguration.blacklistedMethods]
+            require(arguments.execution.classLoaderConfiguration.blacklistedMethods.containsAll(blacklistedMethods)) {
+                "job is trying to remove forbidden methods"
             }
         }
         if (Task.cexecute in tasks) {
@@ -250,6 +256,18 @@ class Request(
                 response.completedTasks.add(Task.mutations)
             }
 
+            if (tasks.contains(Task.disassemble)) {
+                check(compiledSource != null) { "should have compiled source before disassembling" }
+                val maxBytes = configuration[Limits.Disassembly.maxBytes]
+                val actualBytes = compiledSource.classLoader.bytecodeForClasses.values.sumOf { it.size }
+                if (actualBytes > maxBytes) {
+                    val message = "compilation result is too large to disassemble: $actualBytes > $maxBytes bytes"
+                    throw DisassembleFailed(IllegalArgumentException(message))
+                }
+                response.completed.disassemble = compiledSource.disassemble()
+                response.completedTasks.add(Task.disassemble)
+            }
+
             if (tasks.contains(Task.execute)) {
                 check(compiledSource != null) { "should have compiled source before executing" }
                 val executionResult = compiledSource.execute(arguments.execution)
@@ -297,6 +315,9 @@ class Request(
         } catch (mutationsFailed: MutationsFailed) {
             response.failed.mutations = mutationsFailed
             response.failedTasks.add(Task.mutations)
+        } catch (disassembleFailed: DisassembleFailed) {
+            response.failed.disassemble = DisassembleFailedResult(disassembleFailed)
+            response.failedTasks.add(Task.disassemble)
         } finally {
             currentStatus.counts.completed++
             response.interval = Interval(started, Instant.now())
