@@ -39,6 +39,7 @@ import java.util.concurrent.Executors
 import java.util.concurrent.FutureTask
 import java.util.concurrent.TimeUnit
 import java.util.concurrent.TimeoutException
+import java.util.concurrent.atomic.AtomicInteger
 import java.util.concurrent.locks.Condition
 import java.util.concurrent.locks.ReentrantLock
 import kotlin.math.min
@@ -424,6 +425,8 @@ object Sandbox {
 
         @Volatile
         var killReason: String? = null
+
+        val extraThreadsCreated = AtomicInteger(0)
 
         var truncatedLines: Int = 0
         val currentLines: MutableMap<TaskResults.OutputLine.Console, CurrentLine> = mutableMapOf()
@@ -1440,7 +1443,8 @@ object Sandbox {
             if (threadGroup != Thread.currentThread().threadGroup) {
                 confinedTask.addPermissionRequest(RuntimePermission("changeThreadGroup"), false)
             } else {
-                checkThreadLimits(confinedTask)
+                // This is the only time the Thread construction process is guaranteed to consult the SecurityManager
+                checkThreadLimits(confinedTask, confinedTask.extraThreadsCreated.incrementAndGet())
                 systemSecurityManager?.checkAccess(threadGroup)
             }
         }
@@ -1450,11 +1454,11 @@ object Sandbox {
             val threadGroup = Thread.currentThread().threadGroup
             val confinedTask = confinedTaskByThreadGroup()
                 ?: return systemSecurityManager?.threadGroup ?: return threadGroup
-            checkThreadLimits(confinedTask)
+            checkThreadLimits(confinedTask, confinedTask.extraThreadsCreated.get())
             return systemSecurityManager?.threadGroup ?: threadGroup
         }
 
-        private fun checkThreadLimits(confinedTask: ConfinedTask<*>) {
+        private fun checkThreadLimits(confinedTask: ConfinedTask<*>, newExtraThreadCount: Int) {
             if (confinedTask.shuttingDown) {
                 confinedTask.permissionRequests.add(
                     TaskResults.PermissionRequest(
@@ -1464,7 +1468,7 @@ object Sandbox {
                 )
                 throw SandboxDeath()
             }
-            if (Thread.currentThread().threadGroup.activeCount() >= confinedTask.maxExtraThreads + 1) {
+            if (newExtraThreadCount > confinedTask.maxExtraThreads) {
                 confinedTask.permissionRequests.add(
                     TaskResults.PermissionRequest(
                         RuntimePermission("exceedThreadLimit"),

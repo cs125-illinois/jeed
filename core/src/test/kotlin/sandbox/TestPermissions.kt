@@ -19,6 +19,7 @@ import io.kotest.matchers.nulls.beNull
 import io.kotest.matchers.should
 import io.kotest.matchers.shouldBe
 import io.kotest.matchers.shouldNot
+import io.kotest.matchers.string.shouldNotContain
 import io.kotest.matchers.types.instanceOf
 import java.io.ByteArrayOutputStream
 import java.io.File
@@ -216,6 +217,27 @@ try {
         successfulExecutionResult.permissionDenied shouldBe false
         successfulExecutionResult should haveCompleted()
         successfulExecutionResult should haveOutput("Started\nEnded")
+    }
+    "should limit threads with delayed start" {
+        val result = Source.fromSnippet(
+            """
+Runnable r = () -> {
+    while (true);
+};
+Thread[] threads = new Thread[5];
+for (int i = 0; i < threads.length; i++) {
+    threads[i] = new Thread(r);
+}
+for (int i = 0; i < threads.length; i++) {
+    threads[i].start();
+    System.out.println(i);
+}
+threads[0].join();
+        """.trim()
+        ).compile().execute(SourceExecutionArguments(maxExtraThreads = 1))
+        result shouldNot haveCompleted()
+        result.permissionDenied shouldBe true
+        result.output shouldNotContain "1"
     }
     "should not allow unsafe permissions to be provided" {
         shouldThrow<IllegalArgumentException> {
