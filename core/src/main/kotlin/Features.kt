@@ -871,7 +871,7 @@ private class FeatureListener(val source: Source, entry: Map.Entry<String, Strin
             count(FeatureName.LAMBDA_EXPRESSIONS, 1)
         }
         ctx.methodCall()?.also {
-            if (featureStack[0].name.contains(ctx.methodCall()?.identifier()?.text ?: "")) {
+            if (ctx.methodCall().identifier() != null && featureStack[0].name.contains(ctx.methodCall().identifier()!!.text)) {
                 if (ctx.methodCall().expressionList()?.text?.filter { it == ',' }?.length
                     == featureStack[0].name.filter { it == ',' }.length
                 ) {
