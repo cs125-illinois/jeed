@@ -870,12 +870,15 @@ private class FeatureListener(val source: Source, entry: Map.Entry<String, Strin
         ctx.lambdaExpression()?.also {
             count(FeatureName.LAMBDA_EXPRESSIONS, 1)
         }
-        ctx.methodCall()?.also {
-            if (ctx.methodCall().identifier() != null && featureStack[0].name.contains(ctx.methodCall().identifier()!!.text)) {
-                if (ctx.methodCall().expressionList()?.text?.filter { it == ',' }?.length
-                    == featureStack[0].name.filter { it == ',' }.length
-                ) {
-                    count(FeatureName.RECURSION, 1)
+        if (ctx.bop?.text != ".") {
+            ctx.methodCall()?.also {
+                val methodName = ctx.methodCall().identifier()
+                if (methodName != null && featureStack[0].name.contains(methodName.text)) {
+                    if (ctx.methodCall().expressionList()?.text?.filter { it == ',' }?.length
+                        == featureStack[0].name.filter { it == ',' }.length
+                    ) {
+                        count(FeatureName.RECURSION, 1)
+                    }
                 }
             }
         }

@@ -865,4 +865,22 @@ public class Catcher {
             it.lookup("Dog", "Dog.java").features.featureMap[FeatureName.RECURSION] shouldBe 0
         }
     }
+    "should not misidentify recursion in equals" {
+        Source(
+            mapOf(
+                "Dog.java" to """public class Dog extends Canine {
+  private final double age;
+
+  public boolean equals(Object other) {
+    if (other.age.equals(age)) {
+      return true;
+    }
+    return false;
+  }
+}""".trimMargin()
+            )
+        ).features().also {
+            it.lookup("Dog", "Dog.java").features.featureMap[FeatureName.RECURSION] shouldBe 0
+        }
+    }
 })
