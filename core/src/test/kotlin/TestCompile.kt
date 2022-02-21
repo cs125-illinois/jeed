@@ -527,6 +527,22 @@ public class Example {
             ).compile()
         }.allMatch { true }
     }
+    "should compile in parallel with external classes" {
+        (0 until 32).toList().parallelStream().map {
+            Source.fromSnippet(
+                """
+                import com.puppycrawl.tools.checkstyle.Checker;
+                import edu.illinois.cs.cs125.testingjeed.importable.*;
+                
+                System.out.println(new Checker());
+                System.out.println(new Widget());
+                System.out.println($it);
+                """.trimIndent()
+            ).compile()
+        }.allMatch {
+            it.classLoader.definedClasses == setOf("Main")
+        }
+    }
     "should isolate classes correctly when requested" {
         val source = Source(
             mapOf(

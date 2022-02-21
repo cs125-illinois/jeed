@@ -2,6 +2,8 @@
 
 package edu.illinois.cs.cs125.jeed.core
 
+import com.github.benmanes.caffeine.cache.Cache
+import com.github.benmanes.caffeine.cache.Caffeine
 import com.squareup.moshi.JsonClass
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.coroutineScope
@@ -37,6 +39,7 @@ import java.util.concurrent.Executors
 import java.util.concurrent.FutureTask
 import java.util.concurrent.TimeUnit
 import java.util.concurrent.TimeoutException
+import java.util.concurrent.atomic.AtomicInteger
 import java.util.concurrent.locks.Condition
 import java.util.concurrent.locks.ReentrantLock
 import kotlin.math.min
@@ -98,8 +101,12 @@ object Sandbox {
             val DEFAULT_BLACKLISTED_METHODS = setOf(
                 MethodFilter("java.lang.invoke.MethodHandles.Lookup", ""),
                 MethodFilter("java.lang.Class", "forName"),
+                MethodFilter("java.lang.Module", "add"),
+                MethodFilter("java.nio.", "allocateDirect"), // can cause trouble for GC
                 MethodFilter("java.lang.Class", "getClassLoader", allowInReload = true),
-                MethodFilter("java.lang.ClassLoader", "", allowInReload = true)
+                MethodFilter("java.lang.ClassLoader", "", allowInReload = true),
+                MethodFilter("java.lang.ModuleLayer", "", allowInReload = true),
+                MethodFilter("kotlin.reflect.", "", allowInReload = true)
             )
             val PERMANENTLY_BLACKLISTED_CLASSES = setOf(
                 "edu.illinois.cs.cs125.jeed.",
@@ -419,6 +426,8 @@ object Sandbox {
         @Volatile
         var killReason: String? = null
 
+        val extraThreadsCreated = AtomicInteger(0)
+
         var truncatedLines: Int = 0
         val currentLines: MutableMap<TaskResults.OutputLine.Console, CurrentLine> = mutableMapOf()
         val outputLines: MutableList<TaskResults.OutputLine> = mutableListOf()
@@ -441,8 +450,8 @@ object Sandbox {
         val killedClassInitializers: MutableList<String> = mutableListOf()
 
         private val isolatedLocksSyncRoot = Object()
-        private val isolatedLocks = mutableMapOf<Any, ReentrantLock>()
-        private val isolatedConditions = mutableMapOf<Any, Condition>()
+        private val isolatedLocks = mutableMapOf<IdentityHolder, ReentrantLock>()
+        private val isolatedConditions = mutableMapOf<IdentityHolder, Condition>()
 
         data class CurrentLine(
             var started: Instant = Instant.now(),
@@ -450,16 +459,6 @@ object Sandbox {
             val startedThread: Long = Thread.currentThread().id
         ) {
             override fun toString() = bytes.toByteArray().decodeToString()
-        }
-
-        private class IdentityHolder(val item: Any) {
-            override fun equals(other: Any?): Boolean {
-                return other is IdentityHolder && other.item === item
-            }
-
-            override fun hashCode(): Int {
-                return System.identityHashCode(item)
-            }
         }
 
         fun addPermissionRequest(permission: Permission, granted: Boolean, throwException: Boolean = true) {
@@ -659,6 +658,9 @@ object Sandbox {
         val sandboxedClassLoader: SandboxedClassLoader
     ) : Callable<T> {
         override fun call(): T {
+            sandboxedClassLoader.pluginInstrumentationData.forEach { (plugin, _) ->
+                plugin.executionStartedInSandbox()
+            }
             return callable(Pair(sandboxedClassLoader, Sandbox::redirectOutput))
         }
     }
@@ -734,7 +736,9 @@ object Sandbox {
         override val loadedClasses: MutableSet<String> = Collections.newSetFromMap(ConcurrentHashMap())
 
         private val reloadedClasses: MutableMap<String, Class<*>> = mutableMapOf()
+        private val canCacheReloadedClasses = configuredPlugins.none { it.plugin.transformsReloadedClasses }
         private val reloader = TrustedReloader()
+        var transformedReloadedClasses: Int = 0 // Not atomic, but used only for statistics purposes
 
         @Suppress("MemberVisibilityCanBePrivate")
         val knownClasses = sandboxableClassLoader.bytecodeForClasses
@@ -792,6 +796,11 @@ object Sandbox {
             if (name in sandboxRequiredClasses) {
                 return delegateClass(name)
             }
+            if (name.startsWith("jdk.internal.reflect.")) {
+                // Loaded when trusted code is reflectively accessing sandboxed members
+                // Standard access restrictions prevent untrusted code from using jdk.internal directly
+                return delegateClass(name)
+            }
             return if (isWhiteList) {
                 if (whitelistedClasses.any { name.startsWith(it) }) {
                     delegateClass(name)
@@ -837,28 +846,49 @@ object Sandbox {
                     RewriteBytecode::class.java.name,
                     InvocationTargetException::class.java.name
                 )
-            private val reloadedBytecodeCache = mutableMapOf<String, ByteArray>()
+            private const val RELOAD_CACHE_SIZE_BYTES: Long = 256 * 1024 * 1024
+            private val reloadedBytecodeCache: Cache<ReloadCacheKey, ByteArray> = Caffeine.newBuilder()
+                .maximumWeight(RELOAD_CACHE_SIZE_BYTES)
+                .weigher<ReloadCacheKey, ByteArray> { _, value -> value.size }
+                .build()
         }
 
         internal inner class TrustedReloader {
             fun reload(name: String): Class<*> {
-                val classBytes = reloadedBytecodeCache.getOrPut(name) {
-                    val originalBytes = sandboxableClassLoader.classLoader.parent
-                        .getResourceAsStream("${name.replace('.', '/')}.class")?.readAllBytes()
-                        ?: throw ClassNotFoundException("failed to reload $name")
-                    RewriteBytecode.rewrite(
+                val classBytes = if (canCacheReloadedClasses) {
+                    val key = ReloadCacheKey(
                         name,
-                        originalBytes,
-                        unsafeExceptionClasses,
-                        blacklistedMethods,
-                        pluginInstrumentationData,
-                        RewritingContext.RELOADED
+                        unsafeExceptionClasses.map { it.name }.toSet(),
+                        blacklistedMethods
                     )
+                    reloadedBytecodeCache.get(key) { transformFromClasspath(name) }
+                } else {
+                    transformFromClasspath(name)
                 }
                 loadedClasses.add(name)
                 return defineClass(name, classBytes, 0, classBytes.size)
             }
+
+            private fun transformFromClasspath(name: String): ByteArray {
+                val originalBytes = sandboxableClassLoader.classLoader.parent
+                    .getResourceAsStream("${name.replace('.', '/')}.class")?.readAllBytes()
+                    ?: throw ClassNotFoundException("failed to reload $name")
+                return RewriteBytecode.rewrite(
+                    name,
+                    originalBytes,
+                    unsafeExceptionClasses,
+                    blacklistedMethods,
+                    pluginInstrumentationData.filter { (plugin, _) -> plugin.transformsReloadedClasses },
+                    RewritingContext.RELOADED
+                ).also { transformedReloadedClasses++ }
+            }
         }
+
+        private data class ReloadCacheKey(
+            val className: String,
+            val unsafeExceptionClasses: Set<String>,
+            val blacklistedMethods: Set<MethodFilter>
+        )
     }
 
     object EmptyClassLoader : ClassLoader(getSystemClassLoader()), SandboxableClassLoader {
@@ -1413,7 +1443,8 @@ object Sandbox {
             if (threadGroup != Thread.currentThread().threadGroup) {
                 confinedTask.addPermissionRequest(RuntimePermission("changeThreadGroup"), false)
             } else {
-                checkThreadLimits(confinedTask)
+                // This is the only time the Thread construction process is guaranteed to consult the SecurityManager
+                checkThreadLimits(confinedTask, confinedTask.extraThreadsCreated.incrementAndGet())
                 systemSecurityManager?.checkAccess(threadGroup)
             }
         }
@@ -1423,11 +1454,11 @@ object Sandbox {
             val threadGroup = Thread.currentThread().threadGroup
             val confinedTask = confinedTaskByThreadGroup()
                 ?: return systemSecurityManager?.threadGroup ?: return threadGroup
-            checkThreadLimits(confinedTask)
+            checkThreadLimits(confinedTask, confinedTask.extraThreadsCreated.get())
             return systemSecurityManager?.threadGroup ?: threadGroup
         }
 
-        private fun checkThreadLimits(confinedTask: ConfinedTask<*>) {
+        private fun checkThreadLimits(confinedTask: ConfinedTask<*>, newExtraThreadCount: Int) {
             if (confinedTask.shuttingDown) {
                 confinedTask.permissionRequests.add(
                     TaskResults.PermissionRequest(
@@ -1437,7 +1468,7 @@ object Sandbox {
                 )
                 throw SandboxDeath()
             }
-            if (Thread.currentThread().threadGroup.activeCount() >= confinedTask.maxExtraThreads + 1) {
+            if (newExtraThreadCount > confinedTask.maxExtraThreads) {
                 confinedTask.permissionRequests.add(
                     TaskResults.PermissionRequest(
                         RuntimePermission("exceedThreadLimit"),
@@ -1799,6 +1830,9 @@ interface SandboxPlugin<A : Any, V : Any> {
     val id: String
         get() = javaClass.simpleName.decapitalizeAsciiOnly()
 
+    val transformsReloadedClasses: Boolean
+        get() = false
+
     fun createInstrumentationData(
         arguments: A,
         classLoaderConfiguration: Sandbox.ClassLoaderConfiguration,
@@ -1820,6 +1854,7 @@ interface SandboxPlugin<A : Any, V : Any> {
     ): ByteArray = bytecode
 
     fun createInitialData(instrumentationData: Any?, executionArguments: Sandbox.ExecutionArguments): Any?
+    fun executionStartedInSandbox() {}
     fun executionFinished(workingData: Any?) {}
     fun createFinalData(workingData: Any?): V
     val requiredClasses: Set<Class<*>>

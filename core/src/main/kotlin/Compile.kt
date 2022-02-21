@@ -11,6 +11,7 @@ import java.net.URI
 import java.nio.charset.Charset
 import java.time.Instant
 import java.util.Locale
+import java.util.Objects
 import javax.tools.Diagnostic
 import javax.tools.DiagnosticListener
 import javax.tools.FileObject
@@ -21,9 +22,9 @@ import javax.tools.SimpleJavaFileObject
 import javax.tools.StandardLocation
 import javax.tools.ToolProvider
 
-private val systemCompiler = ToolProvider.getSystemJavaCompiler() ?: error {
+private val systemCompiler = ToolProvider.getSystemJavaCompiler() ?: error(
     "systemCompiler not found: you are probably running a JRE, not a JDK"
-}
+)
 const val DEFAULT_JAVA_VERSION = 10
 val systemCompilerName = systemCompiler.sourceVersions.maxOrNull().toString()
 val systemCompilerVersion = systemCompilerName.let {
@@ -42,7 +43,8 @@ val standardFileManager: JavaFileManager = run {
         }
     }
 }
-private val javacSyncRoot = Object()
+private val standardFileManagerSyncRoot = Object()
+private var lastMultireleaseOperand: String? = null
 
 @JsonClass(generateAdapter = true)
 data class CompilationArguments(
@@ -54,7 +56,8 @@ data class CompilationArguments(
     val useCache: Boolean? = null,
     val waitForCache: Boolean = false,
     val isolatedClassLoader: Boolean = false,
-    val parameters: Boolean = DEFAULT_PARAMETERS
+    val parameters: Boolean = DEFAULT_PARAMETERS,
+    val debugInfo: Boolean = DEFAULT_DEBUG
 ) {
     companion object {
         const val DEFAULT_WERROR = false
@@ -62,6 +65,7 @@ data class CompilationArguments(
         const val DEFAULT_ENABLE_PREVIEW = true
         const val PREVIEW_STARTED = 11
         const val DEFAULT_PARAMETERS = false
+        const val DEFAULT_DEBUG = false
     }
 
     override fun equals(other: Any?): Boolean {
@@ -76,18 +80,13 @@ data class CompilationArguments(
         if (useCache != other.useCache) return false
         if (waitForCache != other.waitForCache) return false
         if (parameters != other.parameters) return false
+        if (debugInfo != other.debugInfo) return false
 
         return true
     }
 
     override fun hashCode(): Int {
-        var result = wError.hashCode()
-        result = 31 * result + enablePreview.hashCode()
-        result = 31 * result + Xlint.hashCode()
-        result = 31 * result + useCache.hashCode()
-        result = 31 * result + waitForCache.hashCode()
-        result = 31 * result + parameters.hashCode()
-        return result
+        return Objects.hash(wError, enablePreview, Xlint, useCache, waitForCache, parameters, debugInfo)
     }
 }
 
@@ -144,9 +143,20 @@ private fun compile(
     if (compilationArguments.enablePreview && systemCompilerVersion >= CompilationArguments.PREVIEW_STARTED) {
         options.addAll(listOf("--enable-preview", "--release", systemCompilerVersion.toString()))
     }
+    if (compilationArguments.debugInfo) {
+        options.add("-g")
+    }
 
-    synchronized(javacSyncRoot) {
+    val runCompilation = {
         systemCompiler.getTask(null, fileManager, results, options.toList(), null, units).call()
+    }
+    if (parentFileManager == null || parentFileManager is JeedFileManager) {
+        runCompilation()
+    } else {
+        // Custom file manager might not handle concurrency correctly
+        synchronized(standardFileManagerSyncRoot) {
+            runCompilation()
+        }
     }
 
     fun getMappedLocation(diagnostic: Diagnostic<out JavaFileObject>): SourceLocation? {
@@ -270,7 +280,7 @@ class JeedFileManager(private val parentFileManager: JavaFileManager) :
         }
 
     val size: Int
-        get() = classFiles.values.filterIsInstance<ByteSource>().map { it.buffer.size() }.sum()
+        get() = classFiles.values.filterIsInstance<ByteSource>().sumOf { it.buffer.size() }
 
     private class ByteSource(path: String) :
         SimpleJavaFileObject(URI.create("bytearray:///$path"), JavaFileObject.Kind.CLASS) {
@@ -339,7 +349,9 @@ class JeedFileManager(private val parentFileManager: JavaFileManager) :
         kinds: MutableSet<JavaFileObject.Kind>,
         recurse: Boolean
     ): MutableIterable<JavaFileObject> {
-        val parentList = super.list(location, packageName, kinds, recurse)
+        val parentList = synchronized(standardFileManagerSyncRoot) {
+            super.list(location, packageName, kinds, recurse)
+        }
         return if (!kinds.contains(JavaFileObject.Kind.CLASS)) {
             parentList
         } else {
@@ -367,6 +379,30 @@ class JeedFileManager(private val parentFileManager: JavaFileManager) :
             super.inferBinaryName(location, file)
         }
     }
+
+    override fun handleOption(current: String?, remaining: MutableIterator<String>?): Boolean {
+        return if (parentFileManager === standardFileManager && current == "--multi-release") {
+            val operand = remaining?.next() ?: error("MULTIRELEASE should have an operand")
+            synchronized(standardFileManagerSyncRoot) {
+                if (operand != lastMultireleaseOperand) {
+                    require(lastMultireleaseOperand == null) { "MULTIRELEASE should not have changed" }
+                    lastMultireleaseOperand = operand
+                    super.handleOption(current, listOf(operand).iterator())
+                } else {
+                    // Prevent JavacFileManager from clearing its caches, which would break concurrent tasks
+                    true
+                }
+            }
+        } else {
+            super.handleOption(current, remaining)
+        }
+    }
+
+    override fun flush() {
+        if (parentFileManager !== standardFileManager) {
+            super.flush()
+        }
+    }
 }
 
 class JeedClassLoader(private val fileManager: JeedFileManager, parentClassLoader: ClassLoader?) :
@@ -385,8 +421,8 @@ class JeedClassLoader(private val fileManager: JeedFileManager, parentClassLoade
     override var loadedClasses: MutableSet<String> = mutableSetOf()
 
     override fun findClass(name: String): Class<*> {
-        @Suppress("UNREACHABLE_CODE", "TooGenericExceptionCaught", "SwallowedException")
-        return try {
+        @Suppress("TooGenericExceptionCaught", "SwallowedException")
+        try {
             val classFile = fileManager.getJavaFileForInput(
                 StandardLocation.CLASS_OUTPUT,
                 name,

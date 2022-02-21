@@ -117,6 +117,8 @@ ${originalLine ? originalLine + "\n" + new Array(column).join(" ") + "^" : ""}${
   ${errorCount} error${errorCount > 1 ? "s" : ""}`,
       level: "error",
     }
+  } else if (response.failed.disassemble) {
+    return { output: response.failed.disassemble.message, level: "error" }
   } else if (response.failed.execution || response.failed.cexecution) {
     const failed = response.failed.execution || response.failed.cexecution
     if (failed?.classNotFound) {
@@ -172,6 +174,13 @@ ${originalLine ? originalLine + "\n" + new Array(column).join(" ") + "^" : ""}${
         }
       }
       return { output: output.join("\n"), level: "success" }
+    } else if (response.completed.disassemble) {
+      const results = response.completed.disassemble.disassemblies
+      const classListings = []
+      for (const klass of Object.keys(results).sort()) {
+        classListings.push(results[klass])
+      }
+      return { output: classListings.join("\n\n\n"), level: "success" }
     }
     if (response.completed.features) {
       const { results, allFeatures } = response.completed.features

@@ -22,7 +22,8 @@ enum class Task {
     execute,
     cexecute,
     features,
-    mutations
+    mutations,
+    disassemble
 }
 
 @JsonClass(generateAdapter = true)
@@ -38,4 +39,5 @@ class TaskArguments(
     val cexecution: ContainerExecutionArguments = ContainerExecutionArguments(),
     // val features: currently accepts no arguments
     val mutations: MutationsArguments = MutationsArguments()
+    // val disassemble: currently accepts no arguments
 )

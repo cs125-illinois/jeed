@@ -2,10 +2,14 @@
 
 package edu.illinois.cs.cs125.jeed.server
 
+import edu.illinois.cs.cs125.jeed.core.isWindows
 import io.kotest.assertions.ktor.shouldHaveStatus
 import io.kotest.core.spec.style.StringSpec
+import io.kotest.matchers.collections.beEmpty
 import io.kotest.matchers.ints.shouldBeGreaterThan
+import io.kotest.matchers.nulls.beNull
 import io.kotest.matchers.shouldBe
+import io.kotest.matchers.shouldNot
 import io.kotest.matchers.shouldNotBe
 import io.ktor.application.Application
 import io.ktor.http.HttpMethod
@@ -39,7 +43,7 @@ class TestHTTP : StringSpec() {
                 }
             }
         }
-        "should accept good snippet cexecution request" {
+        "should accept good snippet cexecution request".config(enabled = !isWindows) {
             withTestApplication(Application::jeed) {
                 handleRequest(HttpMethod.Post, "/") {
                     addHeader("content-type", "application/json")
@@ -427,8 +431,9 @@ public class Main {
                     response.shouldHaveStatus(HttpStatusCode.OK.value)
 
                     val jeedResponse = Response.from(response.content)
-                    println(response.content)
                     jeedResponse.completedTasks.size shouldBe 1
+                    jeedResponse.completed.mutations shouldNot beNull()
+                    jeedResponse.completed.mutations!!.mutatedSources shouldNot beEmpty()
                     jeedResponse.failedTasks.size shouldBe 0
                 }
             }
@@ -482,7 +487,7 @@ class Main {
                     val jeedResponse = Response.from(response.content)
                     jeedResponse.completedTasks.size shouldBe 0
                     jeedResponse.failedTasks.size shouldBe 1
-                    jeedResponse.failed.snippet?.errors?.size ?: 0 shouldBeGreaterThan 0
+                    (jeedResponse.failed.snippet?.errors?.size ?: 0) shouldBeGreaterThan 0
                 }
             }
         }
@@ -520,7 +525,7 @@ public static void main() {
                     val jeedResponse = Response.from(response.content)
                     jeedResponse.completedTasks.size shouldBe 0
                     jeedResponse.failedTasks.size shouldBe 1
-                    jeedResponse.failed.template?.errors?.size ?: 0 shouldBeGreaterThan 0
+                    (jeedResponse.failed.template?.errors?.size ?: 0) shouldBeGreaterThan 0
                 }
             }
         }
@@ -552,7 +557,7 @@ public class Main {
                     val jeedResponse = Response.from(response.content)
                     jeedResponse.completedTasks.size shouldBe 0
                     jeedResponse.failedTasks.size shouldBe 1
-                    jeedResponse.failed.compilation?.errors?.size ?: 0 shouldBeGreaterThan 0
+                    (jeedResponse.failed.compilation?.errors?.size ?: 0) shouldBeGreaterThan 0
                 }
             }
         }
@@ -582,7 +587,7 @@ fun main() {
                     val jeedResponse = Response.from(response.content)
                     jeedResponse.completedTasks.size shouldBe 0
                     jeedResponse.failedTasks.size shouldBe 1
-                    jeedResponse.failed.kompilation?.errors?.size ?: 0 shouldBeGreaterThan 0
+                    (jeedResponse.failed.kompilation?.errors?.size ?: 0) shouldBeGreaterThan 0
                 }
             }
         }
@@ -619,7 +624,7 @@ System.out.println(\"Here\");
                     val jeedResponse = Response.from(response.content)
                     jeedResponse.completedTasks.size shouldBe 1
                     jeedResponse.failedTasks.size shouldBe 1
-                    jeedResponse.failed.checkstyle?.errors?.size ?: 0 shouldBeGreaterThan 0
+                    (jeedResponse.failed.checkstyle?.errors?.size ?: 0) shouldBeGreaterThan 0
                 }
             }
         }
@@ -651,7 +656,7 @@ System.out.println(\"Here\");
                     val jeedResponse = Response.from(response.content)
                     jeedResponse.completedTasks.size shouldBe 3
                     jeedResponse.failedTasks.size shouldBe 0
-                    jeedResponse.completed.checkstyle?.errors?.size ?: 0 shouldBeGreaterThan 0
+                    (jeedResponse.completed.checkstyle?.errors?.size ?: 0) shouldBeGreaterThan 0
                 }
             }
         }
@@ -852,6 +857,68 @@ public class Main {
                 }
             }.apply {
                 response.shouldHaveStatus(HttpStatusCode.BadRequest.value)
+            }
+        }
+        "should accept good disassemble request" {
+            withTestApplication(Application::jeed) {
+                handleRequest(HttpMethod.Post, "/") {
+                    addHeader("content-type", "application/json")
+                    setBody(
+                        """
+{
+"label": "test",
+"sources": [
+  {
+    "path": "Main.java",
+    "contents": " 
+public class Main {
+  public static void main() {
+    System.out.println(\"Hi\");
+  }
+}"
+  }
+],
+"tasks": [ "compile", "disassemble" ]
+}""".trim()
+                    )
+                }.apply {
+                    response.shouldHaveStatus(HttpStatusCode.OK.value)
+
+                    val jeedResponse = Response.from(response.content)
+                    jeedResponse.completedTasks.size shouldBe 2
+                    jeedResponse.completed.disassemble!!.disassemblies.keys shouldBe setOf("Main")
+                    jeedResponse.failedTasks.size shouldBe 0
+                }
+            }
+        }
+        "should accept good kotlin disassemble request" {
+            withTestApplication(Application::jeed) {
+                handleRequest(HttpMethod.Post, "/") {
+                    addHeader("content-type", "application/json")
+                    setBody(
+                        """
+{
+"label": "test",
+"sources": [
+  {
+    "path": "Main.kt",
+    "contents": "
+fun main() {
+  println(\"Here\")
+}"
+  }
+],
+"tasks": [ "kompile", "disassemble" ]
+}""".trim()
+                    )
+                }.apply {
+                    response.shouldHaveStatus(HttpStatusCode.OK.value)
+
+                    val jeedResponse = Response.from(response.content)
+                    jeedResponse.completedTasks.size shouldBe 2
+                    jeedResponse.completed.disassemble!!.disassemblies.keys shouldBe setOf("MainKt")
+                    jeedResponse.failedTasks.size shouldBe 0
+                }
             }
         }
         "should reject unauthorized request" {

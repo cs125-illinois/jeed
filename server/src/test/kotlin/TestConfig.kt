@@ -232,4 +232,34 @@ limits:
             }
         }
     }
+    "should reject snippet request attempting to remove forbidden methods" {
+        withTestApplication(Application::jeed) {
+            handleRequest(HttpMethod.Post, "/") {
+                addHeader("content-type", "application/json")
+                setBody(
+                    """
+{
+  "label": "test",
+  "snippet": "System.out.println(\"Here\");",
+  "tasks": [ "compile", "execute" ],
+  "arguments": {
+    "execution": {
+      "classLoaderConfiguration": {
+        "blacklistedMethods": [
+          {
+            "ownerClassPrefix": "java.lang.Class",
+            "methodPrefix": "forName",
+            "allowInReload": false
+          }
+        ]
+      }
+    }
+  }
+}""".trim()
+                )
+            }.apply {
+                response.shouldHaveStatus(HttpStatusCode.BadRequest.value)
+            }
+        }
+    }
 })
