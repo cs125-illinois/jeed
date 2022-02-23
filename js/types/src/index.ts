@@ -12,7 +12,7 @@ export const Task = Union(
   Literal("cexecute"),
   Literal("features"),
   Literal("mutations"),
-  Literal("disassemble"),
+  Literal("disassemble")
 )
 export type Task = Static<typeof Task>
 
