@@ -129,8 +129,9 @@ class SnippetErrorListener(
             actualCharPositionInLine = sourceLines[actualLine - 1] + 1
             actualMsg = "missing ';'"
         } else if (msg.contains("extraneous input '<EOF>'")) {
+            actualLine -= 1
             actualMsg = """reached end of file while parsing"""
-        } else if (msg.contains("extraneous input")) {
+        } else if (msg.contains("extraneous input") || msg.contains("mismatched input")) {
             actualMsg = """ expecting.*$""".toRegex().replace(msg, "")
         }
 

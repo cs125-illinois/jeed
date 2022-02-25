@@ -38,6 +38,8 @@ application {
 }
 docker {
     name = "cs125/jeed"
+    @Suppress("DEPRECATION")
+    tags("latest")
     files(tasks["shadowJar"].outputs)
 }
 tasks.test {

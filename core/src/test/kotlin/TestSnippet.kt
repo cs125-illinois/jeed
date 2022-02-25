@@ -136,7 +136,7 @@ i++
 """.trim()
             )
         }
-        exception.errors shouldHaveSize 2
+        exception.errors shouldHaveSize 3
         exception should haveParseErrorOnLine(1)
         exception should haveParseErrorOnLine(13)
     }
@@ -808,6 +808,30 @@ System.out.println("He
         }.also {
             it.errors.size shouldBe 1
             it.errors.first().message shouldBe "extraneous input '}'"
+        }
+        shouldThrow<SnippetTransformationFailed> {
+            Source.fromSnippet(
+                """
+/*
+comment
+                """.trim(),
+                SnippetArguments()
+            )
+        }.also {
+            it.errors.size shouldBe 1
+            it.errors.first().message shouldBe "mismatched input '/'"
+        }
+        shouldThrow<SnippetTransformationFailed> {
+            Source.fromSnippet(
+                """
+/*
+comment
+                """.trim(),
+                SnippetArguments(fileType = Source.FileType.KOTLIN)
+            )
+        }.also {
+            it.errors.size shouldBe 1
+            it.errors.first().message shouldBe "mismatched input '/'"
         }
     }
 })
