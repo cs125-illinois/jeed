@@ -128,6 +128,10 @@ class SnippetErrorListener(
             actualLine -= 1
             actualCharPositionInLine = sourceLines[actualLine - 1] + 1
             actualMsg = "missing ';'"
+        } else if (msg.contains("extraneous input '<EOF>'")) {
+            actualMsg = """reached end of file while parsing"""
+        } else if (msg.contains("extraneous input")) {
+            actualMsg = """ expecting.*$""".toRegex().replace(msg, "")
         }
 
         errors.add(SnippetTransformationError(actualLine, actualCharPositionInLine, actualMsg))
@@ -135,7 +139,12 @@ class SnippetErrorListener(
 
     fun check() {
         if (errors.size > 0) {
-            throw SnippetTransformationFailed(errors)
+            val filteredErrors = errors.filter { it.location.line in 1..sourceLines.size }
+            if (filteredErrors.isNotEmpty()) {
+                throw SnippetTransformationFailed(filteredErrors)
+            } else {
+                throw SnippetTransformationFailed(errors)
+            }
         }
     }
 }

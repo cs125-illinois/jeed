@@ -136,10 +136,9 @@ i++
 """.trim()
             )
         }
-        exception.errors shouldHaveSize 3
+        exception.errors shouldHaveSize 2
         exception should haveParseErrorOnLine(1)
         exception should haveParseErrorOnLine(13)
-        exception should haveParseErrorOnLine(14)
     }
     "should be able to reconstruct original sources using entry map" {
         val snippet =
@@ -481,7 +480,8 @@ record Range(int lo, int hi) {
             it should haveExactOutput("Here\nMe")
         }
     }
-    "should not fail on unmapped compiler errors" {
+    "!should not fail on unmapped compiler errors" {
+        // Now caught by ANTLR4
         shouldThrow<CompilationFailed> {
             Source.fromSnippet(
                 """
@@ -771,6 +771,44 @@ fun main() {
                 """.trim(),
             SnippetArguments(fileType = Source.FileType.KOTLIN, noEmptyMain = true)
         ).kompile()
+    }
+    "should not include snippet errors past the end" {
+        shouldThrow<SnippetTransformationFailed> {
+            Source.fromSnippet(
+                """
+System.out.println("He
+                """.trim(),
+                SnippetArguments()
+            )
+        }.also {
+            it.errors.size shouldBe 1
+        }
+    }
+    "should clean nasty ANTLR4 messages" {
+        shouldThrow<SnippetTransformationFailed> {
+            Source.fromSnippet(
+                """if (true) {
+  System.out.println("Here");
+
+                """.trim(),
+                SnippetArguments()
+            )
+        }.also {
+            it.errors.size shouldBe 1
+            it.errors.first().message shouldBe "reached end of file while parsing"
+        }
+        shouldThrow<SnippetTransformationFailed> {
+            Source.fromSnippet(
+                """if (true) {
+  System.out.println("Here");
+}}
+                """.trim(),
+                SnippetArguments()
+            )
+        }.also {
+            it.errors.size shouldBe 1
+            it.errors.first().message shouldBe "extraneous input '}'"
+        }
     }
 })
 

@@ -374,7 +374,7 @@ defaultValue
 
 // STATEMENTS / BLOCKS
 snippet
-    : '{' snippetStatement* '}'
+    : '{' snippetStatement* '}' EOF
     ;
 
 snippetStatement
