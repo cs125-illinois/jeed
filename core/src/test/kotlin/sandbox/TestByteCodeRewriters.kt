@@ -852,4 +852,33 @@ GlobalScope.class.toString();
         )
         secondExecution.sandboxedClassLoader!!.transformedReloadedClasses shouldNotBe 0
     }
+    "should handle NEW instructions at the start of handlers" {
+        val executionResult = Source.fromSnippet(
+            """
+try {
+    System.out.println("Try");
+    Object o = null;
+    o.toString();
+} catch (Exception e) {
+    String s = new String("x".hashCode() > 0 ? "a" : "b");
+    System.out.println(s);
+} finally {
+    String s = new String("x".hashCode() > 0 ? "a" : "b");
+    System.out.println(s);
+}
+            """.trim()
+        ).compile().execute(
+            SourceExecutionArguments(
+                classLoaderConfiguration = Sandbox.ClassLoaderConfiguration(
+                    unsafeExceptions = setOf(
+                        "java.lang.NullPointerException"
+                    )
+                )
+            )
+        )
+
+        executionResult shouldNot haveCompleted()
+        executionResult should haveOutput("Try")
+        executionResult.threw.shouldBeTypeOf<NullPointerException>()
+    }
 })

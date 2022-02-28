@@ -569,6 +569,54 @@ System.out.println(text);
         varChanges[1].value.value shouldNot beNull()
     }
 
+    "should handle NEW instructions on scope boundaries" {
+        val result = Source.fromSnippet(
+            """
+String text = new String("x".hashCode() == 0 ? "a" : "b");
+System.out.println(text);
+""".trim()
+        ).compile(CompilationArguments(debugInfo = true))
+            .execute(SourceExecutionArguments().addPlugin(ExecutionTrace))
+        result should haveCompleted()
+        result should haveOutput("b")
+        val steps = result.pluginResult(ExecutionTrace).steps
+        val scopeChanges = steps.filterIsInstance<ExecutionStep.ChangeScope>()
+        scopeChanges[0].newLocals.keys shouldBe setOf("text")
+        scopeChanges[0].newLocals["text"]!!.value shouldNot beNull()
+        scopeChanges[0].deadLocals should beEmpty()
+    }
+
+    "should handle NEW instructions near jump targets" {
+        val result = Source.fromSnippet(
+            """
+try {
+    long a = 10;
+    long b = 0;
+    long quotient = a / b;
+    System.out.println(quotient);
+} catch (Exception e) {
+    String s = new String(e instanceof NullPointerException ? "npe" : "otherwise");
+    System.out.println(s);
+}
+""".trim()
+        ).compile(CompilationArguments(debugInfo = true))
+            .execute(SourceExecutionArguments().addPlugin(ExecutionTrace))
+        result should haveCompleted()
+        result should haveOutput("otherwise")
+        val steps = result.pluginResult(ExecutionTrace).steps
+        val scopeChanges = steps.filterIsInstance<ExecutionStep.ChangeScope>()
+        scopeChanges[0].newLocals.keys shouldBe setOf("a")
+        scopeChanges[0].newLocals["a"]!!.value shouldBe 10L
+        scopeChanges[0].deadLocals should beEmpty()
+        scopeChanges[1].deadLocals should beEmpty()
+        scopeChanges[1].newLocals.keys shouldBe setOf("b")
+        scopeChanges[2].deadLocals.toSet() shouldBe setOf("a", "b")
+        scopeChanges[2].newLocals shouldHaveSize 1
+        scopeChanges[2].newLocals["e"]!!.type shouldBe ExecutionTraceResults.ValueType.REFERENCE
+        scopeChanges[3].newLocals["s"]!!.type shouldBe ExecutionTraceResults.ValueType.REFERENCE
+        scopeChanges[4].deadLocals.toSet() shouldBe setOf("e", "s")
+    }
+
     "should distinguish string equality from reference equality" {
         val result = Source.fromSnippet(
             """

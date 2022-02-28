@@ -4,12 +4,10 @@ import com.squareup.moshi.JsonClass
 import org.objectweb.asm.ClassReader
 import org.objectweb.asm.ClassVisitor
 import org.objectweb.asm.ClassWriter
-import org.objectweb.asm.Handle
 import org.objectweb.asm.MethodVisitor
 import org.objectweb.asm.Opcodes
 import org.objectweb.asm.Type
 import org.objectweb.asm.commons.AnalyzerAdapter
-import org.objectweb.asm.tree.AbstractInsnNode
 import org.objectweb.asm.tree.ClassNode
 import org.objectweb.asm.tree.FrameNode
 import org.objectweb.asm.tree.IincInsnNode
@@ -28,9 +26,7 @@ import java.lang.invoke.CallSite
 import java.lang.invoke.ConstantCallSite
 import java.lang.invoke.MethodHandles
 import java.lang.invoke.MethodType
-import java.lang.reflect.Modifier
 import java.util.Stack
-import kotlin.reflect.KFunction
 import kotlin.reflect.jvm.javaMethod
 import java.lang.reflect.Array as ReflectArray
 
@@ -91,7 +87,7 @@ object ExecutionTrace : SandboxPluginWithDefaultArguments<ExecutionTraceArgument
         val reader = ClassReader(bytecode)
         val constructorPreinspections = preinspectConstructors(reader)
         val classTree = ClassNode(Opcodes.ASM9)
-        reader.accept(classTree, 0)
+        reader.accept(NewLabelSplittingClassVisitor(classTree), 0)
         classTree.methods.forEach {
             val ctorPreinspection = if (it.name == "<init>") constructorPreinspections[it.desc]!! else null
             instrumentMethod(instrumentationData, classTree.name, it, ctorPreinspection)
@@ -193,7 +189,7 @@ object ExecutionTrace : SandboxPluginWithDefaultArguments<ExecutionTraceArgument
                         Type.getType(it.desc)
                     )
                 }
-                if (insn in reachableLabels) {
+                if (insn in reachableLabels && insn.next?.opcode != Opcodes.NEW) {
                     val currentLocals = liveLocalIndexes.values.toList()
                     val siteKey = "c${data.nextUniqueId()}"
                     data.scopeSites[siteKey] = ExecutionTraceInstrumentationData.ScopeSite(currentLocals)
@@ -204,7 +200,7 @@ object ExecutionTrace : SandboxPluginWithDefaultArguments<ExecutionTraceArgument
                     val newScopeHandle = TracingSupport::bootstrapNewScope.asAsmHandle()
                     val newScopeDesc = Type.getMethodDescriptor(Type.VOID_TYPE, *currentLocals.map { it.type }.toTypedArray())
                     scopeTracing.add(InvokeDynamicInsnNode(siteKey, newScopeDesc, newScopeHandle))
-                    method.instructions.insert(insn.skipToBeforeRealInsn(), scopeTracing)
+                    method.instructions.insert(insn.skipToBeforeRealInsnOrLabel(), scopeTracing)
                 }
             }
         }
@@ -212,7 +208,7 @@ object ExecutionTrace : SandboxPluginWithDefaultArguments<ExecutionTraceArgument
             val catchPrologue = InsnList()
             catchPrologue.add(InsnNode(Opcodes.DUP))
             catchPrologue.add(TracingSupport::popFailedChainCalls.asAsmMethodInsn())
-            method.instructions.insert(handler.skipToBeforeRealInsn(), catchPrologue)
+            method.instructions.insert(handler.skipToBeforeRealInsnOrLabel(), catchPrologue)
         }
         val methodPrologue = InsnList()
         passableArguments.forEach {
@@ -881,48 +877,4 @@ sealed class ExecutionStep {
 
     // Replace an existing object's state and mark it initialized
     data class SetState(val objectId: Int, val state: ExecutionTraceResults.ObjectState) : ExecutionStep()
-}
-
-private fun KFunction<*>.asAsmHandle(): Handle {
-    val javaMethod = this.javaMethod ?: error("must represent a JVM method")
-    require(javaMethod.modifiers.and(Modifier.STATIC) != 0) { "must be a static method" }
-    return Handle(
-        Opcodes.H_INVOKESTATIC,
-        classNameToPath(javaMethod.declaringClass.name),
-        javaMethod.name,
-        Type.getMethodDescriptor(javaMethod),
-        false
-    )
-}
-
-private fun KFunction<*>.asAsmMethodInsn(): MethodInsnNode {
-    val javaMethod = this.javaMethod ?: error("must represent a JVM method")
-    require(javaMethod.modifiers.and(Modifier.STATIC) != 0) { "must be a static method" }
-    return MethodInsnNode(
-        Opcodes.INVOKESTATIC,
-        classNameToPath(javaMethod.declaringClass.name),
-        javaMethod.name,
-        Type.getMethodDescriptor(javaMethod),
-        false
-    )
-}
-
-private fun AbstractInsnNode.skipToBeforeRealInsn(): AbstractInsnNode {
-    var currentInsn = this
-    while ((currentInsn.next?.opcode ?: 0) < 0) {
-        currentInsn = currentInsn.next
-    }
-    return currentInsn
-}
-
-private fun AbstractInsnNode.previousRealInsn(): AbstractInsnNode? {
-    var currentInsn: AbstractInsnNode? = this.previous
-    while (currentInsn != null && currentInsn.opcode < 0) {
-        currentInsn = currentInsn.previous
-    }
-    return currentInsn
-}
-
-private fun Type.toArrayType(): Type {
-    return Type.getType("[" + this.descriptor)
 }
