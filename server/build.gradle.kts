@@ -81,11 +81,5 @@ publishing {
     }
 }
 kotlin {
-    kotlinDaemonJvmArgs = listOf("-Dfile.encoding=UTF-8", "--illegal-access=permit")
+    kotlinDaemonJvmArgs = listOf("-Dfile.encoding=UTF-8")
 }
-kapt {
-    javacOptions {
-        option("--illegal-access", "permit")
-    }
-}
-

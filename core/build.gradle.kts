@@ -1,6 +1,7 @@
 import java.io.File
 import java.io.StringWriter
 import java.util.Properties
+import org.gradle.internal.os.OperatingSystem
 
 plugins {
     kotlin("jvm")
@@ -53,8 +54,10 @@ tasks.test {
     systemProperties["logback.configurationFile"] = File(projectDir, "src/test/resources/logback-test.xml").absolutePath
     @Suppress("MagicNumber")
     environment["JEED_MAX_THREAD_POOL_SIZE"] = 4
-    environment["PATH"] = "${environment["PATH"]}:/usr/local/bin/"
-    environment["JEED_CONTAINER_TMP_DIR"] = "/tmp/"
+    if (!OperatingSystem.current().isWindows) {
+        environment["PATH"] = "${environment["PATH"]}:/usr/local/bin/"
+        environment["JEED_CONTAINER_TMP_DIR"] = "/tmp/"
+    }
 
     if (!project.hasProperty("slowTests")) {
         exclude("**/TestResourceExhaustion.class")
@@ -97,9 +100,6 @@ task("createProperties") {
 kapt {
     useBuildCache = true
     includeCompileClasspath = false
-    javacOptions {
-        option("--illegal-access", "permit")
-    }
 }
 tasks {
     val sourcesJar by creating(Jar::class) {
@@ -127,5 +127,5 @@ publishing {
     }
 }
 kotlin {
-    kotlinDaemonJvmArgs = listOf("-Dfile.encoding=UTF-8", "--illegal-access=permit")
+    kotlinDaemonJvmArgs = listOf("-Dfile.encoding=UTF-8")
 }
