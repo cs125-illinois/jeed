@@ -33,6 +33,7 @@ export const JeedProvider: React.FC<JeedProviderProps> = ({ googleToken, server,
           { "Content-Type": "application/json" },
           googleToken ? { "google-token": googleToken } : null
         ),
+        credentials: "include",
       })
         .then(async (response) => {
           if (response.status === 200) {
