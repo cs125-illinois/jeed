@@ -20,7 +20,7 @@ dependencies {
     implementation("org.jetbrains.kotlin:kotlin-reflect:1.6.10")
 
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-core:1.6.0")
-    implementation("com.puppycrawl.tools:checkstyle:9.3")
+    implementation("com.puppycrawl.tools:checkstyle:10.0")
     implementation("com.pinterest.ktlint:ktlint-core:0.44.0")
     implementation("com.pinterest.ktlint:ktlint-ruleset-standard:0.44.0")
     implementation("com.github.jknack:handlebars:4.3.0")
@@ -31,7 +31,7 @@ dependencies {
     implementation("org.slf4j:slf4j-api:1.7.36")
     implementation("ch.qos.logback:logback-classic:1.2.10")
     implementation("io.github.microutils:kotlin-logging:2.1.21")
-    implementation("io.github.classgraph:classgraph:4.8.140")
+    implementation("io.github.classgraph:classgraph:4.8.141")
     implementation("net.java.dev.jna:jna:5.10.0")
     implementation("io.github.java-diff-utils:java-diff-utils:4.11")
     implementation("com.google.googlejavaformat:google-java-format:1.14.0")

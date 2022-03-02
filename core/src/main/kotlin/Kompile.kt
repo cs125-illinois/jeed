@@ -204,7 +204,11 @@ private fun kompile(
             }
         }
 
-        val state = KotlinToJVMBytecodeCompiler.analyzeAndGenerate(environment)
+        val state = try {
+            KotlinToJVMBytecodeCompiler.analyzeAndGenerate(environment)
+        } catch (e: Throwable) {
+            throw CompilationFailed(listOf(CompilationError(null, "Kotlin internal compiler error: ${e.message}")))
+        }
 
         if (messageCollector.errors.isNotEmpty()) {
             throw CompilationFailed(messageCollector.errors)
