@@ -11,7 +11,7 @@ plugins {
     id("io.gitlab.arturbosch.detekt")
 }
 dependencies {
-    implementation("ch.qos.logback:logback-classic:1.2.10")
+    implementation("ch.qos.logback:logback-classic:1.2.11")
     implementation("io.github.microutils:kotlin-logging:2.1.21")
     implementation("com.github.ajalt:clikt:2.8.0")
     implementation("io.github.classgraph:classgraph:4.8.141")
