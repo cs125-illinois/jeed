@@ -114,7 +114,6 @@ const decryptToken = async (ctx: Koa.Context, next: () => Promise<any>) => {
   const token = ctx.cookies.get(cookieName)
   if (token) {
     try {
-      const encryptionKey = await ENCRYPTION_KEY
       const {
         payload: { email },
       } = await jwtDecrypt(token, encryptionKey as Uint8Array, { clockTolerance: 15 })
