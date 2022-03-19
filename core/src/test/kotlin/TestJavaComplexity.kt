@@ -306,4 +306,343 @@ public class Example {
 }""".trim()
         ).complexity()
     }
+    "!should not overflow on deep nesting" {
+        shouldThrow<SnippetTransformationFailed> {
+            Source.fromSnippet(
+                """
+public class Mystery {
+  public static int mystery(int x) {
+    if (x == -1) {
+      return 0;
+    } else if (x == -2147483648) {
+      return 2;
+    } else if (x == 0) {
+      return 0;
+    } else if (x == 2147483647) {
+      return 1;
+    } else if (x == 1) {
+      return 0;
+    } else if (x == 889510) {
+      return 2;
+    } else if (x == 563383) {
+      return 1;
+    } else if (x == 598806) {
+      return 2;
+    } else if (x == 60018) {
+      return 1;
+    } else if (x == 974889) {
+      return 2;
+    } else if (x == 1081509) {
+      return 1;
+    } else if (x == 485818) {
+      return 3;
+    } else if (x == 126897) {
+      return 1;
+    } else if (x == 858845) {
+      return 3;
+    } else if (x == 504487) {
+      return 1;
+    } else if (x == 887182) {
+      return 3;
+    } else if (x == 836611) {
+      return 1;
+    } else if (x == 668881) {
+      return 3;
+    } else if (x == 872299) {
+      return 1;
+    } else if (x == 88180) {
+      return 3;
+    } else if (x == 985087) {
+      return 2;
+    } else if (x == 888447) {
+      return 3;
+    } else if (x == 547149) {
+      return 0;
+    } else if (x == 812617) {
+      return 1;
+    } else if (x == 438786) {
+      return 2;
+    } else if (x == 838822) {
+      return 3;
+    } else if (x == 239056) {
+      return 0;
+    } else if (x == 273870) {
+      return 1;
+    } else if (x == 878818) {
+      return 4;
+    } else if (x == 380227) {
+      return 1;
+    } else if (x == 590759) {
+      return 0;
+    } else if (x == 434896) {
+      return 1;
+    } else if (x == 530766) {
+      return 0;
+    } else if (x == 862595) {
+      return 1;
+    } else if (x == 888353) {
+      return 3;
+    } else if (x == 279984) {
+      return 1;
+    } else if (x == 808668) {
+      return 3;
+    } else if (x == 853053) {
+      return 1;
+    } else if (x == 838474) {
+      return 2;
+    } else if (x == 950185) {
+      return 1;
+    } else if (x == 239056) {
+      return 0;
+    } else if (x == 273870) {
+      return 1;
+    } else if (x == 878818) {
+      return 4;
+    } else if (x == 380227) {
+      return 1;
+    } else if (x == 590759) {
+      return 0;
+    } else if (x == 434896) {
+      return 1;
+    } else if (x == 530766) {
+      return 0;
+    } else if (x == 862595) {
+      return 1;
+    } else if (x == 888353) {
+      return 3;
+    } else if (x == 279984) {
+      return 1;
+    } else if (x == 808668) {
+      return 3;
+    } else if (x == 853053) {
+      return 1;
+    } else if (x == 838474) {
+      return 2;
+    } else if (x == 950185) {
+      return 1;
+    } else if (x == 239056) {
+      return 0;
+    } else if (x == 273870) {
+      return 1;
+    } else if (x == 878818) {
+      return 4;
+    } else if (x == 380227) {
+      return 1;
+    } else if (x == 590759) {
+      return 0;
+    } else if (x == 434896) {
+      return 1;
+    } else if (x == 530766) {
+      return 0;
+    } else if (x == 862595) {
+      return 1;
+    } else if (x == 888353) {
+      return 3;
+    } else if (x == 279984) {
+      return 1;
+    } else if (x == 808668) {
+      return 3;
+    } else if (x == 853053) {
+      return 1;
+    } else if (x == 838474) {
+      return 2;
+    } else if (x == 950185) {
+      return 1;
+    } else if (x == 239056) {
+      return 0;
+    } else if (x == 273870) {
+      return 1;
+    } else if (x == 878818) {
+      return 4;
+    } else if (x == 380227) {
+      return 1;
+    } else if (x == 590759) {
+      return 0;
+    } else if (x == 434896) {
+      return 1;
+    } else if (x == 530766) {
+      return 0;
+    } else if (x == 862595) {
+      return 1;
+    } else if (x == 888353) {
+      return 3;
+    } else if (x == 279984) {
+      return 1;
+    } else if (x == 808668) {
+      return 3;
+    } else if (x == 853053) {
+      return 1;
+    } else if (x == 838474) {
+      return 2;
+    } else if (x == 950185) {
+      return 1;
+    } else if (x == -2147483648) {
+      return 2;
+    } else if (x == 0) {
+      return 0;
+    } else if (x == 2147483647) {
+      return 1;
+    } else if (x == 1) {
+      return 0;
+    } else if (x == 889510) {
+      return 2;
+    } else if (x == 563383) {
+      return 1;
+    } else if (x == 598806) {
+      return 2;
+    } else if (x == 60018) {
+      return 1;
+    } else if (x == 974889) {
+      return 2;
+    } else if (x == 1081509) {
+      return 1;
+    } else if (x == 485818) {
+      return 3;
+    } else if (x == 126897) {
+      return 1;
+    } else if (x == 858845) {
+      return 3;
+    } else if (x == 504487) {
+      return 1;
+    } else if (x == 887182) {
+      return 3;
+    } else if (x == 836611) {
+      return 1;
+    } else if (x == 668881) {
+      return 3;
+    } else if (x == 872299) {
+      return 1;
+    } else if (x == 88180) {
+      return 3;
+    } else if (x == 985087) {
+      return 2;
+    } else if (x == 888447) {
+      return 3;
+    } else if (x == 547149) {
+      return 0;
+    } else if (x == 812617) {
+      return 1;
+    } else if (x == 438786) {
+      return 2;
+    } else if (x == 838822) {
+      return 3;
+    } else if (x == 239056) {
+      return 0;
+    } else if (x == 273870) {
+      return 1;
+    } else if (x == 878818) {
+      return 4;
+    } else if (x == 380227) {
+      return 1;
+    } else if (x == 590759) {
+      return 0;
+    } else if (x == 434896) {
+      return 1;
+    } else if (x == 530766) {
+      return 0;
+    } else if (x == 862595) {
+      return 1;
+    } else if (x == 888353) {
+      return 3;
+    } else if (x == 279984) {
+      return 1;
+    } else if (x == 808668) {
+      return 3;
+    } else if (x == 853053) {
+      return 1;
+    } else if (x == 838474) {
+      return 2;
+    } else if (x == 950185) {
+      return 1;
+    } else if (x == 239056) {
+      return 0;
+    } else if (x == 273870) {
+      return 1;
+    } else if (x == 878818) {
+      return 4;
+    } else if (x == 380227) {
+      return 1;
+    } else if (x == 590759) {
+      return 0;
+    } else if (x == 434896) {
+      return 1;
+    } else if (x == 530766) {
+      return 0;
+    } else if (x == 862595) {
+      return 1;
+    } else if (x == 888353) {
+      return 3;
+    } else if (x == 279984) {
+      return 1;
+    } else if (x == 808668) {
+      return 3;
+    } else if (x == 853053) {
+      return 1;
+    } else if (x == 838474) {
+      return 2;
+    } else if (x == 950185) {
+      return 1;
+    } else if (x == 239056) {
+      return 0;
+    } else if (x == 273870) {
+      return 1;
+    } else if (x == 878818) {
+      return 4;
+    } else if (x == 380227) {
+      return 1;
+    } else if (x == 590759) {
+      return 0;
+    } else if (x == 434896) {
+      return 1;
+    } else if (x == 530766) {
+      return 0;
+    } else if (x == 862595) {
+      return 1;
+    } else if (x == 888353) {
+      return 3;
+    } else if (x == 279984) {
+      return 1;
+    } else if (x == 808668) {
+      return 3;
+    } else if (x == 853053) {
+      return 1;
+    } else if (x == 838474) {
+      return 2;
+    } else if (x == 950185) {
+      return 1;
+    } else if (x == 239056) {
+      return 0;
+    } else if (x == 273870) {
+      return 1;
+    } else if (x == 878818) {
+      return 4;
+    } else if (x == 380227) {
+      return 1;
+    } else if (x == 590759) {
+      return 0;
+    } else if (x == 434896) {
+      return 1;
+    } else if (x == 530766) {
+      return 0;
+    } else if (x == 862595) {
+      return 1;
+    } else if (x == 888353) {
+      return 3;
+    } else if (x == 279984) {
+      return 1;
+    } else if (x == 808668) {
+      return 3;
+    } else if (x == 853053) {
+      return 1;
+    } else if (x == 838474) {
+      return 2;
+    } else if (x == 950185) {
+      return 1;
+    }
+  }
+}
+                """.trimIndent()
+            ).complexity()
+        }
+    }
 })

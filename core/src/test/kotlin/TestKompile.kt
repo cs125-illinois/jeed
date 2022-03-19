@@ -1,5 +1,6 @@
 package edu.illinois.cs.cs125.jeed.core
 
+import io.kotest.assertions.throwables.shouldThrow
 import io.kotest.core.spec.style.StringSpec
 import io.kotest.matchers.collections.shouldContainExactlyInAnyOrder
 import io.kotest.matchers.longs.shouldBeLessThan
@@ -281,6 +282,27 @@ class Test {
         source.kompile(KompilationArguments(parameters = true)).also { compiledSource ->
             val klass = compiledSource.classLoader.loadClass("Test")
             klass.declaredMethods.find { it.name == "method" }?.parameters?.map { it.name }?.first() shouldBe "first"
+        }
+    }
+    "should catch recursion errors" {
+        shouldThrow<CompilationFailed> {
+            Source(
+                mapOf(
+                    "Person.kt" to """
+class Person(var name: String) {
+  var name = name
+    get() {
+      return field
+    }
+    set(newName: String) {
+      field = newName
+      return field
+    }
+}
+
+            """.trim()
+                )
+            ).kompile()
         }
     }
 })

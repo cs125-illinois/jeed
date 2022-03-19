@@ -427,7 +427,11 @@ private fun sourceFromJavaSnippet(originalSource: String, snippetArguments: Snip
     }.let {
         it.removeErrorListeners()
         it.addErrorListener(errorListener)
-        it.snippet()
+        try {
+            it.snippet()
+        } catch (e: StackOverflowError) {
+            throw SnippetTransformationFailed(listOf(SnippetTransformationError(0, 0, "Stack overflow caused by overly-complicated code")))
+        }
     }.also {
         errorListener.check()
     }

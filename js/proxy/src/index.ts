@@ -2,14 +2,17 @@ import { Request, Response, ServerStatus } from "@cs124/jeed-types"
 import { googleLogin } from "@cs124/koa-google-login"
 import cors from "@koa/cors"
 import Router from "@koa/router"
+import hkdf from "@panva/hkdf"
 import retryBuilder from "fetch-retry"
 import originalFetch from "isomorphic-fetch"
+import { jwtDecrypt } from "jose"
 import Koa, { Context } from "koa"
 import koaBody from "koa-body"
 import ratelimit from "koa-ratelimit"
 import { MongoClient } from "mongodb"
 import mongodbUri from "mongodb-uri"
 import { String } from "runtypes"
+
 const fetch = retryBuilder(originalFetch)
 
 const BACKEND = String.check(process.env.JEED_SERVER)
@@ -98,6 +101,30 @@ router.post("/", async (ctx) => {
   })
 })
 
+const ENCRYPTION_KEY =
+  process.env.SECRET && hkdf("sha256", process.env.SECRET, "", "NextAuth.js Generated Encryption Key", 32)
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+const decryptToken = async (ctx: Koa.Context, next: () => Promise<any>) => {
+  const encryptionKey = await ENCRYPTION_KEY
+  if (encryptionKey === undefined || ctx.email) {
+    return await next()
+  }
+  const cookieName = process.env.SECURE_COOKIE ? "__Secure-next-auth.session-token" : "next-auth.session-token"
+  const token = ctx.cookies.get(cookieName)
+  if (token) {
+    try {
+      const {
+        payload: { email },
+      } = await jwtDecrypt(token, encryptionKey as Uint8Array, { clockTolerance: 15 })
+      ctx.email = email
+    } catch (err) {
+      //
+    }
+  }
+  await next()
+}
+
 const db = new Map()
 const server = new Koa({ proxy: true })
   .use(
@@ -133,6 +160,7 @@ const server = new Koa({ proxy: true })
     })
   )
   .use(audience ? googleLogin({ audience, required: false }) : (_, next) => next())
+  .use(decryptToken)
   .use(koaBody({ jsonLimit: "8mb" }))
   .use(router.routes())
   .use(router.allowedMethods())
