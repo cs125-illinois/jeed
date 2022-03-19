@@ -127,11 +127,13 @@ const decryptToken = async (ctx: Koa.Context, next: Koa.Next) => {
 
 const db = new Map()
 const server = new Koa({ proxy: true })
-  .use(async (_: Koa.Context, next: Koa.Next) => {
+  .use(async (ctx: Koa.Context, next: Koa.Next) => {
     // eslint-disable-next-line no-useless-catch
     try {
       await next()
-      STATUS.heartbeat = new Date()
+      if (ctx.request.path !== "/") {
+        STATUS.heartbeat = new Date()
+      }
     } catch (err) {
       throw err
     }
