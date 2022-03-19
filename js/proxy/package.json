@@ -1,7 +1,7 @@
 {
   "private": true,
   "name": "proxy",
-  "version": "2022.3.0",
+  "version": "2022.3.1",
   "scripts": {
     "build": "rimraf dist && esbuild src/index.ts --sourcemap --bundle --platform=node --outfile=dist/index.js",
     "clean": "rimraf dist",
@@ -13,6 +13,7 @@
     "eslint": "eslint src/**",
     "ncu": "ncu",
     "start": "nodemon",
+    "tsc": "tsc --noEmit",
     "prettier": "prettier -w --plugin=prettier-plugin-organize-imports . && prettier-package-json --write"
   },
   "dependencies": {
@@ -53,7 +54,7 @@
     "eslint-config-prettier": "8.5.0",
     "eslint-plugin-prettier": "4.0.0",
     "nodemon": "2.0.15",
-    "npm-check-updates": "12.5.3",
+    "npm-check-updates": "12.5.4",
     "prettier": "2.6.0",
     "prettier-package-json": "2.6.3",
     "ts-node": "10.7.0",

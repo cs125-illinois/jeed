@@ -33,6 +33,7 @@ const STATUS = Object.assign(
     backend: BACKEND,
     what: "jeed",
     started: new Date(),
+    heartbeat: undefined as unknown as Date,
     port: PORT,
   },
   audience ? { audience } : null,
@@ -104,8 +105,7 @@ router.post("/", async (ctx) => {
 const ENCRYPTION_KEY =
   process.env.SECRET && hkdf("sha256", process.env.SECRET, "", "NextAuth.js Generated Encryption Key", 32)
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-const decryptToken = async (ctx: Koa.Context, next: () => Promise<any>) => {
+const decryptToken = async (ctx: Koa.Context, next: Koa.Next) => {
   const encryptionKey = await ENCRYPTION_KEY
   if (encryptionKey === undefined || ctx.email) {
     return await next()
@@ -127,6 +127,15 @@ const decryptToken = async (ctx: Koa.Context, next: () => Promise<any>) => {
 
 const db = new Map()
 const server = new Koa({ proxy: true })
+  .use(async (_: Koa.Context, next: Koa.Next) => {
+    // eslint-disable-next-line no-useless-catch
+    try {
+      await next()
+      STATUS.heartbeat = new Date()
+    } catch (err) {
+      throw err
+    }
+  })
   .use(
     cors({
       origin: (ctx) => {
