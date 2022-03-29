@@ -4,6 +4,7 @@ import com.squareup.moshi.JsonClass
 import edu.illinois.cs.cs125.jeed.core.antlr.JavaLexer
 import edu.illinois.cs.cs125.jeed.core.antlr.KotlinLexer
 import edu.illinois.cs.cs125.jeed.core.antlr.KotlinParser
+import edu.illinois.cs.cs125.jeed.core.antlr.KotlinParserBaseListener
 import edu.illinois.cs.cs125.jeed.core.antlr.KotlinParserBaseVisitor
 import edu.illinois.cs.cs125.jeed.core.antlr.SnippetLexer
 import edu.illinois.cs.cs125.jeed.core.antlr.SnippetParser
@@ -13,6 +14,7 @@ import org.antlr.v4.runtime.CharStreams
 import org.antlr.v4.runtime.CommonTokenStream
 import org.antlr.v4.runtime.RecognitionException
 import org.antlr.v4.runtime.Recognizer
+import org.antlr.v4.runtime.tree.ParseTreeWalker
 import org.jetbrains.kotlin.backend.common.pop
 
 const val SNIPPET_SOURCE = ""
@@ -336,19 +338,40 @@ ${" ".repeat(snippetArguments.indent * 2)}@JvmStatic fun main() {""".lines().let
         }
     }
 
-    val looseLines: MutableList<String> = mutableListOf()
-    val looseCodeMapping: MutableMap<Int, Int> = mutableMapOf()
+    val looseLines = mutableListOf<String>()
+    val looseCodeMapping = mutableMapOf<Int, Int>()
 
     parseTree.statement()
         ?.filter { it.declaration()?.functionDeclaration() == null && it.declaration()?.classDeclaration() == null }
         ?.forEach {
-            val looseStart = it.start?.line ?: 0
-            val looseEnd = it.stop?.line ?: 0
+            val looseStart = it.start!!.line
+            val looseEnd = it.stop!!.line
             for (lineNumber in looseStart..looseEnd) {
                 looseCodeMapping[looseLines.size + 1] = lineNumber
                 looseLines.add(sourceLines[lineNumber - 1])
             }
         }
+
+    val anonymousObjectLines = object : KotlinParserBaseListener() {
+        val anonymousObjectLines = mutableSetOf<Int>()
+        override fun enterObjectDeclaration(ctx: KotlinParser.ObjectDeclarationContext) {
+            val objectStart = ctx.start!!.line
+            val objectEnd = ctx.stop!!.line
+            for (lineNumber in objectStart..objectEnd) {
+                anonymousObjectLines += lineNumber
+            }
+        }
+        override fun enterObjectLiteral(ctx: KotlinParser.ObjectLiteralContext) {
+            val objectStart = ctx.start!!.line
+            val objectEnd = ctx.stop!!.line
+            for (lineNumber in objectStart..objectEnd) {
+                anonymousObjectLines += lineNumber
+            }
+        }
+        init {
+            ParseTreeWalker.DEFAULT.walk(this, parseTree)
+        }
+    }.anonymousObjectLines
 
     KotlinLexer(CharStreams.fromString(looseLines.joinToString(separator = "\n"))).let {
         it.removeErrorListeners()
@@ -356,7 +379,7 @@ ${" ".repeat(snippetArguments.indent * 2)}@JvmStatic fun main() {""".lines().let
     }.also {
         it.fill()
     }.tokens.filter {
-        it.type == KotlinLexer.RETURN
+        it.type == KotlinLexer.RETURN && looseCodeMapping[it.line] !in anonymousObjectLines
     }.map {
         SnippetTransformationError(
             SourceLocation(
@@ -430,7 +453,15 @@ private fun sourceFromJavaSnippet(originalSource: String, snippetArguments: Snip
         try {
             it.snippet()
         } catch (e: StackOverflowError) {
-            throw SnippetTransformationFailed(listOf(SnippetTransformationError(0, 0, "Stack overflow caused by overly-complicated code")))
+            throw SnippetTransformationFailed(
+                listOf(
+                    SnippetTransformationError(
+                        0,
+                        0,
+                        "Stack overflow caused by overly-complicated code"
+                    )
+                )
+            )
         }
     }.also {
         errorListener.check()

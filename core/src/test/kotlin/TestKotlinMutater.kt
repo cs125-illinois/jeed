@@ -873,7 +873,9 @@ fun startWord(input: String, word: String): String {
 """.trim()
         ).allMutations().onEach { mutatedSource ->
             mutatedSource.marked().ktLint().also { errors ->
-                errors.errors.filter { it.ruleId != "indent" && it.ruleId != "no-trailing-spaces" } shouldHaveSize 0
+                errors.errors.filter {
+                    it.ruleId != "indent" && it.ruleId != "no-trailing-spaces" && it.ruleId != "no-multi-spaces"
+                } shouldHaveSize 0
             }
         }
     }
