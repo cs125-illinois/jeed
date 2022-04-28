@@ -14,34 +14,34 @@ plugins {
 dependencies {
     kapt("com.squareup.moshi:moshi-kotlin-codegen:1.13.0")
 
-    antlr("org.antlr:antlr4:4.9.3")
+    antlr("org.antlr:antlr4:4.10.1")
 
-    implementation("org.jetbrains.kotlin:kotlin-compiler-embeddable:1.6.10")
-    implementation("org.jetbrains.kotlin:kotlin-reflect:1.6.10")
+    implementation("org.jetbrains.kotlin:kotlin-compiler-embeddable:1.6.20")
+    implementation("org.jetbrains.kotlin:kotlin-reflect:1.6.20")
 
-    implementation("org.jetbrains.kotlinx:kotlinx-coroutines-core:1.6.0")
-    implementation("com.puppycrawl.tools:checkstyle:10.1")
-    implementation("com.pinterest.ktlint:ktlint-core:0.45.1")
-    implementation("com.pinterest.ktlint:ktlint-ruleset-standard:0.45.1")
+    implementation("org.jetbrains.kotlinx:kotlinx-coroutines-core:1.6.1")
+    implementation("com.puppycrawl.tools:checkstyle:10.2")
+    implementation("com.pinterest.ktlint:ktlint-core:0.45.2")
+    implementation("com.pinterest.ktlint:ktlint-ruleset-standard:0.45.2")
     implementation("com.github.jknack:handlebars:4.3.0")
     implementation("com.squareup.moshi:moshi-kotlin:1.13.0")
-    implementation("org.ow2.asm:asm:9.2")
-    implementation("org.ow2.asm:asm-tree:9.2")
-    implementation("org.ow2.asm:asm-util:9.2")
+    implementation("org.ow2.asm:asm:9.3")
+    implementation("org.ow2.asm:asm-tree:9.3")
+    implementation("org.ow2.asm:asm-util:9.3")
     implementation("org.slf4j:slf4j-api:1.7.36")
     implementation("ch.qos.logback:logback-classic:1.2.11")
     implementation("io.github.microutils:kotlin-logging:2.1.21")
-    implementation("io.github.classgraph:classgraph:4.8.143")
+    implementation("io.github.classgraph:classgraph:4.8.146")
     implementation("net.java.dev.jna:jna:5.11.0")
     implementation("io.github.java-diff-utils:java-diff-utils:4.11")
     implementation("com.google.googlejavaformat:google-java-format:1.15.0")
     implementation("net.sf.extjwnl:extjwnl:2.0.5")
     implementation("net.sf.extjwnl:extjwnl-data-wn31:1.2")
 
-    api("org.jacoco:org.jacoco.core:0.8.7")
-    api("com.github.ben-manes.caffeine:caffeine:3.0.6")
+    api("org.jacoco:org.jacoco.core:0.8.8")
+    api("com.github.ben-manes.caffeine:caffeine:3.1.0")
 
-    testImplementation("io.kotest:kotest-runner-junit5:5.2.2")
+    testImplementation("io.kotest:kotest-runner-junit5:5.2.3")
 }
 tasks.test {
     useJUnitPlatform()

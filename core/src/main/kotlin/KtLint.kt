@@ -90,6 +90,7 @@ val jeedRuleSet = RuleSet(
     StringTemplateRule()
 )
 
+@Suppress("DEPRECATION")
 fun Source.ktFormat(ktLintArguments: KtLintArguments = KtLintArguments()): Source {
     require(type == Source.FileType.KOTLIN) { "Can't run ktlint on non-Kotlin sources" }
 
@@ -142,7 +143,7 @@ fun Source.ktFormat(ktLintArguments: KtLintArguments = KtLintArguments()): Sourc
 private val unexpectedRegex = """Unexpected indentation \((\d+)\)""".toRegex()
 private val shouldBeRegex = """should be (\d+)""".toRegex()
 
-@Suppress("LongMethod")
+@Suppress("LongMethod", "DEPRECATION")
 fun Source.ktLint(ktLintArguments: KtLintArguments = KtLintArguments()): KtLintResults {
     require(type == Source.FileType.KOTLIN) { "Can't run ktlint on non-Kotlin sources" }
 

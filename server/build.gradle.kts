@@ -8,7 +8,7 @@ plugins {
     application
     `maven-publish`
     id("com.github.johnrengelman.shadow") version "7.1.2"
-    id("com.palantir.docker") version "0.32.0"
+    id("com.palantir.docker") version "0.33.0"
     id("org.jmailen.kotlinter")
     id("io.gitlab.arturbosch.detekt")
 }
@@ -19,7 +19,7 @@ dependencies {
     implementation("org.jetbrains.kotlin:kotlin-reflect:1.6.10")
 
     implementation("io.ktor:ktor-server-netty:1.6.8")
-    implementation("org.jetbrains.kotlinx:kotlinx-coroutines-core:1.6.0")
+    implementation("org.jetbrains.kotlinx:kotlinx-coroutines-core:1.6.1")
     implementation("com.squareup.moshi:moshi-kotlin:1.13.0")
     implementation("com.github.cs125-illinois:ktor-moshi:2021.12.0")
     implementation("ch.qos.logback:logback-classic:1.2.11")
@@ -28,7 +28,7 @@ dependencies {
     implementation("io.github.microutils:kotlin-logging:2.1.21")
     implementation("com.github.cs125-illinois:libcs1:2022.1.0")
 
-    testImplementation("io.kotest:kotest-runner-junit5:5.2.2")
+    testImplementation("io.kotest:kotest-runner-junit5:5.2.3")
     testImplementation("io.kotest:kotest-assertions-ktor:4.4.3")
     testImplementation("io.ktor:ktor-server-test-host:1.6.8")
 }
