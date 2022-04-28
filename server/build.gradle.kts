@@ -4,16 +4,16 @@ import java.util.Properties
 
 plugins {
     kotlin("jvm")
-    kotlin("kapt")
     application
     `maven-publish`
     id("com.github.johnrengelman.shadow") version "7.1.2"
     id("com.palantir.docker") version "0.33.0"
     id("org.jmailen.kotlinter")
     id("io.gitlab.arturbosch.detekt")
+    id("com.google.devtools.ksp")
 }
 dependencies {
-    kapt("com.squareup.moshi:moshi-kotlin-codegen:1.13.0")
+    ksp("com.squareup.moshi:moshi-kotlin-codegen:1.13.0")
 
     implementation(project(":core"))
     implementation("org.jetbrains.kotlin:kotlin-reflect:1.6.10")
@@ -69,10 +69,6 @@ task("createProperties") {
 tasks.processResources {
     dependsOn("createProperties")
 }
-kapt {
-    useBuildCache = true
-    includeCompileClasspath = false
-}
 publishing {
     publications {
         create<MavenPublication>("server") {
@@ -83,9 +79,3 @@ publishing {
 kotlin {
     kotlinDaemonJvmArgs = listOf("-Dfile.encoding=UTF-8", "--illegal-access=permit")
 }
-kapt {
-    javacOptions {
-        option("--illegal-access", "permit")
-    }
-}
-

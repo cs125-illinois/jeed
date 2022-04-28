@@ -4,15 +4,15 @@ import java.util.Properties
 
 plugins {
     kotlin("jvm")
-    kotlin("kapt")
     antlr
     java
     `maven-publish`
     id("org.jmailen.kotlinter")
     id("io.gitlab.arturbosch.detekt")
+    id("com.google.devtools.ksp")
 }
 dependencies {
-    kapt("com.squareup.moshi:moshi-kotlin-codegen:1.13.0")
+    ksp("com.squareup.moshi:moshi-kotlin-codegen:1.13.0")
 
     antlr("org.antlr:antlr4:4.10.1")
 
@@ -92,13 +92,6 @@ task("createProperties") {
                         .lines().drop(1).joinToString(separator = "\n").trim()
                 )
             }
-    }
-}
-kapt {
-    useBuildCache = true
-    includeCompileClasspath = false
-    javacOptions {
-        option("--illegal-access", "permit")
     }
 }
 tasks {
