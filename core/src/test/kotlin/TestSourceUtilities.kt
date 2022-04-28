@@ -43,13 +43,13 @@ class TestSourceUtilities : StringSpec({
             |for (i in test) {
             |  println(i) // test me
             |}
-        """.trimMargin()
+            """.trimMargin()
         ).stripComments().contents shouldBe
             """
             |for (i in test) {
             |  println(i) 
             |}
-        """.trimMargin()
+            """.trimMargin()
     }
     "should diff text with same line count" {
         val first = """
@@ -89,7 +89,8 @@ class TestSourceUtilities : StringSpec({
             |    assert false;
             |  }
             |}
-            |""".trimMargin()
+            |
+            """.trimMargin()
         ).stripAssertionMessages().googleFormat().contents shouldBe
             """public class Test {
             |  public static void main() {
@@ -98,7 +99,8 @@ class TestSourceUtilities : StringSpec({
             |    assert false;
             |  }
             |}
-            |""".trimMargin()
+            |
+            """.trimMargin()
     }
     "should remove Kotlin assertion messages" {
         Source.fromKotlin(
@@ -112,7 +114,8 @@ class TestSourceUtilities : StringSpec({
             |  error("Bad")
             |  error ( "Whoops" )
             |}
-            |""".trimMargin()
+            |
+            """.trimMargin()
         ).stripAssertionMessages().trimLines().contents shouldBe
             """fun main() {
             |  assert(false)
@@ -121,7 +124,8 @@ class TestSourceUtilities : StringSpec({
             |  error("error")
             |  error ("error")
             |}
-            |""".trimMargin()
+            |
+            """.trimMargin()
     }
     "should collect Java identifiers" {
         Source.fromJava(

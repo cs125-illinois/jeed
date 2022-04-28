@@ -9,13 +9,14 @@ import io.kotest.core.spec.style.StringSpec
 import io.kotest.matchers.collections.shouldHaveSize
 import io.kotest.matchers.longs.shouldBeExactly
 import io.kotest.matchers.shouldBe
-import io.ktor.application.Application
 import io.ktor.http.HttpMethod
 import io.ktor.http.HttpStatusCode
+import io.ktor.server.application.Application
 import io.ktor.server.testing.handleRequest
 import io.ktor.server.testing.setBody
 import io.ktor.server.testing.withTestApplication
 
+@Suppress("DEPRECATION")
 class TestConfig : StringSpec({
     "should load defaults correctly" {
         configuration[Limits.Execution.timeout] shouldBeExactly Sandbox.ExecutionArguments.DEFAULT_TIMEOUT

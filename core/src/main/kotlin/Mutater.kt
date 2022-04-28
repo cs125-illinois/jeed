@@ -93,7 +93,7 @@ class MutatedSource(
                     |$currentIndent// Modified by ${mutation.mutation.mutationType.mutationName()}. Originally:
                     |$originalContent
                     |${targetLines!!.joinToString("\n")}
-                    """.trimMargin()
+                            """.trimMargin()
                         }
                         activeDelta.type == DeltaType.DELETE -> {
                             val originalContent = sourceLines!!.joinToString("\n") {
@@ -107,7 +107,7 @@ class MutatedSource(
                             """
                     |$currentIndent// Removed by ${mutation.mutation.mutationType.mutationName()}. Originally:
                     |$originalContent
-                    """.trimMargin()
+                            """.trimMargin()
                         }
                         else -> error("Invalid delta type: ${activeDelta.type}")
                     }
