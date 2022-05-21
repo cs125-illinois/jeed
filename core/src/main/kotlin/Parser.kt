@@ -49,42 +49,40 @@ fun Source.parseJavaFile(entry: Map.Entry<String, String>): Source.ParsedSource 
     check(sourceFilenameToFileType(entry.key) == Source.FileType.JAVA) { "Must be called on a Java file" }
     val errorListener = JeedErrorListener(this, entry)
     val charStream = CharStreams.fromString(entry.value)
-    val parseTree = JavaLexer(charStream).let {
+    val (parseTree, parser) = JavaLexer(charStream).let {
         it.removeErrorListeners()
         it.addErrorListener(errorListener)
         CommonTokenStream(it)
     }.also {
         errorListener.check()
     }.let {
-        JavaParser(it)
-    }.let {
-        it.removeErrorListeners()
-        it.addErrorListener(errorListener)
-        it.compilationUnit()
+        val parser = JavaParser(it)
+        parser.removeErrorListeners()
+        parser.addErrorListener(errorListener)
+        Pair(parser.compilationUnit(), parser)
     }.also {
         errorListener.check()
     }
 
-    return Source.ParsedSource(parseTree, charStream, entry.value)
+    return Source.ParsedSource(parseTree, charStream, entry.value, parser)
 }
 
 fun Source.parseKotlinFile(entry: Map.Entry<String, String>): Source.ParsedSource {
     check(sourceFilenameToFileType(entry.key) == Source.FileType.KOTLIN) { "Must be called on a Kotlin file" }
     val errorListener = JeedErrorListener(this, entry)
     val charStream = CharStreams.fromString(entry.value)
-    val parseTree = KotlinLexer(charStream).let {
+    val (parseTree, parser) = KotlinLexer(charStream).let {
         it.removeErrorListeners()
         it.addErrorListener(errorListener)
         CommonTokenStream(it)
     }.also {
         errorListener.check()
     }.let {
-        KotlinParser(it)
-    }.let {
-        it.removeErrorListeners()
-        it.addErrorListener(errorListener)
+        val parser = KotlinParser(it)
+        parser.removeErrorListeners()
+        parser.addErrorListener(errorListener)
         try {
-            it.kotlinFile()
+            Pair(parser.kotlinFile(), parser)
         } catch (e: StackOverflowError) {
             throw JeedParsingException(listOf(SourceError(null, "Code is too complicated to determine complexity")))
         }
@@ -92,7 +90,7 @@ fun Source.parseKotlinFile(entry: Map.Entry<String, String>): Source.ParsedSourc
         errorListener.check()
     }
 
-    return Source.ParsedSource(parseTree, charStream, entry.value)
+    return Source.ParsedSource(parseTree, charStream, entry.value, parser)
 }
 
 class DistinguishErrorListener : BaseErrorListener() {
@@ -106,7 +104,7 @@ class DistinguishErrorListener : BaseErrorListener() {
     ) {
         check(!msg.trim().startsWith("extraneous input"))
         if (e != null) {
-            throw(e)
+            throw (e)
         }
     }
 }
@@ -206,35 +204,33 @@ fun String.isKotlinSnippet(): Boolean {
 fun String.parseKnippet(): Source.ParsedSource {
     val errorListener = DistinguishErrorListener()
     val charStream = CharStreams.fromString(this)
-    val parseTree = KotlinLexer(charStream).let {
+    val (parseTree, parser) = KotlinLexer(charStream).let {
         it.removeErrorListeners()
         it.addErrorListener(errorListener)
         CommonTokenStream(it)
     }.let {
-        KotlinParser(it)
-    }.let {
-        it.removeErrorListeners()
-        it.addErrorListener(errorListener)
-        it.script()
+        val parser = KotlinParser(it)
+        parser.removeErrorListeners()
+        parser.addErrorListener(errorListener)
+        Pair(parser.script(), parser)
     }
-    return Source.ParsedSource(parseTree, charStream, this)
+    return Source.ParsedSource(parseTree, charStream, this, parser)
 }
 
 fun String.parseSnippet(): Source.ParsedSource {
     val errorListener = DistinguishErrorListener()
     val charStream = CharStreams.fromString(this)
-    val parseTree = SnippetLexer(charStream).let {
+    val (parseTree, parser) = SnippetLexer(charStream).let {
         it.removeErrorListeners()
         it.addErrorListener(errorListener)
         CommonTokenStream(it)
     }.let {
-        SnippetParser(it)
-    }.let {
-        it.removeErrorListeners()
-        it.addErrorListener(errorListener)
-        it.block()
+        val parser = SnippetParser(it)
+        parser.removeErrorListeners()
+        parser.addErrorListener(errorListener)
+        Pair(parser.block(), parser)
     }
-    return Source.ParsedSource(parseTree, charStream, this)
+    return Source.ParsedSource(parseTree, charStream, this, parser)
 }
 
 enum class SourceType {
