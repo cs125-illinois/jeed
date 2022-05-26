@@ -309,7 +309,7 @@ parenthesizedUserType
 // SECTION: statements
 
 statements
-    : (statement (semis statement)*)? semis?
+    : (statement (noeofsemis statement)*)? semis?
     ;
 
 statement
@@ -360,6 +360,10 @@ semi
 semis
     : (SEMICOLON | NL)+
     | EOF
+    ;
+
+noeofsemis
+    : (SEMICOLON | NL)+
     ;
 
 // SECTION: expressions

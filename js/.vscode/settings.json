@@ -25,5 +25,5 @@
     "strings": false
   },
   "workbench.editor.enablePreview": false,
-  "typescript.autoClosingTags": false
+  "typescript.tsdk": "node_modules\\typescript\\lib"
 }

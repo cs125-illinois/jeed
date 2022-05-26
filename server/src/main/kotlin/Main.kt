@@ -3,26 +3,25 @@
 package edu.illinois.cs.cs125.jeed.server
 
 import com.ryanharter.ktor.moshi.moshi
-import com.squareup.moshi.JsonClass
 import com.squareup.moshi.Moshi
 import com.uchuhimo.konf.source.json.toJson
 import edu.illinois.cs.cs125.jeed.core.getStackTraceAsString
 import edu.illinois.cs.cs125.jeed.core.warm
 import edu.illinois.cs.cs125.jeed.server.moshi.Adapters
-import io.ktor.application.Application
-import io.ktor.application.call
-import io.ktor.application.install
-import io.ktor.features.CORS
-import io.ktor.features.ContentNegotiation
 import io.ktor.http.HttpStatusCode
-import io.ktor.request.receive
-import io.ktor.response.respond
-import io.ktor.response.respondText
-import io.ktor.routing.get
-import io.ktor.routing.post
-import io.ktor.routing.routing
+import io.ktor.server.application.Application
+import io.ktor.server.application.call
+import io.ktor.server.application.install
 import io.ktor.server.engine.embeddedServer
 import io.ktor.server.netty.Netty
+import io.ktor.server.plugins.contentnegotiation.ContentNegotiation
+import io.ktor.server.plugins.cors.CORS
+import io.ktor.server.request.receive
+import io.ktor.server.response.respond
+import io.ktor.server.response.respondText
+import io.ktor.server.routing.get
+import io.ktor.server.routing.post
+import io.ktor.server.routing.routing
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -49,9 +48,6 @@ val VERSION: String = Properties().also {
 }.getProperty("version")
 
 val currentStatus = Status()
-
-@JsonClass(generateAdapter = true)
-data class PreAuthenticationRequest(val authToken: String)
 
 @Suppress("ComplexMethod", "LongMethod")
 fun Application.jeed() {

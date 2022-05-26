@@ -13,24 +13,24 @@
     "prettier": "prettier -w --plugin=prettier-plugin-organize-imports . && prettier-package-json --write"
   },
   "dependencies": {
-    "@cs124/jeed-output": "2022.2.0",
-    "@cs124/jeed-react": "2022.2.0",
-    "@cs124/react-google-login": "^2021.11.0",
-    "next": "12.1.0",
-    "react": "17.0.2",
-    "react-ace": "9.5.0",
-    "react-dom": "17.0.2",
+    "@cs124/jeed-output": "2022.2.1",
+    "@cs124/jeed-react": "2022.2.1",
+    "@cs124/react-google-login": "2021.11.0",
+    "next": "12.1.5",
+    "react": "18.1.0",
+    "react-ace": "10.1.0",
+    "react-dom": "18.1.0",
     "runtypes": "6.5.1"
   },
   "devDependencies": {
     "@types/react": "17.0.39",
-    "eslint": "8.9.0",
-    "eslint-config-next": "12.1.0",
+    "eslint": "8.14.0",
+    "eslint-config-next": "12.1.5",
     "gh-pages": "^3.2.3",
-    "prettier": "2.5.1",
+    "prettier": "2.6.2",
     "prettier-package-json": "2.6.3",
     "prettier-plugin-organize-imports": "2.3.4",
-    "sass": "1.49.8",
-    "typescript": "4.5.5"
+    "sass": "1.51.0",
+    "typescript": "4.6.3"
   }
 }

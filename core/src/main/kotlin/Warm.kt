@@ -34,7 +34,8 @@ suspend fun warm(indent: Int = 4, failLint: Boolean = true, quiet: Boolean = fal
           |GlobalScope.launch {
           |  delay(1)
              println("coroutine isolation initialized")
-          }""".trimMargin(),
+          }
+        """.trimMargin(),
         SnippetArguments(indent = indent, fileType = Source.FileType.KOTLIN)
     ).kompile()
         .execute(SourceExecutionArguments(waitForShutdown = true, timeout = COROUTINE_INIT_TIMEOUT)).output.also {

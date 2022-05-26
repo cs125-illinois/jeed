@@ -820,7 +820,8 @@ public class Catcher {
     "should not count array.length as dotted variable access" {
         Source.fromSnippet(
             """int[] array = new int[8];
-              |int l = array.length;""".trimMargin()
+              |int l = array.length;
+            """.trimMargin()
         ).features().also {
             it.lookup(".").features.featureMap[FeatureName.DOTTED_VARIABLE_ACCESS] shouldBe 0
             it.lookup(".").features.featureMap[FeatureName.DOT_NOTATION] shouldBe 0
@@ -859,7 +860,8 @@ public class Catcher {
     assert setAge >= 0.0;
     age = setAge;
   }
-}""".trimMargin()
+}
+                """.trimMargin()
             )
         ).features().also {
             it.lookup("Dog", "Dog.java").features.featureMap[FeatureName.RECURSION] shouldBe 0
@@ -877,7 +879,8 @@ public class Catcher {
     }
     return false;
   }
-}""".trimMargin()
+}
+                """.trimMargin()
             )
         ).features().also {
             it.lookup("Dog", "Dog.java").features.featureMap[FeatureName.RECURSION] shouldBe 0

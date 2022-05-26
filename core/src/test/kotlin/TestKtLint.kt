@@ -78,11 +78,13 @@ class TestKtLint : StringSpec({
         Source.fromKotlin(
             """fun main() {
                 |println("Hello, world!");
-                |}""".trimMargin()
+                |}
+            """.trimMargin()
         ).ktFormat().also {
             it.contents shouldBe """fun main() {
                 |    println("Hello, world!")
-                |}""".trimMargin()
+                |}
+            """.trimMargin()
         }
     }
 })

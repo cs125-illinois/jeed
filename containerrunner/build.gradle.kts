@@ -6,15 +6,15 @@ plugins {
     kotlin("jvm")
     application
     id("com.github.johnrengelman.shadow") version "7.1.2"
-    id("com.palantir.docker") version "0.32.0"
+    id("com.palantir.docker") version "0.33.0"
     id("org.jmailen.kotlinter")
     id("io.gitlab.arturbosch.detekt")
 }
 dependencies {
     implementation("ch.qos.logback:logback-classic:1.2.11")
     implementation("io.github.microutils:kotlin-logging:2.1.21")
-    implementation("com.github.ajalt:clikt:2.8.0")
-    implementation("io.github.classgraph:classgraph:4.8.141")
+    implementation("com.github.ajalt.clikt:clikt:3.4.2")
+    implementation("io.github.classgraph:classgraph:4.8.146")
 }
 application {
     @Suppress("DEPRECATION")

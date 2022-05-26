@@ -537,13 +537,29 @@ Adder addOne = new Adder() {
             """.trim()
         ).compile()
     }
+    "should allow anonymous classes in Kotlin snippets" {
+        Source.fromSnippet(
+            """
+open class Person {
+  open fun getType(): String {
+    return "Person"
+  }
+}
+val student = object : Person() {
+  override fun getType(): String {
+    return "Student"
+  }
+}
+""".trim(),
+            SnippetArguments(fileType = Source.FileType.KOTLIN)
+        ).kompile()
+    }
     "should hoist functions in Kotlin snippets" {
         Source.fromSnippet(
             """
 fun first() = Test(3)
 data class Test(val first: Int)
 fun second(): Test {
-
     return first()
 }
 println(second())
