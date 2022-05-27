@@ -356,11 +356,13 @@ class JavaMutationListener(private val parsedSource: Source.ParsedSource) : Java
         }
         ctx.FOR()?.also {
             mutations.add(RemoveLoop(ctx.toLocation(), parsedSource.contents(ctx.toLocation()), fileType))
-            val endBraceLocation = listOf(
-                ctx.statement().last().block().RBRACE(),
-                ctx.statement().last().block().RBRACE()
-            ).toLocation()
-            mutations.add(AddBreak(endBraceLocation, parsedSource.contents(endBraceLocation), fileType))
+            if (ctx.statement().last()?.block()?.RBRACE() != null) {
+                val endBraceLocation = listOf(
+                    ctx.statement().last().block().RBRACE(),
+                    ctx.statement().last().block().RBRACE()
+                ).toLocation()
+                mutations.add(AddBreak(endBraceLocation, parsedSource.contents(endBraceLocation), fileType))
+            }
         }
         ctx.DO()?.also {
             mutations.add(RemoveLoop(ctx.toLocation(), parsedSource.contents(ctx.toLocation()), fileType))

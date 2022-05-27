@@ -30,7 +30,31 @@ class KotlinMutationListener(private val parsedSource: Source.ParsedSource) : Ko
         returnTypeStack.pop()
     }
 
+    private var inSetterOrGetter = false
+    override fun enterGetter(ctx: KotlinParser.GetterContext) {
+        check(!inSetterOrGetter)
+        inSetterOrGetter = true
+    }
+
+    override fun exitGetter(ctx: KotlinParser.GetterContext) {
+        check(inSetterOrGetter)
+        inSetterOrGetter = false
+    }
+
+    override fun enterSetter(ctx: KotlinParser.SetterContext) {
+        check(!inSetterOrGetter)
+        inSetterOrGetter = true
+    }
+
+    override fun exitSetter(ctx: KotlinParser.SetterContext) {
+        check(inSetterOrGetter)
+        inSetterOrGetter = false
+    }
+
     override fun enterFunctionBody(ctx: KotlinParser.FunctionBodyContext) {
+        if (inSetterOrGetter) {
+            return
+        }
         check(currentReturnType != null)
         val methodLocation = ctx.block()?.toLocation() ?: return
         val methodContents = parsedSource.contents(methodLocation)
@@ -40,7 +64,7 @@ class KotlinMutationListener(private val parsedSource: Source.ParsedSource) : Ko
     }
 
     override fun enterJumpExpression(ctx: KotlinParser.JumpExpressionContext) {
-        if (ctx.RETURN() != null && ctx.expression() != null) {
+        if (ctx.RETURN() != null && ctx.expression() != null && !inSetterOrGetter) {
             val returnToken = ctx.expression()
             val returnLocation = returnToken.toLocation()
             if (PrimitiveReturn.matches(returnToken.text, currentReturnType!!, fileType)) {

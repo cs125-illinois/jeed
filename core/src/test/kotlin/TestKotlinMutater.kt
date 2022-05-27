@@ -912,4 +912,19 @@ class Question {
             }
         }
     }
+    "it should handle getters and setters" {
+        Source.fromKotlin(
+            """
+class Adder() {
+  var value: Int = 0
+    get() {
+      return field
+    }
+  fun add(newNum: Int): Int {
+    value += newNum
+    return value
+  }
+}
+""").allMutations()
+    }
 })

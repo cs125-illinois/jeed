@@ -996,6 +996,20 @@ public class Question {
             }
         }
     }
+    "it should work without braces" {
+        Source.fromJava(
+            """
+public class Question {
+  public static void test() {
+    int x = 1;
+    for(int i: values)
+      x*=i;
+    System.out.println(x);
+  }
+}
+            """.trimMargin()
+        ).allMutations()
+    }
 })
 
 inline fun <reified T : Mutation> Source.checkMutations(
