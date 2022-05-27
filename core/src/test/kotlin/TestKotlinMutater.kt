@@ -927,4 +927,14 @@ class Adder() {
 }
 """).allMutations()
     }
+    "it should handle braceless loops" {
+        Source.fromKotlin(
+            """
+fun listSum(list: List<Int>): Int {
+  var sum = 0
+  for (item in list) sum += item
+  return sum
+}
+""").allMutations()
+    }
 })

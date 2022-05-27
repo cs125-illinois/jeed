@@ -239,19 +239,25 @@ class KotlinMutationListener(private val parsedSource: Source.ParsedSource) : Ko
     override fun enterLoopStatement(ctx: KotlinParser.LoopStatementContext) {
         val location = ctx.toLocation()
         ctx.doWhileStatement()?.also {
-            val rightCurl = it.controlStructureBody().block().RCURL()
-            val rightCurlLocation = listOf(rightCurl, rightCurl).toLocation()
-            mutations.add(AddBreak(rightCurlLocation, parsedSource.contents(rightCurlLocation), fileType))
+            val rightCurl = it.controlStructureBody().block()?.RCURL()
+            if (rightCurl != null) {
+                val rightCurlLocation = listOf(rightCurl, rightCurl).toLocation()
+                mutations.add(AddBreak(rightCurlLocation, parsedSource.contents(rightCurlLocation), fileType))
+            }
         }
         ctx.forStatement()?.also {
-            val rightCurl = it.controlStructureBody().block().RCURL()
-            val rightCurlLocation = listOf(rightCurl, rightCurl).toLocation()
-            mutations.add(AddBreak(rightCurlLocation, parsedSource.contents(rightCurlLocation), fileType))
+            val rightCurl = it.controlStructureBody().block()?.RCURL()
+            if (rightCurl != null) {
+                val rightCurlLocation = listOf(rightCurl, rightCurl).toLocation()
+                mutations.add(AddBreak(rightCurlLocation, parsedSource.contents(rightCurlLocation), fileType))
+            }
         }
         ctx.whileStatement()?.also {
-            val rightCurl = it.controlStructureBody().block().RCURL()
-            val rightCurlLocation = listOf(rightCurl, rightCurl).toLocation()
-            mutations.add(AddBreak(rightCurlLocation, parsedSource.contents(rightCurlLocation), fileType))
+            val rightCurl = it.controlStructureBody().block()?.RCURL()
+            if (rightCurl != null) {
+                val rightCurlLocation = listOf(rightCurl, rightCurl).toLocation()
+                mutations.add(AddBreak(rightCurlLocation, parsedSource.contents(rightCurlLocation), fileType))
+            }
         }
         mutations.add(RemoveLoop(location, parsedSource.contents(location), fileType))
     }
@@ -263,9 +269,11 @@ class KotlinMutationListener(private val parsedSource: Source.ParsedSource) : Ko
 
     override fun enterWhileStatement(ctx: KotlinParser.WhileStatementContext) {
         val location = ctx.expression().toLocation()
-        val rightCurl = ctx.controlStructureBody().block().RCURL()
-        val rightCurlLocation = listOf(rightCurl, rightCurl).toLocation()
-        mutations.add(AddBreak(rightCurlLocation, parsedSource.contents(rightCurlLocation), fileType))
+        val rightCurl = ctx.controlStructureBody().block()?.RCURL()
+        if (rightCurl != null) {
+            val rightCurlLocation = listOf(rightCurl, rightCurl).toLocation()
+            mutations.add(AddBreak(rightCurlLocation, parsedSource.contents(rightCurlLocation), fileType))
+        }
         mutations.add(NegateWhile(location, parsedSource.contents(location), fileType))
     }
 
