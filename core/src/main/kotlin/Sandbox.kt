@@ -607,11 +607,8 @@ object Sandbox {
                         }
                     }
                 }
-
                 stoppedThreads.add(it)
-                try {
-                    @Suppress("DEPRECATION") it.stop()
-                } catch (_: ThreadDeath) { }
+                @Suppress("DEPRECATION") it.stop()
             }
             threadGroup.maxPriority = Thread.NORM_PRIORITY
             stoppedThreads.filter { it.isAlive }.forEach {
@@ -728,6 +725,7 @@ object Sandbox {
                 }
             }
         }
+
         internal val pluginInstrumentationData = configuredPlugins.map {
             @Suppress("UNCHECKED_CAST")
             it as ConfiguredSandboxPlugin<Any, Any>
