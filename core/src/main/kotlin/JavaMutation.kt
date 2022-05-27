@@ -295,19 +295,21 @@ class JavaMutationListener(private val parsedSource: Source.ParsedSource) : Java
                             seenIfStarts += statement.toLocation().start
                         }
                         val end = statement.statement(0) ?: statement.block()
-                        val currentLocation =
-                            Mutation.Location(
-                                previousMarker.symbol.startIndex,
-                                end.stop.stopIndex,
-                                lines
-                                    .filterIndexed { index, _ ->
-                                        index >= previousMarker.symbol.line - 1 && index <= end.stop.line - 1
-                                    }
-                                    .joinToString("\n"),
-                                previousMarker.symbol.line,
-                                end.stop.line
-                            )
-                        mutations.add(RemoveIf(currentLocation, parsedSource.contents(currentLocation), fileType))
+                        if (end != null) {
+                            val currentLocation =
+                                Mutation.Location(
+                                    previousMarker.symbol.startIndex,
+                                    end.stop.stopIndex,
+                                    lines
+                                        .filterIndexed { index, _ ->
+                                            index >= previousMarker.symbol.line - 1 && index <= end.stop.line - 1
+                                        }
+                                        .joinToString("\n"),
+                                    previousMarker.symbol.line,
+                                    end.stop.line
+                                )
+                            mutations.add(RemoveIf(currentLocation, parsedSource.contents(currentLocation), fileType))
+                        }
                         previousMarker = statement.ELSE()
                         statement = statement.statement(1)
                     }
