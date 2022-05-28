@@ -47,7 +47,6 @@ private const val INDENTATION_PATH =
     "/module[@name='Checker']/module[@name='TreeWalker']/module[@name='Indentation']"
 private const val DEFAULT_CHECKSTYLE_INDENTATION = 4
 
-
 class ConfiguredChecker(configurationString: String) {
     private val checker: Checker
     val indentation: Int?

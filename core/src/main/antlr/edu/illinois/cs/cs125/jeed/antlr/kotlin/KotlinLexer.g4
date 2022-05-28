@@ -74,7 +74,8 @@ HASH: '#';
 AT_NO_WS: '@';
 AT_POST_WS: '@' (Hidden | NL);
 AT_PRE_WS: (Hidden | NL) '@' ;
-AT_BOTH_WS: (Hidden | NL) '@' (Hidden | NL);
+// Doesn't seem needed and breaks comments with @ signs
+// AT_BOTH_WS: (Hidden | NL) '@' (Hidden | NL);
 QUEST_WS: '?' Hidden;
 QUEST_NO_WS: '?';
 LANGLE: '<';
@@ -424,7 +425,7 @@ Inside_HASH: HASH  -> type(HASH);
 Inside_AT_NO_WS: AT_NO_WS  -> type(AT_NO_WS);
 Inside_AT_POST_WS: AT_POST_WS  -> type(AT_POST_WS);
 Inside_AT_PRE_WS: AT_PRE_WS  -> type(AT_PRE_WS);
-Inside_AT_BOTH_WS: AT_BOTH_WS  -> type(AT_BOTH_WS);
+// Inside_AT_BOTH_WS: AT_BOTH_WS  -> type(AT_BOTH_WS);
 Inside_QUEST_WS: '?' (Hidden | NL) -> type(QUEST_WS);
 Inside_QUEST_NO_WS: QUEST_NO_WS -> type(QUEST_NO_WS);
 Inside_LANGLE: LANGLE  -> type(LANGLE);
