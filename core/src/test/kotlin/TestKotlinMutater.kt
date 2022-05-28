@@ -912,4 +912,31 @@ class Question {
             }
         }
     }
+    "it should handle getters and setters" {
+        Source.fromKotlin(
+            """
+class Adder() {
+  var value: Int = 0
+    get() {
+      return field
+    }
+  fun add(newNum: Int): Int {
+    value += newNum
+    return value
+  }
+}
+"""
+        ).allMutations()
+    }
+    "it should handle braceless loops" {
+        Source.fromKotlin(
+            """
+fun listSum(list: List<Int>): Int {
+  var sum = 0
+  for (item in list) sum += item
+  return sum
+}
+"""
+        ).allMutations()
+    }
 })

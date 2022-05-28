@@ -996,6 +996,34 @@ public class Question {
             }
         }
     }
+    "it should work on for without braces" {
+        Source.fromJava(
+            """
+public class Question {
+  public static void test() {
+    int x = 1;
+    for(int i: values)
+      x*=i;
+    System.out.println(x);
+  }
+}
+            """.trimMargin()
+        ).allMutations()
+    }
+    "it should work on if-else without braces" {
+        Source.fromJava(
+            """
+public class Question {
+  public static void test() {
+    if (friendsCount > 500)
+      System.out.println("Adopt a Dog Today!");
+    else
+      System.out.println("Buy Cat Food At 20% Off");
+  }
+}
+            """.trimMargin()
+        ).allMutations()
+    }
 })
 
 inline fun <reified T : Mutation> Source.checkMutations(
