@@ -10,7 +10,7 @@ import org.antlr.v4.runtime.tree.ParseTreeWalker
 @Suppress("TooManyFunctions")
 class KotlinComplexityListener(val source: Source, entry: Map.Entry<String, String>) :
     KotlinParserBaseListener() {
-    private val fileName = entry.key
+    private val filename = entry.key
     private var currentClass = ""
 
     private var anonymousClassDepth = 0
@@ -29,7 +29,7 @@ class KotlinComplexityListener(val source: Source, entry: Map.Entry<String, Stri
         } else {
             ClassComplexity(
                 name,
-                SourceRange(fileName, source.mapLocation(fileName, start), source.mapLocation(fileName, end))
+                SourceRange(filename, source.mapLocation(filename, start), source.mapLocation(filename, end))
             )
         }
         if (complexityStack.isNotEmpty()) {
@@ -48,7 +48,7 @@ class KotlinComplexityListener(val source: Source, entry: Map.Entry<String, Stri
             } else {
                 MethodComplexity(
                     name,
-                    SourceRange(fileName, source.mapLocation(fileName, start), source.mapLocation(fileName, end))
+                    SourceRange(filename, source.mapLocation(filename, start), source.mapLocation(filename, end))
                 )
             }
         if (complexityStack.isNotEmpty()) {
@@ -299,6 +299,6 @@ class KotlinComplexityListener(val source: Source, entry: Map.Entry<String, Stri
     }
 
     init {
-        ParseTreeWalker.DEFAULT.walk(this, source.getParsed(fileName).tree)
+        ParseTreeWalker.DEFAULT.walk(this, source.getParsed(filename).tree)
     }
 }

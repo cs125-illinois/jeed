@@ -25,6 +25,8 @@ import com.pinterest.ktlint.ruleset.standard.SpacingAroundParensRule
 import com.pinterest.ktlint.ruleset.standard.SpacingAroundRangeOperatorRule
 import com.pinterest.ktlint.ruleset.standard.StringTemplateRule
 import com.squareup.moshi.JsonClass
+import kotlinx.coroutines.sync.Semaphore
+import kotlinx.coroutines.sync.withPermit
 import java.io.File
 import java.io.FileOutputStream
 
@@ -37,7 +39,7 @@ data class KtLintArguments(
 @JsonClass(generateAdapter = true)
 class KtLintError(
     val ruleId: String,
-    val detail: String,
+    @Suppress("MemberVisibilityCanBePrivate") val detail: String,
     location: SourceLocation
 ) : AlwaysLocatedSourceError(location, "$ruleId: $detail")
 
@@ -90,8 +92,10 @@ val jeedRuleSet = RuleSet(
     StringTemplateRule()
 )
 
+private val limiter = Semaphore(1)
+
 @Suppress("DEPRECATION")
-fun Source.ktFormat(ktLintArguments: KtLintArguments = KtLintArguments()): Source {
+suspend fun Source.ktFormat(ktLintArguments: KtLintArguments = KtLintArguments()): Source {
     require(type == Source.FileType.KOTLIN) { "Can't run ktlint on non-Kotlin sources" }
 
     val names = ktLintArguments.sources ?: sources.keys
@@ -104,37 +108,39 @@ fun Source.ktFormat(ktLintArguments: KtLintArguments = KtLintArguments()): Sourc
     sources.filter { (filename, _) ->
         filename in names
     }.forEach { (filename, contents) ->
-        formattedSources[
-            if (source is Snippet) {
-                "MainKt.kt"
-            } else {
-                filename
-            }
-        ] = KtLint.format(
-            KtLint.Params(
+        limiter.withPermit {
+            formattedSources[
                 if (source is Snippet) {
                     "MainKt.kt"
                 } else {
                     filename
-                },
-                contents,
-                listOf(jeedRuleSet),
-                cb = { e, corrected ->
-                    if (!corrected && ktLintArguments.failOnError) {
-                        throw KtLintFailed(
-                            listOf(
-                                KtLintError(
-                                    e.ruleId,
-                                    e.detail,
-                                    mapLocation(SourceLocation(filename, e.line, e.col))
+                }
+            ] = KtLint.format(
+                KtLint.Params(
+                    if (source is Snippet) {
+                        "MainKt.kt"
+                    } else {
+                        filename
+                    },
+                    contents,
+                    listOf(jeedRuleSet),
+                    cb = { e, corrected ->
+                        if (!corrected && ktLintArguments.failOnError) {
+                            throw KtLintFailed(
+                                listOf(
+                                    KtLintError(
+                                        e.ruleId,
+                                        e.detail,
+                                        mapLocation(SourceLocation(filename, e.line, e.col))
+                                    )
                                 )
                             )
-                        )
-                    }
-                },
-                editorConfigPath = editorConfigPath
+                        }
+                    },
+                    editorConfigPath = editorConfigPath
+                )
             )
-        )
+        }
     }
 
     return Source(formattedSources)
@@ -144,7 +150,7 @@ private val unexpectedRegex = """Unexpected indentation \((\d+)\)""".toRegex()
 private val shouldBeRegex = """should be (\d+)""".toRegex()
 
 @Suppress("LongMethod", "DEPRECATION")
-fun Source.ktLint(ktLintArguments: KtLintArguments = KtLintArguments()): KtLintResults {
+suspend fun Source.ktLint(ktLintArguments: KtLintArguments = KtLintArguments()): KtLintResults {
     require(type == Source.FileType.KOTLIN) { "Can't run ktlint on non-Kotlin sources" }
 
     val names = ktLintArguments.sources ?: sources.keys
@@ -154,59 +160,61 @@ fun Source.ktLint(ktLintArguments: KtLintArguments = KtLintArguments()): KtLintR
         sources.filter { (filename, _) ->
             filename in names
         }.forEach { (filename, contents) ->
-            KtLint.lint(
-                KtLint.Params(
-                    if (source is Snippet) {
-                        "MainKt.kt"
-                    } else {
-                        filename
-                    },
-                    contents,
-                    listOf(jeedRuleSet),
-                    cb = { e, _ ->
-                        @Suppress("EmptyCatchBlock")
-                        try {
-                            val originalLocation = SourceLocation(filename, e.line, e.col)
-                            val mappedLocation = mapLocation(originalLocation)
+            limiter.withPermit {
+                KtLint.lint(
+                    KtLint.Params(
+                        if (source is Snippet) {
+                            "MainKt.kt"
+                        } else {
+                            filename
+                        },
+                        contents,
+                        listOf(jeedRuleSet),
+                        cb = { e, _ ->
+                            @Suppress("EmptyCatchBlock")
+                            try {
+                                val originalLocation = SourceLocation(filename, e.line, e.col)
+                                val mappedLocation = mapLocation(originalLocation)
 
-                            val detail = if (e.ruleId == "indent") {
-                                @Suppress("TooGenericExceptionCaught")
-                                try {
-                                    val addedIndent = leadingIndentation(originalLocation)
-                                    val (incorrectMessage, incorrectAmount) =
-                                        unexpectedRegex.find(e.detail)?.groups?.let { match ->
-                                            Pair(match[0]?.value, match[1]?.value?.toInt())
-                                        } ?: error("Couldn't parse indentation error")
-                                    val (expectedMessage, expectedAmount) =
-                                        shouldBeRegex.find(e.detail)?.groups?.let { match ->
-                                            Pair(match[0]?.value, match[1]?.value?.toInt())
-                                        } ?: error("Couldn't parse indentation error")
+                                val detail = if (e.ruleId == "indent") {
+                                    @Suppress("TooGenericExceptionCaught")
+                                    try {
+                                        val addedIndent = leadingIndentation(originalLocation)
+                                        val (incorrectMessage, incorrectAmount) =
+                                            unexpectedRegex.find(e.detail)?.groups?.let { match ->
+                                                Pair(match[0]?.value, match[1]?.value?.toInt())
+                                            } ?: error("Couldn't parse indentation error")
+                                        val (expectedMessage, expectedAmount) =
+                                            shouldBeRegex.find(e.detail)?.groups?.let { match ->
+                                                Pair(match[0]?.value, match[1]?.value?.toInt())
+                                            } ?: error("Couldn't parse indentation error")
 
-                                    e.detail
-                                        .replace(
-                                            incorrectMessage!!,
-                                            "Unexpected indentation (${incorrectAmount!! - addedIndent})"
-                                        )
-                                        .replace(expectedMessage!!, "should be ${expectedAmount!! - addedIndent}")
-                                } catch (_: Exception) {
+                                        e.detail
+                                            .replace(
+                                                incorrectMessage!!,
+                                                "Unexpected indentation (${incorrectAmount!! - addedIndent})"
+                                            )
+                                            .replace(expectedMessage!!, "should be ${expectedAmount!! - addedIndent}")
+                                    } catch (_: Exception) {
+                                        e.detail
+                                    }
+                                } else {
                                     e.detail
                                 }
-                            } else {
-                                e.detail
-                            }
-                            add(
-                                KtLintError(
-                                    e.ruleId,
-                                    detail,
-                                    mappedLocation
+                                add(
+                                    KtLintError(
+                                        e.ruleId,
+                                        detail,
+                                        mappedLocation
+                                    )
                                 )
-                            )
-                        } catch (_: Exception) {
-                        }
-                    },
-                    editorConfigPath = editorConfigPath
+                            } catch (_: Exception) {
+                            }
+                        },
+                        editorConfigPath = editorConfigPath
+                    )
                 )
-            )
+            }
         }
     }
 

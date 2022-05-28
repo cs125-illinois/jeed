@@ -8,6 +8,8 @@ import com.puppycrawl.tools.checkstyle.api.FileSetCheck
 import com.puppycrawl.tools.checkstyle.api.FileText
 import com.puppycrawl.tools.checkstyle.api.SeverityLevel
 import com.squareup.moshi.JsonClass
+import kotlinx.coroutines.sync.Semaphore
+import kotlinx.coroutines.sync.withPermit
 import org.w3c.dom.Node
 import org.xml.sax.InputSource
 import java.io.ByteArrayInputStream
@@ -92,14 +94,16 @@ class ConfiguredChecker(configurationString: String) {
         checker.configure(configuration)
     }
 
-    fun check(sources: Map<String, String>): Map<String, List<CheckstyleError>> {
+    suspend fun check(sources: Map<String, String>): Map<String, List<CheckstyleError>> {
         return sources.mapValues { source ->
             this.checker.processString(source.key, source.value)
         }
     }
 }
 
-fun Checker.processString(name: String, source: String): List<CheckstyleError> {
+private val limiter = Semaphore(1)
+
+suspend fun Checker.processString(name: String, source: String): List<CheckstyleError> {
     val file = File(if (name.endsWith(".java")) name else "$name.java")
     val contents = FileText(file, source.lines())
 
@@ -110,32 +114,34 @@ fun Checker.processString(name: String, source: String): List<CheckstyleError> {
     assert(anyChecks.size == checks.size)
     assert(checks.isNotEmpty())
 
-    val results: MutableSet<CheckstyleError> = mutableSetOf()
-    @Suppress("TooGenericExceptionCaught")
-    try {
-        checks.map {
-            it.process(file, contents)
-        }.flatten().forEach {
+    limiter.withPermit {
+        val results: MutableSet<CheckstyleError> = mutableSetOf()
+        @Suppress("TooGenericExceptionCaught")
+        try {
+            checks.map {
+                it.process(file, contents)
+            }.flatten().forEach {
+                results.add(
+                    CheckstyleError(
+                        it.severityLevel.toString(),
+                        it.key!!,
+                        SourceLocation(name, it.lineNo, it.columnNo),
+                        it.violation,
+                    )
+                )
+            }
+        } catch (e: Exception) {
             results.add(
                 CheckstyleError(
-                    it.severityLevel.toString(),
-                    it.key!!,
-                    SourceLocation(name, it.lineNo, it.columnNo),
-                    it.violation,
+                    SeverityLevel.ERROR.toString(),
+                    null,
+                    SourceLocation(name, 1, 1),
+                    e.getStackTraceAsString()
                 )
             )
         }
-    } catch (e: Exception) {
-        results.add(
-            CheckstyleError(
-                SeverityLevel.ERROR.toString(),
-                null,
-                SourceLocation(name, 1, 1),
-                e.getStackTraceAsString()
-            )
-        )
+        return results.toList()
     }
-    return results.toList()
 }
 
 val defaultChecker = run {
@@ -146,7 +152,7 @@ private val incorrectLevelRegex = """incorrect indentation level (\d+)""".toRege
 private val expectedLevelRegex = """expected level should be (\d+)""".toRegex()
 
 @Throws(CheckstyleFailed::class)
-fun Source.checkstyle(
+suspend fun Source.checkstyle(
     checkstyleArguments: CheckstyleArguments = CheckstyleArguments(),
     checker: ConfiguredChecker? = defaultChecker
 ): CheckstyleResults {

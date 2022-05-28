@@ -295,19 +295,21 @@ class JavaMutationListener(private val parsedSource: Source.ParsedSource) : Java
                             seenIfStarts += statement.toLocation().start
                         }
                         val end = statement.statement(0) ?: statement.block()
-                        val currentLocation =
-                            Mutation.Location(
-                                previousMarker.symbol.startIndex,
-                                end.stop.stopIndex,
-                                lines
-                                    .filterIndexed { index, _ ->
-                                        index >= previousMarker.symbol.line - 1 && index <= end.stop.line - 1
-                                    }
-                                    .joinToString("\n"),
-                                previousMarker.symbol.line,
-                                end.stop.line
-                            )
-                        mutations.add(RemoveIf(currentLocation, parsedSource.contents(currentLocation), fileType))
+                        if (end != null) {
+                            val currentLocation =
+                                Mutation.Location(
+                                    previousMarker.symbol.startIndex,
+                                    end.stop.stopIndex,
+                                    lines
+                                        .filterIndexed { index, _ ->
+                                            index >= previousMarker.symbol.line - 1 && index <= end.stop.line - 1
+                                        }
+                                        .joinToString("\n"),
+                                    previousMarker.symbol.line,
+                                    end.stop.line
+                                )
+                            mutations.add(RemoveIf(currentLocation, parsedSource.contents(currentLocation), fileType))
+                        }
                         previousMarker = statement.ELSE()
                         statement = statement.statement(1)
                     }
@@ -344,11 +346,11 @@ class JavaMutationListener(private val parsedSource: Source.ParsedSource) : Java
         ctx.WHILE()?.also {
             ctx.parExpression().toLocation().also { location ->
                 mutations.add(NegateWhile(location, parsedSource.contents(location), fileType))
-                val endBraceLocation = listOf(
-                    ctx.statement().last().block().RBRACE(),
-                    ctx.statement().last().block().RBRACE()
-                ).toLocation()
-                mutations.add(AddBreak(endBraceLocation, parsedSource.contents(endBraceLocation), fileType))
+                val rbrace = ctx.statement().last()?.block()?.RBRACE()
+                if (rbrace != null) {
+                    val endBraceLocation = listOf(rbrace, rbrace).toLocation()
+                    mutations.add(AddBreak(endBraceLocation, parsedSource.contents(endBraceLocation), fileType))
+                }
             }
             if (ctx.DO() == null) {
                 mutations.add(RemoveLoop(ctx.toLocation(), parsedSource.contents(ctx.toLocation()), fileType))
@@ -356,11 +358,11 @@ class JavaMutationListener(private val parsedSource: Source.ParsedSource) : Java
         }
         ctx.FOR()?.also {
             mutations.add(RemoveLoop(ctx.toLocation(), parsedSource.contents(ctx.toLocation()), fileType))
-            val endBraceLocation = listOf(
-                ctx.statement().last().block().RBRACE(),
-                ctx.statement().last().block().RBRACE()
-            ).toLocation()
-            mutations.add(AddBreak(endBraceLocation, parsedSource.contents(endBraceLocation), fileType))
+            val rbrace = ctx.statement().last()?.block()?.RBRACE()
+            if (rbrace != null) {
+                val endBraceLocation = listOf(rbrace, rbrace).toLocation()
+                mutations.add(AddBreak(endBraceLocation, parsedSource.contents(endBraceLocation), fileType))
+            }
         }
         ctx.DO()?.also {
             mutations.add(RemoveLoop(ctx.toLocation(), parsedSource.contents(ctx.toLocation()), fileType))

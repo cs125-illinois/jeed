@@ -314,4 +314,20 @@ fun holdOn(): String {
             it.comment shouldBe 1
         }
     }
+    "should not fail when stripping assertions with @ signs" {
+        Source.fromKotlin(
+            """
+fun emailToNetID(email: String): String {
+  require(email.endsWith("@illinois.edu"))
+  var split = email.split("@")
+  return split[0]
+}
+// So lol I looked up how to check the end of the sting in kotlin.
+//I had the same idea as the solution down below with require
+//(you can see previous)
+// But I included the @
+//Idk if you take off points for using stuff we're not supposed to know but plz dont
+        """
+        ).stripAssertionMessages()
+    }
 })

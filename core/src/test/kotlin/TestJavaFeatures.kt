@@ -4,7 +4,7 @@ import io.kotest.core.spec.style.StringSpec
 import io.kotest.matchers.shouldBe
 
 @Suppress("LargeClass")
-class TestFeatures : StringSpec({
+class TestJavaFeatures : StringSpec({
     "should count variable declarations in snippets" {
         Source.fromSnippet(
             """

@@ -574,6 +574,7 @@ object Sandbox {
     }
 
     @Synchronized
+    @Suppress("ComplexMethod", "LongMethod")
     private fun <T> release(confinedTask: ConfinedTask<T>) {
         val threadGroup = confinedTask.threadGroup
         require(confinedTasks.containsKey(threadGroup)) { "thread group is not confined" }
@@ -606,7 +607,6 @@ object Sandbox {
                         }
                     }
                 }
-
                 stoppedThreads.add(it)
                 @Suppress("DEPRECATION") it.stop()
             }
@@ -725,6 +725,7 @@ object Sandbox {
                 }
             }
         }
+
         internal val pluginInstrumentationData = configuredPlugins.map {
             @Suppress("UNCHECKED_CAST")
             it as ConfiguredSandboxPlugin<Any, Any>
@@ -1554,7 +1555,7 @@ object Sandbox {
      * The problem is that System.out is a PrintStream. And, internally, it passes content through several buffered
      * streams before it gets to the output stream that you pass.
      *
-     * This becomes a problem once you have to kill off runaway threads. If a thread exits uncleanly,
+     * This becomes a issue once you have to kill off runaway threads. If a thread exits uncleanly,
      * it can leave content somewhere in the buffers hidden by the PrintStream. Which is then spewed out at whoever
      * happens to use the stream next. Not OK.
      *
@@ -1563,7 +1564,7 @@ object Sandbox {
      * OutputStream public interface which is one function. (See the code above on the ConfinedTask class.) But again,
      * this fails in the presence of unclean exits.
      *
-     * Note that the problem here isn't really with concurrency: it's with unclean exit. Concurrency just means that
+     * Note that the issue here isn't really with concurrency: it's with unclean exit. Concurrency just means that
      * you don't know whose output stream might be polluted by the garbage left over if you share a PrintStream.
      *
      * So the "solution" is to create one PrintStream per confined task. This works because unclean exit just leaves
