@@ -939,4 +939,18 @@ fun listSum(list: List<Int>): Int {
 """
         ).allMutations()
     }
+    "it should handle braceless statements" {
+        Source.fromKotlin(
+            """
+fun test() {
+  if (whisper)
+  else if (age >= 18) {
+    println("Adult")
+  } else if (age < 18) {
+    println("Not Adult")
+  }
+}
+"""
+        ).allMutations()
+    }
 })
