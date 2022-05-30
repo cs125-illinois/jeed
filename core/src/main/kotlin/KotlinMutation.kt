@@ -209,29 +209,31 @@ class KotlinMutationListener(private val parsedSource: Source.ParsedSource) : Ko
         if (ctx.ELSE() == null) {
             mutations.add(RemoveIf(ctx.toLocation(), parsedSource.contents(ctx.toLocation()), fileType))
         } else {
-            if (ctx.controlStructureBody(1).statement()?.expression() == null) { // not else if, just else
-                val location = Mutation.Location(
-                    ctx.ELSE().symbol.startIndex,
-                    ctx.controlStructureBody(1).stop.stopIndex,
-                    lines.filterIndexed { index, _ ->
-                        index >= ctx.ELSE().symbol.line - 1 && index <= ctx.controlStructureBody(1).stop.line - 1
-                    }.joinToString("\n"),
-                    ctx.ELSE().symbol.line,
-                    ctx.controlStructureBody(1).stop.line
-                )
-                mutations.add(RemoveIf(location, parsedSource.contents(location), fileType))
-                mutations.add(RemoveIf(ctx.toLocation(), parsedSource.contents(ctx.toLocation()), fileType))
-            } else { // is an else if
-                val location = Mutation.Location(
-                    ctx.start.startIndex,
-                    ctx.ELSE().symbol.stopIndex,
-                    lines.filterIndexed { index, _ ->
-                        index >= ctx.start.line - 1 && index <= ctx.ELSE().symbol.line - 1
-                    }.joinToString("\n"),
-                    ctx.start.line,
-                    ctx.ELSE().symbol.line
-                )
-                mutations.add(RemoveIf(location, parsedSource.contents(location), fileType))
+            if (ctx.controlStructureBody(1) != null) {
+                if (ctx.controlStructureBody(1).statement()?.expression() == null) { // not else if, just else
+                    val location = Mutation.Location(
+                        ctx.ELSE().symbol.startIndex,
+                        ctx.controlStructureBody(1).stop.stopIndex,
+                        lines.filterIndexed { index, _ ->
+                            index >= ctx.ELSE().symbol.line - 1 && index <= ctx.controlStructureBody(1).stop.line - 1
+                        }.joinToString("\n"),
+                        ctx.ELSE().symbol.line,
+                        ctx.controlStructureBody(1).stop.line
+                    )
+                    mutations.add(RemoveIf(location, parsedSource.contents(location), fileType))
+                    mutations.add(RemoveIf(ctx.toLocation(), parsedSource.contents(ctx.toLocation()), fileType))
+                } else { // is an else if
+                    val location = Mutation.Location(
+                        ctx.start.startIndex,
+                        ctx.ELSE().symbol.stopIndex,
+                        lines.filterIndexed { index, _ ->
+                            index >= ctx.start.line - 1 && index <= ctx.ELSE().symbol.line - 1
+                        }.joinToString("\n"),
+                        ctx.start.line,
+                        ctx.ELSE().symbol.line
+                    )
+                    mutations.add(RemoveIf(location, parsedSource.contents(location), fileType))
+                }
             }
         }
     }
