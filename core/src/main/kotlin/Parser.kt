@@ -17,7 +17,7 @@ import org.antlr.v4.runtime.misc.Utils
 import org.antlr.v4.runtime.tree.Tree
 import org.antlr.v4.runtime.tree.Trees
 
-class JeedParseError(location: SourceLocation, message: String) : SourceError(location, message)
+class JeedParseError(location: SourceLocation?, message: String) : SourceError(location, message)
 class JeedParsingException(errors: List<SourceError>) : JeedError(errors)
 
 class JeedErrorListener(val source: Source, entry: Map.Entry<String, String>) : BaseErrorListener() {
@@ -35,7 +35,12 @@ class JeedErrorListener(val source: Source, entry: Map.Entry<String, String>) : 
         msg: String,
         e: RecognitionException?
     ) {
-        errors.add(JeedParseError(source.mapLocation(SourceLocation(name, line, charPositionInLine)), msg))
+        val location = try {
+            source.mapLocation(SourceLocation(name, line, charPositionInLine))
+        } catch (e: Exception) {
+            null
+        }
+        errors.add(JeedParseError(location, msg))
     }
 
     fun check() {

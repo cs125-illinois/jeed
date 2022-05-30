@@ -1,5 +1,6 @@
 package edu.illinois.cs.cs125.jeed.core
 
+import io.kotest.assertions.throwables.shouldThrow
 import io.kotest.core.spec.style.StringSpec
 import io.kotest.matchers.shouldBe
 import io.kotest.matchers.shouldNotBe
@@ -329,5 +330,29 @@ fun emailToNetID(email: String): String {
 //Idk if you take off points for using stuff we're not supposed to know but plz dont
         """
         ).stripAssertionMessages()
+    }
+    "should fail properly when stripping assertions" {
+        shouldThrow<JeedParsingException> {
+            Source.fromTemplates(
+                mapOf(
+                    "Question.java" to """
+ // \u000d if(x > y) {
+ // \u000d                     System.out.println  ("Larger");
+   assert true;
+ } else {
+   System.out.println("Smaller");
+ }
+                """.trimIndent()
+                ),
+                mapOf(
+                    "Question.java.hbs" to """
+ public class Question {
+   public static void test() {
+     {{{ contents }}}
+   }
+ }""".trimIndent()
+                )
+            ).stripAssertionMessages()
+        }
     }
 })
