@@ -79,6 +79,11 @@ tasks.compileKotlin {
 tasks.compileTestKotlin {
     dependsOn(tasks.generateTestGrammarSource)
 }
+afterEvaluate {
+    tasks.named("kspKotlin") {
+        dependsOn(tasks.generateGrammarSource)
+    }
+}
 task("createProperties") {
     dependsOn(tasks.processResources)
     doLast {
