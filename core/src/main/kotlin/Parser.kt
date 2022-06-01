@@ -13,6 +13,8 @@ import org.antlr.v4.runtime.CharStreams
 import org.antlr.v4.runtime.CommonTokenStream
 import org.antlr.v4.runtime.RecognitionException
 import org.antlr.v4.runtime.Recognizer
+import org.antlr.v4.runtime.atn.ParserATNSimulator
+import org.antlr.v4.runtime.atn.PredictionContextCache
 import org.antlr.v4.runtime.misc.Utils
 import org.antlr.v4.runtime.tree.Tree
 import org.antlr.v4.runtime.tree.Trees
@@ -62,6 +64,9 @@ fun Source.parseJavaFile(entry: Map.Entry<String, String>): Source.ParsedSource 
         errorListener.check()
     }.let {
         val parser = JavaParser(it)
+        parser.interpreter.decisionToDFA.also { dfa ->
+            parser.interpreter = ParserATNSimulator(parser, parser.atn, dfa, PredictionContextCache())
+        }
         parser.removeErrorListeners()
         parser.addErrorListener(errorListener)
         Pair(parser.compilationUnit(), parser)
@@ -84,6 +89,9 @@ fun Source.parseKotlinFile(entry: Map.Entry<String, String>): Source.ParsedSourc
         errorListener.check()
     }.let {
         val parser = KotlinParser(it)
+        parser.interpreter.decisionToDFA.also { dfa ->
+            parser.interpreter = ParserATNSimulator(parser, parser.atn, dfa, PredictionContextCache())
+        }
         parser.removeErrorListeners()
         parser.addErrorListener(errorListener)
         try {
@@ -126,6 +134,9 @@ fun String.isJavaSource(): Boolean {
             }
         }.also { tokenStream ->
             JavaParser(tokenStream).let { parser ->
+                parser.interpreter.decisionToDFA.also { dfa ->
+                    parser.interpreter = ParserATNSimulator(parser, parser.atn, dfa, PredictionContextCache())
+                }
                 parser.removeErrorListeners()
                 parser.addErrorListener(errorListener)
                 parser.compilationUnit()
@@ -149,6 +160,9 @@ fun String.isJavaSnippet(): Boolean {
             }
         }.also { tokenStream ->
             SnippetParser(tokenStream).let { parser ->
+                parser.interpreter.decisionToDFA.also { dfa ->
+                    parser.interpreter = ParserATNSimulator(parser, parser.atn, dfa, PredictionContextCache())
+                }
                 parser.removeErrorListeners()
                 parser.addErrorListener(errorListener)
                 parser.block()
@@ -172,6 +186,9 @@ fun String.isKotlinSource(): Boolean {
             }
         }.also { tokenStream ->
             KotlinParser(tokenStream).let { parser ->
+                parser.interpreter.decisionToDFA.also { dfa ->
+                    parser.interpreter = ParserATNSimulator(parser, parser.atn, dfa, PredictionContextCache())
+                }
                 parser.removeErrorListeners()
                 parser.addErrorListener(errorListener)
                 parser.kotlinFile()
@@ -195,6 +212,9 @@ fun String.isKotlinSnippet(): Boolean {
             }
         }.also { tokenStream ->
             KotlinParser(tokenStream).let { parser ->
+                parser.interpreter.decisionToDFA.also { dfa ->
+                    parser.interpreter = ParserATNSimulator(parser, parser.atn, dfa, PredictionContextCache())
+                }
                 parser.removeErrorListeners()
                 parser.addErrorListener(errorListener)
                 parser.script()

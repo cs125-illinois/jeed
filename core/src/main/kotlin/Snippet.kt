@@ -14,6 +14,8 @@ import org.antlr.v4.runtime.CharStreams
 import org.antlr.v4.runtime.CommonTokenStream
 import org.antlr.v4.runtime.RecognitionException
 import org.antlr.v4.runtime.Recognizer
+import org.antlr.v4.runtime.atn.ParserATNSimulator
+import org.antlr.v4.runtime.atn.PredictionContextCache
 import org.antlr.v4.runtime.tree.ParseTreeWalker
 import org.jetbrains.kotlin.backend.common.pop
 
@@ -184,7 +186,11 @@ private fun sourceFromKotlinSnippet(originalSource: String, snippetArguments: Sn
     }.also {
         errorListener.check()
     }.let {
-        KotlinParser(it)
+        val parser = KotlinParser(it)
+        parser.interpreter.decisionToDFA.also { dfa ->
+            parser.interpreter = ParserATNSimulator(parser, parser.atn, dfa, PredictionContextCache())
+        }
+        parser
     }.let {
         it.removeErrorListeners()
         it.addErrorListener(errorListener)
@@ -446,7 +452,11 @@ private fun sourceFromJavaSnippet(originalSource: String, snippetArguments: Snip
     }.also {
         errorListener.check()
     }.let {
-        SnippetParser(it)
+        val parser = SnippetParser(it)
+        parser.interpreter.decisionToDFA.also { dfa ->
+            parser.interpreter = ParserATNSimulator(parser, parser.atn, dfa, PredictionContextCache())
+        }
+        parser
     }.let {
         it.removeErrorListeners()
         it.addErrorListener(errorListener)
