@@ -43,6 +43,26 @@ class TestHTTP : StringSpec() {
                 }
             }
         }
+        "should reject OOM snippet request properly" {
+            withTestApplication(Application::jeed) {
+                handleRequest(HttpMethod.Post, "/") {
+                    addHeader("content-type", "application/json")
+                    setBody(
+                        """
+{
+"label": "test",
+"snippet": "
+int[] values = new int[1024 * 1024 * 1024];
+values[0] = 0;
+",
+"tasks": [ "compile", "execute" ]
+}""".trim()
+                    )
+                }.apply {
+                    response.shouldHaveStatus(HttpStatusCode.Conflict.value)
+                }
+            }
+        }
         "should accept good snippet cexecution request".config(enabled = !isWindows) {
             withTestApplication(Application::jeed) {
                 handleRequest(HttpMethod.Post, "/") {

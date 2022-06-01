@@ -33,6 +33,7 @@ import mu.KotlinLogging
 import java.time.Duration
 import java.time.Instant
 import java.util.Properties
+import java.util.concurrent.atomic.AtomicInteger
 import kotlin.system.exitProcess
 import edu.illinois.cs.cs125.jeed.core.moshi.Adapters as JeedAdapters
 
@@ -51,6 +52,7 @@ val currentStatus = Status()
 
 @Suppress("ComplexMethod", "LongMethod")
 fun Application.jeed() {
+    val oomErrorCount = AtomicInteger(0)
     install(CORS) {
         anyHost()
         allowNonSimpleContentTypes = true
@@ -82,11 +84,25 @@ fun Application.jeed() {
                         if (it.isNotEmpty()) {
                             logger.warn("Execution killed class initializers: $it")
                             if (System.getenv("SHUTDOWN_ON_CACHE_POISONING") != null) {
+                                logger.error("Terminating due to cache poisoning")
                                 exitProcess(-1)
                             }
                         }
                     }
-                    call.respond(result)
+                    val threw = result.completed.execution?.taskResults?.threw
+                    if (threw is OutOfMemoryError) {
+                        val oomStreak = oomErrorCount.incrementAndGet()
+                        call.respondText(threw.message ?: threw.toString(), status = HttpStatusCode.Conflict)
+                        if (System.getenv("OOM_STREAK_LIMIT") != null && oomStreak > System.getenv("OOM_STREAK_LIMIT")
+                            .toInt()
+                        ) {
+                            logger.error("Terminating due to OOM limit")
+                            exitProcess(-1)
+                        }
+                    } else {
+                        oomErrorCount.set(0)
+                        call.respond(result)
+                    }
                 } catch (e: Exception) {
                     logger.warn(e.getStackTraceAsString())
                     call.respondText(e.message ?: e.toString(), status = HttpStatusCode.BadRequest)
