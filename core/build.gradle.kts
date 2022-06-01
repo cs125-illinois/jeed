@@ -45,7 +45,9 @@ dependencies {
 }
 tasks.test {
     useJUnitPlatform()
-    if (JavaVersion.current() >= JavaVersion.VERSION_11) {
+    if (JavaVersion.current() >= JavaVersion.VERSION_15) {
+        jvmArgs("-ea", "-Xmx2G", "-Xss256k", "--enable-preview", "-XX:+UseZGC")
+    } else if (JavaVersion.current() >= JavaVersion.VERSION_11) {
         jvmArgs("-ea", "-Xmx1G", "-Xss256k", "--enable-preview")
     } else {
         jvmArgs("-ea", "-Xmx1G", "-Xss256k")

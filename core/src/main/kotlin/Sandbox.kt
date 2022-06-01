@@ -1,4 +1,4 @@
-@file:Suppress("SpellCheckingInspection")
+@file:Suppress("SpellCheckingInspection", "JAVA_MODULE_DOES_NOT_EXPORT_PACKAGE")
 
 package edu.illinois.cs.cs125.jeed.core
 
@@ -16,6 +16,7 @@ import org.objectweb.asm.Label
 import org.objectweb.asm.MethodVisitor
 import org.objectweb.asm.Opcodes
 import org.objectweb.asm.Type
+import sun.management.ManagementFactoryHelper
 import java.io.FilePermission
 import java.io.OutputStream
 import java.io.PrintStream
@@ -54,6 +55,8 @@ object Sandbox {
     init {
         warmPlatform()
     }
+
+    private val runtime = ManagementFactoryHelper.getHotspotRuntimeMBean()
 
     @JsonClass(generateAdapter = true)
     class ClassLoaderConfiguration(
@@ -162,7 +165,8 @@ object Sandbox {
         @Suppress("MemberVisibilityCanBePrivate") // For serialization
         val pluginResults: Map<String, Any>,
         @Suppress("unused") // TEMP: Report any platform class initializers interrupted by sandbox death
-        val killedClassInitializers: List<String>
+        val killedClassInitializers: List<String>,
+        val totalSafetime: Long
     ) {
         @JsonClass(generateAdapter = true)
         data class OutputLine(
@@ -298,6 +302,8 @@ object Sandbox {
             try {
                 val confinedTask = confine(callable, sandboxedClassLoader, executionArguments)
                 val executionStarted = Instant.now()
+                val safetimeStarted = runtime.totalSafepointTime
+                var totalSafetime = -1L
                 val taskResult = try {
                     confinedTask.thread.start()
                     TaskResult(confinedTask.task.get(executionArguments.timeout, TimeUnit.MILLISECONDS))
@@ -374,6 +380,7 @@ object Sandbox {
                     }
                 }
 
+                totalSafetime = runtime.totalSafepointTime - safetimeStarted
                 val executionEnded = Instant.now()
                 release(confinedTask)
 
@@ -390,7 +397,8 @@ object Sandbox {
                     confinedTask.pluginData.map { (plugin, workingData) ->
                         plugin.id to plugin.createFinalData(workingData)
                     }.toMap(),
-                    confinedTask.killedClassInitializers
+                    confinedTask.killedClassInitializers,
+                    totalSafetime
                 )
                 @Suppress("ThrowingExceptionsWithoutMessageOrCause")
                 runBlocking { resultChannel.send(ExecutorResult(executionResult, Exception())) }

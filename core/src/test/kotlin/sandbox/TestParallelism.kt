@@ -35,7 +35,7 @@ for (int i = 0; i < 32; i++) {
             result should haveCompleted()
             result.stdoutLines shouldHaveSize 32
             result.stdoutLines.all { it.line.trim() == value.toString() } shouldBe true
-        }
+        }.collect(Collectors.toList())
     }
     "should execute correctly in parallel using coroutines" {
         (0..8).toList().map { value ->
