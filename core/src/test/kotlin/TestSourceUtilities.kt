@@ -342,7 +342,7 @@ fun emailToNetID(email: String): String {
  } else {
    System.out.println("Smaller");
  }
-                """.trimIndent()
+                    """.trimIndent()
                 ),
                 mapOf(
                     "Question.java.hbs" to """
@@ -350,7 +350,8 @@ fun emailToNetID(email: String): String {
    public static void test() {
      {{{ contents }}}
    }
- }""".trimIndent()
+ }
+                    """.trimIndent()
                 )
             ).stripAssertionMessages()
         }
