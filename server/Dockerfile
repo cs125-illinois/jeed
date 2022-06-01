@@ -10,4 +10,5 @@ RUN curl -fsSL https://download.docker.com/linux/ubuntu/gpg | apt-key add - && \
 
 WORKDIR /
 COPY *.jar jeed.jar
-CMD [ "java", "-ea", "--enable-preview", "-Xmx1G", "-Xss256k", "-XX:+UseZGC", "-Dfile.encoding=UTF-8", "--illegal-access=permit", "-jar", "jeed.jar" ]
+CMD [ "java", "-ea", "--enable-preview", "-Xmx1G", "-Xss256k", "-XX:+UseZGC", "-XX:ZCollectionInterval=8", "-Dfile.encoding=UTF-8", "--illegal-access=permit", "-jar", "jeed.jar" ]
+# vim: tw=0
