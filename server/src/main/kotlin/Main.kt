@@ -81,6 +81,9 @@ fun Application.jeed() {
                     result.completed.execution?.taskResults?.killedClassInitializers?.also {
                         if (it.isNotEmpty()) {
                             logger.warn("Execution killed class initializers: $it")
+                            if (System.getenv("SHUTDOWN_ON_CACHE_POISONING") != null) {
+                                exitProcess(-1)
+                            }
                         }
                     }
                     call.respond(result)
