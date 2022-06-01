@@ -33,7 +33,6 @@ import mu.KotlinLogging
 import java.time.Duration
 import java.time.Instant
 import java.util.Properties
-import java.util.concurrent.atomic.AtomicInteger
 import kotlin.system.exitProcess
 import edu.illinois.cs.cs125.jeed.core.moshi.Adapters as JeedAdapters
 
@@ -49,10 +48,10 @@ val VERSION: String = Properties().also {
 }.getProperty("version")
 
 val currentStatus = Status()
+val runtime: Runtime = Runtime.getRuntime()
 
 @Suppress("ComplexMethod", "LongMethod")
 fun Application.jeed() {
-    val oomErrorCount = AtomicInteger(0)
     install(CORS) {
         anyHost()
         allowNonSimpleContentTypes = true
@@ -80,6 +79,8 @@ fun Application.jeed() {
                 try {
                     val result = job.run()
                     currentStatus.lastRequest = Instant.now()
+                    call.respond(result)
+
                     result.completed.execution?.taskResults?.killedClassInitializers?.also {
                         if (it.isNotEmpty()) {
                             logger.warn("Execution killed class initializers: $it")
@@ -89,19 +90,14 @@ fun Application.jeed() {
                             }
                         }
                     }
-                    val threw = result.completed.execution?.taskResults?.threw
-                    if (threw is OutOfMemoryError) {
-                        val oomStreak = oomErrorCount.incrementAndGet()
-                        call.respondText(threw.message ?: threw.toString(), status = HttpStatusCode.Conflict)
-                        if (System.getenv("OOM_STREAK_LIMIT") != null && oomStreak > System.getenv("OOM_STREAK_LIMIT")
-                            .toInt()
-                        ) {
-                            logger.error("Terminating due to OOM limit")
+                    @Suppress("MagicNumber")
+                    val endMemory = (runtime.freeMemory().toFloat() / 1024.0 / 1024.0).toInt()
+                    logger.info("Free memory: $endMemory")
+                    System.getenv("LOW_MEMORY_LIMIT")?.toLong()?.also {
+                        if (endMemory < it) {
+                            logger.error("Terminating due to low memory")
                             exitProcess(-1)
                         }
-                    } else {
-                        oomErrorCount.set(0)
-                        call.respond(result)
                     }
                 } catch (e: Exception) {
                     logger.warn(e.getStackTraceAsString())

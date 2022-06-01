@@ -59,7 +59,7 @@ values[0] = 0;
 }""".trim()
                     )
                 }.apply {
-                    response.shouldHaveStatus(HttpStatusCode.Conflict.value)
+                    response.shouldHaveStatus(HttpStatusCode.OK.value)
                 }
             }
         }
