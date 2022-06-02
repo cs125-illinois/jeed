@@ -228,7 +228,13 @@ fun Source.allMutations(
         val modified = sourceMutation.mutation.apply(original, random)
         check(original != modified) { "Mutation did not change source" }
         modifiedSources[sourceMutation.name] = modified
-        MutatedSource(Sources(modifiedSources), sources, listOf(AppliedSourceMutation(sourceMutation)), 1, mutations.size - 1)
+        MutatedSource(
+            Sources(modifiedSources),
+            sources,
+            listOf(AppliedSourceMutation(sourceMutation)),
+            1,
+            mutations.size - 1
+        )
     }
 }
 
@@ -260,7 +266,13 @@ fun Source.mutationStream(
         val modified = mutation.mutation.apply(original, random)
         check(original != modified) { "Mutation did not change source" }
         modifiedSources[mutation.name] = modified
-        val source = MutatedSource(Sources(modifiedSources), sources, listOf(AppliedSourceMutation(mutation)), 1, mutations.size - 1)
+        val source = MutatedSource(
+            Sources(modifiedSources),
+            sources,
+            listOf(AppliedSourceMutation(mutation)),
+            1,
+            mutations.size - 1
+        )
         if (source.md5 !in seen) {
             retries = 0
             seen += source.md5
@@ -314,7 +326,13 @@ fun Source.allFixedMutations(
             val modified = mutation.mutation.apply(original, random)
             check(original != modified) { "Mutation did not change source" }
             modifiedSources[mutation.name] = modified
-            val source = MutatedSource(Sources(modifiedSources), sources, listOf(AppliedSourceMutation(mutation)), 1, mutations.size - 1)
+            val source = MutatedSource(
+                Sources(modifiedSources),
+                sources,
+                listOf(AppliedSourceMutation(mutation)),
+                1,
+                mutations.size - 1
+            )
             if (source.md5 !in seen) {
                 retries = 0
                 seen += source.md5

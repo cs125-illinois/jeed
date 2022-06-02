@@ -267,17 +267,18 @@ class StringLiteral(
             " "
         } else {
             string.toCharArray().let { characters ->
-                val position = random.nextInt(characters.size).let {
-                    // Avoid adding invalid escapes
-                    if (it > 0 && characters[it - 1] == '\\') {
-                        it - 1
-                    } else {
-                        it
-                    }
+                val validPositions = (characters.indices).filter {
+                    // Don't break escapes or escape sequences
+                    characters[it] != '\\' && (it == 0 || characters[it - 1] != '\\')
                 }
-                characters[position] =
-                    (ALPHANUMERIC_CHARS_AND_SPACE.filter { it != characters[position] }).shuffled(random).first()
-                characters.joinToString("")
+                if (validPositions.isEmpty()) {
+                    " "
+                } else {
+                    val position = validPositions.random()
+                    characters[position] =
+                        (ALPHANUMERIC_CHARS_AND_SPACE.filter { it != characters[position] }).shuffled(random).first()
+                    characters.joinToString("")
+                }
             }
         }.let {
             if (withQuotes) {

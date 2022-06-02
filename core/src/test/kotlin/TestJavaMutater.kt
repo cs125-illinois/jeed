@@ -1,3 +1,5 @@
+@file:Suppress("SpellCheckingInspection")
+
 package edu.illinois.cs.cs125.jeed.core
 
 import io.kotest.core.spec.style.StringSpec
@@ -55,6 +57,60 @@ public class Example {
                 it shouldMatch ".*println\\(\".*".toRegex(RegexOption.DOT_MATCHES_ALL)
             }
             mutations[1].check(contents, "\"\"")
+        }
+    }
+    "it should not mutate string escapes" {
+        Source.fromJava(
+            """
+public class Example {
+  public static void example() {
+    System.out.println("\\\\");
+  }
+}"""
+        ).checkMutations<StringLiteral> { mutations, contents ->
+            mutations shouldHaveSize 1
+            mutations[0].check(contents, """"\\\\"""").also {
+                it shouldMatch ".*println\\(\" \"\\).*".toRegex(RegexOption.DOT_MATCHES_ALL)
+            }
+        }
+        Source.fromJava(
+            """
+public class Example {
+  public static void example() {
+    System.out.println("\\t\\");
+  }
+}"""
+        ).checkMutations<StringLiteral> { mutations, contents ->
+            mutations shouldHaveSize 1
+            mutations[0].check(contents, """"\\t\\"""").also {
+                it shouldMatch ".*println\\(\" \"\\).*".toRegex(RegexOption.DOT_MATCHES_ALL)
+            }
+        }
+        Source.fromJava(
+            """
+public class Example {
+  public static void example() {
+    System.out.println("\\t\\");
+  }
+}"""
+        ).checkMutations<StringLiteral> { mutations, contents ->
+            mutations shouldHaveSize 1
+            mutations[0].check(contents, """"\\t\\"""").also {
+                it shouldMatch ".*println\\(\" \"\\).*".toRegex(RegexOption.DOT_MATCHES_ALL)
+            }
+        }
+        Source.fromJava(
+            """
+public class Example {
+  public static void example() {
+    System.out.println("\\t\\te");
+  }
+}"""
+        ).checkMutations<StringLiteral> { mutations, contents ->
+            mutations shouldHaveSize 1
+            mutations[0].check(contents, """"\\t\\te"""").also {
+                it shouldMatch """.*println\("\\\\t\\\\t.*""".toRegex(RegexOption.DOT_MATCHES_ALL)
+            }
         }
     }
     "it should find number literals to mutate" {
