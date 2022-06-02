@@ -52,8 +52,15 @@ import kotlin.reflect.jvm.javaMethod
 private typealias SandboxCallableArguments<T> = (Pair<ClassLoader, (() -> Any?) -> JeedOutputCapture>) -> T
 
 object Sandbox {
+    private val streamThreadGroup: ThreadGroup
+
     init {
         warmPlatform()
+        // TODO: Set permissions properly on parallelStream thread group
+        @Suppress("MagicNumber")
+        streamThreadGroup = listOf(1, 2, 3, 4, 5).parallelStream().map {
+            Thread.currentThread().threadGroup
+        }.toList().first()
     }
 
     private val runtime = ManagementFactoryHelper.getHotspotRuntimeMBean()
@@ -189,6 +196,10 @@ object Sandbox {
         val permissionDenied: Boolean
             get() {
                 return permissionRequests.any { !it.granted }
+            }
+        val deniedPermissions: List<String>
+            get() {
+                return permissionRequests.filter { !it.granted }.map { it.permission.name }
             }
         val stdoutLines: List<OutputLine>
             get() {
@@ -1420,7 +1431,11 @@ object Sandbox {
                     return null
                 }
             }
-            return if (classIsConfined) confinedTask else null
+            return if (classIsConfined) {
+                confinedTask
+            } else {
+                null
+            }
         }
 
         override fun checkRead(file: String) {

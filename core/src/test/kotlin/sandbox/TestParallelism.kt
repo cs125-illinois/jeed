@@ -7,6 +7,7 @@ import edu.illinois.cs.cs125.jeed.core.compile
 import edu.illinois.cs.cs125.jeed.core.execute
 import edu.illinois.cs.cs125.jeed.core.fromSnippet
 import edu.illinois.cs.cs125.jeed.core.haveCompleted
+import edu.illinois.cs.cs125.jeed.core.haveOutput
 import edu.illinois.cs.cs125.jeed.core.haveTimedOut
 import io.kotest.core.spec.style.StringSpec
 import io.kotest.matchers.collections.shouldHaveSize
@@ -118,5 +119,19 @@ for (int i = 0; i < 32; i++) {
         }.sum()
 
         totalTime.toDouble() shouldBeLessThan individualTimeSum * 0.8
+    }
+    "parallelStream should work in sandbox" {
+        Source.fromSnippet(
+            """
+import java.util.List;
+import java.util.Arrays;
+List<Integer> listOfNumbers = Arrays.asList(1, 2, 3, 4, 5);
+int sum = listOfNumbers.parallelStream().reduce(0, Integer::sum);
+System.out.println(sum);
+            """.trimIndent()
+        ).compile().execute().also {
+            it should haveCompleted()
+            it should haveOutput("15")
+        }
     }
 })
