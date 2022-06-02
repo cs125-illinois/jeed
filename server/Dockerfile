@@ -13,7 +13,7 @@ COPY *.jar jeed.jar
 CMD [\
   "java",\
   "-ea", "--enable-preview",\
-  "-Xmx2G","-Xss256k",\
+  "-Xmx1G","-Xss256k",\
   "-XX:+UseZGC","-XX:ZCollectionInterval=8",\
   "-Dfile.encoding=UTF-8",\
   "--add-exports", "jdk.compiler/com.sun.tools.javac.api=ALL-UNNAMED",\

@@ -90,15 +90,6 @@ fun Application.jeed() {
                             }
                         }
                     }
-                    @Suppress("MagicNumber")
-                    val endMemory = (runtime.freeMemory().toFloat() / 1024.0 / 1024.0).toInt()
-                    logger.info("Free memory: $endMemory")
-                    System.getenv("LOW_MEMORY_LIMIT")?.toLong()?.also {
-                        if (endMemory < it) {
-                            logger.error("Terminating due to low memory")
-                            exitProcess(-1)
-                        }
-                    }
                 } catch (e: Exception) {
                     logger.warn(e.getStackTraceAsString())
                     call.respondText(e.message ?: e.toString(), status = HttpStatusCode.BadRequest)
