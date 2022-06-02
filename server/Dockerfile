@@ -1,4 +1,4 @@
-FROM openjdk:16-jdk-slim
+FROM openjdk:17-jdk-slim
 
 RUN apt update && \
     apt install -y --no-install-recommends software-properties-common \
@@ -10,5 +10,18 @@ RUN curl -fsSL https://download.docker.com/linux/ubuntu/gpg | apt-key add - && \
 
 WORKDIR /
 COPY *.jar jeed.jar
-CMD [ "java", "-ea", "--enable-preview", "-Xmx1G", "-Xss256k", "-XX:+UseZGC", "-XX:ZCollectionInterval=8", "-Dfile.encoding=UTF-8", "--illegal-access=permit", "-jar", "jeed.jar" ]
+CMD [\
+  "java",\
+  "-ea", "--enable-preview",\
+  "-Xmx1G","-Xss256k",\
+  "-XX:+UseZGC","-XX:ZCollectionInterval=8",\
+  "-Dfile.encoding=UTF-8",\
+  "--add-exports", "jdk.compiler/com.sun.tools.javac.api=ALL-UNNAMED",\
+  "--add-exports", "jdk.compiler/com.sun.tools.javac.file=ALL-UNNAMED",\
+  "--add-exports", "jdk.compiler/com.sun.tools.javac.parser=ALL-UNNAMED",\
+  "--add-exports", "jdk.compiler/com.sun.tools.javac.tree=ALL-UNNAMED",\
+  "--add-exports", "jdk.compiler/com.sun.tools.javac.util=ALL-UNNAMED",\
+  "--add-exports", "java.management/sun.management=ALL-UNNAMED",\
+  "-jar", "jeed.jar"\
+]
 # vim: tw=0

@@ -351,7 +351,8 @@ private fun String.toJvmTarget() = when (this) {
     "13" -> JvmTarget.JVM_13
     "14" -> JvmTarget.JVM_14
     "15" -> JvmTarget.JVM_15
-    "16" -> JvmTarget.JVM_15
+    "16" -> JvmTarget.JVM_16
+    "17" -> JvmTarget.JVM_17
     else -> error("Bad JVM target: $this")
 }
 
@@ -359,6 +360,6 @@ private fun String.toJvmTarget() = when (this) {
 private fun Int.toCompilerVersion() = when (this) {
     6 -> "1.6"
     8 -> "1.8"
-    in 10..16 -> toString()
+    in 10..17 -> toString()
     else -> error("Bad JVM target: $this")
 }

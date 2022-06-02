@@ -128,12 +128,12 @@ object LineTrace : SandboxPluginWithDefaultArguments<LineTraceArguments, LineTra
         if (context != RewritingContext.UNTRUSTED) return bytecode
         val classReader = ClassReader(bytecode)
         val preinspectingClassVisitor = PreinspectingClassVisitor()
-        classReader.accept(preinspectingClassVisitor, 0)
+        classReader.accept(NewLabelSplittingClassVisitor(preinspectingClassVisitor), 0)
         val preinspection = preinspectingClassVisitor.getPreinspection()
         if (preinspection.sourceFile == null) return bytecode
         val classWriter = ClassWriter(classReader, 0)
         val rewritingVisitor = TracingClassVisitor(classWriter, preinspection, instrumentationData as LineTraceInstrumentationData)
-        classReader.accept(rewritingVisitor, 0)
+        classReader.accept(NewLabelSplittingClassVisitor(rewritingVisitor), 0)
         return classWriter.toByteArray()
     }
 

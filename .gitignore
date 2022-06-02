@@ -19,8 +19,8 @@ hs_err_*.log
 .idea/**/dictionaries
 .idea/**/shelf
 .idea/**/checkstyle-idea.xml
-**/test/kotlin/Scratch.kt
-**/main/kotlin/ScratchUtils.kt
+.idea/**/modules.xml
+**/kotlin/Scratch*.kt
 .DS_Store
 leaktest/dump/
 

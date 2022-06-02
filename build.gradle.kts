@@ -22,12 +22,19 @@ subprojects {
     tasks.withType<Test> {
         useJUnitPlatform()
         enableAssertions = true
-        // Fix encoding bug on Windows
-        jvmArgs("-Dfile.encoding=UTF-8", "--illegal-access=permit")
+        jvmArgs(
+            "-Dfile.encoding=UTF-8", // Fix encoding bug on Windows
+            "--add-exports", "jdk.compiler/com.sun.tools.javac.api=ALL-UNNAMED",
+            "--add-exports", "jdk.compiler/com.sun.tools.javac.file=ALL-UNNAMED",
+            "--add-exports", "jdk.compiler/com.sun.tools.javac.parser=ALL-UNNAMED",
+            "--add-exports", "jdk.compiler/com.sun.tools.javac.tree=ALL-UNNAMED",
+            "--add-exports", "jdk.compiler/com.sun.tools.javac.util=ALL-UNNAMED",
+            "--add-exports", "java.management/sun.management=ALL-UNNAMED"
+        )
     }
     tasks.withType<KotlinCompile> {
         kotlinOptions {
-            jvmTarget = JavaVersion.VERSION_16.toString()
+            jvmTarget = JavaVersion.VERSION_17.toString()
         }
     }
 }

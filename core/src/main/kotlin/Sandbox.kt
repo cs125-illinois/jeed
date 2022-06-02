@@ -1,4 +1,4 @@
-@file:Suppress("SpellCheckingInspection", "JAVA_MODULE_DOES_NOT_EXPORT_PACKAGE")
+@file:Suppress("SpellCheckingInspection", "JAVA_MODULE_DOES_NOT_EXPORT_PACKAGE", "DEPRECATION")
 
 package edu.illinois.cs.cs125.jeed.core
 
@@ -166,6 +166,7 @@ object Sandbox {
         val pluginResults: Map<String, Any>,
         @Suppress("unused") // TEMP: Report any platform class initializers interrupted by sandbox death
         val killedClassInitializers: List<String>,
+        @Suppress("unused")
         val totalSafetime: Long
     ) {
         @JsonClass(generateAdapter = true)
@@ -303,7 +304,6 @@ object Sandbox {
                 val confinedTask = confine(callable, sandboxedClassLoader, executionArguments)
                 val executionStarted = Instant.now()
                 val safetimeStarted = runtime.totalSafepointTime
-                var totalSafetime = -1L
                 val taskResult = try {
                     confinedTask.thread.start()
                     TaskResult(confinedTask.task.get(executionArguments.timeout, TimeUnit.MILLISECONDS))
@@ -380,7 +380,7 @@ object Sandbox {
                     }
                 }
 
-                totalSafetime = runtime.totalSafepointTime - safetimeStarted
+                val totalSafetime = runtime.totalSafepointTime - safetimeStarted
                 val executionEnded = Instant.now()
                 release(confinedTask)
 
@@ -1563,7 +1563,7 @@ object Sandbox {
      * The problem is that System.out is a PrintStream. And, internally, it passes content through several buffered
      * streams before it gets to the output stream that you pass.
      *
-     * This becomes a issue once you have to kill off runaway threads. If a thread exits uncleanly,
+     * This becomes an issue once you have to kill off runaway threads. If a thread exits uncleanly,
      * it can leave content somewhere in the buffers hidden by the PrintStream. Which is then spewed out at whoever
      * happens to use the stream next. Not OK.
      *

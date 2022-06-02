@@ -171,6 +171,22 @@ public class Main {
         trace.steps.filter { it.line == 11 }.size shouldBe 1
     }
 
+    "should handle a NEW instruction at a line boundary" {
+        val result = Source.fromJava(
+            """
+public class Main {
+  public static void main() {
+    String s = new String("x".hashCode() == 0 ? "zero" : "not zero");
+    System.out.println(s);
+  }
+}""".trim()
+        ).compile().execute(SourceExecutionArguments().addPlugin(LineTrace))
+        result should haveCompleted()
+        result should haveOutput("not zero")
+        val trace = result.pluginResult(LineTrace)
+        trace.steps.filter { it.line == 4 }.size shouldBe 1
+    }
+
     "should trace multiple functions" {
         val result = Source.fromJava(
             """
