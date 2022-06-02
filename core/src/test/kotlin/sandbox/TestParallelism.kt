@@ -131,6 +131,7 @@ System.out.println(sum);
             """.trimIndent()
         ).compile().execute().also {
             it should haveCompleted()
+            it.deniedPermissions shouldHaveSize 0
             it should haveOutput("15")
         }
     }

@@ -80,7 +80,7 @@ class TestCache : StringSpec({
         second.cached shouldBe false
         first.compiled shouldNotBe second.compiled
     }
-    "static initializers should still work while cached" {
+    "!static initializers should still work while cached" {
         val source = Source(
             mapOf(
                 "Main.java" to """

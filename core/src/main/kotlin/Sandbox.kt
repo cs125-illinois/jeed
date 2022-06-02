@@ -52,15 +52,10 @@ import kotlin.reflect.jvm.javaMethod
 private typealias SandboxCallableArguments<T> = (Pair<ClassLoader, (() -> Any?) -> JeedOutputCapture>) -> T
 
 object Sandbox {
-    private val streamThreadGroup: ThreadGroup
+    private lateinit var streamThreadGroup: ThreadGroup
 
     init {
         warmPlatform()
-        // TODO: Set permissions properly on parallelStream thread group
-        @Suppress("MagicNumber")
-        streamThreadGroup = listOf(1, 2, 3, 4, 5).parallelStream().map {
-            Thread.currentThread().threadGroup
-        }.toList().first()
     }
 
     private val runtime = ManagementFactoryHelper.getHotspotRuntimeMBean()
@@ -1801,6 +1796,10 @@ object Sandbox {
         )
 
         running = true
+
+        streamThreadGroup = listOf(1, 2, 3, 4, 5).parallelStream().map {
+            Thread.currentThread().threadGroup
+        }.toList().first()
     }
 
     @JvmStatic
