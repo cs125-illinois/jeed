@@ -30,6 +30,7 @@ import java.security.SecurityPermission
 import java.time.Duration
 import java.time.Instant
 import java.util.Collections
+import java.util.IdentityHashMap
 import java.util.Locale
 import java.util.Properties
 import java.util.concurrent.Callable
@@ -464,8 +465,8 @@ object Sandbox {
         val killedClassInitializers: MutableList<String> = mutableListOf()
 
         private val isolatedLocksSyncRoot = Object()
-        private val isolatedLocks = mutableMapOf<IdentityHolder, ReentrantLock>()
-        private val isolatedConditions = mutableMapOf<IdentityHolder, Condition>()
+        private val isolatedLocks = IdentityHashMap<Any, ReentrantLock>()
+        private val isolatedConditions = IdentityHashMap<Any, Condition>()
 
         data class CurrentLine(
             var started: Instant = Instant.now(),
@@ -539,7 +540,7 @@ object Sandbox {
 
         fun getIsolatedLock(monitor: Any): ReentrantLock {
             synchronized(isolatedLocksSyncRoot) {
-                return isolatedLocks.getOrPut(IdentityHolder(monitor)) {
+                return isolatedLocks.getOrPut(monitor) {
                     ReentrantLock()
                 }
             }
@@ -547,7 +548,7 @@ object Sandbox {
 
         fun getIsolatedCondition(monitor: Any): Condition {
             synchronized(isolatedLocksSyncRoot) {
-                return isolatedConditions.getOrPut(IdentityHolder(monitor)) {
+                return isolatedConditions.getOrPut(monitor) {
                     getIsolatedLock(monitor).newCondition()
                 }
             }

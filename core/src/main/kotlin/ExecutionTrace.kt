@@ -26,6 +26,7 @@ import java.lang.invoke.CallSite
 import java.lang.invoke.ConstantCallSite
 import java.lang.invoke.MethodHandles
 import java.lang.invoke.MethodType
+import java.util.IdentityHashMap
 import java.util.Stack
 import kotlin.reflect.jvm.javaMethod
 import java.lang.reflect.Array as ReflectArray
@@ -529,9 +530,8 @@ object ExecutionTrace : SandboxPluginWithDefaultArguments<ExecutionTraceArgument
             val trackingPlaceholder = thisFrame.chainingCtorInstance ?: error("mismatched beforeChain/afterChain")
             thisFrame.chainingCtorInstance = null
             if (trackingPlaceholder.realized) return // Already realized by a parent constructor
-            val holder = IdentityHolder(instance)
-            if (holder in data.knownObjects) TODO("downcall from uninstrumented constructor")
-            data.knownObjects[holder] = trackingPlaceholder
+            if (instance in data.knownObjects) TODO("downcall from uninstrumented constructor")
+            data.knownObjects[instance] = trackingPlaceholder
             trackingPlaceholder.realized = true
             gatherObjectState(instance, trackingPlaceholder)
             data.steps.add(ExecutionStep.SetState(trackingPlaceholder.id, trackingPlaceholder.asPublishableState()))
@@ -629,7 +629,7 @@ object ExecutionTrace : SandboxPluginWithDefaultArguments<ExecutionTraceArgument
             val data = threadData.get()
             if (data.atCapacity()) return
             // Only log changes to explicitly created arrays, not e.g. varargs
-            val trackedObject = data.knownObjects[IdentityHolder(array)] ?: return
+            val trackedObject = data.knownObjects[array] ?: return
             val indexedComponents = trackedObject.indexedComponents ?: error("arrays must have indexed components")
             val serializedValue = serializeValue(value, elementType)
             indexedComponents[index] = serializedValue
@@ -665,19 +665,18 @@ object ExecutionTrace : SandboxPluginWithDefaultArguments<ExecutionTraceArgument
         @JvmStatic
         private fun lookupOrTrackObject(obj: Any): ExecutionTraceWorkingData.TrackedObject {
             val data = threadData.get()
-            val holder = IdentityHolder(obj)
-            if (holder !in data.knownObjects) {
+            if (obj !in data.knownObjects) {
                 val tracking = trackObject(obj) // Adds to map, avoiding circularity during state gathering
                 data.steps.add(ExecutionStep.ObtainObject(tracking.id, tracking.asPublishableState()))
             }
-            return data.knownObjects[holder]!!
+            return data.knownObjects[obj]!!
         }
 
         @JvmStatic
         private fun trackObject(obj: Any): ExecutionTraceWorkingData.TrackedObject {
             val data = threadData.get()
             val tracking = ExecutionTraceWorkingData.TrackedObject(data.nextUniqueId(), obj.javaClass)
-            data.knownObjects[IdentityHolder(obj)] = tracking // Avoid circularity during state gathering
+            data.knownObjects[obj] = tracking // Avoid circularity during state gathering
             gatherObjectState(obj, tracking)
             return tracking
         }
@@ -754,7 +753,7 @@ private class ExecutionTraceWorkingData(
     val instrumentationData: ExecutionTraceInstrumentationData,
     val steps: MutableList<ExecutionStep> = mutableListOf(),
     val callStack: Stack<Frame> = Stack(),
-    val knownObjects: MutableMap<IdentityHolder, TrackedObject> = mutableMapOf()
+    val knownObjects: IdentityHashMap<Any, TrackedObject> = IdentityHashMap()
 ) {
     private var nextObjectId = 1
 
