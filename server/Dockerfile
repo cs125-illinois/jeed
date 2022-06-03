@@ -12,10 +12,8 @@ WORKDIR /
 COPY *.jar jeed.jar
 CMD [\
   "java",\
-  "-ea", "--enable-preview",\
-  "-Xmx1G","-Xss256k",\
-  "-XX:+UseZGC","-XX:ZCollectionInterval=8",\
-  "-Dfile.encoding=UTF-8",\
+  "-ea", "--enable-preview", "-Dfile.encoding=UTF-8",\
+  "-Xms512m", "-Xmx1G", "-Xss256k", "-XX:+UseZGC", "-XX:ZCollectionInterval=8",\
   "--add-exports", "jdk.compiler/com.sun.tools.javac.api=ALL-UNNAMED",\
   "--add-exports", "jdk.compiler/com.sun.tools.javac.file=ALL-UNNAMED",\
   "--add-exports", "jdk.compiler/com.sun.tools.javac.parser=ALL-UNNAMED",\
