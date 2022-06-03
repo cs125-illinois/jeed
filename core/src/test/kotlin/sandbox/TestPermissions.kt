@@ -21,6 +21,7 @@ import io.kotest.matchers.shouldBe
 import io.kotest.matchers.shouldNot
 import io.kotest.matchers.string.shouldNotContain
 import io.kotest.matchers.types.instanceOf
+import kotlinx.coroutines.delay
 import java.io.ByteArrayOutputStream
 import java.io.File
 import java.io.PrintStream
@@ -689,5 +690,21 @@ MappedByteBuffer.allocateDirect(1000);
         ).compile().execute(SourceExecutionArguments(timeout = 10000))
         executionResult shouldNot haveCompleted()
         executionResult.permissionDenied shouldBe true
+    }
+    "should not allow parallel streams to escape the sandbox" {
+        repeat(3) {
+            // Try a few times, with a short delay:
+            // the sandbox thread can throw before the background threads call exit
+            val executionResult = Source.fromSnippet(
+                """
+                import java.util.Arrays;
+                int[] ints = new int[1024];
+                Arrays.stream(ints).parallel().forEach(System::exit);
+                """.trimIndent()
+            ).compile().execute()
+            executionResult shouldNot haveCompleted()
+            executionResult.threw shouldNot beNull()
+            delay(2L - it)
+        }
     }
 })

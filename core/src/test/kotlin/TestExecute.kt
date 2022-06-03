@@ -619,7 +619,13 @@ fun haveCompleted() = object : Matcher<Sandbox.TaskResults<out Any?>> {
     override fun test(value: Sandbox.TaskResults<out Any?>): MatcherResult {
         return MatcherResult(
             value.completed,
-            { "Code should have run: ${value.threw}" },
+            {
+                "Code should have run: " + when {
+                    value.timeout -> "timed out"
+                    value.threw != null -> value.threw.toString()
+                    else -> "failed, but no timeout or exception reported"
+                }
+            },
             { "Code should not have run" }
         )
     }
