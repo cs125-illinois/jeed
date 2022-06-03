@@ -3,6 +3,7 @@ package edu.illinois.cs.cs125.jeed.core
 import java.lang.invoke.LambdaMetafactory
 import java.lang.invoke.StringConcatFactory
 import java.lang.runtime.ObjectMethods
+import java.util.concurrent.ForkJoinWorkerThread
 
 /*
  * Static members in libraries are a challenge for confined task isolation. Third-party libraries can be reloaded,
@@ -20,6 +21,10 @@ internal fun warmPlatform() {
 
     // Some string concatenation by StringConcatFactory (again likely already initialized)
     ensureInitialized(StringConcatFactory::class.java)
+
+    // Parallel streams in the sandbox by InnocuousForkJoinWorkerThread
+    ensureInitialized(ForkJoinWorkerThread::class.java)
+    Class.forName("java.util.concurrent.ForkJoinWorkerThread\$InnocuousForkJoinWorkerThread")
 }
 
 private fun ensureInitialized(klass: Class<*>) {
