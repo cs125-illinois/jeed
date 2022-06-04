@@ -1118,7 +1118,7 @@ object Sandbox {
                     val actualType = Type.getMethodType(actualReturn, *actualParameters.toTypedArray())
                     val safeOwnerName = handle.owner.replace('/', '_').replace('$', '_')
                     val safeMethodName = if (handle.name == "<init>") "NEW\$" else handle.name
-                    val wrapperName = "sandboxMH\$$safeOwnerName\$$safeMethodName"
+                    val wrapperName = "sandboxMH${handle.tag}\$$safeOwnerName\$$safeMethodName"
                     val wrapperMv = super.visitMethod(
                         Opcodes.ACC_PRIVATE or Opcodes.ACC_STATIC or Opcodes.ACC_SYNTHETIC,
                         wrapperName,
