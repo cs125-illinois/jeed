@@ -12,6 +12,8 @@ import org.jetbrains.kotlin.util.capitalizeDecapitalize.decapitalizeAsciiOnly
 import org.objectweb.asm.ClassReader
 import org.objectweb.asm.ClassVisitor
 import org.objectweb.asm.ClassWriter
+import org.objectweb.asm.ConstantDynamic
+import org.objectweb.asm.Handle
 import org.objectweb.asm.Label
 import org.objectweb.asm.MethodVisitor
 import org.objectweb.asm.Opcodes
@@ -53,8 +55,6 @@ import kotlin.reflect.jvm.javaMethod
 private typealias SandboxCallableArguments<T> = (Pair<ClassLoader, (() -> Any?) -> JeedOutputCapture>) -> T
 
 object Sandbox {
-    private lateinit var streamThreadGroup: ThreadGroup
-
     init {
         warmPlatform()
     }
@@ -1035,6 +1035,8 @@ object Sandbox {
             val classWriter = ClassWriter(classReader, 0)
             var className: String? = null
             val sandboxingVisitor = object : ClassVisitor(Opcodes.ASM8, classWriter) {
+                private val enclosedHandles = mutableMapOf<Handle, Handle>()
+
                 override fun visit(
                     version: Int,
                     access: Int,
@@ -1089,6 +1091,7 @@ object Sandbox {
                             blacklistedMethods,
                             preinspection.badTryCatchBlockPositions,
                             context,
+                            this::getEnclosedHandle,
                             super.visitMethod(
                                 transformedModifiers,
                                 transformedMethodName,
@@ -1098,6 +1101,62 @@ object Sandbox {
                             )
                         )
                     }
+                }
+
+                private fun getEnclosedHandle(handle: Handle) = enclosedHandles.getOrPut(handle) {
+                    val handleType = Type.getType(handle.desc)
+                    val actualParameters = handleType.argumentTypes.toMutableList()
+                    var actualReturn = handleType.returnType
+                    when (handle.tag) {
+                        Opcodes.H_INVOKESPECIAL, Opcodes.H_INVOKEVIRTUAL, Opcodes.H_INVOKEINTERFACE -> {
+                            actualParameters.add(0, Type.getObjectType(handle.owner))
+                        }
+                        Opcodes.H_NEWINVOKESPECIAL -> {
+                            actualReturn = Type.getObjectType(handle.owner)
+                        }
+                    }
+                    val actualType = Type.getMethodType(actualReturn, *actualParameters.toTypedArray())
+                    val safeOwnerName = handle.owner.replace('/', '_').replace('$', '_')
+                    val safeMethodName = if (handle.name == "<init>") "NEW\$" else handle.name
+                    val wrapperName = "sandboxMH\$$safeOwnerName\$$safeMethodName"
+                    val wrapperMv = super.visitMethod(
+                        Opcodes.ACC_PRIVATE or Opcodes.ACC_STATIC or Opcodes.ACC_SYNTHETIC,
+                        wrapperName,
+                        actualType.descriptor,
+                        null,
+                        null
+                    )
+                    wrapperMv.visitCode()
+                    wrapperMv.visitMethodInsn(
+                        Opcodes.INVOKESTATIC,
+                        rewriterClassName,
+                        enclosureMethodName,
+                        enclosureMethodDescription,
+                        false
+                    )
+                    wrapperMv.visitLdcInsn(handle)
+                    var parameterLocal = 0
+                    actualParameters.forEach {
+                        wrapperMv.visitIntInsn(it.getOpcode(Opcodes.ILOAD), parameterLocal)
+                        parameterLocal += it.size
+                    }
+                    wrapperMv.visitMethodInsn(
+                        Opcodes.INVOKEVIRTUAL,
+                        "java/lang/invoke/MethodHandle",
+                        "invokeExact",
+                        actualType.descriptor,
+                        false
+                    )
+                    wrapperMv.visitInsn(actualReturn.getOpcode(Opcodes.IRETURN))
+                    wrapperMv.visitMaxs(parameterLocal + 2, parameterLocal) // +2 in case of long return
+                    wrapperMv.visitEnd()
+                    Handle(
+                        Opcodes.H_INVOKESTATIC,
+                        className,
+                        wrapperName,
+                        actualType.descriptor,
+                        false
+                    )
                 }
             }
             classReader.accept(sandboxingVisitor, 0)
@@ -1197,6 +1256,7 @@ object Sandbox {
             val blacklistedMethods: Set<MethodFilter>,
             val badTryCatchBlockPositions: Set<Int>,
             val rewritingContext: RewritingContext,
+            val handleEncloser: (Handle) -> Handle,
             methodVisitor: MethodVisitor
         ) : MonitorIsolatingMethodVisitor(methodVisitor) {
             private val labelsToRewrite: MutableSet<Label> = mutableSetOf()
@@ -1325,6 +1385,54 @@ object Sandbox {
                         false
                     )
                 }
+            }
+
+            private fun sandboxBootstrapArguments(args: Array<out Any?>): Array<Any?> {
+                return args.map {
+                    if (it is Handle && it.owner.contains('/')) { // Reference to library method
+                        handleEncloser(it)
+                    } else if (it is ConstantDynamic) {
+                        sandboxConstantDynamic(it)
+                    } else {
+                        it
+                    }
+                }.toTypedArray()
+            }
+
+            private fun sandboxConstantDynamic(condy: ConstantDynamic): ConstantDynamic {
+                return ConstantDynamic(
+                    condy.name,
+                    condy.descriptor,
+                    condy.bootstrapMethod,
+                    *sandboxBootstrapArguments(condy.bootstrapArguments)
+                )
+            }
+
+            override fun visitInvokeDynamicInsn(
+                name: String?,
+                descriptor: String?,
+                bootstrapMethodHandle: Handle?,
+                vararg bootstrapMethodArguments: Any?
+            ) {
+                val arguments = when (rewritingContext) {
+                    RewritingContext.UNTRUSTED -> sandboxBootstrapArguments(bootstrapMethodArguments)
+                    RewritingContext.RELOADED -> bootstrapMethodArguments
+                }
+                super.visitInvokeDynamicInsn(
+                    name,
+                    descriptor,
+                    bootstrapMethodHandle,
+                    *arguments
+                )
+            }
+
+            override fun visitLdcInsn(value: Any?) {
+                val sandboxed = if (value is ConstantDynamic && rewritingContext == RewritingContext.UNTRUSTED) {
+                    sandboxConstantDynamic(value)
+                } else {
+                    value
+                }
+                super.visitLdcInsn(sandboxed)
             }
 
             override fun visitMaxs(maxStack: Int, maxLocals: Int) {
@@ -1765,6 +1873,7 @@ object Sandbox {
     @Suppress("MemberVisibilityCanBePrivate")
     var autoStart = true
     var running = false
+        private set
 
     private lateinit var originalPrintStreams: Map<TaskResults.OutputLine.Console, PrintStream>
 
@@ -1781,8 +1890,6 @@ object Sandbox {
 
         System.setOut(RedirectingPrintStream(TaskResults.OutputLine.Console.STDOUT))
         System.setErr(RedirectingPrintStream(TaskResults.OutputLine.Console.STDERR))
-        // Try to silence ThreadDeath error messages. Not sure if this works, but it can't hurt.
-        // Thread.setDefaultUncaughtExceptionHandler { _, _ -> }
 
         threadPool = Executors.newFixedThreadPool(size)
 
@@ -1798,9 +1905,19 @@ object Sandbox {
 
         running = true
 
-        streamThreadGroup = listOf(1, 2, 3, 4, 5).parallelStream().map {
-            Thread.currentThread().threadGroup
-        }.toList().first()
+        // Warm the common "innocuous" ForkJoinPool used for parallel streams in the presence of a SecurityManager
+        // Must record this thread group to block all permission requests by it
+        // streamThreadGroup = listOf(1, 2, 3, 4, 5).parallelStream().map {
+        //     Thread.currentThread().threadGroup
+        // }.toList().first { it.name.contains("Innocuous") }
+        // val fjt = object : CountedCompleter<ThreadGroup>() {
+        //     override fun compute() {
+        //         rawResult = Thread.currentThread().threadGroup
+        //     }
+        // }
+        // fjt.fork()
+        // streamThreadGroup = fjt.join()
+        // check(streamThreadGroup.name.contains("Innocuous"))
     }
 
     @JvmStatic

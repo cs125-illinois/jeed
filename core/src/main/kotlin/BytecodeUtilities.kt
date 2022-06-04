@@ -1,6 +1,7 @@
 package edu.illinois.cs.cs125.jeed.core
 
 import org.objectweb.asm.ClassVisitor
+import org.objectweb.asm.ConstantDynamic
 import org.objectweb.asm.Handle
 import org.objectweb.asm.Label
 import org.objectweb.asm.MethodVisitor
@@ -64,6 +65,11 @@ fun AbstractInsnNode.previousRealInsn(): AbstractInsnNode? {
 fun Type.toArrayType(): Type {
     return Type.getType("[" + this.descriptor)
 }
+
+val ConstantDynamic.bootstrapArguments: Array<Any?>
+    get() = Array(this.bootstrapMethodArgumentCount) {
+        this.getBootstrapMethodArgument(it)
+    }
 
 class NewLabelSplittingClassVisitor(visitor: ClassVisitor) : ClassVisitor(Opcodes.ASM9, visitor) {
     override fun visitMethod(

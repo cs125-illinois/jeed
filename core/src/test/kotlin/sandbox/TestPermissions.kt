@@ -15,11 +15,13 @@ import edu.illinois.cs.cs125.jeed.core.kompile
 import io.kotest.assertions.throwables.shouldThrow
 import io.kotest.core.spec.style.StringSpec
 import io.kotest.matchers.collections.shouldHaveSize
+import io.kotest.matchers.longs.shouldBeGreaterThan
 import io.kotest.matchers.nulls.beNull
 import io.kotest.matchers.should
 import io.kotest.matchers.shouldBe
 import io.kotest.matchers.shouldNot
 import io.kotest.matchers.string.shouldNotContain
+import io.kotest.matchers.types.beInstanceOf
 import io.kotest.matchers.types.instanceOf
 import kotlinx.coroutines.delay
 import java.io.ByteArrayOutputStream
@@ -263,6 +265,7 @@ strings.stream()
     .filter(string -> string.length() <= 4)
     .map(String::toUpperCase)
     .sorted()
+    .map(String::new)
     .forEach(System.out::println);
         """.trim()
         ).compile().execute()
@@ -693,7 +696,7 @@ MappedByteBuffer.allocateDirect(1000);
     }
     "should not allow parallel streams to escape the sandbox" {
         repeat(3) {
-            // Try a few times, with a short delay:
+            // Try a few times, with a short delay --
             // the sandbox thread can throw before the background threads call exit
             val executionResult = Source.fromSnippet(
                 """
@@ -703,8 +706,23 @@ MappedByteBuffer.allocateDirect(1000);
                 """.trimIndent()
             ).compile().execute()
             executionResult shouldNot haveCompleted()
-            executionResult.threw shouldNot beNull()
+            executionResult.threw should beInstanceOf<SecurityException>()
             delay(2L - it)
         }
+    }
+    "should not allow parallel streams to poison the pool" {
+        val executionResult = Source.fromSnippet(
+            """
+            import java.util.Arrays;
+            int[] ints = new int[1024];
+            Arrays.stream(ints).parallel().forEach(System::exit);
+            """.trimIndent()
+        ).compile().execute()
+        executionResult shouldNot haveCompleted()
+        executionResult.threw should beInstanceOf<SecurityException>()
+        (0 until 1024).toList().parallelStream().map {
+            Thread.sleep(1) // Prevent the main thread from doing all the work
+            Thread.currentThread()
+        }.distinct().count() shouldBeGreaterThan 1
     }
 })
