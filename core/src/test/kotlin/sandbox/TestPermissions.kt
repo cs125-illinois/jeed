@@ -565,7 +565,7 @@ System.out.println(clazz);
         ).compile().execute(SourceExecutionArguments(timeout = 10000))
         executionResult.permissionDenied shouldBe true
         executionResult.threw shouldBe instanceOf<SecurityException>()
-        executionResult.threw!!.message shouldBe "invocation of forbidden method"
+        executionResult.threw!!.message shouldBe "use of forbidden method"
     }
     "should not allow installing an agent through ByteBuddy, coroutine-style" {
         val executionResult = Source.fromSnippet(
@@ -644,6 +644,18 @@ var cl = X.class.getClassLoader().getParent();
 System.out.println(Class.forName("edu.illinois.cs.cs125.jeed.core.Sandbox", true, cl));
         """.trim()
         ).compile().execute(SourceExecutionArguments(timeout = 10000))
+        executionResult shouldNot haveCompleted()
+        executionResult.permissionDenied shouldBe true
+    }
+    "should block forbidden methods in method references" {
+        val executionResult = Source.fromSnippet(
+            """
+                import java.util.function.*;
+                class X {}
+                Function<Class<?>, ClassLoader> gcl = Class::getClassLoader;
+                System.out.println(gcl.apply(X.class));
+            """.trimIndent()
+        ).compile().execute()
         executionResult shouldNot haveCompleted()
         executionResult.permissionDenied shouldBe true
     }

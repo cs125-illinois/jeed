@@ -1003,11 +1003,11 @@ object Sandbox {
             val confinedTask = confinedTaskByThreadGroup() ?: error("only confined tasks should call this method")
             confinedTask.permissionRequests.add(
                 TaskResults.PermissionRequest(
-                    RuntimePermission("callForbiddenMethod"),
+                    RuntimePermission("useForbiddenMethod"),
                     false
                 )
             )
-            throw SecurityException("invocation of forbidden method")
+            throw SecurityException("use of forbidden method")
         }
 
         @JvmStatic
@@ -1344,6 +1344,25 @@ object Sandbox {
                 }
             }
 
+            private fun isBlacklistedMethod(ownerBinaryName: String, methodName: String): Boolean {
+                val ownerClassName = binaryNameToClassName(ownerBinaryName)
+                return blacklistedMethods.any {
+                    ownerClassName.startsWith(it.ownerClassPrefix) &&
+                        methodName.startsWith(it.methodPrefix) &&
+                        (rewritingContext == RewritingContext.UNTRUSTED || !it.allowInReload)
+                }
+            }
+
+            private fun addForbiddenMethodTrap() {
+                super.visitMethodInsn(
+                    Opcodes.INVOKESTATIC,
+                    rewriterClassName,
+                    RewriteBytecode::forbiddenMethod.javaMethod?.name ?: error("need forbidden method name"),
+                    Type.getMethodDescriptor(RewriteBytecode::forbiddenMethod.javaMethod),
+                    false
+                )
+            }
+
             override fun visitMethodInsn(
                 opcode: Int,
                 owner: String,
@@ -1351,21 +1370,9 @@ object Sandbox {
                 descriptor: String,
                 isInterface: Boolean
             ) {
-                val ownerClassName = binaryNameToClassName(owner)
-                val methodIsBlacklisted = blacklistedMethods.any {
-                    ownerClassName.startsWith(it.ownerClassPrefix) &&
-                        name.startsWith(it.methodPrefix) &&
-                        (rewritingContext == RewritingContext.UNTRUSTED || !it.allowInReload)
-                }
-                if (methodIsBlacklisted) {
+                if (isBlacklistedMethod(owner, name)) {
                     // Adding an extra call instead of replacing the call avoids the need for fiddly stack manipulation
-                    super.visitMethodInsn(
-                        Opcodes.INVOKESTATIC,
-                        rewriterClassName,
-                        RewriteBytecode::forbiddenMethod.javaMethod?.name ?: error("need forbidden method name"),
-                        Type.getMethodDescriptor(RewriteBytecode::forbiddenMethod.javaMethod),
-                        false
-                    )
+                    addForbiddenMethodTrap()
                 }
                 val rewriteTarget = if (!isInterface && opcode == Opcodes.INVOKEVIRTUAL &&
                     owner == classNameToPath(Object::class.java.name)
@@ -1408,15 +1415,34 @@ object Sandbox {
                 )
             }
 
+            private fun hasBlacklistedBootstrapRef(args: Array<out Any?>) = args.any {
+                when (it) {
+                    is Handle -> isBlacklistedMethod(it.owner, it.name)
+                    is ConstantDynamic -> isConstantDynamicBlacklisted(it)
+                    else -> false
+                }
+            }
+
+            private fun isConstantDynamicBlacklisted(condy: ConstantDynamic): Boolean {
+                return isBlacklistedMethod(condy.bootstrapMethod.owner, condy.bootstrapMethod.name) ||
+                    hasBlacklistedBootstrapRef(condy.bootstrapArguments)
+            }
+
             override fun visitInvokeDynamicInsn(
                 name: String?,
                 descriptor: String?,
-                bootstrapMethodHandle: Handle?,
+                bootstrapMethodHandle: Handle,
                 vararg bootstrapMethodArguments: Any?
             ) {
-                val arguments = when (rewritingContext) {
-                    RewritingContext.UNTRUSTED -> sandboxBootstrapArguments(bootstrapMethodArguments)
-                    RewritingContext.RELOADED -> bootstrapMethodArguments
+                val forbidden = isBlacklistedMethod(bootstrapMethodHandle.owner, bootstrapMethodHandle.name) ||
+                    hasBlacklistedBootstrapRef(bootstrapMethodArguments)
+                if (forbidden) {
+                    addForbiddenMethodTrap()
+                }
+                val arguments = if (!forbidden && rewritingContext == RewritingContext.UNTRUSTED) {
+                    sandboxBootstrapArguments(bootstrapMethodArguments)
+                } else {
+                    bootstrapMethodArguments
                 }
                 super.visitInvokeDynamicInsn(
                     name,
@@ -1427,6 +1453,9 @@ object Sandbox {
             }
 
             override fun visitLdcInsn(value: Any?) {
+                if (value is ConstantDynamic && isConstantDynamicBlacklisted(value)) {
+                    addForbiddenMethodTrap()
+                }
                 val sandboxed = if (value is ConstantDynamic && rewritingContext == RewritingContext.UNTRUSTED) {
                     sandboxConstantDynamic(value)
                 } else {
