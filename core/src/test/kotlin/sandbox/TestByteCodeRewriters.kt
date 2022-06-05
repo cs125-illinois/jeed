@@ -987,6 +987,29 @@ try {
         executionResult should haveOutput("5\n5\n5\n$longResult\n$longResult")
     }
 
+    "should support references to library methods with inexact types" {
+        val executionResult = Source.fromSnippet(
+            """
+                import java.util.function.*;
+                Function<Integer, Object> unboundInt = Integer::intValue;
+                Integer i = 5;
+                System.out.println(unboundInt.apply(i));
+                Supplier<Integer> boundInt = i::intValue;
+                System.out.println(boundInt.get());
+                Supplier<Object> boundIntStringify = i::toString;
+                System.out.println(boundIntStringify.get());
+                Function<Long, Object> unboundLong = Long::longValue;
+                Long l = 1L << 33;
+                System.out.println(unboundLong.apply(l));
+                Supplier<Long> boundLong = l::longValue;
+                System.out.println(boundLong.get());
+            """.trimIndent()
+        ).compile().execute()
+        executionResult should haveCompleted()
+        val longResult = 1L shl 33
+        executionResult should haveOutput("5\n5\n5\n$longResult\n$longResult")
+    }
+
     "should support references to library interface methods" {
         val executionResult = Source.fromSnippet(
             """

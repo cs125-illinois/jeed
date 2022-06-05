@@ -1933,20 +1933,6 @@ object Sandbox {
         )
 
         running = true
-
-        // Warm the common "innocuous" ForkJoinPool used for parallel streams in the presence of a SecurityManager
-        // Must record this thread group to block all permission requests by it
-        // streamThreadGroup = listOf(1, 2, 3, 4, 5).parallelStream().map {
-        //     Thread.currentThread().threadGroup
-        // }.toList().first { it.name.contains("Innocuous") }
-        // val fjt = object : CountedCompleter<ThreadGroup>() {
-        //     override fun compute() {
-        //         rawResult = Thread.currentThread().threadGroup
-        //     }
-        // }
-        // fjt.fork()
-        // streamThreadGroup = fjt.join()
-        // check(streamThreadGroup.name.contains("Innocuous"))
     }
 
     @JvmStatic
