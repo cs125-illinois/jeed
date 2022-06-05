@@ -737,4 +737,16 @@ MappedByteBuffer.allocateDirect(1000);
             Thread.currentThread()
         }.distinct().count() shouldBeGreaterThan 1
     }
+    "should not allow printing to the real stdout" {
+        val executionResult = Source.fromSnippet(
+            """
+            import java.io.*;
+            FileOutputStream fdOut = new FileOutputStream(FileDescriptor.out);
+            PrintStream psOut = new PrintStream(fdOut, true);
+            psOut.println("Uh oh");
+            """.trimIndent()
+        ).compile().execute()
+        executionResult shouldNot haveCompleted()
+        executionResult.permissionDenied shouldBe true
+    }
 })
