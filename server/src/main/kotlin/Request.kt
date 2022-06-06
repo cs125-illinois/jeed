@@ -138,9 +138,9 @@ class Request(
             require(arguments.execution.timeout <= configuration[Limits.Execution.timeout]) {
                 "job timeout of ${arguments.execution.timeout} too long (> ${configuration[Limits.Execution.timeout]})"
             }
-            require(arguments.execution.lineCountLimit <= configuration[Limits.Execution.lineCountLimit]) {
-                "job line count limit of ${arguments.execution.lineCountLimit} too long " +
-                    "(> ${configuration[Limits.Execution.lineCountLimit]})"
+            require(arguments.plugins.lineCountLimit <= configuration[Limits.Plugins.lineCountLimit]) {
+                "job line count limit of ${arguments.plugins.lineCountLimit} too long " +
+                    "(> ${configuration[Limits.Plugins.lineCountLimit]})"
             }
             require(arguments.execution.maxExtraThreads <= configuration[Limits.Execution.maxExtraThreads]) {
                 "job maxExtraThreads of ${arguments.execution.maxExtraThreads} is too large " +
@@ -280,8 +280,7 @@ class Request(
                     LineTrace,
                     LineTraceArguments(
                         recordedLineLimit = 0,
-                        runLineLimit = arguments.execution.lineCountLimit,
-                        runLineLimitExceededAction = LineTraceArguments.RunLineLimitAction.THROW_ERROR
+                        runLineLimit = arguments.plugins.lineCountLimit
                     )
                 )
                 val executionResult = compiledSource.execute(arguments.execution)

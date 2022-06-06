@@ -38,6 +38,13 @@ class TaskArguments(
     val execution: SourceExecutionArguments = SourceExecutionArguments(),
     val cexecution: ContainerExecutionArguments = ContainerExecutionArguments(),
     // val features: currently accepts no arguments
-    val mutations: MutationsArguments = MutationsArguments()
-    // val disassemble: currently accepts no arguments
+    val mutations: MutationsArguments = MutationsArguments(),
+    // val disassemble: currently accepts no arguments,
+    val plugins: PluginArguments = PluginArguments()
 )
+@JsonClass(generateAdapter = true)
+data class PluginArguments(val lineCountLimit: Long = DEFAULT_LINE_COUNT_LIMIT) {
+    companion object {
+        const val DEFAULT_LINE_COUNT_LIMIT = 4 * 1024 * 1024L
+    }
+}

@@ -19,6 +19,7 @@ import edu.illinois.cs.cs125.jeed.core.FeaturesFailed
 import edu.illinois.cs.cs125.jeed.core.Interval
 import edu.illinois.cs.cs125.jeed.core.KtLintError
 import edu.illinois.cs.cs125.jeed.core.KtLintFailed
+import edu.illinois.cs.cs125.jeed.core.LineLimitExceeded
 import edu.illinois.cs.cs125.jeed.core.MutationsFailed
 import edu.illinois.cs.cs125.jeed.core.Sandbox
 import edu.illinois.cs.cs125.jeed.core.Snippet
@@ -340,7 +341,7 @@ class ThrownException(
 
 @Suppress("LongParameterList")
 @JsonClass(generateAdapter = true)
-class SourceTaskResults(
+data class SourceTaskResults(
     val klass: String,
     val method: String,
     val returned: String?,
@@ -367,7 +368,7 @@ class SourceTaskResults(
         } else {
             null
         },
-        taskResults.timeout,
+        taskResults.timeout || (taskResults.threw?.cause ?: taskResults.threw) is LineLimitExceeded,
         taskResults.outputLines.toList(),
         taskResults.permissionRequests.toList(),
         taskResults.interval,

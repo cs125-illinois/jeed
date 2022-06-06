@@ -7,6 +7,7 @@ import edu.illinois.cs.cs125.jeed.core.ContainerExecutionArguments
 import edu.illinois.cs.cs125.jeed.core.Sandbox
 import edu.illinois.cs.cs125.jeed.core.SourceExecutionArguments
 import edu.illinois.cs.cs125.jeed.core.moshi.PermissionAdapter
+import edu.illinois.cs.cs125.jeed.core.server.PluginArguments
 import java.io.File
 
 const val DEFAULT_PORT = 8888
@@ -20,7 +21,6 @@ object TopLevel : ConfigSpec("") {
 object Limits : ConfigSpec() {
     object Execution : ConfigSpec() {
         val timeout by optional(Sandbox.ExecutionArguments.DEFAULT_TIMEOUT)
-        val lineCountLimit by optional(Sandbox.ExecutionArguments.DEFAULT_LINE_COUNT_LIMIT)
         val permissions by optional(
             SourceExecutionArguments.REQUIRED_PERMISSIONS.toList().map {
                 PermissionAdapter().permissionToJson(it)
@@ -44,6 +44,10 @@ object Limits : ConfigSpec() {
     object Disassembly : ConfigSpec() {
         private const val DEFAULT_DISASSEMBLY_MAX_BYTES = 50 * 1024
         val maxBytes by optional(DEFAULT_DISASSEMBLY_MAX_BYTES)
+    }
+
+    object Plugins : ConfigSpec() {
+        val lineCountLimit by optional(PluginArguments.DEFAULT_LINE_COUNT_LIMIT)
     }
 }
 
