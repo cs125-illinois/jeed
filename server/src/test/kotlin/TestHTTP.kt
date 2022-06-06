@@ -43,6 +43,35 @@ class TestHTTP : StringSpec() {
                 }
             }
         }
+        "should timeout a snippet request" {
+            withTestApplication(Application::jeed) {
+                handleRequest(HttpMethod.Post, "/") {
+                    addHeader("content-type", "application/json")
+                    setBody(
+                        """
+{
+"label": "test",
+"snippet": "
+int i = 0;
+while (true) {
+  i++;
+}",
+"tasks": [ "compile", "execute" ]
+}""".trim()
+                    )
+                }.apply {
+                    response.shouldHaveStatus(HttpStatusCode.OK.value)
+
+                    val jeedResponse = Response.from(response.content)
+                    jeedResponse.completed.execution?.klass shouldBe "Main"
+                    jeedResponse.completedTasks.size shouldBe 3
+                    jeedResponse.failedTasks.size shouldBe 0
+                    jeedResponse.completed.execution?.timeout shouldBe true
+                    jeedResponse.completed.execution?.threw?.klass shouldBe
+                        "edu.illinois.cs.cs125.jeed.core.LineLimitExceeded"
+                }
+            }
+        }
         "should reject OOM snippet request properly" {
             withTestApplication(Application::jeed) {
                 handleRequest(HttpMethod.Post, "/") {

@@ -9,6 +9,8 @@ import edu.illinois.cs.cs125.jeed.core.ExecutionFailed
 import edu.illinois.cs.cs125.jeed.core.FeaturesFailed
 import edu.illinois.cs.cs125.jeed.core.Interval
 import edu.illinois.cs.cs125.jeed.core.KtLintFailed
+import edu.illinois.cs.cs125.jeed.core.LineTrace
+import edu.illinois.cs.cs125.jeed.core.LineTraceArguments
 import edu.illinois.cs.cs125.jeed.core.MutationsFailed
 import edu.illinois.cs.cs125.jeed.core.SnippetTransformationFailed
 import edu.illinois.cs.cs125.jeed.core.Source
@@ -135,6 +137,10 @@ class Request(
         if (Task.execute in tasks) {
             require(arguments.execution.timeout <= configuration[Limits.Execution.timeout]) {
                 "job timeout of ${arguments.execution.timeout} too long (> ${configuration[Limits.Execution.timeout]})"
+            }
+            require(arguments.execution.lineCountLimit <= configuration[Limits.Execution.lineCountLimit]) {
+                "job line count limit of ${arguments.execution.lineCountLimit} too long " +
+                    "(> ${configuration[Limits.Execution.lineCountLimit]})"
             }
             require(arguments.execution.maxExtraThreads <= configuration[Limits.Execution.maxExtraThreads]) {
                 "job maxExtraThreads of ${arguments.execution.maxExtraThreads} is too large " +
@@ -270,6 +276,14 @@ class Request(
 
             if (tasks.contains(Task.execute)) {
                 check(compiledSource != null) { "should have compiled source before executing" }
+                arguments.execution.addPlugin(
+                    LineTrace,
+                    LineTraceArguments(
+                        recordedLineLimit = 0,
+                        runLineLimit = arguments.execution.lineCountLimit,
+                        runLineLimitExceededAction = LineTraceArguments.RunLineLimitAction.THROW_ERROR
+                    )
+                )
                 val executionResult = compiledSource.execute(arguments.execution)
                 response.completed.execution = SourceTaskResults(actualSource, executionResult, arguments.execution)
                 response.completedTasks.add(Task.execute)

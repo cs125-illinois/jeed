@@ -140,6 +140,7 @@ object Sandbox {
     ) {
         companion object {
             const val DEFAULT_TIMEOUT = 100L
+            const val DEFAULT_LINE_COUNT_LIMIT = 2 * 1024 * 1024L
             const val DEFAULT_MAX_EXTRA_THREADS = 0
             const val DEFAULT_MAX_OUTPUT_LINES = 1024
             const val DEFAULT_WAIT_FOR_SHUTDOWN = false
@@ -331,7 +332,8 @@ object Sandbox {
                 } catch (e: CancellationException) {
                     TaskResult(null, null)
                 } catch (e: Throwable) {
-                    TaskResult(null, e.cause ?: e)
+                    val lineCountTimeout = (e.cause ?: e) is LineLimitExceeded
+                    TaskResult(null, e.cause ?: e, lineCountTimeout)
                 }
 
                 fun threadGroupActive(): Boolean {

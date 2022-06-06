@@ -14,6 +14,7 @@ class SourceExecutionArguments(
     var klass: String? = null,
     var method: String? = null,
     timeout: Long = DEFAULT_TIMEOUT,
+    val lineCountLimit: Long = DEFAULT_LINE_COUNT_LIMIT,
     permissions: Set<Permission> = setOf(),
     maxExtraThreads: Int = DEFAULT_MAX_EXTRA_THREADS,
     maxOutputLines: Int = DEFAULT_MAX_OUTPUT_LINES,

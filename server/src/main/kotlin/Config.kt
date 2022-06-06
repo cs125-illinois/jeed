@@ -20,6 +20,7 @@ object TopLevel : ConfigSpec("") {
 object Limits : ConfigSpec() {
     object Execution : ConfigSpec() {
         val timeout by optional(Sandbox.ExecutionArguments.DEFAULT_TIMEOUT)
+        val lineCountLimit by optional(Sandbox.ExecutionArguments.DEFAULT_LINE_COUNT_LIMIT)
         val permissions by optional(
             SourceExecutionArguments.REQUIRED_PERMISSIONS.toList().map {
                 PermissionAdapter().permissionToJson(it)
