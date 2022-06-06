@@ -14,6 +14,7 @@ import io.kotest.matchers.should
 import io.kotest.matchers.shouldBe
 import io.kotest.matchers.shouldNot
 import io.kotest.matchers.shouldNotBe
+import io.kotest.matchers.string.shouldStartWith
 import io.kotest.matchers.types.beInstanceOf
 import io.kotest.matchers.types.shouldBeTypeOf
 import kotlinx.coroutines.async
@@ -38,6 +39,7 @@ try {
         executionResult should haveCompleted()
         executionResult should haveOutput("Try\nCatch\nFinally")
     }
+
     "should intercept exceptions configured to be unsafe in catch blocks" {
         val executionResult = Source.fromSnippet(
             """
@@ -65,6 +67,7 @@ try {
         executionResult should haveOutput("Try")
         executionResult.threw.shouldBeTypeOf<NullPointerException>()
     }
+
     "should intercept subclasses of exceptions configured to be unsafe in catch blocks" {
         val executionResult = Source.fromSnippet(
             """
@@ -92,6 +95,7 @@ try {
         executionResult should haveOutput("Try")
         executionResult.threw.shouldBeTypeOf<NullPointerException>()
     }
+
     "should intercept subclasses of exceptions configured to be unsafe in finally blocks" {
         val executionResult = Source.fromSnippet(
             """
@@ -117,6 +121,7 @@ try {
         executionResult should haveOutput("Try")
         executionResult.threw.shouldBeTypeOf<NullPointerException>()
     }
+
     "should not intercept exceptions configured to be safe in finally blocks" {
         val executionResult = Source.fromSnippet(
             """
@@ -144,6 +149,7 @@ try {
         executionResult should haveOutput("Try\nFinally")
         executionResult.threw.shouldBeTypeOf<NullPointerException>()
     }
+
     "should handle nested try-catch blocks" {
         val executionResult = Source.fromSnippet(
             """
@@ -178,6 +184,7 @@ try {
         executionResult should haveOutput("Try\nCatch")
         executionResult.threw.shouldBeTypeOf<NullPointerException>()
     }
+
     "should handle try-catch blocks in loops" {
         val executionResult = Source.fromSnippet(
             """
@@ -208,6 +215,7 @@ while (true) {
         executionResult should haveOutput("Try\nCatch")
         executionResult.threw.shouldBeTypeOf<NullPointerException>()
     }
+
     "should allow safe custom exceptions" {
         val executionResult = Source.fromSnippet(
             """
@@ -222,6 +230,7 @@ try {
         executionResult should haveCompleted()
         executionResult should haveOutput("Catch")
     }
+
     "should handle dangerous custom exceptions" {
         val executionResult = Source.fromSnippet(
             """
@@ -236,6 +245,7 @@ try {
         executionResult shouldNot haveCompleted()
         executionResult.threw should beInstanceOf(Error::class)
     }
+
     "should correctly handle throw inside try-catch" {
         val executionResult = Source.fromSnippet(
             """
@@ -251,6 +261,7 @@ try {
         executionResult should haveCompleted()
         executionResult should haveOutput("Try\nBoom")
     }
+
     "should correctly handle throw inside try-finally" {
         val executionResult = Source.fromSnippet(
             """
@@ -267,6 +278,7 @@ try {
         executionResult should haveOutput("Try\nFinally")
         executionResult.threw should beInstanceOf<RuntimeException>()
     }
+
     "should correctly handle throw inside try-catch-finally" {
         val executionResult = Source.fromSnippet(
             """
@@ -287,6 +299,7 @@ try {
         executionResult.threw should beInstanceOf<RuntimeException>()
         executionResult.threw!!.message shouldBe "Bang"
     }
+
     "should correctly handle throwing a dangerous exception inside try-finally" {
         val executionResult = Source.fromSnippet(
             """
@@ -303,6 +316,7 @@ try {
         executionResult should haveOutput("Try")
         executionResult.threw should beInstanceOf<Error>()
     }
+
     "should correctly handle throwing a dangerous exception inside try-catch-finally" {
         val executionResult = Source.fromSnippet(
             """
@@ -322,6 +336,7 @@ try {
         executionResult should haveOutput("Try\nCatch")
         executionResult.threw should beInstanceOf<Error>()
     }
+
     "should remove finalizers" {
         val executionResult = Source.fromSnippet(
             """
@@ -339,6 +354,7 @@ Example ex = new Example();
         executionResult should haveCompleted()
         executionResult shouldNot haveOutput("Finalizer")
     }
+
     "should not remove non-finalizer finalize methods" {
         val executionResult = Source.fromSnippet(
             """
@@ -361,6 +377,7 @@ Example ex = new Example();
         executionResult should haveCompleted()
         executionResult should haveOutput("Finalizer 1\nFinalizer 2")
     }
+
     "should allow synchronization to work correctly" {
         val executionResult = Source(
             mapOf(
@@ -403,6 +420,7 @@ public class Main {
         executionResult should haveCompleted()
         executionResult should haveOutput("200")
     }
+
     "should allow synchronization with notification" {
         setOf("", "1000L", "999L, 999999").forEach { waitParamList ->
             val executionResult = Source(
@@ -437,6 +455,7 @@ public class Main {
             executionResult should haveOutput("Notified\nFinished wait")
         }
     }
+
     "should prevent cross-task monitor interference" {
         val badCompileResult = Source(
             mapOf(
@@ -468,6 +487,7 @@ synchronized (Object.class) {
         badTaskResult should haveTimedOut()
         badTaskResult should haveOutput("About to spin")
     }
+
     "should allow synchronized methods to run" {
         val executionResult = Source.fromSnippet(
             """
@@ -480,6 +500,7 @@ synchronized (Object.class) {
         executionResult should haveCompleted()
         executionResult should haveOutput("5")
     }
+
     "should correctly handle try-catch blocks inside synchronized methods" {
         val executionResult = Source.fromSnippet(
             """
@@ -499,6 +520,7 @@ synchronized (Object.class) {
         executionResult should haveCompleted()
         executionResult should haveOutput("Finally\n5")
     }
+
     "should correctly handle throw statements inside synchronized methods" {
         val executionResult = Source.fromSnippet(
             """
@@ -519,6 +541,7 @@ synchronized (Object.class) {
         executionResult should haveCompleted()
         executionResult should haveOutput("Synchronized\nBoom!\nFinally\n5")
     }
+
     "should correctly handle synchronized methods that always throw" {
         val executionResult = Source.fromSnippet(
             """
@@ -536,6 +559,7 @@ synchronized (Object.class) {
         executionResult should haveCompleted()
         executionResult should haveOutput("Synchronized\n5")
     }
+
     "should correctly handle synchronized methods that return references" {
         val executionResult = Source.fromSnippet(
             """
@@ -548,6 +572,7 @@ synchronized (Object.class) {
         executionResult should haveCompleted()
         executionResult should haveOutput("5")
     }
+
     "should correctly handle synchronized methods that return large primitives" {
         val executionResult = Source.fromSnippet(
             """
@@ -563,6 +588,7 @@ synchronized (Object.class) {
         executionResult should haveCompleted()
         executionResult should haveOutput("78")
     }
+
     "should correctly handle synchronized methods that take parameters" {
         val executionResult = Source.fromSnippet(
             """
@@ -576,6 +602,7 @@ synchronized (Object.class) {
         executionResult should haveCompleted()
         executionResult should haveOutput("Sum: 323.0")
     }
+
     "should correctly handle synchronized methods involving multiple large primitives" {
         val executionResult = Source.fromSnippet(
             """
@@ -588,6 +615,7 @@ synchronized (Object.class) {
         executionResult should haveCompleted()
         executionResult should haveOutput("150.0")
     }
+
     "should correctly handle synchronized methods involving small primitives" {
         val executionResult = Source.fromSnippet(
             """
@@ -600,6 +628,7 @@ synchronized (Object.class) {
         executionResult should haveCompleted()
         executionResult should haveOutput("5")
     }
+
     "should correctly handle recursive synchronized methods" {
         val executionResult = Source.fromSnippet(
             """
@@ -616,6 +645,7 @@ synchronized (Object.class) {
         executionResult should haveCompleted()
         executionResult should haveOutput("87178291200")
     }
+
     "should correctly handle synchronized instance methods" {
         val executionResult = Source.fromSnippet(
             """
@@ -630,6 +660,7 @@ synchronized (Object.class) {
         executionResult should haveCompleted()
         executionResult should haveOutput("15")
     }
+
     "should correctly handle synchronized methods that involve arrays" {
         val executionResult = Source.fromSnippet(
             """
@@ -647,6 +678,7 @@ synchronized (Object.class) {
         executionResult should haveCompleted()
         executionResult should haveOutput("5")
     }
+
     "should unlock the monitor on successful exit from synchronized methods" {
         val executionResult = Source.fromSnippet(
             """
@@ -675,6 +707,7 @@ synchronized (Object.class) {
         executionResult should haveCompleted()
         executionResult should haveOutput("Hi!\nBye!")
     }
+
     "should unlock the monitor on exceptional exit from synchronized methods" {
         val executionResult = Source.fromSnippet(
             """
@@ -707,6 +740,7 @@ synchronized (Object.class) {
         executionResult should haveCompleted()
         executionResult should haveOutput("Hi!\nBye!")
     }
+
     "should allow exclusion to work correctly with synchronized methods" {
         val executionResult = Source(
             mapOf(
@@ -747,6 +781,7 @@ public class Main {
         executionResult should haveCompleted()
         executionResult should haveOutput("200")
     }
+
     "should prevent untrusted code from running after the task ends" {
         val executionResult = Source(
             mapOf(
@@ -767,6 +802,7 @@ public class Main {
         executionResult should haveCompleted()
         assertThrows<SecurityException> { executionResult.returned!!.toString() }
     }
+
     "should prevent custom exceptions from escaping the sandbox" {
         val executionResult = Source(
             mapOf(
@@ -787,6 +823,7 @@ public class Main {
         executionResult shouldNot haveCompleted()
         executionResult.threw!!.javaClass shouldBe SecurityException::class.java
     }
+
     "should not choke on abstract methods" {
         val executionResult = Source(
             mapOf(
@@ -811,6 +848,7 @@ public class Main {
         executionResult should haveCompleted()
         executionResult should haveOutput("Implementation")
     }
+
     "should cache transformed reloaded bytecode" {
         val compileResult = Source.fromSnippet(
             """
@@ -828,6 +866,7 @@ GlobalScope.class.toString();
         val secondExecution = compileResult.execute(executeArgs)
         secondExecution.sandboxedClassLoader!!.transformedReloadedClasses shouldBe 0
     }
+
     "should key the reloaded bytecode cache by rewriting configuration" {
         val compileResult = Source.fromSnippet(
             """
@@ -852,6 +891,7 @@ GlobalScope.class.toString();
         )
         secondExecution.sandboxedClassLoader!!.transformedReloadedClasses shouldNotBe 0
     }
+
     "should handle NEW instructions at the start of handlers" {
         val executionResult = Source.fromSnippet(
             """
@@ -880,5 +920,146 @@ try {
         executionResult shouldNot haveCompleted()
         executionResult should haveOutput("Try")
         executionResult.threw.shouldBeTypeOf<NullPointerException>()
+    }
+
+    "should support references to submission methods" {
+        val executionResult = Source.fromSnippet(
+            """
+                import java.util.function.*;
+                class Widget {
+                    int instanceGet() {
+                        return 10;
+                    }
+                    static double staticGet() {
+                        return 2.25;
+                    }
+                    Supplier<Object> getInnerFactory() {
+                        return Inner::new;
+                    }
+                    Supplier<String> getSuperStringify() {
+                        return super::toString;
+                    }
+                    public String toString() {
+                        return "Overridden";
+                    }
+                    private class Inner {
+                        public String toString() {
+                            return "Inner";
+                        }
+                    }
+                }
+                DoubleSupplier staticGet = Widget::staticGet;
+                System.out.println(staticGet.getAsDouble());
+                Supplier<Widget> ctor = Widget::new;
+                var widget = ctor.get();
+                ToIntFunction<Widget> unboundInstanceGet = Widget::instanceGet;
+                System.out.println(unboundInstanceGet.applyAsInt(widget));
+                IntSupplier boundInstanceGet = widget::instanceGet;
+                System.out.println(boundInstanceGet.getAsInt());
+                System.out.println(widget.getInnerFactory().get());
+                System.out.println(widget.getSuperStringify().get());
+            """.trimIndent()
+        ).compile().execute()
+        executionResult should haveCompleted()
+        executionResult.output shouldStartWith "2.25\n10\n10\nInner\nWidget@"
+    }
+
+    "should support references to library instance methods" {
+        val executionResult = Source.fromSnippet(
+            """
+                import java.util.function.*;
+                ToIntFunction<Integer> unboundInt = Integer::intValue;
+                Integer i = 5;
+                System.out.println(unboundInt.applyAsInt(i));
+                IntSupplier boundInt = i::intValue;
+                System.out.println(boundInt.getAsInt());
+                Supplier<String> boundIntStringify = i::toString;
+                System.out.println(boundIntStringify.get());
+                ToLongFunction<Long> unboundLong = Long::longValue;
+                Long l = 1L << 33;
+                System.out.println(unboundLong.applyAsLong(l));
+                LongSupplier boundLong = l::longValue;
+                System.out.println(boundLong.getAsLong());
+            """.trimIndent()
+        ).compile().execute()
+        executionResult should haveCompleted()
+        val longResult = 1L shl 33
+        executionResult should haveOutput("5\n5\n5\n$longResult\n$longResult")
+    }
+
+    "should support references to library methods with inexact types" {
+        val executionResult = Source.fromSnippet(
+            """
+                import java.util.function.*;
+                Function<Integer, Object> unboundInt = Integer::intValue;
+                Integer i = 5;
+                System.out.println(unboundInt.apply(i));
+                Supplier<Integer> boundInt = i::intValue;
+                System.out.println(boundInt.get());
+                Supplier<Object> boundIntStringify = i::toString;
+                System.out.println(boundIntStringify.get());
+                Function<Long, Object> unboundLong = Long::longValue;
+                Long l = 1L << 33;
+                System.out.println(unboundLong.apply(l));
+                Supplier<Long> boundLong = l::longValue;
+                System.out.println(boundLong.get());
+            """.trimIndent()
+        ).compile().execute()
+        executionResult should haveCompleted()
+        val longResult = 1L shl 33
+        executionResult should haveOutput("5\n5\n5\n$longResult\n$longResult")
+    }
+
+    "should support references to library interface methods" {
+        val executionResult = Source.fromSnippet(
+            """
+                import java.util.function.*;
+                import java.util.stream.IntStream;
+                ToIntFunction<CharSequence> unboundCsLength = CharSequence::length;
+                System.out.println(unboundCsLength.applyAsInt("abc"));
+                CharSequence c = "abcde";
+                IntSupplier boundCsLength = c::length;
+                System.out.println(boundCsLength.getAsInt());
+                Function<CharSequence, IntStream> csChars = CharSequence::chars;
+                System.out.println(csChars.apply(c).count());
+                
+            """.trimIndent()
+        ).compile().execute()
+        executionResult should haveCompleted()
+        executionResult should haveOutput("3\n5\n5")
+    }
+
+    "should support references to library static methods" {
+        val executionResult = Source.fromSnippet(
+            """
+                import java.util.function.*;
+                import java.util.List;
+                interface StringIntToLongBiFunction {
+                    long apply(String s, int i);
+                }
+                LongFunction<Long> longValueOf = Long::valueOf;
+                System.out.println(longValueOf.apply(10L));
+                StringIntToLongBiFunction parseLongRadix = Long::parseLong;
+                System.out.println(parseLongRadix.apply("FF", 16));
+                Function<String, List<String>> singletonize = List::of; // Interface static method!
+                System.out.println(singletonize.apply("hi"));
+            """.trimIndent()
+        ).compile().execute()
+        executionResult should haveCompleted()
+        executionResult should haveOutput("10\n255\n[hi]")
+    }
+
+    "should support references to library constructors" {
+        val executionResult = Source.fromSnippet(
+            """
+                import java.util.function.*;
+                Function<char[], String> strFromChars = String::new;
+                System.out.println(strFromChars.apply(new char[] {'h', 'i'}));
+                LongFunction<Long> boxLong = Long::new;
+                System.out.println(boxLong.apply(2L));
+            """.trimIndent()
+        ).compile().execute()
+        executionResult should haveCompleted()
+        executionResult should haveOutput("hi\n2")
     }
 })

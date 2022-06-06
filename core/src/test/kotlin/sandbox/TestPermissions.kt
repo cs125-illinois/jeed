@@ -15,12 +15,15 @@ import edu.illinois.cs.cs125.jeed.core.kompile
 import io.kotest.assertions.throwables.shouldThrow
 import io.kotest.core.spec.style.StringSpec
 import io.kotest.matchers.collections.shouldHaveSize
+import io.kotest.matchers.longs.shouldBeGreaterThan
 import io.kotest.matchers.nulls.beNull
 import io.kotest.matchers.should
 import io.kotest.matchers.shouldBe
 import io.kotest.matchers.shouldNot
 import io.kotest.matchers.string.shouldNotContain
+import io.kotest.matchers.types.beInstanceOf
 import io.kotest.matchers.types.instanceOf
+import kotlinx.coroutines.delay
 import java.io.ByteArrayOutputStream
 import java.io.File
 import java.io.PrintStream
@@ -262,6 +265,7 @@ strings.stream()
     .filter(string -> string.length() <= 4)
     .map(String::toUpperCase)
     .sorted()
+    .map(String::new)
     .forEach(System.out::println);
         """.trim()
         ).compile().execute()
@@ -561,7 +565,7 @@ System.out.println(clazz);
         ).compile().execute(SourceExecutionArguments(timeout = 10000))
         executionResult.permissionDenied shouldBe true
         executionResult.threw shouldBe instanceOf<SecurityException>()
-        executionResult.threw!!.message shouldBe "invocation of forbidden method"
+        executionResult.threw!!.message shouldBe "use of forbidden method"
     }
     "should not allow installing an agent through ByteBuddy, coroutine-style" {
         val executionResult = Source.fromSnippet(
@@ -643,6 +647,18 @@ System.out.println(Class.forName("edu.illinois.cs.cs125.jeed.core.Sandbox", true
         executionResult shouldNot haveCompleted()
         executionResult.permissionDenied shouldBe true
     }
+    "should block forbidden methods in method references" {
+        val executionResult = Source.fromSnippet(
+            """
+                import java.util.function.*;
+                class X {}
+                Function<Class<?>, ClassLoader> gcl = Class::getClassLoader;
+                System.out.println(gcl.apply(X.class));
+            """.trimIndent()
+        ).compile().execute()
+        executionResult shouldNot haveCompleted()
+        executionResult.permissionDenied shouldBe true
+    }
     "should not allow using classloaders by default" {
         val executionResult = Source.fromSnippet(
             """
@@ -687,6 +703,49 @@ import java.nio.*;
 MappedByteBuffer.allocateDirect(1000);
         """.trim()
         ).compile().execute(SourceExecutionArguments(timeout = 10000))
+        executionResult shouldNot haveCompleted()
+        executionResult.permissionDenied shouldBe true
+    }
+    "should not allow parallel streams to escape the sandbox" {
+        repeat(3) {
+            // Try a few times, with a short delay --
+            // the sandbox thread can throw before the background threads call exit
+            val executionResult = Source.fromSnippet(
+                """
+                import java.util.Arrays;
+                int[] ints = new int[1024];
+                Arrays.stream(ints).parallel().forEach(System::exit);
+                """.trimIndent()
+            ).compile().execute()
+            executionResult shouldNot haveCompleted()
+            executionResult.threw should beInstanceOf<SecurityException>()
+            delay(2L - it)
+        }
+    }
+    "should not allow parallel streams to poison the pool" {
+        val executionResult = Source.fromSnippet(
+            """
+            import java.util.Arrays;
+            int[] ints = new int[1024];
+            Arrays.stream(ints).parallel().forEach(System::exit);
+            """.trimIndent()
+        ).compile().execute()
+        executionResult shouldNot haveCompleted()
+        executionResult.threw should beInstanceOf<SecurityException>()
+        (0 until 1024).toList().parallelStream().map {
+            Thread.sleep(1) // Prevent the main thread from doing all the work
+            Thread.currentThread()
+        }.distinct().count() shouldBeGreaterThan 1
+    }
+    "should not allow printing to the real stdout" {
+        val executionResult = Source.fromSnippet(
+            """
+            import java.io.*;
+            FileOutputStream fdOut = new FileOutputStream(FileDescriptor.out);
+            PrintStream psOut = new PrintStream(fdOut, true);
+            psOut.println("Uh oh");
+            """.trimIndent()
+        ).compile().execute()
         executionResult shouldNot haveCompleted()
         executionResult.permissionDenied shouldBe true
     }
