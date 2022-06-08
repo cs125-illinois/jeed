@@ -867,6 +867,7 @@ object Sandbox {
             private val reloadedBytecodeCache: Cache<ReloadCacheKey, ByteArray> = Caffeine.newBuilder()
                 .maximumWeight(RELOAD_CACHE_SIZE_BYTES)
                 .weigher<ReloadCacheKey, ByteArray> { _, value -> value.size }
+                .executor { task -> task.run() } // Do not create new cache-cleaning thread
                 .build()
         }
 
@@ -924,9 +925,9 @@ object Sandbox {
             ?: error("should have a method name")
         private val checkMethodDescription = Type.getMethodDescriptor(RewriteBytecode::checkException.javaMethod)
             ?: error("should be able to retrieve method signature")
-        private val enclosureMethodName = RewriteBytecode::checkSandboxEnclosure.javaMethod?.name
+        val enclosureMethodName = RewriteBytecode::checkSandboxEnclosure.javaMethod?.name
             ?: error("should have a method name for the enclosure checker")
-        private val enclosureMethodDescription =
+        val enclosureMethodDescriptor =
             Type.getMethodDescriptor(RewriteBytecode::checkSandboxEnclosure.javaMethod)
                 ?: error("should be able to retrieve method signature for enclosure checker")
         private val syncNotifyMethods = mapOf(
@@ -1132,7 +1133,7 @@ object Sandbox {
                         Opcodes.INVOKESTATIC,
                         rewriterClassName,
                         enclosureMethodName,
-                        enclosureMethodDescription,
+                        enclosureMethodDescriptor,
                         false
                     )
                     wrapperMv.visitLdcInsn(handle)
@@ -1270,7 +1271,7 @@ object Sandbox {
                     Opcodes.INVOKESTATIC,
                     rewriterClassName,
                     enclosureMethodName,
-                    enclosureMethodDescription,
+                    enclosureMethodDescriptor,
                     false
                 )
             }

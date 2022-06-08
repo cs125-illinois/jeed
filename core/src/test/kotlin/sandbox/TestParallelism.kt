@@ -120,7 +120,9 @@ for (int i = 0; i < 32; i++) {
 
         totalTime.toDouble() shouldBeLessThan individualTimeSum * 0.8
     }
-    "parallelStream should work in sandbox" {
+    "!parallelStream should work in sandbox" {
+        // Untrusted code must not be allowed to specify the code that runs in a trusted thread
+        // TODO? Give confined tasks their own ForkJoinPool so they can use parallel streams
         Source.fromSnippet(
             """
 import java.util.List;
