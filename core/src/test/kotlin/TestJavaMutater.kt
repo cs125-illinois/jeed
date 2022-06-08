@@ -59,6 +59,20 @@ public class Example {
             mutations[1].check(contents, "\"\"")
         }
     }
+    "it should find string literals to trim" {
+        Source.fromJava(
+            """
+public class Example {
+  public static void example() {
+    System.out.println("Hello, world!");
+    String s = "";
+  }
+}"""
+        ).checkMutations<StringLiteralTrim> { mutations, contents ->
+            mutations shouldHaveSize 1
+            mutations[0].check(contents, """"Hello, world!"""".trimMargin())
+        }
+    }
     "it should not mutate string escapes" {
         Source.fromJava(
             """
@@ -70,7 +84,7 @@ public class Example {
         ).checkMutations<StringLiteral> { mutations, contents ->
             mutations shouldHaveSize 1
             mutations[0].check(contents, """"\\\\"""").also {
-                it shouldMatch ".*println\\(\" \"\\).*".toRegex(RegexOption.DOT_MATCHES_ALL)
+                it shouldMatch ".*\\\\.*".toRegex(RegexOption.DOT_MATCHES_ALL)
             }
         }
         Source.fromJava(
@@ -83,7 +97,7 @@ public class Example {
         ).checkMutations<StringLiteral> { mutations, contents ->
             mutations shouldHaveSize 1
             mutations[0].check(contents, """"\\t\\"""").also {
-                it shouldMatch ".*println\\(\" \"\\).*".toRegex(RegexOption.DOT_MATCHES_ALL)
+                it shouldMatch ".*\\\\.*".toRegex(RegexOption.DOT_MATCHES_ALL)
             }
         }
         Source.fromJava(
@@ -96,7 +110,7 @@ public class Example {
         ).checkMutations<StringLiteral> { mutations, contents ->
             mutations shouldHaveSize 1
             mutations[0].check(contents, """"\\t\\"""").also {
-                it shouldMatch ".*println\\(\" \"\\).*".toRegex(RegexOption.DOT_MATCHES_ALL)
+                it shouldMatch ".*\\\\.*".toRegex(RegexOption.DOT_MATCHES_ALL)
             }
         }
         Source.fromJava(
@@ -735,7 +749,7 @@ public class Example {
   }
 }"""
         ).allMutations().also { mutations ->
-            mutations shouldHaveSize 5
+            mutations shouldHaveSize 6
             mutations[0].cleaned().also {
                 it["Main.java"] shouldNotContain "mutate-disable"
             }
@@ -770,7 +784,13 @@ public class Example {
   }
 }"""
         ).also { source ->
-            source.mutater(types = ALL - setOf(Mutation.Type.REMOVE_METHOD, Mutation.Type.REMOVE_STATEMENT))
+            source.mutater(
+                types = ALL - setOf(
+                    Mutation.Type.REMOVE_METHOD,
+                    Mutation.Type.REMOVE_STATEMENT,
+                    Mutation.Type.STRING_LITERAL_TRIM
+                )
+            )
                 .also { mutater ->
                     mutater.appliedMutations shouldHaveSize 0
                     val modifiedSource = mutater.apply().contents
@@ -792,7 +812,8 @@ public class Example {
             source.allMutations(
                 types = ALL - setOf(
                     Mutation.Type.REMOVE_METHOD,
-                    Mutation.Type.REMOVE_STATEMENT
+                    Mutation.Type.REMOVE_STATEMENT,
+                    Mutation.Type.STRING_LITERAL_TRIM
                 )
             ).also { mutatedSources ->
                 mutatedSources shouldHaveSize 2
@@ -883,7 +904,7 @@ public class Example {
   }
 }"""
         ).also { source ->
-            source.mutationStream().take(1024).toList().size shouldBe 1024
+            source.mutationStream().take(512).toList().size shouldBe 512
         }
     }
     "it should apply all fixed mutations" {
@@ -891,15 +912,15 @@ public class Example {
             """
 public class Example {
   String testStream() {
-    String test = "foobarfoobarfoobarfoobar";
-    if (test.length() > 4) {
-      return "blah";
+    String test = "foobarfoobarfoobarfoobar"; // 5 mutations
+    if (test.length() > 4) { // 3 + 3 mutations
+      return "blah"; // 5 mutations
     }
-    return test;
+    return test; // 1 mutation
   }
 }"""
         ).allFixedMutations(random = Random(124)).also { mutations ->
-            mutations shouldHaveSize 16
+            mutations.size shouldBe 20
         }
     }
     "it should end stream mutations when out of things to mutate" {
@@ -941,7 +962,7 @@ public class Example {
     }
 }"""
         ).allMutations().also { mutations ->
-            mutations shouldHaveSize 10
+            mutations shouldHaveSize 11
             mutations.forEach { mutatedSource ->
                 mutatedSource.marked().checkstyle(CheckstyleArguments(failOnError = true))
             }

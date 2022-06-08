@@ -77,6 +77,24 @@ fun example() {
             mutations[2].check(contents, "Test Me")
         }
     }
+    "it should find string literals to trim" {
+        Source.fromKotlin(
+            """
+fun example() {
+    println("Hello, world!")
+    val l = listOf()
+    val s: String = ""
+    val t = ${"\"\"\""}Test Me${"\"\"\""}
+    val u = "front ${"$"}{l.size} middle ${"$"}{l.size} back"
+    val v = ${"\"\"\""}front ${"$"}{l.size} middle ${"$"}{l.size} back${"\"\"\""}
+}
+""".trim()
+        ).checkMutations<StringLiteralTrim> { mutations, contents ->
+            mutations shouldHaveSize 8
+            mutations[0].check(contents, "Hello, world!")
+            mutations[1].check(contents, "Test Me")
+        }
+    }
     "it should not mutate expressions in strings" {
         Source.fromKotlin(
             """
@@ -636,7 +654,7 @@ fun fourth(): Object {
   }
 """.trim()
         ).allMutations().also { mutations ->
-            mutations shouldHaveSize 6
+            mutations shouldHaveSize 7
             mutations[0].cleaned().also {
                 it["Main.kt"] shouldNotContain "mutate-disable"
             }
@@ -669,7 +687,13 @@ fun greeting() {
 }
 """.trim()
         ).also { source ->
-            source.mutater(types = ALL - setOf(Mutation.Type.REMOVE_METHOD, Mutation.Type.REMOVE_STATEMENT))
+            source.mutater(
+                types = ALL - setOf(
+                    Mutation.Type.REMOVE_METHOD,
+                    Mutation.Type.REMOVE_STATEMENT,
+                    Mutation.Type.STRING_LITERAL_TRIM
+                )
+            )
                 .also { mutater ->
                     mutater.appliedMutations shouldHaveSize 0
                     val modifiedSource = mutater.apply().contents
@@ -691,7 +715,8 @@ fun greeting() {
             source.allMutations(
                 types = ALL - setOf(
                     Mutation.Type.REMOVE_METHOD,
-                    Mutation.Type.REMOVE_STATEMENT
+                    Mutation.Type.REMOVE_STATEMENT,
+                    Mutation.Type.STRING_LITERAL_TRIM
                 )
             ).also { mutatedSources ->
                 mutatedSources shouldHaveSize 2
@@ -794,7 +819,7 @@ fun testStream(): String {
 }
 """.trim()
         ).also { source ->
-            source.mutationStream().take(1024).toList().size shouldBe 1024
+            source.mutationStream().take(512).toList().size shouldBe 512
         }
     }
     "it should apply all fixed mutations" {
@@ -809,7 +834,7 @@ fun testStream(): String {
 }
 """.trim()
         ).allFixedMutations(random = Random(124)).also { mutations ->
-            mutations shouldHaveSize 19
+            mutations shouldHaveSize 23
         }
     }
     "it should end stream mutations when out of things to mutate" {
@@ -847,7 +872,7 @@ fun reformatName(input: String?) {
 }
 """.trim()
         ).allMutations().also { mutations ->
-            mutations shouldHaveSize 12
+            mutations shouldHaveSize 13
             mutations.forEach { mutatedSource ->
                 mutatedSource.marked().ktLint(KtLintArguments(failOnError = true))
             }

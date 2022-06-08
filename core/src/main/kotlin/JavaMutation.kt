@@ -87,7 +87,11 @@ class JavaMutationListener(private val parsedSource: Source.ParsedSource) : Java
         }
         ctx.STRING_LITERAL()?.also {
             ctx.toLocation().also { location ->
-                mutations.add(StringLiteral(location, parsedSource.contents(location), fileType))
+                val contents = parsedSource.contents(location)
+                mutations.add(StringLiteral(location, contents, fileType))
+                if (StringLiteralTrim.matches(contents)) {
+                    mutations.add(StringLiteralTrim(location, contents, fileType))
+                }
             }
         }
         ctx.integerLiteral()?.also { integerLiteral ->
@@ -378,6 +382,15 @@ class JavaMutationListener(private val parsedSource: Source.ParsedSource) : Java
         }
         ctx.CONTINUE()?.symbol?.also {
             mutations.add(SwapBreakContinue(it.toLocation(), parsedSource.contents(it.toLocation()), fileType))
+        }
+        ctx.statementExpression?.also {
+            @Suppress("ComplexCondition")
+            if (it.text.startsWith("System.out.println(") ||
+                it.text.startsWith("System.out.print(") ||
+                it.text.startsWith("System.err.println(") ||
+                it.text.startsWith("System.err.print(")
+            ) {
+            }
         }
     }
 

@@ -2,6 +2,7 @@
 
 package edu.illinois.cs.cs125.jeed.core
 
+import com.github.jknack.handlebars.internal.text.StringEscapeUtils
 import com.squareup.moshi.JsonClass
 import java.util.Objects
 import kotlin.math.abs
@@ -65,7 +66,8 @@ sealed class Mutation(
         NEGATE_IF, NEGATE_WHILE, REMOVE_IF, REMOVE_LOOP, REMOVE_AND_OR, REMOVE_TRY, REMOVE_STATEMENT,
         REMOVE_PLUS, REMOVE_BINARY, CHANGE_EQUALS,
         SWAP_BREAK_CONTINUE, PLUS_OR_MINUS_ONE_TO_ZERO, ADD_BREAK,
-        MODIFY_ARRAY_LITERAL
+        MODIFY_ARRAY_LITERAL,
+        STRING_LITERAL_TRIM
     }
 
     var modified: String? = null
@@ -195,7 +197,8 @@ val OTHER = setOf(
     Mutation.Type.CHANGE_EQUALS,
     Mutation.Type.SWAP_BREAK_CONTINUE,
     Mutation.Type.PLUS_OR_MINUS_ONE_TO_ZERO,
-    Mutation.Type.ADD_BREAK
+    Mutation.Type.ADD_BREAK,
+    Mutation.Type.STRING_LITERAL_TRIM
 )
 val ALL = PITEST + OTHER
 
@@ -241,9 +244,34 @@ class CharLiteral(
         ALPHANUMERIC_CHARS.filter { it != character }.shuffled(random).first().let { "'$it'" }
 }
 
-val NUMERIC_CHARS = ('0'..'9').toSet()
+private val ALPHANUMERIC_CHARS_AND_SPACE = (('a'..'z') + ('A'..'Z') + ('0'..'9') + (' ')).toSet()
+private val PUNCTUATION = setOf('.', ',', '!', '?', ';', ':', '[', ']', '(', ')', '<', '>')
+private val LOOKALIKES =
+    mapOf('0' to 'O', 'o' to '0', '1' to 'l', '.' to ',', '!' to '?', ':' to ';', '[' to '(', ']' to ')').toSortedMap()
 
-val ALPHANUMERIC_CHARS_AND_SPACE = (('a'..'z') + ('A'..'Z') + ('0'..'9') + (' ')).toSet()
+private fun replaceCharacter(input: Char, random: Random): Char {
+    val alternatives =
+        mutableListOf(ALPHANUMERIC_CHARS_AND_SPACE.filter { it != input }.shuffled(random).first())
+    if (input.isLetter()) {
+        if (input.isUpperCase()) {
+            alternatives.add(input.lowercaseChar())
+        } else if (input.isLowerCase()) {
+            alternatives.add(input.uppercaseChar())
+        } else if (input.isDigit()) {
+            alternatives.add((input.digitToInt() + 1 % 10).toChar())
+        } else if (PUNCTUATION.contains(input)) {
+            alternatives.add(PUNCTUATION.filter { it != input }.shuffled(random).first())
+        }
+    }
+    for ((first, second) in LOOKALIKES) {
+        if (input == first) {
+            alternatives.add(second)
+        } else if (input == second) {
+            alternatives.add(first)
+        }
+    }
+    return alternatives.shuffled(random).first()
+}
 
 class StringLiteral(
     location: Location,
@@ -251,11 +279,13 @@ class StringLiteral(
     fileType: Source.FileType,
     private val withQuotes: Boolean = true
 ) : Mutation(Type.STRING_LITERAL, location, original, fileType) {
-    override val preservesLength = true
+    override val preservesLength = false
     private val string = if (withQuotes) {
         original.removeSurrounding("\"")
     } else {
         original
+    }.let {
+        StringEscapeUtils.unescapeJava(it)
     }
     override val estimatedCount = ALPHANUMERIC_CHARS_AND_SPACE.size.toDouble().pow(string.length).toInt() - 1
     override val mightNotCompile = false
@@ -267,6 +297,7 @@ class StringLiteral(
             " "
         } else {
             string.toCharArray().let { characters ->
+                /*
                 val validPositions = (characters.indices).filter {
                     // Don't break escapes or escape sequences
                     characters[it] != '\\' && (it == 0 || characters[it - 1] != '\\')
@@ -274,11 +305,16 @@ class StringLiteral(
                 if (validPositions.isEmpty()) {
                     " "
                 } else {
-                    val position = validPositions.random()
-                    characters[position] =
-                        (ALPHANUMERIC_CHARS_AND_SPACE.filter { it != characters[position] }).shuffled(random).first()
+                    val position = validPositions.random(random)
+                    characters[position] = replaceCharacter(characters[position], random)
                     characters.joinToString("")
                 }
+                 */
+                val position = characters.indices.random(random)
+                characters[position] = replaceCharacter(characters[position], random)
+                characters.joinToString("")
+            }.let {
+                StringEscapeUtils.escapeJava(it)
             }
         }.let {
             if (withQuotes) {
@@ -286,6 +322,54 @@ class StringLiteral(
             } else {
                 it
             }
+        }
+    }
+}
+
+class StringLiteralTrim(
+    location: Location,
+    original: String,
+    fileType: Source.FileType,
+    private val withQuotes: Boolean = true
+) : Mutation(Type.STRING_LITERAL_TRIM, location, original, fileType) {
+    override val preservesLength = false
+    private val string = if (withQuotes) {
+        original.removeSurrounding("\"")
+    } else {
+        original
+    }.let {
+        StringEscapeUtils.unescapeJava(it)
+    }
+    override val estimatedCount = 2
+    override val mightNotCompile = false
+    override val fixedCount = true
+
+    @Suppress("NestedBlockDepth")
+    override fun applyMutation(random: Random): String {
+        return if (random.nextBoolean()) {
+            string.substring(1)
+        } else {
+            string.substring(0, string.length - 1)
+        }.let {
+            StringEscapeUtils.escapeJava(it)
+        }.let {
+            if (withQuotes) {
+                "\"$it\""
+            } else {
+                it
+            }
+        }
+    }
+
+    companion object {
+        fun matches(contents: String, withQuotes: Boolean = true) = contents.let {
+            if (withQuotes) {
+                contents.removeSurrounding("\"")
+            } else {
+                contents
+            }
+        }.let {
+            StringEscapeUtils.unescapeJava(it).length >= 2
         }
     }
 }
@@ -303,7 +387,7 @@ class NumberLiteral(
     private val numberPositions = original
         .toCharArray()
         .mapIndexed { index, c -> Pair(index, c) }
-        .filter { it.second in NUMERIC_CHARS }
+        .filter { it.second.isDigit() }
         .map { it.first }.also {
             check(it.isNotEmpty()) { "No numeric characters in numeric literal" }
         }

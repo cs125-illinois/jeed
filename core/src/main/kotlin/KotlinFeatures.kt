@@ -186,7 +186,7 @@ class KotlinFeatureListener(val source: Source, entry: Map.Entry<String, String>
 
     init {
         val parsedSource = source.getParsed(filename)
-        println(parsedSource.tree.format(parsedSource.parser))
+        // println(parsedSource.tree.format(parsedSource.parser))
         ParseTreeWalker.DEFAULT.walk(this, parsedSource.tree)
     }
 }

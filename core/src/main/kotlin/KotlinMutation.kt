@@ -135,7 +135,11 @@ class KotlinMutationListener(private val parsedSource: Source.ParsedSource) : Ko
             return
         }
         ctx.toLocation().also { location ->
-            mutations.add(StringLiteral(location, parsedSource.contents(location), fileType, false))
+            val contents = parsedSource.contents(location)
+            mutations.add(StringLiteral(location, contents, fileType, false))
+            if (StringLiteralTrim.matches(contents, false)) {
+                mutations.add(StringLiteralTrim(location, contents, fileType, false))
+            }
         }
     }
 
@@ -144,7 +148,11 @@ class KotlinMutationListener(private val parsedSource: Source.ParsedSource) : Ko
             return
         }
         ctx.toLocation().also { location ->
-            mutations.add(StringLiteral(location, parsedSource.contents(location), fileType, false))
+            val contents = parsedSource.contents(location)
+            mutations.add(StringLiteral(location, contents, fileType, false))
+            if (StringLiteralTrim.matches(contents, false)) {
+                mutations.add(StringLiteralTrim(location, contents, fileType, false))
+            }
         }
     }
 
@@ -154,7 +162,11 @@ class KotlinMutationListener(private val parsedSource: Source.ParsedSource) : Ko
         }
         if (ctx.lineStringContent().isEmpty() && ctx.lineStringExpression().isEmpty()) {
             ctx.toLocation().also { location ->
-                mutations.add(StringLiteral(location, parsedSource.contents(location), fileType))
+                val contents = parsedSource.contents(location)
+                mutations.add(StringLiteral(location, contents, fileType))
+                if (StringLiteralTrim.matches(contents)) {
+                    mutations.add(StringLiteralTrim(location, contents, fileType))
+                }
             }
         }
     }
