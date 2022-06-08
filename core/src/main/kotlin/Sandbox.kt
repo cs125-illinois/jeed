@@ -59,7 +59,12 @@ object Sandbox {
         warmPlatform()
     }
 
-    private val runtime = ManagementFactoryHelper.getHotspotRuntimeMBean()
+    private val runtime = try {
+        ManagementFactoryHelper.getHotspotRuntimeMBean()
+    } catch (e: IllegalAccessError) {
+        // Gracefully degrade if deployed without the needed --add-exports
+        null
+    }
 
     @JsonClass(generateAdapter = true)
     class ClassLoaderConfiguration(
@@ -171,7 +176,7 @@ object Sandbox {
         @Suppress("unused") // TEMP: Report any platform class initializers interrupted by sandbox death
         val killedClassInitializers: List<String>,
         @Suppress("unused")
-        val totalSafetime: Long
+        val totalSafetime: Long?
     ) {
         @JsonClass(generateAdapter = true)
         data class OutputLine(
@@ -311,7 +316,7 @@ object Sandbox {
             try {
                 val confinedTask = confine(callable, sandboxedClassLoader, executionArguments)
                 val executionStarted = Instant.now()
-                val safetimeStarted = runtime.totalSafepointTime
+                val safetimeStarted = runtime?.totalSafepointTime
                 val taskResult = try {
                     confinedTask.thread.start()
                     TaskResult(confinedTask.task.get(executionArguments.timeout, TimeUnit.MILLISECONDS))
@@ -388,7 +393,7 @@ object Sandbox {
                     }
                 }
 
-                val totalSafetime = runtime.totalSafepointTime - safetimeStarted
+                val totalSafetime = runtime?.totalSafepointTime?.let { it - safetimeStarted!! }
                 val executionEnded = Instant.now()
                 release(confinedTask)
 
