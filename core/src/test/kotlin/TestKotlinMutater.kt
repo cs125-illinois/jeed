@@ -125,6 +125,26 @@ fun example() {
             mutations[3].check(contents, "0b1001011")
         }
     }
+    "it should find number literals to trim" {
+        Source.fromKotlin(
+            """
+fun example() {
+    println(1234)
+    val f: Float = 1.01f
+    val l: Long = 10L
+    var hex: Int = 0x0F
+    val bin = 0b1001011
+}
+""".trim()
+        ).checkMutations<NumberLiteralTrim> { mutations, contents ->
+            mutations shouldHaveSize 5
+            mutations[0].check(contents, "1234")
+            mutations[1].check(contents, "1.01f")
+            mutations[2].check(contents, "10L")
+            mutations[3].check(contents, "0x0F")
+            mutations[4].check(contents, "0b1001011")
+        }
+    }
     "it should find increments and decrements to mutate" { // what if in text
         Source.fromKotlin(
             """
@@ -734,7 +754,7 @@ fun testing(): Int {
         ).also { source ->
             source.mutater(types = ALL - setOf(Mutation.Type.REMOVE_METHOD, Mutation.Type.REMOVE_STATEMENT))
                 .also { mutater ->
-                    mutater.size shouldBe 2
+                    mutater.size shouldBe 3
                     mutater.apply()
                     mutater.size shouldBe 0
                 }
@@ -754,15 +774,15 @@ fun testing(): Int {
                 types = ALL - setOf(Mutation.Type.REMOVE_METHOD, Mutation.Type.REMOVE_STATEMENT)
             )
                 .also { mutater ->
-                    mutater.size shouldBe 3
+                    mutater.size shouldBe 4
                     mutater.apply()
-                    mutater.size shouldBe 2
+                    mutater.size shouldBe 3
                     mutater.apply()
                     mutater.size shouldBe 0
                 }
             source.allMutations(types = ALL - setOf(Mutation.Type.REMOVE_METHOD, Mutation.Type.REMOVE_STATEMENT))
                 .also { mutations ->
-                    mutations shouldHaveSize 3
+                    mutations shouldHaveSize 4
                     mutations.map { it.contents }.toSet() shouldHaveSize 3
                 }
         }

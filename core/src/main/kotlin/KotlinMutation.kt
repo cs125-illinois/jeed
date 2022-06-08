@@ -183,18 +183,30 @@ class KotlinMutationListener(private val parsedSource: Source.ParsedSource) : Ko
         }
         ctx.IntegerLiteral()?.also {
             ctx.toLocation().also { location ->
-                mutations.add(NumberLiteral(location, parsedSource.contents(location), fileType))
+                val content = parsedSource.contents(location)
+                mutations.add(NumberLiteral(location, content, fileType))
+                if (NumberLiteralTrim.matches(content)) {
+                    mutations.add(NumberLiteralTrim(location, content, fileType))
+                }
             }
         }
         @Suppress("MagicNumber")
         ctx.HexLiteral()?.also {
             ctx.toLocation().also { location ->
-                mutations.add(NumberLiteral(location, parsedSource.contents(location), fileType, 16))
+                val content = parsedSource.contents(location)
+                mutations.add(NumberLiteral(location, content, fileType))
+                if (NumberLiteralTrim.matches(content, 16)) {
+                    mutations.add(NumberLiteralTrim(location, content, fileType, 16))
+                }
             }
         }
         ctx.BinLiteral()?.also {
             ctx.toLocation().also { location ->
-                mutations.add(NumberLiteral(location, parsedSource.contents(location), fileType, 2))
+                val content = parsedSource.contents(location)
+                mutations.add(NumberLiteral(location, content, fileType))
+                if (NumberLiteralTrim.matches(content, 2)) {
+                    mutations.add(NumberLiteralTrim(location, content, fileType, 2))
+                }
             }
         }
         ctx.CharacterLiteral()?.also {
@@ -205,12 +217,20 @@ class KotlinMutationListener(private val parsedSource: Source.ParsedSource) : Ko
         // reals are doubles and floats
         ctx.RealLiteral()?.also {
             ctx.toLocation().also { location ->
-                mutations.add(NumberLiteral(location, parsedSource.contents(location), fileType))
+                val content = parsedSource.contents(location)
+                mutations.add(NumberLiteral(location, content, fileType))
+                if (NumberLiteralTrim.matches(content)) {
+                    mutations.add(NumberLiteralTrim(location, content, fileType))
+                }
             }
         }
         ctx.LongLiteral()?.also {
             ctx.toLocation().also { location ->
-                mutations.add(NumberLiteral(location, parsedSource.contents(location), fileType))
+                val content = parsedSource.contents(location)
+                mutations.add(NumberLiteral(location, content, fileType))
+                if (NumberLiteralTrim.matches(content)) {
+                    mutations.add(NumberLiteralTrim(location, content, fileType))
+                }
             }
         }
     }

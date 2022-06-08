@@ -67,7 +67,7 @@ sealed class Mutation(
         REMOVE_PLUS, REMOVE_BINARY, CHANGE_EQUALS,
         SWAP_BREAK_CONTINUE, PLUS_OR_MINUS_ONE_TO_ZERO, ADD_BREAK,
         MODIFY_ARRAY_LITERAL,
-        STRING_LITERAL_TRIM
+        STRING_LITERAL_TRIM, NUMBER_LITERAL_TRIM
     }
 
     var modified: String? = null
@@ -198,7 +198,8 @@ val OTHER = setOf(
     Mutation.Type.SWAP_BREAK_CONTINUE,
     Mutation.Type.PLUS_OR_MINUS_ONE_TO_ZERO,
     Mutation.Type.ADD_BREAK,
-    Mutation.Type.STRING_LITERAL_TRIM
+    Mutation.Type.STRING_LITERAL_TRIM,
+    Mutation.Type.NUMBER_LITERAL_TRIM
 )
 val ALL = PITEST + OTHER
 
@@ -384,10 +385,9 @@ class NumberLiteral(
     override val mightNotCompile = false
     override val fixedCount = false
 
-    private val numberPositions = original
-        .toCharArray()
+    private val numberPositions = original.toCharArray()
         .mapIndexed { index, c -> Pair(index, c) }
-        .filter { it.second.isDigit() }
+        .filter { (index, c) -> c.isDigit() && (base != 8 || index > 0) }
         .map { it.first }.also {
             check(it.isNotEmpty()) { "No numeric characters in numeric literal" }
         }
@@ -421,6 +421,53 @@ class NumberLiteral(
             // Sadder than it needs to be, since int <-> char conversions in Kotlin use ASCII values
             characters[position] = randomValue.toString().toCharArray()[0]
         }.let { String(it) }
+    }
+}
+
+class NumberLiteralTrim(
+    location: Location,
+    original: String,
+    fileType: Source.FileType,
+    base: Int = if (original.startsWith("0")) {
+        8
+    } else {
+        10
+    }
+) : Mutation(Type.NUMBER_LITERAL_TRIM, location, original, fileType) {
+    override val preservesLength = false
+    override val mightNotCompile = false
+    override val fixedCount = true
+
+    private val options = original.trims(base)
+    override val estimatedCount = options.size
+
+    override fun applyMutation(random: Random) = options.shuffled(random).first()
+
+    companion object {
+        private fun String.trims(base: Int = 10): List<String> {
+            val prefix = when (base) {
+                10 -> ""
+                2 -> "0b"
+                16 -> "0x"
+                8 -> "0"
+                else -> error("Invalid base $base")
+            }
+            check(startsWith(prefix))
+            val suffix = removePrefix(prefix).split(".").last().filter {
+                Character.digit(it, base) == -1
+            }
+            check(endsWith(suffix)) { "Whoops: $this, $suffix" }
+            val digitContent = removePrefix(prefix).removeSuffix(suffix)
+            return digitContent.split(".", limit = 2).filter { it.length > 1 }.mapIndexed { index, s ->
+                when (index) {
+                    0 -> s.substring(1, s.length)
+                    1 -> s.substring(0, s.length - 1)
+                    else -> error("Invalid index")
+                }
+            }.map { "$prefix$it$suffix" }
+        }
+
+        fun matches(contents: String, base: Int = 10) = contents.trims(base).isNotEmpty()
     }
 }
 

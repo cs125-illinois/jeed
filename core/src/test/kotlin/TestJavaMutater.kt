@@ -142,6 +142,25 @@ public class Example {
             mutations[1].check(contents, "1.01f")
         }
     }
+    "it should find number literals to trim" {
+        Source.fromJava(
+            """
+public class Example {
+  public static void example() {
+    System.out.println(1234);
+    float f = 1.0f;
+    long t = 10L;
+    double d = 0.0;
+    int first = 01234;
+    int second = 0x101;
+    int third = 0b101010;
+  }
+}"""
+        ).checkMutations<NumberLiteralTrim> { mutations, contents ->
+            mutations shouldHaveSize 4
+            mutations[0].check(contents, "1234")
+        }
+    }
     "it should find increments and decrements to mutate" {
         Source.fromJava(
             """
@@ -831,7 +850,7 @@ public class Example {
 }"""
         ).also { source ->
             source.mutater(types = ALL - setOf(Mutation.Type.REMOVE_METHOD)).also { mutater ->
-                mutater.size shouldBe 2
+                mutater.size shouldBe 3
                 mutater.apply()
                 mutater.size shouldBe 0
             }
@@ -848,14 +867,14 @@ public class Example {
 }"""
         ).also { source ->
             source.mutater(shuffle = false, types = ALL - setOf(Mutation.Type.REMOVE_METHOD)).also { mutater ->
-                mutater.size shouldBe 3
+                mutater.size shouldBe 4
                 mutater.apply()
-                mutater.size shouldBe 2
+                mutater.size shouldBe 3
                 mutater.apply()
                 mutater.size shouldBe 0
             }
             source.allMutations(types = ALL - setOf(Mutation.Type.REMOVE_METHOD)).also { mutations ->
-                mutations shouldHaveSize 3
+                mutations shouldHaveSize 4
                 mutations.map { it.contents }.toSet() shouldHaveSize 3
             }
         }

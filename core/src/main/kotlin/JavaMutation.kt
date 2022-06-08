@@ -97,14 +97,40 @@ class JavaMutationListener(private val parsedSource: Source.ParsedSource) : Java
         ctx.integerLiteral()?.also { integerLiteral ->
             integerLiteral.DECIMAL_LITERAL()?.also {
                 ctx.toLocation().also { location ->
-                    mutations.add(NumberLiteral(location, parsedSource.contents(location), fileType))
+                    val contents = parsedSource.contents(location)
+                    mutations.add(NumberLiteral(location, contents, fileType))
+                    if (NumberLiteralTrim.matches(contents)) {
+                        mutations.add(NumberLiteralTrim(location, contents, fileType))
+                    }
+                }
+            }
+            integerLiteral.BINARY_LITERAL()?.also {
+                ctx.toLocation().also { location ->
+                    val contents = parsedSource.contents(location)
+                    mutations.add(NumberLiteral(location, contents, fileType, 2))
+                    if (NumberLiteralTrim.matches(contents, 2)) {
+                        mutations.add(NumberLiteralTrim(location, contents, fileType, 2))
+                    }
+                }
+            }
+            integerLiteral.HEX_LITERAL()?.also {
+                ctx.toLocation().also { location ->
+                    val contents = parsedSource.contents(location)
+                    mutations.add(NumberLiteral(location, contents, fileType, 16))
+                    if (NumberLiteralTrim.matches(contents, 16)) {
+                        mutations.add(NumberLiteralTrim(location, contents, fileType, 16))
+                    }
                 }
             }
         }
         ctx.floatLiteral()?.also { floatLiteral ->
             floatLiteral.FLOAT_LITERAL()?.also {
                 ctx.toLocation().also { location ->
-                    mutations.add(NumberLiteral(location, parsedSource.contents(location), fileType))
+                    val contents = parsedSource.contents(location)
+                    mutations.add(NumberLiteral(location, contents, fileType))
+                    if (NumberLiteralTrim.matches(contents)) {
+                        mutations.add(NumberLiteralTrim(location, contents, fileType))
+                    }
                 }
             }
         }
