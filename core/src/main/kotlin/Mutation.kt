@@ -58,7 +58,7 @@ sealed class Mutation(
     }
 
     enum class Type {
-        BOOLEAN_LITERAL, CHAR_LITERAL, STRING_LITERAL, STRING_LITERAL_LOOKALIKE, NUMBER_LITERAL,
+        BOOLEAN_LITERAL, CHAR_LITERAL, STRING_LITERAL, STRING_LITERAL_LOOKALIKE, STRING_LITERAL_CASE, NUMBER_LITERAL,
         CONDITIONAL_BOUNDARY, NEGATE_CONDITIONAL, SWAP_AND_OR,
         INCREMENT_DECREMENT, INVERT_NEGATION, MATH,
         PRIMITIVE_RETURN, TRUE_RETURN, FALSE_RETURN, NULL_RETURN, PLUS_TO_MINUS,
@@ -171,6 +171,7 @@ val PITEST = setOf(
     Mutation.Type.CHAR_LITERAL,
     Mutation.Type.STRING_LITERAL,
     Mutation.Type.STRING_LITERAL_LOOKALIKE,
+    Mutation.Type.STRING_LITERAL_CASE,
     Mutation.Type.NUMBER_LITERAL,
     Mutation.Type.CONDITIONAL_BOUNDARY,
     Mutation.Type.NEGATE_CONDITIONAL,
@@ -247,7 +248,7 @@ class CharLiteral(
 }
 
 private val ALPHANUMERIC_CHARS_AND_SPACE = (('a'..'z') + ('A'..'Z') + ('0'..'9') + (' ')).toSet()
-private val PUNCTUATION = setOf('.', ',', '!', '?', ';', ':', '[', ']', '(', ')', '<', '>')
+// private val PUNCTUATION = setOf('.', ',', '!', '?', ';', ':', '[', ']', '(', ')', '<', '>')
 private val LOOKALIKES =
     mapOf('0' to 'O', '0' to 'o', '1' to 'l', '.' to ',', '!' to '?', ':' to ';', '[' to '(', ']' to ')').toMutableMap()
         .apply {
@@ -256,23 +257,6 @@ private val LOOKALIKES =
                 this[this[key]!!] = key
             }
         }.toMap().toSortedMap()
-
-private fun replaceCharacter(input: Char, random: Random): Char {
-    val alternatives =
-        mutableListOf(ALPHANUMERIC_CHARS_AND_SPACE.filter { it != input }.shuffled(random).first())
-    if (input.isLetter()) {
-        if (input.isUpperCase()) {
-            alternatives.add(input.lowercaseChar())
-        } else if (input.isLowerCase()) {
-            alternatives.add(input.uppercaseChar())
-        } else if (input.isDigit()) {
-            alternatives.add((input.digitToInt() + 1 % 10).toChar())
-        } else if (PUNCTUATION.contains(input)) {
-            alternatives.add(PUNCTUATION.filter { it != input }.shuffled(random).first())
-        }
-    }
-    return alternatives.shuffled(random).first()
-}
 
 class StringLiteral(
     location: Location,
@@ -299,7 +283,8 @@ class StringLiteral(
         } else {
             string.toCharArray().let { characters ->
                 val position = characters.indices.random(random)
-                characters[position] = replaceCharacter(characters[position], random)
+                characters[position] =
+                    ALPHANUMERIC_CHARS_AND_SPACE.filter { it != characters[position] }.shuffled(random).first()
                 characters.joinToString("")
             }.let {
                 StringEscapeUtils.escapeJava(it)
@@ -334,23 +319,17 @@ class StringLiteralLookalike(
     override val fixedCount = false
 
     @Suppress("NestedBlockDepth")
-    override fun applyMutation(random: Random): String {
-        return if (string.isEmpty()) {
-            " "
+    override fun applyMutation(random: Random): String = string.toCharArray().let { characters ->
+        val position = characters.indices.filter { LOOKALIKES.containsKey(characters[it]) }.random(random)
+        characters[position] = LOOKALIKES[characters[position]]!!
+        characters.joinToString("")
+    }.let {
+        StringEscapeUtils.escapeJava(it)
+    }.let {
+        if (withQuotes) {
+            "\"$it\""
         } else {
-            string.toCharArray().let { characters ->
-                val position = characters.indices.filter { LOOKALIKES.containsKey(characters[it]) }.random(random)
-                characters[position] = LOOKALIKES[characters[position]]!!
-                characters.joinToString("")
-            }.let {
-                StringEscapeUtils.escapeJava(it)
-            }
-        }.let {
-            if (withQuotes) {
-                "\"$it\""
-            } else {
-                it
-            }
+            it
         }
     }
 
@@ -363,6 +342,71 @@ class StringLiteralLookalike(
             }
         }.let { string ->
             StringEscapeUtils.unescapeJava(string).any { LOOKALIKES.containsKey(it) }
+        }
+    }
+}
+
+class StringLiteralCase(
+    location: Location,
+    original: String,
+    fileType: Source.FileType,
+    private val withQuotes: Boolean = true
+) : Mutation(Type.STRING_LITERAL_CASE, location, original, fileType) {
+    override val preservesLength = true
+    private val string = if (withQuotes) {
+        original.removeSurrounding("\"")
+    } else {
+        original
+    }.let {
+        StringEscapeUtils.unescapeJava(it)
+    }
+    override val estimatedCount =
+        2.0.pow(
+            string
+                .split(" ")
+                .filter { it.isNotEmpty() && (it.first().isUpperCase() || it.first().isLowerCase()) }
+                .size
+        ).toInt() - 1
+    override val mightNotCompile = false
+    override val fixedCount = false
+
+    @Suppress("NestedBlockDepth")
+    override fun applyMutation(random: Random): String = string.toCharArray().let { characters ->
+        val position = characters.indices
+            .filter {
+                (it == 0 || characters[it - 1] == ' ') &&
+                    (characters[it].isLowerCase() || characters[it].isUpperCase())
+            }
+            .random(random)
+        characters[position] = if (characters[position].isUpperCase()) {
+            characters[position].lowercaseChar()
+        } else if (characters[position].isLowerCase()) {
+            characters[position].uppercaseChar()
+        } else {
+            error("Bad position")
+        }
+        characters.joinToString("")
+    }.let {
+        StringEscapeUtils.escapeJava(it)
+    }.let {
+        if (withQuotes) {
+            "\"$it\""
+        } else {
+            it
+        }
+    }
+
+    companion object {
+        fun matches(contents: String, withQuotes: Boolean = true) = contents.let {
+            if (withQuotes) {
+                contents.removeSurrounding("\"")
+            } else {
+                contents
+            }
+        }.let { string ->
+            StringEscapeUtils.unescapeJava(string).split(" ").any {
+                it.isNotEmpty() && (it.first().isUpperCase() || it.first().isLowerCase())
+            }
         }
     }
 }
@@ -424,6 +468,9 @@ internal fun MutableList<Mutation>.addStringMutations(
     add(StringLiteral(location, contents, fileType, withQuotes))
     if (StringLiteralLookalike.matches(contents, withQuotes)) {
         add(StringLiteralLookalike(location, contents, fileType, withQuotes))
+    }
+    if (StringLiteralCase.matches(contents, withQuotes)) {
+        add(StringLiteralCase(location, contents, fileType, withQuotes))
     }
     if (StringLiteralTrim.matches(contents, withQuotes)) {
         add(StringLiteralTrim(location, contents, fileType, withQuotes))

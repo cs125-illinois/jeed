@@ -693,7 +693,7 @@ fun fourth(): Object {
   }
 """.trim()
         ).allMutations().also { mutations ->
-            mutations shouldHaveSize 7
+            mutations shouldHaveSize 8
             mutations[0].cleaned().also {
                 it["Main.kt"] shouldNotContain "mutate-disable"
             }
@@ -726,19 +726,13 @@ fun greeting() {
 }
 """.trim()
         ).also { source ->
-            source.mutater(
-                types = ALL - setOf(
-                    Mutation.Type.REMOVE_METHOD,
-                    Mutation.Type.REMOVE_STATEMENT,
-                    Mutation.Type.STRING_LITERAL_TRIM
-                )
-            )
+            source.mutater(seed = 124)
                 .also { mutater ->
                     mutater.appliedMutations shouldHaveSize 0
                     val modifiedSource = mutater.apply().contents
                     source.contents shouldNotBe modifiedSource
                     mutater.appliedMutations shouldHaveSize 1
-                    mutater.size shouldBe 2
+                    mutater.size shouldBe 1
                     val anotherModifiedSource = mutater.apply().contents
                     setOf(source.contents, modifiedSource, anotherModifiedSource) shouldHaveSize 3
                     mutater.size shouldBe 0
@@ -751,15 +745,9 @@ fun greeting() {
                 source.contents shouldNotBe mutatedSource.contents
                 mutatedSource.unappliedMutations shouldBe 0
             }
-            source.allMutations(
-                types = ALL - setOf(
-                    Mutation.Type.REMOVE_METHOD,
-                    Mutation.Type.REMOVE_STATEMENT,
-                    Mutation.Type.STRING_LITERAL_TRIM
-                )
-            ).also { mutatedSources ->
-                mutatedSources shouldHaveSize 3
-                mutatedSources.map { it.contents }.toSet() shouldHaveSize 3
+            source.allMutations(random = Random(124)).also { mutatedSources ->
+                mutatedSources shouldHaveSize 7
+                mutatedSources.map { it.contents }.toSet() shouldHaveSize 7
             }
         }
     }
@@ -873,7 +861,7 @@ fun testStream(): String {
 }
 """.trim()
         ).allFixedMutations(random = Random(124)).also { mutations ->
-            mutations shouldHaveSize 27
+            mutations shouldHaveSize 30
         }
     }
     "it should end stream mutations when out of things to mutate" {
@@ -911,7 +899,7 @@ fun reformatName(input: String?) {
 }
 """.trim()
         ).allMutations().also { mutations ->
-            mutations shouldHaveSize 14
+            mutations shouldHaveSize 15
             mutations.forEach { mutatedSource ->
                 mutatedSource.marked().ktLint(KtLintArguments(failOnError = true))
             }

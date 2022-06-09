@@ -75,6 +75,25 @@ public class Example {
             }
         }
     }
+    "it should find lookalike string cases to mutate" {
+        Source.fromJava(
+            """
+public class Example {
+  public static void example() {
+    System.out.println("Hello, world");
+    String t = "124 0124";
+    String w = "67 test";
+    String s = "";
+  }
+}"""
+        ).checkMutations<StringLiteralCase> { mutations, contents ->
+            mutations shouldHaveSize 2
+            mutations[0].check(contents, "\"Hello, world\"").also {
+                it shouldMatch ".*ello.*".toRegex(RegexOption.DOT_MATCHES_ALL)
+                it shouldMatch ".*orld.*".toRegex(RegexOption.DOT_MATCHES_ALL)
+            }
+        }
+    }
     "it should find string literals to trim" {
         Source.fromJava(
             """
@@ -784,7 +803,7 @@ public class Example {
   }
 }"""
         ).allMutations().also { mutations ->
-            mutations shouldHaveSize 6
+            mutations shouldHaveSize 7
             mutations[0].cleaned().also {
                 it["Main.java"] shouldNotContain "mutate-disable"
             }
@@ -819,13 +838,7 @@ public class Example {
   }
 }"""
         ).also { source ->
-            source.mutater(
-                types = ALL - setOf(
-                    Mutation.Type.REMOVE_METHOD,
-                    Mutation.Type.REMOVE_STATEMENT,
-                    Mutation.Type.STRING_LITERAL_TRIM
-                )
-            )
+            source.mutater(seed = 124)
                 .also { mutater ->
                     mutater.appliedMutations shouldHaveSize 0
                     val modifiedSource = mutater.apply().contents
@@ -844,15 +857,9 @@ public class Example {
                 source.contents shouldNotBe mutatedSource.contents
                 mutatedSource.unappliedMutations shouldBe 0
             }
-            source.allMutations(
-                types = ALL - setOf(
-                    Mutation.Type.REMOVE_METHOD,
-                    Mutation.Type.REMOVE_STATEMENT,
-                    Mutation.Type.STRING_LITERAL_TRIM
-                )
-            ).also { mutatedSources ->
-                mutatedSources shouldHaveSize 3
-                mutatedSources.map { it.contents }.toSet() shouldHaveSize 3
+            source.allMutations(random = Random(124)).also { mutatedSources ->
+                mutatedSources shouldHaveSize 7
+                mutatedSources.map { it.contents }.toSet() shouldHaveSize 7
             }
         }
     }
@@ -939,7 +946,7 @@ public class Example {
   }
 }"""
         ).also { source ->
-            source.mutationStream().take(256).toList().size shouldBe 256
+            source.mutationStream(random = Random(124)).toList().size shouldBe 987
         }
     }
     "it should apply all fixed mutations" {
@@ -955,7 +962,7 @@ public class Example {
   }
 }"""
         ).allFixedMutations(random = Random(124)).also { mutations ->
-            mutations.size shouldBe 24
+            mutations.size shouldBe 27
         }
     }
     "it should end stream mutations when out of things to mutate" {
@@ -997,7 +1004,7 @@ public class Example {
     }
 }"""
         ).allMutations().also { mutations ->
-            mutations shouldHaveSize 12
+            mutations shouldHaveSize 13
             mutations.forEach { mutatedSource ->
                 mutatedSource.marked().checkstyle(CheckstyleArguments(failOnError = true))
             }
