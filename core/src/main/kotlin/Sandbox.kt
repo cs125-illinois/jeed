@@ -59,7 +59,12 @@ object Sandbox {
         warmPlatform()
     }
 
-    private val runtime = ManagementFactoryHelper.getHotspotRuntimeMBean()
+    private val runtime = try {
+        ManagementFactoryHelper.getHotspotRuntimeMBean()
+    } catch (e: IllegalAccessError) {
+        // Gracefully degrade if deployed without the needed --add-exports
+        null
+    }
 
     @JsonClass(generateAdapter = true)
     class ClassLoaderConfiguration(
@@ -171,7 +176,7 @@ object Sandbox {
         @Suppress("unused") // TEMP: Report any platform class initializers interrupted by sandbox death
         val killedClassInitializers: List<String>,
         @Suppress("unused")
-        val totalSafetime: Long
+        val totalSafetime: Long?
     ) {
         @JsonClass(generateAdapter = true)
         data class OutputLine(
@@ -311,7 +316,7 @@ object Sandbox {
             try {
                 val confinedTask = confine(callable, sandboxedClassLoader, executionArguments)
                 val executionStarted = Instant.now()
-                val safetimeStarted = runtime.totalSafepointTime
+                val safetimeStarted = runtime?.totalSafepointTime
                 val taskResult = try {
                     confinedTask.thread.start()
                     TaskResult(confinedTask.task.get(executionArguments.timeout, TimeUnit.MILLISECONDS))
@@ -388,7 +393,7 @@ object Sandbox {
                     }
                 }
 
-                val totalSafetime = runtime.totalSafepointTime - safetimeStarted
+                val totalSafetime = runtime?.totalSafepointTime?.let { it - safetimeStarted!! }
                 val executionEnded = Instant.now()
                 release(confinedTask)
 
@@ -867,6 +872,7 @@ object Sandbox {
             private val reloadedBytecodeCache: Cache<ReloadCacheKey, ByteArray> = Caffeine.newBuilder()
                 .maximumWeight(RELOAD_CACHE_SIZE_BYTES)
                 .weigher<ReloadCacheKey, ByteArray> { _, value -> value.size }
+                .executor { task -> task.run() } // Do not create new cache-cleaning thread
                 .build()
         }
 
@@ -924,9 +930,9 @@ object Sandbox {
             ?: error("should have a method name")
         private val checkMethodDescription = Type.getMethodDescriptor(RewriteBytecode::checkException.javaMethod)
             ?: error("should be able to retrieve method signature")
-        private val enclosureMethodName = RewriteBytecode::checkSandboxEnclosure.javaMethod?.name
+        val enclosureMethodName = RewriteBytecode::checkSandboxEnclosure.javaMethod?.name
             ?: error("should have a method name for the enclosure checker")
-        private val enclosureMethodDescription =
+        val enclosureMethodDescriptor =
             Type.getMethodDescriptor(RewriteBytecode::checkSandboxEnclosure.javaMethod)
                 ?: error("should be able to retrieve method signature for enclosure checker")
         private val syncNotifyMethods = mapOf(
@@ -1132,7 +1138,7 @@ object Sandbox {
                         Opcodes.INVOKESTATIC,
                         rewriterClassName,
                         enclosureMethodName,
-                        enclosureMethodDescription,
+                        enclosureMethodDescriptor,
                         false
                     )
                     wrapperMv.visitLdcInsn(handle)
@@ -1270,7 +1276,7 @@ object Sandbox {
                     Opcodes.INVOKESTATIC,
                     rewriterClassName,
                     enclosureMethodName,
-                    enclosureMethodDescription,
+                    enclosureMethodDescriptor,
                     false
                 )
             }
