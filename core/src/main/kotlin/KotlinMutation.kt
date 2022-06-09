@@ -14,7 +14,6 @@ import org.jetbrains.kotlin.backend.common.pop
 class KotlinMutationListener(private val parsedSource: Source.ParsedSource) : KotlinParserBaseListener() {
     val lines = parsedSource.contents.lines()
     val mutations: MutableList<Mutation> = mutableListOf()
-    private val fileType = Source.FileType.KOTLIN
 
     private val returnTypeStack: MutableList<String> = mutableListOf()
     private val currentReturnType: String?
@@ -58,8 +57,8 @@ class KotlinMutationListener(private val parsedSource: Source.ParsedSource) : Ko
         check(currentReturnType != null)
         val methodLocation = ctx.block()?.toLocation() ?: return
         val methodContents = parsedSource.contents(methodLocation)
-        if (RemoveMethod.matches(methodContents, currentReturnType!!, fileType)) {
-            mutations.add(RemoveMethod(methodLocation, methodContents, currentReturnType!!, fileType))
+        if (RemoveMethod.matches(methodContents, currentReturnType!!, Source.FileType.KOTLIN)) {
+            mutations.add(RemoveMethod(methodLocation, methodContents, currentReturnType!!, Source.FileType.KOTLIN))
         }
     }
 
@@ -67,24 +66,48 @@ class KotlinMutationListener(private val parsedSource: Source.ParsedSource) : Ko
         if (ctx.RETURN() != null && ctx.expression() != null && !inSetterOrGetter) {
             val returnToken = ctx.expression()
             val returnLocation = returnToken.toLocation()
-            if (PrimitiveReturn.matches(returnToken.text, currentReturnType!!, fileType)) {
-                mutations.add(PrimitiveReturn(returnLocation, parsedSource.contents(returnLocation), fileType))
+            if (PrimitiveReturn.matches(returnToken.text, currentReturnType!!, Source.FileType.KOTLIN)) {
+                mutations.add(
+                    PrimitiveReturn(
+                        returnLocation,
+                        parsedSource.contents(returnLocation),
+                        Source.FileType.KOTLIN
+                    )
+                )
             }
             if (TrueReturn.matches(returnToken.text, currentReturnType!!)) {
-                mutations.add(TrueReturn(returnLocation, parsedSource.contents(returnLocation), fileType))
+                mutations.add(TrueReturn(returnLocation, parsedSource.contents(returnLocation), Source.FileType.KOTLIN))
             }
             if (FalseReturn.matches(returnToken.text, currentReturnType!!)) {
-                mutations.add(FalseReturn(returnLocation, parsedSource.contents(returnLocation), fileType))
+                mutations.add(
+                    FalseReturn(
+                        returnLocation,
+                        parsedSource.contents(returnLocation),
+                        Source.FileType.KOTLIN
+                    )
+                )
             }
-            if (NullReturn.matches(returnToken.text, currentReturnType!!, fileType)) {
-                mutations.add(NullReturn(returnLocation, parsedSource.contents(returnLocation), fileType))
+            if (NullReturn.matches(returnToken.text, currentReturnType!!, Source.FileType.KOTLIN)) {
+                mutations.add(NullReturn(returnLocation, parsedSource.contents(returnLocation), Source.FileType.KOTLIN))
             }
         }
         ctx.BREAK()?.also {
-            mutations.add(SwapBreakContinue(ctx.toLocation(), parsedSource.contents(ctx.toLocation()), fileType))
+            mutations.add(
+                SwapBreakContinue(
+                    ctx.toLocation(),
+                    parsedSource.contents(ctx.toLocation()),
+                    Source.FileType.KOTLIN
+                )
+            )
         }
         ctx.CONTINUE()?.also {
-            mutations.add(SwapBreakContinue(ctx.toLocation(), parsedSource.contents(ctx.toLocation()), fileType))
+            mutations.add(
+                SwapBreakContinue(
+                    ctx.toLocation(),
+                    parsedSource.contents(ctx.toLocation()),
+                    Source.FileType.KOTLIN
+                )
+            )
         }
     }
 
@@ -94,10 +117,22 @@ class KotlinMutationListener(private val parsedSource: Source.ParsedSource) : Ko
             ctx.start.text == "check" ||
             ctx.start.text == "require"
         ) {
-            mutations.add(RemoveRuntimeCheck(statementLocation, parsedSource.contents(statementLocation), fileType))
+            mutations.add(
+                RemoveRuntimeCheck(
+                    statementLocation,
+                    parsedSource.contents(statementLocation),
+                    Source.FileType.KOTLIN
+                )
+            )
         }
         if (ctx.declaration() == null) {
-            mutations.add(RemoveStatement(statementLocation, parsedSource.contents(statementLocation), fileType))
+            mutations.add(
+                RemoveStatement(
+                    statementLocation,
+                    parsedSource.contents(statementLocation),
+                    Source.FileType.KOTLIN
+                )
+            )
         }
     }
 
@@ -136,10 +171,7 @@ class KotlinMutationListener(private val parsedSource: Source.ParsedSource) : Ko
         }
         ctx.toLocation().also { location ->
             val contents = parsedSource.contents(location)
-            mutations.add(StringLiteral(location, contents, fileType, false))
-            if (StringLiteralTrim.matches(contents, false)) {
-                mutations.add(StringLiteralTrim(location, contents, fileType, false))
-            }
+            mutations.addStringMutations(location, contents, Source.FileType.KOTLIN, false)
         }
     }
 
@@ -149,10 +181,7 @@ class KotlinMutationListener(private val parsedSource: Source.ParsedSource) : Ko
         }
         ctx.toLocation().also { location ->
             val contents = parsedSource.contents(location)
-            mutations.add(StringLiteral(location, contents, fileType, false))
-            if (StringLiteralTrim.matches(contents, false)) {
-                mutations.add(StringLiteralTrim(location, contents, fileType, false))
-            }
+            mutations.addStringMutations(location, contents, Source.FileType.KOTLIN, false)
         }
     }
 
@@ -163,10 +192,7 @@ class KotlinMutationListener(private val parsedSource: Source.ParsedSource) : Ko
         if (ctx.lineStringContent().isEmpty() && ctx.lineStringExpression().isEmpty()) {
             ctx.toLocation().also { location ->
                 val contents = parsedSource.contents(location)
-                mutations.add(StringLiteral(location, contents, fileType))
-                if (StringLiteralTrim.matches(contents)) {
-                    mutations.add(StringLiteralTrim(location, contents, fileType))
-                }
+                mutations.addStringMutations(location, contents, Source.FileType.KOTLIN)
             }
         }
     }
@@ -178,15 +204,15 @@ class KotlinMutationListener(private val parsedSource: Source.ParsedSource) : Ko
         }
         ctx.BooleanLiteral()?.also {
             ctx.toLocation().also { location ->
-                mutations.add(BooleanLiteral(location, parsedSource.contents(location), fileType))
+                mutations.add(BooleanLiteral(location, parsedSource.contents(location), Source.FileType.KOTLIN))
             }
         }
         ctx.IntegerLiteral()?.also {
             ctx.toLocation().also { location ->
                 val content = parsedSource.contents(location)
-                mutations.add(NumberLiteral(location, content, fileType))
+                mutations.add(NumberLiteral(location, content, Source.FileType.KOTLIN))
                 if (NumberLiteralTrim.matches(content)) {
-                    mutations.add(NumberLiteralTrim(location, content, fileType))
+                    mutations.add(NumberLiteralTrim(location, content, Source.FileType.KOTLIN))
                 }
             }
         }
@@ -194,42 +220,42 @@ class KotlinMutationListener(private val parsedSource: Source.ParsedSource) : Ko
         ctx.HexLiteral()?.also {
             ctx.toLocation().also { location ->
                 val content = parsedSource.contents(location)
-                mutations.add(NumberLiteral(location, content, fileType))
+                mutations.add(NumberLiteral(location, content, Source.FileType.KOTLIN))
                 if (NumberLiteralTrim.matches(content, 16)) {
-                    mutations.add(NumberLiteralTrim(location, content, fileType, 16))
+                    mutations.add(NumberLiteralTrim(location, content, Source.FileType.KOTLIN, 16))
                 }
             }
         }
         ctx.BinLiteral()?.also {
             ctx.toLocation().also { location ->
                 val content = parsedSource.contents(location)
-                mutations.add(NumberLiteral(location, content, fileType))
+                mutations.add(NumberLiteral(location, content, Source.FileType.KOTLIN))
                 if (NumberLiteralTrim.matches(content, 2)) {
-                    mutations.add(NumberLiteralTrim(location, content, fileType, 2))
+                    mutations.add(NumberLiteralTrim(location, content, Source.FileType.KOTLIN, 2))
                 }
             }
         }
         ctx.CharacterLiteral()?.also {
             ctx.toLocation().also { location ->
-                mutations.add(CharLiteral(location, parsedSource.contents(location), fileType))
+                mutations.add(CharLiteral(location, parsedSource.contents(location), Source.FileType.KOTLIN))
             }
         }
         // reals are doubles and floats
         ctx.RealLiteral()?.also {
             ctx.toLocation().also { location ->
                 val content = parsedSource.contents(location)
-                mutations.add(NumberLiteral(location, content, fileType))
+                mutations.add(NumberLiteral(location, content, Source.FileType.KOTLIN))
                 if (NumberLiteralTrim.matches(content)) {
-                    mutations.add(NumberLiteralTrim(location, content, fileType))
+                    mutations.add(NumberLiteralTrim(location, content, Source.FileType.KOTLIN))
                 }
             }
         }
         ctx.LongLiteral()?.also {
             ctx.toLocation().also { location ->
                 val content = parsedSource.contents(location)
-                mutations.add(NumberLiteral(location, content, fileType))
+                mutations.add(NumberLiteral(location, content, Source.FileType.KOTLIN))
                 if (NumberLiteralTrim.matches(content)) {
-                    mutations.add(NumberLiteralTrim(location, content, fileType))
+                    mutations.add(NumberLiteralTrim(location, content, Source.FileType.KOTLIN))
                 }
             }
         }
@@ -237,9 +263,9 @@ class KotlinMutationListener(private val parsedSource: Source.ParsedSource) : Ko
 
     override fun enterIfExpression(ctx: KotlinParser.IfExpressionContext) {
         val conditionalLocation = ctx.expression().toLocation()
-        mutations.add(NegateIf(conditionalLocation, parsedSource.contents(conditionalLocation), fileType))
+        mutations.add(NegateIf(conditionalLocation, parsedSource.contents(conditionalLocation), Source.FileType.KOTLIN))
         if (ctx.ELSE() == null) {
-            mutations.add(RemoveIf(ctx.toLocation(), parsedSource.contents(ctx.toLocation()), fileType))
+            mutations.add(RemoveIf(ctx.toLocation(), parsedSource.contents(ctx.toLocation()), Source.FileType.KOTLIN))
         } else {
             if (ctx.controlStructureBody(1) != null) {
                 if (ctx.controlStructureBody(1).statement()?.expression() == null) { // not else if, just else
@@ -252,8 +278,14 @@ class KotlinMutationListener(private val parsedSource: Source.ParsedSource) : Ko
                         ctx.ELSE().symbol.line,
                         ctx.controlStructureBody(1).stop.line
                     )
-                    mutations.add(RemoveIf(location, parsedSource.contents(location), fileType))
-                    mutations.add(RemoveIf(ctx.toLocation(), parsedSource.contents(ctx.toLocation()), fileType))
+                    mutations.add(RemoveIf(location, parsedSource.contents(location), Source.FileType.KOTLIN))
+                    mutations.add(
+                        RemoveIf(
+                            ctx.toLocation(),
+                            parsedSource.contents(ctx.toLocation()),
+                            Source.FileType.KOTLIN
+                        )
+                    )
                 } else { // is an else if
                     val location = Mutation.Location(
                         ctx.start.startIndex,
@@ -264,7 +296,7 @@ class KotlinMutationListener(private val parsedSource: Source.ParsedSource) : Ko
                         ctx.start.line,
                         ctx.ELSE().symbol.line
                     )
-                    mutations.add(RemoveIf(location, parsedSource.contents(location), fileType))
+                    mutations.add(RemoveIf(location, parsedSource.contents(location), Source.FileType.KOTLIN))
                 }
             }
         }
@@ -276,29 +308,47 @@ class KotlinMutationListener(private val parsedSource: Source.ParsedSource) : Ko
             val rightCurl = it.controlStructureBody().block()?.RCURL()
             if (rightCurl != null) {
                 val rightCurlLocation = listOf(rightCurl, rightCurl).toLocation()
-                mutations.add(AddBreak(rightCurlLocation, parsedSource.contents(rightCurlLocation), fileType))
+                mutations.add(
+                    AddBreak(
+                        rightCurlLocation,
+                        parsedSource.contents(rightCurlLocation),
+                        Source.FileType.KOTLIN
+                    )
+                )
             }
         }
         ctx.forStatement()?.also {
             val rightCurl = it.controlStructureBody().block()?.RCURL()
             if (rightCurl != null) {
                 val rightCurlLocation = listOf(rightCurl, rightCurl).toLocation()
-                mutations.add(AddBreak(rightCurlLocation, parsedSource.contents(rightCurlLocation), fileType))
+                mutations.add(
+                    AddBreak(
+                        rightCurlLocation,
+                        parsedSource.contents(rightCurlLocation),
+                        Source.FileType.KOTLIN
+                    )
+                )
             }
         }
         ctx.whileStatement()?.also {
             val rightCurl = it.controlStructureBody().block()?.RCURL()
             if (rightCurl != null) {
                 val rightCurlLocation = listOf(rightCurl, rightCurl).toLocation()
-                mutations.add(AddBreak(rightCurlLocation, parsedSource.contents(rightCurlLocation), fileType))
+                mutations.add(
+                    AddBreak(
+                        rightCurlLocation,
+                        parsedSource.contents(rightCurlLocation),
+                        Source.FileType.KOTLIN
+                    )
+                )
             }
         }
-        mutations.add(RemoveLoop(location, parsedSource.contents(location), fileType))
+        mutations.add(RemoveLoop(location, parsedSource.contents(location), Source.FileType.KOTLIN))
     }
 
     override fun enterDoWhileStatement(ctx: KotlinParser.DoWhileStatementContext) {
         val location = ctx.expression().toLocation()
-        mutations.add(NegateWhile(location, parsedSource.contents(location), fileType))
+        mutations.add(NegateWhile(location, parsedSource.contents(location), Source.FileType.KOTLIN))
     }
 
     override fun enterWhileStatement(ctx: KotlinParser.WhileStatementContext) {
@@ -306,65 +356,65 @@ class KotlinMutationListener(private val parsedSource: Source.ParsedSource) : Ko
         val rightCurl = ctx.controlStructureBody().block()?.RCURL()
         if (rightCurl != null) {
             val rightCurlLocation = listOf(rightCurl, rightCurl).toLocation()
-            mutations.add(AddBreak(rightCurlLocation, parsedSource.contents(rightCurlLocation), fileType))
+            mutations.add(AddBreak(rightCurlLocation, parsedSource.contents(rightCurlLocation), Source.FileType.KOTLIN))
         }
-        mutations.add(NegateWhile(location, parsedSource.contents(location), fileType))
+        mutations.add(NegateWhile(location, parsedSource.contents(location), Source.FileType.KOTLIN))
     }
 
     override fun enterTryExpression(ctx: KotlinParser.TryExpressionContext) {
         val location = ctx.toLocation()
-        mutations.add(RemoveTry(location, parsedSource.contents(location), fileType))
+        mutations.add(RemoveTry(location, parsedSource.contents(location), Source.FileType.KOTLIN))
     }
 
     override fun enterPrefixUnaryOperator(ctx: KotlinParser.PrefixUnaryOperatorContext) {
         if (IncrementDecrement.matches(ctx.text)) {
-            mutations.add(IncrementDecrement(ctx.toLocation(), ctx.text, fileType))
+            mutations.add(IncrementDecrement(ctx.toLocation(), ctx.text, Source.FileType.KOTLIN))
         }
         if (InvertNegation.matches(ctx.text)) {
-            mutations.add(InvertNegation(ctx.toLocation(), ctx.text, fileType))
+            mutations.add(InvertNegation(ctx.toLocation(), ctx.text, Source.FileType.KOTLIN))
         }
     }
 
     override fun enterPostfixUnaryOperator(ctx: KotlinParser.PostfixUnaryOperatorContext) {
         if (IncrementDecrement.matches(ctx.text)) {
-            mutations.add(IncrementDecrement(ctx.toLocation(), ctx.text, fileType))
+            mutations.add(IncrementDecrement(ctx.toLocation(), ctx.text, Source.FileType.KOTLIN))
         }
     }
 
     override fun enterComparisonOperator(ctx: KotlinParser.ComparisonOperatorContext) {
         if (ConditionalBoundary.matches(ctx.text)) {
-            mutations.add(ConditionalBoundary(ctx.toLocation(), ctx.text, fileType))
+            mutations.add(ConditionalBoundary(ctx.toLocation(), ctx.text, Source.FileType.KOTLIN))
         }
         if (NegateConditional.matches(ctx.text)) {
-            mutations.add(NegateConditional(ctx.toLocation(), ctx.text, fileType))
+            mutations.add(NegateConditional(ctx.toLocation(), ctx.text, Source.FileType.KOTLIN))
         }
     }
 
     override fun enterMultiplicativeOperator(ctx: KotlinParser.MultiplicativeOperatorContext) {
         if (MutateMath.matches(ctx.text)) {
-            mutations.add(MutateMath(ctx.toLocation(), ctx.text, fileType))
+            mutations.add(MutateMath(ctx.toLocation(), ctx.text, Source.FileType.KOTLIN))
         }
     }
 
     override fun enterAdditiveOperator(ctx: KotlinParser.AdditiveOperatorContext) {
         if (PlusToMinus.matches(ctx.text)) {
-            mutations.add(PlusToMinus(ctx.toLocation(), ctx.text, fileType))
+            mutations.add(PlusToMinus(ctx.toLocation(), ctx.text, Source.FileType.KOTLIN))
         }
         if (MutateMath.matches(ctx.text)) {
-            mutations.add(MutateMath(ctx.toLocation(), ctx.text, fileType))
+            mutations.add(MutateMath(ctx.toLocation(), ctx.text, Source.FileType.KOTLIN))
         }
     }
 
     override fun enterEqualityOperator(ctx: KotlinParser.EqualityOperatorContext) {
         if (NegateConditional.matches(ctx.text)) {
-            mutations.add(NegateConditional(ctx.toLocation(), ctx.text, fileType))
+            mutations.add(NegateConditional(ctx.toLocation(), ctx.text, Source.FileType.KOTLIN))
         }
         if (ctx.text == "==") {
             mutations.add(
                 ChangeEquals(
                     ctx.toLocation(),
                     parsedSource.contents(ctx.toLocation()),
-                    fileType,
+                    Source.FileType.KOTLIN,
                     "=="
                 )
             )
@@ -374,7 +424,7 @@ class KotlinMutationListener(private val parsedSource: Source.ParsedSource) : Ko
                 ChangeEquals(
                     ctx.toLocation(),
                     parsedSource.contents(ctx.toLocation()),
-                    fileType,
+                    Source.FileType.KOTLIN,
                     "==="
                 )
             )
@@ -384,35 +434,35 @@ class KotlinMutationListener(private val parsedSource: Source.ParsedSource) : Ko
     override fun enterDisjunction(ctx: KotlinParser.DisjunctionContext) {
         if (SwapAndOr.matches(ctx.DISJ().joinToString())) {
             require(ctx.DISJ().size == 1) { "Disjunction list has an invalid size" }
-            mutations.add(SwapAndOr(ctx.DISJ().toLocation(), ctx.DISJ().joinToString(), fileType))
+            mutations.add(SwapAndOr(ctx.DISJ().toLocation(), ctx.DISJ().joinToString(), Source.FileType.KOTLIN))
             val (frontLocation, backLocation) = ctx.locationPair()
-            mutations.add(RemoveAndOr(frontLocation, parsedSource.contents(frontLocation), fileType))
-            mutations.add(RemoveAndOr(backLocation, parsedSource.contents(backLocation), fileType))
+            mutations.add(RemoveAndOr(frontLocation, parsedSource.contents(frontLocation), Source.FileType.KOTLIN))
+            mutations.add(RemoveAndOr(backLocation, parsedSource.contents(backLocation), Source.FileType.KOTLIN))
         }
     }
 
     override fun enterConjunction(ctx: KotlinParser.ConjunctionContext) {
         if (SwapAndOr.matches(ctx.CONJ().joinToString())) {
             require(ctx.CONJ().size == 1) { "Conjunction list has an invalid size" }
-            mutations.add(SwapAndOr(ctx.CONJ().toLocation(), ctx.CONJ().joinToString(), fileType))
+            mutations.add(SwapAndOr(ctx.CONJ().toLocation(), ctx.CONJ().joinToString(), Source.FileType.KOTLIN))
             val (frontLocation, backLocation) = ctx.locationPair()
-            mutations.add(RemoveAndOr(frontLocation, parsedSource.contents(frontLocation), fileType))
-            mutations.add(RemoveAndOr(backLocation, parsedSource.contents(backLocation), fileType))
+            mutations.add(RemoveAndOr(frontLocation, parsedSource.contents(frontLocation), Source.FileType.KOTLIN))
+            mutations.add(RemoveAndOr(backLocation, parsedSource.contents(backLocation), Source.FileType.KOTLIN))
         }
     }
 
     override fun enterAdditiveExpression(ctx: KotlinParser.AdditiveExpressionContext) {
         if (ctx.additiveOperator().size != 0) {
             val (frontLocation, backLocation) = ctx.locationPair()
-            mutations.add(RemovePlus(frontLocation, parsedSource.contents(frontLocation), fileType))
-            mutations.add(RemovePlus(backLocation, parsedSource.contents(backLocation), fileType))
+            mutations.add(RemovePlus(frontLocation, parsedSource.contents(frontLocation), Source.FileType.KOTLIN))
+            mutations.add(RemovePlus(backLocation, parsedSource.contents(backLocation), Source.FileType.KOTLIN))
             val text = parsedSource.contents(ctx.multiplicativeExpression()[1].toLocation())
             if (text == "1") {
                 mutations.add(
                     PlusOrMinusOneToZero(
                         ctx.multiplicativeExpression()[1].toLocation(),
                         parsedSource.contents(ctx.multiplicativeExpression()[1].toLocation()),
-                        fileType
+                        Source.FileType.KOTLIN
                     )
                 )
             }

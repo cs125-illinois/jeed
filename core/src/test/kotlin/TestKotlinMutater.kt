@@ -77,6 +77,25 @@ fun example() {
             mutations[2].check(contents, "Test Me")
         }
     }
+    "it should find string literals lookalikes to mutate" {
+        Source.fromKotlin(
+            """
+fun example() {
+    println("Hello, world")
+    val l = listOf()
+    val s: String = ""
+    val t = ${"\"\"\""}Test Me${"\"\"\""}
+    val u = "front ${"$"}{l.size} middle ${"$"}{l.size} back"
+    val v = ${"\"\"\""}front ${"$"}{l.size} middle ${"$"}{l.size} back${"\"\"\""}
+}
+""".trim()
+        ).checkMutations<StringLiteralLookalike> { mutations, contents ->
+            mutations shouldHaveSize 5
+            mutations[0].check(contents, "Hello, world").also {
+                it shouldMatch ".*0.*".toRegex(RegexOption.DOT_MATCHES_ALL)
+            }
+        }
+    }
     "it should find string literals to trim" {
         Source.fromKotlin(
             """
@@ -719,7 +738,7 @@ fun greeting() {
                     val modifiedSource = mutater.apply().contents
                     source.contents shouldNotBe modifiedSource
                     mutater.appliedMutations shouldHaveSize 1
-                    mutater.size shouldBe 1
+                    mutater.size shouldBe 2
                     val anotherModifiedSource = mutater.apply().contents
                     setOf(source.contents, modifiedSource, anotherModifiedSource) shouldHaveSize 3
                     mutater.size shouldBe 0
@@ -739,8 +758,8 @@ fun greeting() {
                     Mutation.Type.STRING_LITERAL_TRIM
                 )
             ).also { mutatedSources ->
-                mutatedSources shouldHaveSize 2
-                mutatedSources.map { it.contents }.toSet() shouldHaveSize 2
+                mutatedSources shouldHaveSize 3
+                mutatedSources.map { it.contents }.toSet() shouldHaveSize 3
             }
         }
     }
@@ -854,7 +873,7 @@ fun testStream(): String {
 }
 """.trim()
         ).allFixedMutations(random = Random(124)).also { mutations ->
-            mutations shouldHaveSize 23
+            mutations shouldHaveSize 27
         }
     }
     "it should end stream mutations when out of things to mutate" {
@@ -892,7 +911,7 @@ fun reformatName(input: String?) {
 }
 """.trim()
         ).allMutations().also { mutations ->
-            mutations shouldHaveSize 13
+            mutations shouldHaveSize 14
             mutations.forEach { mutatedSource ->
                 mutatedSource.marked().ktLint(KtLintArguments(failOnError = true))
             }

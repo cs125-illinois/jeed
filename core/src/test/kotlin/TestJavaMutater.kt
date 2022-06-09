@@ -59,6 +59,22 @@ public class Example {
             mutations[1].check(contents, "\"\"")
         }
     }
+    "it should find lookalike string literals to mutate" {
+        Source.fromJava(
+            """
+public class Example {
+  public static void example() {
+    System.out.println("Hello, world");
+    String s = "";
+  }
+}"""
+        ).checkMutations<StringLiteralLookalike> { mutations, contents ->
+            mutations shouldHaveSize 1
+            mutations[0].check(contents, "\"Hello, world\"").also {
+                it shouldMatch ".*0.*".toRegex(RegexOption.DOT_MATCHES_ALL)
+            }
+        }
+    }
     "it should find string literals to trim" {
         Source.fromJava(
             """
@@ -835,8 +851,8 @@ public class Example {
                     Mutation.Type.STRING_LITERAL_TRIM
                 )
             ).also { mutatedSources ->
-                mutatedSources shouldHaveSize 2
-                mutatedSources.map { it.contents }.toSet() shouldHaveSize 2
+                mutatedSources shouldHaveSize 3
+                mutatedSources.map { it.contents }.toSet() shouldHaveSize 3
             }
         }
     }
@@ -923,7 +939,7 @@ public class Example {
   }
 }"""
         ).also { source ->
-            source.mutationStream().take(512).toList().size shouldBe 512
+            source.mutationStream().take(256).toList().size shouldBe 256
         }
     }
     "it should apply all fixed mutations" {
@@ -939,7 +955,7 @@ public class Example {
   }
 }"""
         ).allFixedMutations(random = Random(124)).also { mutations ->
-            mutations.size shouldBe 20
+            mutations.size shouldBe 24
         }
     }
     "it should end stream mutations when out of things to mutate" {
@@ -981,7 +997,7 @@ public class Example {
     }
 }"""
         ).allMutations().also { mutations ->
-            mutations shouldHaveSize 11
+            mutations shouldHaveSize 12
             mutations.forEach { mutatedSource ->
                 mutatedSource.marked().checkstyle(CheckstyleArguments(failOnError = true))
             }

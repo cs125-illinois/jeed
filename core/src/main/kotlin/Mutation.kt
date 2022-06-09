@@ -58,7 +58,7 @@ sealed class Mutation(
     }
 
     enum class Type {
-        BOOLEAN_LITERAL, CHAR_LITERAL, STRING_LITERAL, NUMBER_LITERAL,
+        BOOLEAN_LITERAL, CHAR_LITERAL, STRING_LITERAL, STRING_LITERAL_LOOKALIKE, NUMBER_LITERAL,
         CONDITIONAL_BOUNDARY, NEGATE_CONDITIONAL, SWAP_AND_OR,
         INCREMENT_DECREMENT, INVERT_NEGATION, MATH,
         PRIMITIVE_RETURN, TRUE_RETURN, FALSE_RETURN, NULL_RETURN, PLUS_TO_MINUS,
@@ -170,6 +170,7 @@ val PITEST = setOf(
     Mutation.Type.BOOLEAN_LITERAL,
     Mutation.Type.CHAR_LITERAL,
     Mutation.Type.STRING_LITERAL,
+    Mutation.Type.STRING_LITERAL_LOOKALIKE,
     Mutation.Type.NUMBER_LITERAL,
     Mutation.Type.CONDITIONAL_BOUNDARY,
     Mutation.Type.NEGATE_CONDITIONAL,
@@ -248,7 +249,13 @@ class CharLiteral(
 private val ALPHANUMERIC_CHARS_AND_SPACE = (('a'..'z') + ('A'..'Z') + ('0'..'9') + (' ')).toSet()
 private val PUNCTUATION = setOf('.', ',', '!', '?', ';', ':', '[', ']', '(', ')', '<', '>')
 private val LOOKALIKES =
-    mapOf('0' to 'O', 'o' to '0', '1' to 'l', '.' to ',', '!' to '?', ':' to ';', '[' to '(', ']' to ')').toSortedMap()
+    mapOf('0' to 'O', '0' to 'o', '1' to 'l', '.' to ',', '!' to '?', ':' to ';', '[' to '(', ']' to ')').toMutableMap()
+        .apply {
+            val keysCopy = keys.toList()
+            for (key in keysCopy) {
+                this[this[key]!!] = key
+            }
+        }.toMap().toSortedMap()
 
 private fun replaceCharacter(input: Char, random: Random): Char {
     val alternatives =
@@ -264,13 +271,6 @@ private fun replaceCharacter(input: Char, random: Random): Char {
             alternatives.add(PUNCTUATION.filter { it != input }.shuffled(random).first())
         }
     }
-    for ((first, second) in LOOKALIKES) {
-        if (input == first) {
-            alternatives.add(second)
-        } else if (input == second) {
-            alternatives.add(first)
-        }
-    }
     return alternatives.shuffled(random).first()
 }
 
@@ -280,7 +280,6 @@ class StringLiteral(
     fileType: Source.FileType,
     private val withQuotes: Boolean = true
 ) : Mutation(Type.STRING_LITERAL, location, original, fileType) {
-    override val preservesLength = false
     private val string = if (withQuotes) {
         original.removeSurrounding("\"")
     } else {
@@ -288,6 +287,7 @@ class StringLiteral(
     }.let {
         StringEscapeUtils.unescapeJava(it)
     }
+    override val preservesLength = string.isNotEmpty()
     override val estimatedCount = ALPHANUMERIC_CHARS_AND_SPACE.size.toDouble().pow(string.length).toInt() - 1
     override val mightNotCompile = false
     override val fixedCount = false
@@ -298,19 +298,6 @@ class StringLiteral(
             " "
         } else {
             string.toCharArray().let { characters ->
-                /*
-                val validPositions = (characters.indices).filter {
-                    // Don't break escapes or escape sequences
-                    characters[it] != '\\' && (it == 0 || characters[it - 1] != '\\')
-                }
-                if (validPositions.isEmpty()) {
-                    " "
-                } else {
-                    val position = validPositions.random(random)
-                    characters[position] = replaceCharacter(characters[position], random)
-                    characters.joinToString("")
-                }
-                 */
                 val position = characters.indices.random(random)
                 characters[position] = replaceCharacter(characters[position], random)
                 characters.joinToString("")
@@ -323,6 +310,59 @@ class StringLiteral(
             } else {
                 it
             }
+        }
+    }
+}
+
+class StringLiteralLookalike(
+    location: Location,
+    original: String,
+    fileType: Source.FileType,
+    private val withQuotes: Boolean = true
+) : Mutation(Type.STRING_LITERAL_LOOKALIKE, location, original, fileType) {
+    override val preservesLength = true
+    private val string = if (withQuotes) {
+        original.removeSurrounding("\"")
+    } else {
+        original
+    }.let {
+        StringEscapeUtils.unescapeJava(it)
+    }
+    override val estimatedCount =
+        2.0.pow(string.filter { LOOKALIKES.containsKey(it) }.length).toInt() - 1
+    override val mightNotCompile = false
+    override val fixedCount = false
+
+    @Suppress("NestedBlockDepth")
+    override fun applyMutation(random: Random): String {
+        return if (string.isEmpty()) {
+            " "
+        } else {
+            string.toCharArray().let { characters ->
+                val position = characters.indices.filter { LOOKALIKES.containsKey(characters[it]) }.random(random)
+                characters[position] = LOOKALIKES[characters[position]]!!
+                characters.joinToString("")
+            }.let {
+                StringEscapeUtils.escapeJava(it)
+            }
+        }.let {
+            if (withQuotes) {
+                "\"$it\""
+            } else {
+                it
+            }
+        }
+    }
+
+    companion object {
+        fun matches(contents: String, withQuotes: Boolean = true) = contents.let {
+            if (withQuotes) {
+                contents.removeSurrounding("\"")
+            } else {
+                contents
+            }
+        }.let { string ->
+            StringEscapeUtils.unescapeJava(string).any { LOOKALIKES.containsKey(it) }
         }
     }
 }
@@ -372,6 +412,21 @@ class StringLiteralTrim(
         }.let {
             StringEscapeUtils.unescapeJava(it).length >= 2
         }
+    }
+}
+
+internal fun MutableList<Mutation>.addStringMutations(
+    location: Mutation.Location,
+    contents: String,
+    fileType: Source.FileType,
+    withQuotes: Boolean = true
+) {
+    add(StringLiteral(location, contents, fileType, withQuotes))
+    if (StringLiteralLookalike.matches(contents, withQuotes)) {
+        add(StringLiteralLookalike(location, contents, fileType, withQuotes))
+    }
+    if (StringLiteralTrim.matches(contents, withQuotes)) {
+        add(StringLiteralTrim(location, contents, fileType, withQuotes))
     }
 }
 

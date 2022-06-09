@@ -15,7 +15,6 @@ import org.jetbrains.kotlin.backend.common.pop
 class JavaMutationListener(private val parsedSource: Source.ParsedSource) : JavaParserBaseListener() {
     val lines = parsedSource.contents.lines()
     val mutations: MutableList<Mutation> = mutableListOf()
-    private val fileType = Source.FileType.JAVA
 
     private val returnTypeStack: MutableList<String> = mutableListOf()
     private val currentReturnType: String?
@@ -35,8 +34,8 @@ class JavaMutationListener(private val parsedSource: Source.ParsedSource) : Java
             check(currentReturnType != null)
             val location = ctx.block().toLocation()
             val contents = parsedSource.contents(location)
-            if (RemoveMethod.matches(contents, currentReturnType!!, fileType)) {
-                mutations.add(RemoveMethod(location, contents, currentReturnType!!, fileType))
+            if (RemoveMethod.matches(contents, currentReturnType!!, Source.FileType.JAVA)) {
+                mutations.add(RemoveMethod(location, contents, currentReturnType!!, Source.FileType.JAVA))
             }
         }
     }
@@ -77,48 +76,45 @@ class JavaMutationListener(private val parsedSource: Source.ParsedSource) : Java
         }
         ctx.BOOL_LITERAL()?.also {
             ctx.toLocation().also { location ->
-                mutations.add(BooleanLiteral(location, parsedSource.contents(location), fileType))
+                mutations.add(BooleanLiteral(location, parsedSource.contents(location), Source.FileType.JAVA))
             }
         }
         ctx.CHAR_LITERAL()?.also {
             ctx.toLocation().also { location ->
-                mutations.add(CharLiteral(location, parsedSource.contents(location), fileType))
+                mutations.add(CharLiteral(location, parsedSource.contents(location), Source.FileType.JAVA))
             }
         }
         ctx.STRING_LITERAL()?.also {
             ctx.toLocation().also { location ->
                 val contents = parsedSource.contents(location)
-                mutations.add(StringLiteral(location, contents, fileType))
-                if (StringLiteralTrim.matches(contents)) {
-                    mutations.add(StringLiteralTrim(location, contents, fileType))
-                }
+                mutations.addStringMutations(location, contents, Source.FileType.JAVA)
             }
         }
         ctx.integerLiteral()?.also { integerLiteral ->
             integerLiteral.DECIMAL_LITERAL()?.also {
                 ctx.toLocation().also { location ->
                     val contents = parsedSource.contents(location)
-                    mutations.add(NumberLiteral(location, contents, fileType))
+                    mutations.add(NumberLiteral(location, contents, Source.FileType.JAVA))
                     if (NumberLiteralTrim.matches(contents)) {
-                        mutations.add(NumberLiteralTrim(location, contents, fileType))
+                        mutations.add(NumberLiteralTrim(location, contents, Source.FileType.JAVA))
                     }
                 }
             }
             integerLiteral.BINARY_LITERAL()?.also {
                 ctx.toLocation().also { location ->
                     val contents = parsedSource.contents(location)
-                    mutations.add(NumberLiteral(location, contents, fileType, 2))
+                    mutations.add(NumberLiteral(location, contents, Source.FileType.JAVA, 2))
                     if (NumberLiteralTrim.matches(contents, 2)) {
-                        mutations.add(NumberLiteralTrim(location, contents, fileType, 2))
+                        mutations.add(NumberLiteralTrim(location, contents, Source.FileType.JAVA, 2))
                     }
                 }
             }
             integerLiteral.HEX_LITERAL()?.also {
                 ctx.toLocation().also { location ->
                     val contents = parsedSource.contents(location)
-                    mutations.add(NumberLiteral(location, contents, fileType, 16))
+                    mutations.add(NumberLiteral(location, contents, Source.FileType.JAVA, 16))
                     if (NumberLiteralTrim.matches(contents, 16)) {
-                        mutations.add(NumberLiteralTrim(location, contents, fileType, 16))
+                        mutations.add(NumberLiteralTrim(location, contents, Source.FileType.JAVA, 16))
                     }
                 }
             }
@@ -127,9 +123,9 @@ class JavaMutationListener(private val parsedSource: Source.ParsedSource) : Java
             floatLiteral.FLOAT_LITERAL()?.also {
                 ctx.toLocation().also { location ->
                     val contents = parsedSource.contents(location)
-                    mutations.add(NumberLiteral(location, contents, fileType))
+                    mutations.add(NumberLiteral(location, contents, Source.FileType.JAVA))
                     if (NumberLiteralTrim.matches(contents)) {
-                        mutations.add(NumberLiteralTrim(location, contents, fileType))
+                        mutations.add(NumberLiteralTrim(location, contents, Source.FileType.JAVA))
                     }
                 }
             }
@@ -169,16 +165,16 @@ class JavaMutationListener(private val parsedSource: Source.ParsedSource) : Java
         ctx.prefix?.toLocation()?.also { location ->
             val contents = parsedSource.contents(location)
             if (IncrementDecrement.matches(contents)) {
-                mutations.add(IncrementDecrement(location, contents, fileType))
+                mutations.add(IncrementDecrement(location, contents, Source.FileType.JAVA))
             }
             if (InvertNegation.matches(contents)) {
-                mutations.add(InvertNegation(location, contents, fileType))
+                mutations.add(InvertNegation(location, contents, Source.FileType.JAVA))
             }
         }
         ctx.postfix?.toLocation()?.also { location ->
             val contents = parsedSource.contents(location)
             if (IncrementDecrement.matches(contents)) {
-                mutations.add(IncrementDecrement(location, contents, fileType))
+                mutations.add(IncrementDecrement(location, contents, Source.FileType.JAVA))
             }
         }
 
@@ -187,12 +183,24 @@ class JavaMutationListener(private val parsedSource: Source.ParsedSource) : Java
                 tokens.toLocation().also { location ->
                     val contents = parsedSource.contents(location)
                     if (MutateMath.matches(contents)) {
-                        mutations.add(MutateMath(location, contents, fileType))
+                        mutations.add(MutateMath(location, contents, Source.FileType.JAVA))
                     }
                     if (RemoveBinary.matches(contents)) {
                         val (frontLocation, backLocation) = ctx.locationPair()
-                        mutations.add(RemoveBinary(frontLocation, parsedSource.contents(frontLocation), fileType))
-                        mutations.add(RemoveBinary(backLocation, parsedSource.contents(backLocation), fileType))
+                        mutations.add(
+                            RemoveBinary(
+                                frontLocation,
+                                parsedSource.contents(frontLocation),
+                                Source.FileType.JAVA
+                            )
+                        )
+                        mutations.add(
+                            RemoveBinary(
+                                backLocation,
+                                parsedSource.contents(backLocation),
+                                Source.FileType.JAVA
+                            )
+                        )
                     }
                 }
             }
@@ -205,54 +213,54 @@ class JavaMutationListener(private val parsedSource: Source.ParsedSource) : Java
             val location = ctx.GT().toLocation()
             val contents = parsedSource.contents(location)
             if (MutateMath.matches(contents)) {
-                mutations.add(MutateMath(location, contents, fileType))
+                mutations.add(MutateMath(location, contents, Source.FileType.JAVA))
             }
             if (RemoveBinary.matches(contents)) {
                 val (frontLocation, backLocation) = ctx.locationPair()
-                mutations.add(RemoveBinary(frontLocation, parsedSource.contents(frontLocation), fileType))
-                mutations.add(RemoveBinary(backLocation, parsedSource.contents(backLocation), fileType))
+                mutations.add(RemoveBinary(frontLocation, parsedSource.contents(frontLocation), Source.FileType.JAVA))
+                mutations.add(RemoveBinary(backLocation, parsedSource.contents(backLocation), Source.FileType.JAVA))
             }
         }
 
         ctx.bop?.toLocation()?.also { location ->
             val contents = parsedSource.contents(location)
             if (ConditionalBoundary.matches(contents)) {
-                mutations.add(ConditionalBoundary(location, contents, fileType))
+                mutations.add(ConditionalBoundary(location, contents, Source.FileType.JAVA))
             }
             if (NegateConditional.matches(contents)) {
-                mutations.add(NegateConditional(location, contents, fileType))
+                mutations.add(NegateConditional(location, contents, Source.FileType.JAVA))
             }
             if (MutateMath.matches(contents)) {
-                mutations.add(MutateMath(location, contents, fileType))
+                mutations.add(MutateMath(location, contents, Source.FileType.JAVA))
             }
             if (PlusToMinus.matches(contents)) {
-                mutations.add(PlusToMinus(location, contents, fileType))
+                mutations.add(PlusToMinus(location, contents, Source.FileType.JAVA))
             }
             if (SwapAndOr.matches(contents)) {
-                mutations.add(SwapAndOr(location, contents, fileType))
+                mutations.add(SwapAndOr(location, contents, Source.FileType.JAVA))
             }
             @Suppress("ComplexCondition")
             if (contents == "&&" || contents == "||") {
                 val (frontLocation, backLocation) = ctx.locationPair()
-                mutations.add(RemoveAndOr(frontLocation, parsedSource.contents(frontLocation), fileType))
-                mutations.add(RemoveAndOr(backLocation, parsedSource.contents(backLocation), fileType))
+                mutations.add(RemoveAndOr(frontLocation, parsedSource.contents(frontLocation), Source.FileType.JAVA))
+                mutations.add(RemoveAndOr(backLocation, parsedSource.contents(backLocation), Source.FileType.JAVA))
             }
             if (RemovePlus.matches(contents)) {
                 val (frontLocation, backLocation) = ctx.locationPair()
-                mutations.add(RemovePlus(frontLocation, parsedSource.contents(frontLocation), fileType))
-                mutations.add(RemovePlus(backLocation, parsedSource.contents(backLocation), fileType))
+                mutations.add(RemovePlus(frontLocation, parsedSource.contents(frontLocation), Source.FileType.JAVA))
+                mutations.add(RemovePlus(backLocation, parsedSource.contents(backLocation), Source.FileType.JAVA))
             }
             if (RemoveBinary.matches(contents)) {
                 val (frontLocation, backLocation) = ctx.locationPair()
-                mutations.add(RemoveBinary(frontLocation, parsedSource.contents(frontLocation), fileType))
-                mutations.add(RemoveBinary(backLocation, parsedSource.contents(backLocation), fileType))
+                mutations.add(RemoveBinary(frontLocation, parsedSource.contents(frontLocation), Source.FileType.JAVA))
+                mutations.add(RemoveBinary(backLocation, parsedSource.contents(backLocation), Source.FileType.JAVA))
             }
             if (contents == "==") {
                 mutations.add(
                     ChangeEquals(
                         ctx.toLocation(),
                         parsedSource.contents(ctx.toLocation()),
-                        fileType,
+                        Source.FileType.JAVA,
                         "==",
                         ctx.expression(0).text,
                         ctx.expression(1).text
@@ -269,7 +277,7 @@ class JavaMutationListener(private val parsedSource: Source.ParsedSource) : Java
                     ChangeEquals(
                         ctx.toLocation(),
                         parsedSource.contents(ctx.toLocation()),
-                        fileType,
+                        Source.FileType.JAVA,
                         ".equals",
                         ctx.expression(0).text,
                         ctx.methodCall().expressionList().expression(0).text
@@ -283,7 +291,7 @@ class JavaMutationListener(private val parsedSource: Source.ParsedSource) : Java
                         PlusOrMinusOneToZero(
                             ctx.expression(1).toLocation(),
                             parsedSource.contents(ctx.expression(1).toLocation()),
-                            fileType
+                            Source.FileType.JAVA
                         )
                     )
                 }
@@ -298,7 +306,7 @@ class JavaMutationListener(private val parsedSource: Source.ParsedSource) : Java
             val outerLocation = ctx.toLocation()
             if (outerLocation.start !in seenIfStarts) {
                 // Add entire if
-                mutations.add(RemoveIf(outerLocation, parsedSource.contents(outerLocation), fileType))
+                mutations.add(RemoveIf(outerLocation, parsedSource.contents(outerLocation), Source.FileType.JAVA))
                 seenIfStarts += outerLocation.start
                 check(ctx.statement().isNotEmpty())
                 if (ctx.statement().size == 2 && ctx.statement(1).block() != null) {
@@ -315,7 +323,7 @@ class JavaMutationListener(private val parsedSource: Source.ParsedSource) : Java
                             start.line,
                             end.line
                         )
-                    mutations.add(RemoveIf(elseLocation, parsedSource.contents(elseLocation), fileType))
+                    mutations.add(RemoveIf(elseLocation, parsedSource.contents(elseLocation), Source.FileType.JAVA))
                 } else if (ctx.statement().size >= 2) {
                     var statement = ctx.statement(1)
                     var previousMarker = ctx.ELSE()
@@ -338,7 +346,13 @@ class JavaMutationListener(private val parsedSource: Source.ParsedSource) : Java
                                     previousMarker.symbol.line,
                                     end.stop.line
                                 )
-                            mutations.add(RemoveIf(currentLocation, parsedSource.contents(currentLocation), fileType))
+                            mutations.add(
+                                RemoveIf(
+                                    currentLocation,
+                                    parsedSource.contents(currentLocation),
+                                    Source.FileType.JAVA
+                                )
+                            )
                         }
                         previousMarker = statement.ELSE()
                         statement = statement.statement(1)
@@ -346,77 +360,98 @@ class JavaMutationListener(private val parsedSource: Source.ParsedSource) : Java
                 }
             }
             ctx.parExpression().toLocation().also { location ->
-                mutations.add(NegateIf(location, parsedSource.contents(location), fileType))
+                mutations.add(NegateIf(location, parsedSource.contents(location), Source.FileType.JAVA))
             }
         }
         ctx.ASSERT()?.also {
             ctx.toLocation().also { location ->
-                mutations.add(RemoveRuntimeCheck(location, parsedSource.contents(location), fileType))
+                mutations.add(RemoveRuntimeCheck(location, parsedSource.contents(location), Source.FileType.JAVA))
             }
         }
         ctx.RETURN()?.also {
             ctx.expression()?.firstOrNull()?.toLocation()?.also { location ->
                 val contents = parsedSource.contents(location)
                 currentReturnType?.also { returnType ->
-                    if (PrimitiveReturn.matches(contents, returnType, fileType)) {
-                        mutations.add(PrimitiveReturn(location, parsedSource.contents(location), fileType))
+                    if (PrimitiveReturn.matches(contents, returnType, Source.FileType.JAVA)) {
+                        mutations.add(PrimitiveReturn(location, parsedSource.contents(location), Source.FileType.JAVA))
                     }
                     if (TrueReturn.matches(contents, returnType)) {
-                        mutations.add(TrueReturn(location, parsedSource.contents(location), fileType))
+                        mutations.add(TrueReturn(location, parsedSource.contents(location), Source.FileType.JAVA))
                     }
                     if (FalseReturn.matches(contents, returnType)) {
-                        mutations.add(FalseReturn(location, parsedSource.contents(location), fileType))
+                        mutations.add(FalseReturn(location, parsedSource.contents(location), Source.FileType.JAVA))
                     }
-                    if (NullReturn.matches(contents, returnType, fileType)) {
-                        mutations.add(NullReturn(location, parsedSource.contents(location), fileType))
+                    if (NullReturn.matches(contents, returnType, Source.FileType.JAVA)) {
+                        mutations.add(NullReturn(location, parsedSource.contents(location), Source.FileType.JAVA))
                     }
                 } ?: error("Should have recorded a return type at this point")
             }
         }
         ctx.WHILE()?.also {
             ctx.parExpression().toLocation().also { location ->
-                mutations.add(NegateWhile(location, parsedSource.contents(location), fileType))
+                mutations.add(NegateWhile(location, parsedSource.contents(location), Source.FileType.JAVA))
                 val rbrace = ctx.statement().last()?.block()?.RBRACE()
                 if (rbrace != null) {
                     val endBraceLocation = listOf(rbrace, rbrace).toLocation()
-                    mutations.add(AddBreak(endBraceLocation, parsedSource.contents(endBraceLocation), fileType))
+                    mutations.add(
+                        AddBreak(
+                            endBraceLocation,
+                            parsedSource.contents(endBraceLocation),
+                            Source.FileType.JAVA
+                        )
+                    )
                 }
             }
             if (ctx.DO() == null) {
-                mutations.add(RemoveLoop(ctx.toLocation(), parsedSource.contents(ctx.toLocation()), fileType))
+                mutations.add(
+                    RemoveLoop(
+                        ctx.toLocation(),
+                        parsedSource.contents(ctx.toLocation()),
+                        Source.FileType.JAVA
+                    )
+                )
             }
         }
         ctx.FOR()?.also {
-            mutations.add(RemoveLoop(ctx.toLocation(), parsedSource.contents(ctx.toLocation()), fileType))
+            mutations.add(RemoveLoop(ctx.toLocation(), parsedSource.contents(ctx.toLocation()), Source.FileType.JAVA))
             val rbrace = ctx.statement().last()?.block()?.RBRACE()
             if (rbrace != null) {
                 val endBraceLocation = listOf(rbrace, rbrace).toLocation()
-                mutations.add(AddBreak(endBraceLocation, parsedSource.contents(endBraceLocation), fileType))
+                mutations.add(AddBreak(endBraceLocation, parsedSource.contents(endBraceLocation), Source.FileType.JAVA))
             }
         }
         ctx.DO()?.also {
-            mutations.add(RemoveLoop(ctx.toLocation(), parsedSource.contents(ctx.toLocation()), fileType))
+            mutations.add(RemoveLoop(ctx.toLocation(), parsedSource.contents(ctx.toLocation()), Source.FileType.JAVA))
         }
         ctx.TRY()?.also {
-            mutations.add(RemoveTry(ctx.toLocation(), parsedSource.contents(ctx.toLocation()), fileType))
+            mutations.add(RemoveTry(ctx.toLocation(), parsedSource.contents(ctx.toLocation()), Source.FileType.JAVA))
         }
         ctx.statementExpression?.also {
-            mutations.add(RemoveStatement(ctx.toLocation(), parsedSource.contents(ctx.toLocation()), fileType))
+            mutations.add(
+                RemoveStatement(
+                    ctx.toLocation(),
+                    parsedSource.contents(ctx.toLocation()),
+                    Source.FileType.JAVA
+                )
+            )
         }
         ctx.BREAK()?.symbol?.also {
-            mutations.add(SwapBreakContinue(it.toLocation(), parsedSource.contents(it.toLocation()), fileType))
+            mutations.add(
+                SwapBreakContinue(
+                    it.toLocation(),
+                    parsedSource.contents(it.toLocation()),
+                    Source.FileType.JAVA
+                )
+            )
         }
         ctx.CONTINUE()?.symbol?.also {
-            mutations.add(SwapBreakContinue(it.toLocation(), parsedSource.contents(it.toLocation()), fileType))
-        }
-        ctx.statementExpression?.also {
-            @Suppress("ComplexCondition")
-            if (it.text.startsWith("System.out.println(") ||
-                it.text.startsWith("System.out.print(") ||
-                it.text.startsWith("System.err.println(") ||
-                it.text.startsWith("System.err.print(")
-            ) {
-            }
+            mutations.add(
+                SwapBreakContinue(
+                    it.toLocation(),
+                    parsedSource.contents(it.toLocation()),
+                    Source.FileType.JAVA
+                )
+            )
         }
     }
 
