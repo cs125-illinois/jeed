@@ -16,7 +16,7 @@ dependencies {
     ksp("com.squareup.moshi:moshi-kotlin-codegen:1.13.0")
 
     implementation(project(":core"))
-    implementation("org.jetbrains.kotlin:kotlin-reflect:1.6.10")
+    implementation("org.jetbrains.kotlin:kotlin-reflect:1.7.0")
 
     implementation("io.ktor:ktor-server-netty:2.0.2")
     implementation("io.ktor:ktor-server-cors:2.0.2")
@@ -30,7 +30,7 @@ dependencies {
     implementation("io.github.microutils:kotlin-logging:2.1.23")
     implementation("com.github.cs125-illinois:libcs1:2022.6.1")
 
-    testImplementation("io.kotest:kotest-runner-junit5:5.3.0")
+    testImplementation("io.kotest:kotest-runner-junit5:5.3.0.1010-SNAPSHOT") // TODO: Remove
     testImplementation("io.kotest:kotest-assertions-ktor:4.4.3")
     testImplementation("io.ktor:ktor-server-test-host:2.0.2")
 }

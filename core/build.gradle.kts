@@ -17,8 +17,8 @@ dependencies {
 
     antlr("org.antlr:antlr4:4.10.1")
 
-    implementation("org.jetbrains.kotlin:kotlin-compiler-embeddable:1.6.20")
-    implementation("org.jetbrains.kotlin:kotlin-reflect:1.6.20")
+    implementation("org.jetbrains.kotlin:kotlin-compiler-embeddable:1.7.0")
+    implementation("org.jetbrains.kotlin:kotlin-reflect:1.7.0")
 
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-core:1.6.2")
     implementation("com.puppycrawl.tools:checkstyle:10.3")
@@ -42,7 +42,7 @@ dependencies {
     api("org.jacoco:org.jacoco.core:0.8.8")
     api("com.github.ben-manes.caffeine:caffeine:3.1.1")
 
-    testImplementation("io.kotest:kotest-runner-junit5:5.3.0")
+    testImplementation("io.kotest:kotest-runner-junit5:5.3.0.1010-SNAPSHOT") // TODO: Remove
 }
 tasks.test {
     useJUnitPlatform()

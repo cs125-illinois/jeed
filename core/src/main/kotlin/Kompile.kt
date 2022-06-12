@@ -14,7 +14,9 @@ import org.jetbrains.kotlin.cli.common.messages.MessageCollector
 import org.jetbrains.kotlin.cli.jvm.compiler.EnvironmentConfigFiles
 import org.jetbrains.kotlin.cli.jvm.compiler.KotlinCoreEnvironment
 import org.jetbrains.kotlin.cli.jvm.compiler.KotlinToJVMBytecodeCompiler
-import org.jetbrains.kotlin.cli.jvm.configureExplicitContentRoots
+import org.jetbrains.kotlin.cli.jvm.config.configureJdkClasspathRoots
+import org.jetbrains.kotlin.cli.jvm.configureContentRootsFromClassPath
+import org.jetbrains.kotlin.cli.jvm.configureJavaModulesContentRoots
 import org.jetbrains.kotlin.cli.jvm.index.JavaRoot
 import org.jetbrains.kotlin.cli.jvm.index.JvmDependenciesDynamicCompoundIndex
 import org.jetbrains.kotlin.cli.jvm.index.JvmDependenciesIndexImpl
@@ -172,7 +174,9 @@ private fun kompile(
             put(CommonConfigurationKeys.MODULE_NAME, JvmProtoBufUtil.DEFAULT_MODULE_NAME)
             put(JVMConfigurationKeys.PARAMETERS_METADATA, kompilationArguments.parameters)
             put(JVMConfigurationKeys.JVM_TARGET, kompilationArguments.jvmTarget.toJvmTarget())
-            configureExplicitContentRoots(kompilationArguments.arguments)
+            configureJavaModulesContentRoots(kompilationArguments.arguments)
+            configureContentRootsFromClassPath(kompilationArguments.arguments)
+            configureJdkClasspathRoots()
         }
 
         // Silence scaring warning on Windows
