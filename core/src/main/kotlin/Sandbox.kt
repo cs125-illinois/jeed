@@ -146,7 +146,6 @@ object Sandbox {
     ) {
         companion object {
             const val DEFAULT_TIMEOUT = 100L
-            const val DEFAULT_LINE_COUNT_LIMIT = 1024 * 1024L
             const val DEFAULT_MAX_EXTRA_THREADS = 0
             const val DEFAULT_MAX_OUTPUT_LINES = 1024
             const val DEFAULT_WAIT_FOR_SHUTDOWN = false
@@ -157,7 +156,7 @@ object Sandbox {
     @JsonClass(generateAdapter = true)
     data class MethodFilter(val ownerClassPrefix: String, val methodPrefix: String, val allowInReload: Boolean = false)
 
-    @Suppress("LongParameterList")
+    @Suppress("LongParameterList", "unused")
     class TaskResults<T>(
         val returned: T?,
         val threw: Throwable?,

@@ -16,7 +16,7 @@ import edu.illinois.cs.cs125.jeed.core.systemKompilerVersion as KOMPILER_VERSION
 import edu.illinois.cs.cs125.jeed.core.version as JEED_VERSION
 
 @JsonClass(generateAdapter = true)
-@Suppress("MemberVisibilityCanBePrivate", "LongParameterList")
+@Suppress("MemberVisibilityCanBePrivate", "LongParameterList", "unused")
 class Status(
     val tasks: Set<Task> = Task.values().toSet(),
     val started: Instant = Instant.now(),

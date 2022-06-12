@@ -19,7 +19,6 @@ import edu.illinois.cs.cs125.jeed.core.FeaturesFailed
 import edu.illinois.cs.cs125.jeed.core.Interval
 import edu.illinois.cs.cs125.jeed.core.KtLintError
 import edu.illinois.cs.cs125.jeed.core.KtLintFailed
-import edu.illinois.cs.cs125.jeed.core.LineLimitExceeded
 import edu.illinois.cs.cs125.jeed.core.MutationsFailed
 import edu.illinois.cs.cs125.jeed.core.Sandbox
 import edu.illinois.cs.cs125.jeed.core.Snippet
@@ -347,6 +346,7 @@ data class SourceTaskResults(
     val returned: String?,
     val threw: ThrownException?,
     val timeout: Boolean,
+    val killReason: String?,
     val outputLines: List<Sandbox.TaskResults.OutputLine> = listOf(),
     val permissionRequests: List<Sandbox.TaskResults.PermissionRequest> = listOf(),
     val interval: Interval,
@@ -368,7 +368,8 @@ data class SourceTaskResults(
         } else {
             null
         },
-        taskResults.timeout || (taskResults.threw?.cause ?: taskResults.threw) is LineLimitExceeded,
+        taskResults.timeout,
+        taskResults.killReason,
         taskResults.outputLines.toList(),
         taskResults.permissionRequests.toList(),
         taskResults.interval,

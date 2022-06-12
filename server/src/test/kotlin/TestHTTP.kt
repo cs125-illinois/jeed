@@ -2,6 +2,8 @@
 
 package edu.illinois.cs.cs125.jeed.server
 
+import com.beyondgrader.resourceagent.jeed.MemoryLimit
+import edu.illinois.cs.cs125.jeed.core.LineTrace
 import edu.illinois.cs.cs125.jeed.core.isWindows
 import io.kotest.assertions.ktor.shouldHaveStatus
 import io.kotest.core.spec.style.StringSpec
@@ -66,6 +68,40 @@ while (true) {
                     jeedResponse.completed.execution?.klass shouldBe "Main"
                     jeedResponse.completedTasks.size shouldBe 3
                     jeedResponse.failedTasks.size shouldBe 0
+                    jeedResponse.completed.execution?.timeout shouldBe true
+                }
+            }
+        }
+        "should timeout a snippet request with line count limit" {
+            withTestApplication(Application::jeed) {
+                handleRequest(HttpMethod.Post, "/") {
+                    addHeader("content-type", "application/json")
+                    setBody(
+                        """
+{
+"label": "test",
+"snippet": "
+int i = 0;
+while (true) {
+  i++;
+}",
+"tasks": [ "compile", "execute" ],
+"arguments": {
+  "plugins": {
+    "lineCountLimit": "1000"
+  }
+}
+}""".trim()
+                    )
+                }.apply {
+                    response.shouldHaveStatus(HttpStatusCode.OK.value)
+
+                    val jeedResponse = Response.from(response.content)
+                    jeedResponse.completed.execution?.klass shouldBe "Main"
+                    jeedResponse.completedTasks.size shouldBe 3
+                    jeedResponse.failedTasks.size shouldBe 0
+                    jeedResponse.completed.execution?.timeout shouldBe false
+                    jeedResponse.completed.execution?.killReason shouldBe LineTrace.KILL_REASON
                 }
             }
         }
@@ -86,6 +122,12 @@ values[0] = 0;
                     )
                 }.apply {
                     response.shouldHaveStatus(HttpStatusCode.OK.value)
+                    val jeedResponse = Response.from(response.content)
+                    jeedResponse.completed.execution?.klass shouldBe "Main"
+                    jeedResponse.completedTasks.size shouldBe 3
+                    jeedResponse.failedTasks.size shouldBe 0
+                    jeedResponse.completed.execution?.timeout shouldBe false
+                    jeedResponse.completed.execution?.killReason shouldBe MemoryLimit.INDIVIDUAL_LIMIT_KILL_REASON
                 }
             }
         }

@@ -297,7 +297,8 @@ class Request(
                     MemoryLimit,
                     MemoryLimitArguments(
                         maxTotalAllocation = arguments.plugins.memoryTotalLimit,
-                        maxIndividualAllocation = arguments.plugins.memoryAllocationLimit
+                        maxIndividualAllocation = arguments.plugins.memoryAllocationLimit,
+                        stopSingleThreadTasksByThrow = false
                     )
                 )
                 val executionResult = compiledSource.execute(arguments.execution)
