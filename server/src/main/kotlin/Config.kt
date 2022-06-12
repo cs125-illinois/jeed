@@ -48,6 +48,8 @@ object Limits : ConfigSpec() {
 
     object Plugins : ConfigSpec() {
         val lineCountLimit by optional(PluginArguments.DEFAULT_LINE_COUNT_LIMIT)
+        val memoryTotalLimit by optional(PluginArguments.DEFAULT_MEMORY_TOTAL_LIMIT)
+        val memoryAllocationLimit by optional(PluginArguments.DEFAULT_MEMORY_ALLOCATION_LIMIT)
     }
 }
 

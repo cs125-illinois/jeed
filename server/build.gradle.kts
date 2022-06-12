@@ -46,11 +46,10 @@ docker {
 }
 tasks.test {
     useJUnitPlatform()
-    if (JavaVersion.current() >= JavaVersion.VERSION_11) {
-        jvmArgs("-ea", "-Xmx1G", "--enable-preview")
-    } else {
-        jvmArgs("-ea", "-Xmx1G")
-    }
+    val agentJarPath = configurations["runtimeClasspath"].resolvedConfiguration.resolvedArtifacts.find {
+        it.moduleVersion.id.group == "com.beyondgrader.resource-agent" && it.moduleVersion.id.name == "agent"
+    }!!.file.absolutePath
+    jvmArgs("-javaagent:$agentJarPath")
     systemProperties["logback.configurationFile"] = File(projectDir, "src/test/resources/logback-test.xml").absolutePath
     environment["JEED_USE_CACHE"] = "true"
 }

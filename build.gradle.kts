@@ -13,6 +13,7 @@ allprojects {
         mavenCentral()
         maven("https://jitpack.io")
         maven("https://maven.google.com/")
+        maven("https://maven.codeawakening.com")
         maven("https://oss.sonatype.org/content/repositories/snapshots") // TODO: Remove
     }
 }
@@ -23,7 +24,8 @@ subprojects {
         useJUnitPlatform()
         enableAssertions = true
         jvmArgs(
-            "-Dfile.encoding=UTF-8", // Fix encoding bug on Windows
+            "-ea", "--enable-preview", "-Dfile.encoding=UTF-8",
+            "-Xms512m", "-Xmx1G", "-Xss256k", "-XX:+UseZGC", "-XX:ZCollectionInterval=8",
             "--add-exports", "jdk.compiler/com.sun.tools.javac.api=ALL-UNNAMED",
             "--add-exports", "jdk.compiler/com.sun.tools.javac.file=ALL-UNNAMED",
             "--add-exports", "jdk.compiler/com.sun.tools.javac.parser=ALL-UNNAMED",

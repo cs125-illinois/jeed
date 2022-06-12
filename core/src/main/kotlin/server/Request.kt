@@ -42,9 +42,16 @@ class TaskArguments(
     // val disassemble: currently accepts no arguments,
     val plugins: PluginArguments = PluginArguments()
 )
+
 @JsonClass(generateAdapter = true)
-data class PluginArguments(val lineCountLimit: Long = DEFAULT_LINE_COUNT_LIMIT) {
+data class PluginArguments(
+    val lineCountLimit: Long = DEFAULT_LINE_COUNT_LIMIT,
+    val memoryTotalLimit: Long = DEFAULT_MEMORY_TOTAL_LIMIT,
+    val memoryAllocationLimit: Long = DEFAULT_MEMORY_ALLOCATION_LIMIT
+) {
     companion object {
         const val DEFAULT_LINE_COUNT_LIMIT = 4 * 1024 * 1024L
+        const val DEFAULT_MEMORY_TOTAL_LIMIT = 32 * 1024 * 1024L
+        const val DEFAULT_MEMORY_ALLOCATION_LIMIT = 512 * 1024L
     }
 }

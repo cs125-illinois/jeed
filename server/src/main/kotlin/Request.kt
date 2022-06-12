@@ -1,5 +1,7 @@
 package edu.illinois.cs.cs125.jeed.server
 
+import com.beyondgrader.resourceagent.jeed.MemoryLimit
+import com.beyondgrader.resourceagent.jeed.MemoryLimitArguments
 import edu.illinois.cs.cs125.jeed.core.CheckstyleFailed
 import edu.illinois.cs.cs125.jeed.core.CompilationFailed
 import edu.illinois.cs.cs125.jeed.core.ComplexityFailed
@@ -139,8 +141,16 @@ class Request(
                 "job timeout of ${arguments.execution.timeout} too long (> ${configuration[Limits.Execution.timeout]})"
             }
             require(arguments.plugins.lineCountLimit <= configuration[Limits.Plugins.lineCountLimit]) {
-                "job line count limit of ${arguments.plugins.lineCountLimit} too long " +
+                "job line count limit of ${arguments.plugins.lineCountLimit} too large " +
                     "(> ${configuration[Limits.Plugins.lineCountLimit]})"
+            }
+            require(arguments.plugins.memoryTotalLimit <= configuration[Limits.Plugins.memoryTotalLimit]) {
+                "job memory total allocation limit of ${arguments.plugins.memoryTotalLimit} too large " +
+                    "(> ${configuration[Limits.Plugins.memoryTotalLimit]})"
+            }
+            require(arguments.plugins.memoryAllocationLimit <= configuration[Limits.Plugins.memoryAllocationLimit]) {
+                "job memory per allocation limit of ${arguments.plugins.memoryAllocationLimit} too large " +
+                    "(> ${configuration[Limits.Plugins.memoryAllocationLimit]})"
             }
             require(arguments.execution.maxExtraThreads <= configuration[Limits.Execution.maxExtraThreads]) {
                 "job maxExtraThreads of ${arguments.execution.maxExtraThreads} is too large " +
@@ -281,6 +291,13 @@ class Request(
                     LineTraceArguments(
                         recordedLineLimit = 0,
                         runLineLimit = arguments.plugins.lineCountLimit
+                    )
+                )
+                arguments.execution.addPlugin(
+                    MemoryLimit,
+                    MemoryLimitArguments(
+                        maxTotalAllocation = arguments.plugins.memoryTotalLimit,
+                        maxIndividualAllocation = arguments.plugins.memoryAllocationLimit
                     )
                 )
                 val executionResult = compiledSource.execute(arguments.execution)
