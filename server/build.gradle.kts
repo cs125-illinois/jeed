@@ -81,3 +81,10 @@ publishing {
 kotlin {
     kotlinDaemonJvmArgs = listOf("-Dfile.encoding=UTF-8")
 }
+tasks.shadowJar {
+    manifest {
+        attributes["Launcher-Agent-Class"] = "com.beyondgrader.resourceagent.AgentKt"
+        attributes["Can-Redefine-Classes"] = "true"
+        attributes["Can-Retransform-Classes"] = "true"
+    }
+}

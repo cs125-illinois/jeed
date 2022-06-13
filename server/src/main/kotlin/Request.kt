@@ -136,51 +136,68 @@ class Request(
                 }
             }
         }
+        val defaultPermissions = configuration[Limits.Execution.permissions].map { PermissionAdapter().permissionFromJson(it) }
+            .toSet()
         if (Task.execute in tasks) {
-            require(arguments.execution.timeout <= configuration[Limits.Execution.timeout]) {
+            arguments.execution.setDefaults(
+                configuration[Limits.Execution.timeout],
+                defaultPermissions,
+                configuration[Limits.Execution.maxExtraThreads],
+                configuration[Limits.Execution.maxOutputLines],
+                configuration[Limits.Execution.ClassLoaderConfiguration.whitelistedClasses],
+                configuration[Limits.Execution.ClassLoaderConfiguration.blacklistedClasses],
+                configuration[Limits.Execution.ClassLoaderConfiguration.unsafeExceptions],
+                configuration[Limits.Execution.ClassLoaderConfiguration.blacklistedMethods]
+            )
+            arguments.plugins.setDefaults(
+                configuration[Limits.Plugins.lineCountLimit],
+                configuration[Limits.Plugins.memoryTotalLimit],
+                configuration[Limits.Plugins.memoryAllocationLimit]
+            )
+            require(arguments.execution.timeout!! <= configuration[Limits.Execution.timeout]) {
                 "job timeout of ${arguments.execution.timeout} too long (> ${configuration[Limits.Execution.timeout]})"
             }
-            require(arguments.plugins.lineCountLimit <= configuration[Limits.Plugins.lineCountLimit]) {
+            require(arguments.plugins.lineCountLimit!! <= configuration[Limits.Plugins.lineCountLimit]) {
                 "job line count limit of ${arguments.plugins.lineCountLimit} too large " +
                     "(> ${configuration[Limits.Plugins.lineCountLimit]})"
             }
-            require(arguments.plugins.memoryTotalLimit <= configuration[Limits.Plugins.memoryTotalLimit]) {
+            require(arguments.plugins.memoryTotalLimit!! <= configuration[Limits.Plugins.memoryTotalLimit]) {
                 "job memory total allocation limit of ${arguments.plugins.memoryTotalLimit} too large " +
                     "(> ${configuration[Limits.Plugins.memoryTotalLimit]})"
             }
-            require(arguments.plugins.memoryAllocationLimit <= configuration[Limits.Plugins.memoryAllocationLimit]) {
+            require(arguments.plugins.memoryAllocationLimit!! <= configuration[Limits.Plugins.memoryAllocationLimit]) {
                 "job memory per allocation limit of ${arguments.plugins.memoryAllocationLimit} too large " +
                     "(> ${configuration[Limits.Plugins.memoryAllocationLimit]})"
             }
-            require(arguments.execution.maxExtraThreads <= configuration[Limits.Execution.maxExtraThreads]) {
+            require(arguments.execution.maxExtraThreads!! <= configuration[Limits.Execution.maxExtraThreads]) {
                 "job maxExtraThreads of ${arguments.execution.maxExtraThreads} is too large " +
                     "(> ${configuration[Limits.Execution.maxExtraThreads]}"
             }
-            require(arguments.execution.maxOutputLines <= configuration[Limits.Execution.maxOutputLines]) {
+            require(arguments.execution.maxOutputLines!! <= configuration[Limits.Execution.maxOutputLines]) {
                 "job maxOutputLines of ${arguments.execution.maxOutputLines} is too large " +
                     "(> ${configuration[Limits.Execution.maxOutputLines]}"
             }
             val allowedPermissions =
                 configuration[Limits.Execution.permissions].map { PermissionAdapter().permissionFromJson(it) }
                     .toSet()
-            require(allowedPermissions.containsAll(arguments.execution.permissions)) {
+            require(allowedPermissions.containsAll(arguments.execution.permissions!!)) {
                 "job is requesting unavailable permissions: ${arguments.execution.permissions}"
             }
 
             val blacklistedClasses = configuration[Limits.Execution.ClassLoaderConfiguration.blacklistedClasses]
-            require(arguments.execution.classLoaderConfiguration.blacklistedClasses.containsAll(blacklistedClasses)) {
+            require(arguments.execution.classLoaderConfiguration!!.blacklistedClasses!!.containsAll(blacklistedClasses)) {
                 "job is trying to remove blacklisted classes"
             }
             val whitelistedClasses = configuration[Limits.Execution.ClassLoaderConfiguration.whitelistedClasses]
-            require(arguments.execution.classLoaderConfiguration.whitelistedClasses.containsAll(whitelistedClasses)) {
+            require(arguments.execution.classLoaderConfiguration!!.whitelistedClasses!!.containsAll(whitelistedClasses)) {
                 "job is trying to add whitelisted classes"
             }
             val unsafeExceptions = configuration[Limits.Execution.ClassLoaderConfiguration.unsafeExceptions]
-            require(arguments.execution.classLoaderConfiguration.unsafeExceptions.containsAll(unsafeExceptions)) {
+            require(arguments.execution.classLoaderConfiguration!!.unsafeExceptions!!.containsAll(unsafeExceptions)) {
                 "job is trying to remove unsafe exceptions"
             }
             val blacklistedMethods = configuration[Limits.Execution.ClassLoaderConfiguration.blacklistedMethods]
-            require(arguments.execution.classLoaderConfiguration.blacklistedMethods.containsAll(blacklistedMethods)) {
+            require(arguments.execution.classLoaderConfiguration!!.blacklistedMethods!!.containsAll(blacklistedMethods)) {
                 "job is trying to remove forbidden methods"
             }
         }
@@ -285,15 +302,16 @@ class Request(
             }
 
             if (tasks.contains(Task.execute)) {
+                val executionArguments = arguments.execution.toSourceExecutionArguments()
                 check(compiledSource != null) { "should have compiled source before executing" }
-                arguments.execution.addPlugin(
+                executionArguments.addPlugin(
                     LineTrace,
                     LineTraceArguments(
                         recordedLineLimit = 0,
                         runLineLimit = arguments.plugins.lineCountLimit
                     )
                 )
-                arguments.execution.addPlugin(
+                executionArguments.addPlugin(
                     MemoryLimit,
                     MemoryLimitArguments(
                         maxTotalAllocation = arguments.plugins.memoryTotalLimit,
@@ -301,8 +319,8 @@ class Request(
                         stopSingleThreadTasksByThrow = false
                     )
                 )
-                val executionResult = compiledSource.execute(arguments.execution)
-                response.completed.execution = SourceTaskResults(actualSource, executionResult, arguments.execution)
+                val executionResult = compiledSource.execute(executionArguments)
+                response.completed.execution = SourceTaskResults(actualSource, executionResult, executionArguments)
                 response.completedTasks.add(Task.execute)
             } else if (tasks.contains(Task.cexecute)) {
                 check(compiledSource != null) { "should have compiled source before executing" }

@@ -4,7 +4,7 @@ RUN apt update && \
     apt install -y --no-install-recommends software-properties-common \
       ca-certificates gpg-agent curl gnupg
 RUN curl -fsSL https://download.docker.com/linux/ubuntu/gpg | apt-key add - && \
-  add-apt-repository "deb [arch=amd64] https://download.docker.com/linux/ubuntu bionic stable" && \
+  add-apt-repository "deb [arch=amd64,arm64] https://download.docker.com/linux/ubuntu bionic stable" && \
   apt update && \
   apt install -y --no-install-recommends docker-ce-cli=5:20.10.16~3-0~ubuntu-bionic
 
