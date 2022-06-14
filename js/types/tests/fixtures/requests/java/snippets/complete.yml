@@ -18,5 +18,3 @@ arguments:
         actions: read
     maxExtraThreads: 4
     maxOutputLines: 80
-    dryRun: false
-    waitForShutdown: true

@@ -149,8 +149,6 @@ export const SourceExecutionArguments = Partial({
   maxExtraThreads: Number,
   maxOutputLines: Number,
   classLoaderConfiguration: ClassLoaderConfiguration,
-  dryRun: Boolean,
-  waitForShutdown: Boolean,
 })
 export type SourceExecutionArguments = Static<typeof SourceExecutionArguments>
 
@@ -458,6 +456,12 @@ export const PermissionRequest = Record({
 })
 export type PermissionRequest = Static<typeof PermissionRequest>
 
+export const KILL_REASONS: { [key: string]: string } = {
+  massiveAllocation: "too large single allocation",
+  exceededAllocationLimit: "exceeded total memory allocation limit",
+  exceededLineLimit: "exceeded total line count limit",
+}
+
 export const SourceTaskResults = Record({
   klass: String,
   method: String,
@@ -471,6 +475,7 @@ export const SourceTaskResults = Record({
   Partial({
     returned: String,
     threw: ThrownException,
+    killReason: String,
   })
 )
 export type SourceTaskResults = Static<typeof SourceTaskResults>
