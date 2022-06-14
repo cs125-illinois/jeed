@@ -1,6 +1,6 @@
 {
   "name": "@cs124/jeed-react",
-  "version": "2022.2.1",
+  "version": "2022.6.0",
   "license": "MIT",
   "main": "dist/index.js",
   "scripts": {
