@@ -1,4 +1,4 @@
-import { Request, Response, SourceLocation } from "@cs124/jeed-types"
+import { KILL_REASONS, Request, Response, SourceLocation } from "@cs124/jeed-types"
 
 export function getOriginalLine(request: Request, line: number, source?: string): string {
   if (request.snippet) {
@@ -139,7 +139,14 @@ ${originalLine ? originalLine + "\n" + new Array(column).join(" ") + "^" : ""}${
           ? completed.outputLines.map(({ line }) => line)
           : [`(Completed without output)`]
         : []
-      if (response.completed.execution?.threw) {
+      if (response.completed.execution?.killReason) {
+        level = "error"
+        output.push(
+          `Execution did not complete: ${
+            KILL_REASONS[response.completed.execution.killReason] ?? response.completed.execution.killReason
+          }.`
+        )
+      } else if (response.completed.execution?.threw) {
         level = "error"
         output.push(response.completed.execution?.threw.stacktrace)
       } else if (completed?.timeout) {
