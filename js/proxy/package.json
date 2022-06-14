@@ -1,7 +1,7 @@
 {
   "private": true,
   "name": "proxy",
-  "version": "2022.4.0",
+  "version": "2022.6.0",
   "scripts": {
     "build": "rimraf dist && esbuild src/index.ts --log-level=warning --sourcemap --bundle --platform=node --outfile=dist/index.js",
     "checker": "yarn depcheck && yarn prettier && yarn eslint && yarn tsc",
@@ -19,19 +19,19 @@
     "prettier": "prettier -w --plugin=prettier-plugin-organize-imports . && prettier-package-json --write"
   },
   "dependencies": {
-    "@cs124/jeed-types": "2022.2.1",
+    "@cs124/jeed-types": "2022.6.0",
     "@cs124/koa-google-login": "2021.11.0",
     "@koa/cors": "3.3.0",
     "@koa/router": "10.1.1",
-    "@panva/hkdf": "1.0.1",
+    "@panva/hkdf": "1.0.2",
     "fetch-retry": "5.0.2",
-    "google-auth-library": "8.0.1",
+    "google-auth-library": "8.0.2",
     "isomorphic-fetch": "3.0.0",
-    "jose": "4.8.0",
+    "jose": "4.8.1",
     "koa": "2.13.4",
     "koa-body": "5.0.0",
     "koa-ratelimit": "5.0.1",
-    "mongodb": "4.5.0",
+    "mongodb": "4.7.0",
     "mongodb-uri": "0.9.7",
     "runtypes": "6.5.1"
   },
@@ -42,19 +42,19 @@
     "@types/koa__cors": "3.3.0",
     "@types/koa__router": "8.0.11",
     "@types/mongodb-uri": "0.9.1",
-    "@typescript-eslint/eslint-plugin": "5.21.0",
-    "@typescript-eslint/parser": "5.21.0",
+    "@typescript-eslint/eslint-plugin": "5.28.0",
+    "@typescript-eslint/parser": "5.28.0",
     "env-cmd": "10.1.0",
-    "esbuild": "0.14.38",
-    "eslint": "8.14.0",
+    "esbuild": "0.14.43",
+    "eslint": "8.17.0",
     "eslint-config-prettier": "8.5.0",
     "eslint-plugin-prettier": "4.0.0",
-    "nodemon": "2.0.15",
-    "npm-check-updates": "12.5.10",
+    "nodemon": "2.0.16",
+    "npm-check-updates": "13.1.5",
     "prettier": "2.6.2",
     "prettier-package-json": "2.6.3",
-    "ts-node": "10.7.0",
-    "typescript": "4.6.3"
+    "ts-node": "10.8.1",
+    "typescript": "4.7.3"
   },
   "nodemonConfig": {
     "watch": [

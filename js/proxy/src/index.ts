@@ -44,7 +44,10 @@ const getStatus = async (retries = 0) => {
     return {
       ...STATUS,
       status: ServerStatus.check(
-        await fetch(BACKEND, { retries, retryOn: (attempt) => attempt < retries }).then((r) => r.json())
+        await fetch(BACKEND, {
+          retries,
+          retryOn: (attempt, _, response) => (response?.status === 200 ? false : attempt < retries),
+        }).then((r) => r.json())
       ),
     }
   } catch (err) {
@@ -178,6 +181,7 @@ const server = new Koa({ proxy: true })
 
 Promise.resolve().then(async () => {
   await _collection
+  console.log("Restart")
   getStatus(process.env.STARTUP_RETRY_COUNT ? parseInt(process.env.STARTUP_RETRY_COUNT) : 32).then((s) => {
     console.log(s)
   })
