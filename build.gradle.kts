@@ -14,7 +14,6 @@ allprojects {
         maven("https://jitpack.io")
         maven("https://maven.google.com/")
         maven("https://maven.codeawakening.com")
-        maven("https://oss.sonatype.org/content/repositories/snapshots") // TODO: Remove
     }
 }
 subprojects {

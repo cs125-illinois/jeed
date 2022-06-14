@@ -43,7 +43,7 @@ dependencies {
     api("org.jacoco:org.jacoco.core:0.8.8")
     api("com.github.ben-manes.caffeine:caffeine:3.1.1")
 
-    testImplementation("io.kotest:kotest-runner-junit5:5.3.0.1010-SNAPSHOT") // TODO: Remove
+    testImplementation("io.kotest:kotest-runner-junit5:5.3.1")
 }
 tasks.test {
     useJUnitPlatform()
