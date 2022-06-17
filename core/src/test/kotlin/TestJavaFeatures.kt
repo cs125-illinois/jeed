@@ -11,12 +11,14 @@ class TestJavaFeatures : StringSpec({
 int i = 0;
 int j;
 i = 4;
+i += 1;
 i++;
+--j;
 """.trim()
         ).features().also {
             it.lookup(".").features.featureMap[FeatureName.LOCAL_VARIABLE_DECLARATIONS] shouldBe 2
-            it.lookup(".").features.featureMap[FeatureName.VARIABLE_ASSIGNMENTS] shouldBe 2
-            it.lookup(".").features.featureMap[FeatureName.VARIABLE_REASSIGNMENTS] shouldBe 1
+            it.lookup(".").features.featureMap[FeatureName.VARIABLE_ASSIGNMENTS] shouldBe 1
+            it.lookup(".").features.featureMap[FeatureName.VARIABLE_REASSIGNMENTS] shouldBe 4
             it.lookup("").features.featureMap[FeatureName.METHOD] shouldBe 0
             it.lookup("").features.featureMap[FeatureName.VISIBILITY_MODIFIERS] shouldBe 0
             it.lookup("").features.featureMap[FeatureName.THROWS] shouldBe 0

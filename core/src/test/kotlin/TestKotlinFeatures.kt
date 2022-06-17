@@ -9,11 +9,17 @@ class TestKotlinFeatures : StringSpec({
         Source.fromSnippet(
             """
 var i = 0
+var j = 1
+i = 1
+i += 1
+i++
+--j
 """.trim(),
             SnippetArguments(fileType = Source.FileType.KOTLIN)
         ).features().also {
-            it.lookup(".").features.featureMap[FeatureName.LOCAL_VARIABLE_DECLARATIONS] shouldBe 1
-            it.lookup(".").features.featureMap[FeatureName.VARIABLE_ASSIGNMENTS] shouldBe 1
+            it.lookup(".").features.featureMap[FeatureName.LOCAL_VARIABLE_DECLARATIONS] shouldBe 2
+            it.lookup(".").features.featureMap[FeatureName.VARIABLE_ASSIGNMENTS] shouldBe 2
+            it.lookup(".").features.featureMap[FeatureName.VARIABLE_REASSIGNMENTS] shouldBe 4
         }
     }
 })

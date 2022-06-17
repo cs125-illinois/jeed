@@ -171,6 +171,24 @@ class KotlinFeatureListener(val source: Source, entry: Map.Entry<String, String>
         }
     }
 
+    override fun enterAssignment(ctx: KotlinParser.AssignmentContext) {
+        if (ctx.parentType() == ParentType.FUNCTION) {
+            count(FeatureName.VARIABLE_REASSIGNMENTS, 1)
+        }
+    }
+
+    override fun enterPrefixUnaryOperator(ctx: KotlinParser.PrefixUnaryOperatorContext) {
+        if (ctx.parentType() == ParentType.FUNCTION && (ctx.INCR() != null || ctx.DECR() != null)) {
+            count(FeatureName.VARIABLE_REASSIGNMENTS, 1)
+        }
+    }
+
+    override fun enterPostfixUnaryOperator(ctx: KotlinParser.PostfixUnaryOperatorContext) {
+        if (ctx.parentType() == ParentType.FUNCTION && (ctx.INCR() != null || ctx.DECR() != null)) {
+            count(FeatureName.VARIABLE_REASSIGNMENTS, 1)
+        }
+    }
+
     override fun enterObjectLiteral(ctx: KotlinParser.ObjectLiteralContext) {
         if (ctx.classBody() != null) {
             anonymousClassDepth++
@@ -186,7 +204,7 @@ class KotlinFeatureListener(val source: Source, entry: Map.Entry<String, String>
 
     init {
         val parsedSource = source.getParsed(filename)
-        // println(parsedSource.tree.format(parsedSource.parser))
+        println(parsedSource.tree.format(parsedSource.parser))
         ParseTreeWalker.DEFAULT.walk(this, parsedSource.tree)
     }
 }

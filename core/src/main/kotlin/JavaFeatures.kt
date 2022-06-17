@@ -517,7 +517,6 @@ class JavaFeatureListener(val source: Source, entry: Map.Entry<String, String>) 
                 count(FeatureName.DOT_NOTATION, -2)
             }
             if (it.bop?.text == "=") {
-                count(FeatureName.VARIABLE_ASSIGNMENTS, 1)
                 count(FeatureName.VARIABLE_REASSIGNMENTS, 1)
             }
         }
@@ -618,7 +617,10 @@ class JavaFeatureListener(val source: Source, entry: Map.Entry<String, String>) 
             "&&", "||" -> count(FeatureName.LOGICAL_OPERATORS, 1)
             "+", "-", "*", "/", "%" -> count(FeatureName.ARITHMETIC_OPERATORS, 1)
             "&", "|", "^" -> count(FeatureName.BITWISE_OPERATORS, 1)
-            "+=", "-=", "*=", "/=", "%=" -> count(FeatureName.ASSIGNMENT_OPERATORS, 1)
+            "+=", "-=", "*=", "/=", "%=" -> {
+                count(FeatureName.ASSIGNMENT_OPERATORS, 1)
+                count(FeatureName.VARIABLE_REASSIGNMENTS, 1)
+            }
             "?" -> count(FeatureName.TERNARY_OPERATOR, 1)
             "instanceof" -> count(FeatureName.INSTANCEOF, 1)
             "." -> {
@@ -636,12 +638,18 @@ class JavaFeatureListener(val source: Source, entry: Map.Entry<String, String>) 
             }
         }
         when (ctx.prefix?.text) {
-            "++", "--" -> count(FeatureName.UNARY_OPERATORS, 1)
+            "++", "--" -> {
+                count(FeatureName.UNARY_OPERATORS, 1)
+                count(FeatureName.VARIABLE_REASSIGNMENTS, 1)
+            }
             "~" -> count(FeatureName.BITWISE_OPERATORS, 1)
             "!" -> count(FeatureName.LOGICAL_OPERATORS, 1)
         }
         when (ctx.postfix?.text) {
-            "++", "--" -> count(FeatureName.UNARY_OPERATORS, 1)
+            "++", "--" -> {
+                count(FeatureName.UNARY_OPERATORS, 1)
+                count(FeatureName.VARIABLE_REASSIGNMENTS, 1)
+            }
         }
         if (ctx.text == "null") {
             count(FeatureName.NULL, 1)
