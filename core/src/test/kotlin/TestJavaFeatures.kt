@@ -41,6 +41,7 @@ for (int num : arr) {
             it.lookup(".").features.featureMap[FeatureName.ARRAYS] shouldBe 1
             it.lookup(".").features.featureMap[FeatureName.NEW_KEYWORD] shouldBe 0
             it.lookup(".").features.featureMap[FeatureName.VARIABLE_ASSIGNMENTS] shouldBe 2
+            it.lookup(".").features.featureMap[FeatureName.VARIABLE_REASSIGNMENTS] shouldBe 2
             it.lookup(".").features.featureMap[FeatureName.LOCAL_VARIABLE_DECLARATIONS] shouldBe 3
             it.lookup(".").features.featureMap[FeatureName.ENHANCED_FOR] shouldBe 1
         }

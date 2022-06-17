@@ -9,7 +9,7 @@ class TestKotlinFeatures : StringSpec({
         Source.fromSnippet(
             """
 var i = 0
-var j = 1
+var j: Int? = null
 i = 1
 i += 1
 i++
