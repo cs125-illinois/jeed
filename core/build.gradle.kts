@@ -20,10 +20,10 @@ dependencies {
     implementation("org.jetbrains.kotlin:kotlin-compiler-embeddable:1.7.0")
     implementation("org.jetbrains.kotlin:kotlin-reflect:1.7.0")
 
-    implementation("org.jetbrains.kotlinx:kotlinx-coroutines-core:1.6.2")
+    implementation("org.jetbrains.kotlinx:kotlinx-coroutines-core:1.6.3")
     implementation("com.puppycrawl.tools:checkstyle:10.3")
-    implementation("com.pinterest.ktlint:ktlint-core:0.45.2")
-    implementation("com.pinterest.ktlint:ktlint-ruleset-standard:0.45.2")
+    implementation("com.pinterest.ktlint:ktlint-core:0.46.1")
+    implementation("com.pinterest.ktlint:ktlint-ruleset-standard:0.46.1")
     implementation("com.github.jknack:handlebars:4.3.0")
     implementation("com.squareup.moshi:moshi-kotlin:1.13.0")
     implementation("org.ow2.asm:asm:9.3")

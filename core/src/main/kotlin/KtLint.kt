@@ -116,7 +116,7 @@ suspend fun Source.ktFormat(ktLintArguments: KtLintArguments = KtLintArguments()
                     filename
                 }
             ] = KtLint.format(
-                KtLint.Params(
+                KtLint.ExperimentalParams(
                     if (source is Snippet) {
                         "MainKt.kt"
                     } else {
@@ -162,7 +162,7 @@ suspend fun Source.ktLint(ktLintArguments: KtLintArguments = KtLintArguments()):
         }.forEach { (filename, contents) ->
             limiter.withPermit {
                 KtLint.lint(
-                    KtLint.Params(
+                    KtLint.ExperimentalParams(
                         if (source is Snippet) {
                             "MainKt.kt"
                         } else {
