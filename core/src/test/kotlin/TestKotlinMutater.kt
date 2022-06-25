@@ -680,14 +680,16 @@ fun test() {
   val ignore = arrayOf(8)
   val values = arrayOf(1, 2, 4)
   val second = arrayOf(arrayOf(1, 2), arrayOf(4, 5))
+  val list = listOf("test,me", "again")
 }
 """.trim()
         ).checkMutations<ModifyArrayLiteral> { mutations, contents ->
-            mutations shouldHaveSize 4
+            mutations shouldHaveSize 5
             mutations[0].check(contents, "1, 2, 4")
             mutations[1].check(contents, "arrayOf(1, 2), arrayOf(4, 5)").also {
                 it shouldMatch ".*arrayOf\\(1, 2\\).*".toRegex(RegexOption.DOT_MATCHES_ALL)
             }
+            mutations[4].check(contents, """"test,me", "again"""")
         }
     }
     "it should remove blank lines correctly" {

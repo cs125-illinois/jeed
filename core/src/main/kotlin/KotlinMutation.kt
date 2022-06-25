@@ -487,7 +487,11 @@ class KotlinMutationListener(private val parsedSource: Source.ParsedSource) : Ko
     override fun enterPostfixUnaryExpression(ctx: KotlinParser.PostfixUnaryExpressionContext) {
         val identifier = ctx.primaryExpression()?.simpleIdentifier()
         val arguments = ctx.postfixUnarySuffix()?.firstOrNull()?.callSuffix()?.valueArguments() ?: return
-        if ((identifier?.text == "arrayOf" || identifier?.text?.endsWith("ArrayOf") == true) &&
+        if ((
+            identifier?.text == "arrayOf" ||
+                identifier?.text == "listOf" ||
+                identifier?.text?.endsWith("ArrayOf") == true
+            ) &&
             arguments.valueArgument().size > 1
         ) {
             val start = arguments.valueArgument().first().toLocation()

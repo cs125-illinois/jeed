@@ -204,7 +204,8 @@ val OTHER = setOf(
     Mutation.Type.ADD_BREAK,
     Mutation.Type.STRING_LITERAL_TRIM,
     Mutation.Type.NUMBER_LITERAL_TRIM,
-    Mutation.Type.MODIFY_LENGTH_AND_SIZE
+    Mutation.Type.MODIFY_LENGTH_AND_SIZE,
+    Mutation.Type.MODIFY_ARRAY_LITERAL
 )
 val ALL = PITEST + OTHER
 
