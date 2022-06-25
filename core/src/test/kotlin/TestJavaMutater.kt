@@ -836,6 +836,25 @@ public class Example {
             }
         }
     }
+    "it should ignore suppressed mutations on next lines" {
+        Source.fromJava(
+            """
+public class Example {
+  public static Object fourth() {
+    if (true) {
+      System.out.println("Here");
+    }
+    // mutate-disable
+    return new Object();
+  }
+}"""
+        ).allMutations().also { mutations ->
+            mutations shouldHaveSize 7
+            mutations[0].cleaned().also {
+                it["Main.java"] shouldNotContain "mutate-disable"
+            }
+        }
+    }
     "it should ignore specific suppressed mutations" {
         Source.fromJava(
             """
@@ -844,14 +863,16 @@ public class Example {
     if (first > second) { // mutate-disable-conditional-boundary
       return first;
     } else {
+      // mutate-disable-primitive-return
       return second;
     }
   }
 }"""
         ).allMutations().also { mutations ->
-            mutations shouldHaveSize 7
+            mutations shouldHaveSize 6
             mutations[0].cleaned().also {
                 it["Main.java"] shouldNotContain "mutate-disable-conditional-boundary"
+                it["Main.java"] shouldNotContain "mutate-disable-primitive-return"
             }
         }
     }

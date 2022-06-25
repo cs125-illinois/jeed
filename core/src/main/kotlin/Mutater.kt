@@ -120,7 +120,9 @@ class MutatedSource(
 
     companion object {
         private val matchMutationSuppression = Regex("""\s*// mutate-disable.*$""")
-        fun removeMutationSuppressions(contents: String) = contents.lines().joinToString("\n") {
+        fun removeMutationSuppressions(contents: String) = contents.lines().filter {
+            !it.trim().startsWith("""// mutate-disable""")
+        }.joinToString("\n") {
             matchMutationSuppression.replace(it, "")
         }
     }
@@ -201,13 +203,30 @@ fun Source.mutate(
 ) =
     Mutater(this, shuffle, seed, types).mutate(limit)
 
-fun SourceMutation.suppressed() = mutation.location.line.lines().any { line ->
+fun SourceMutation.suppressed(contents: String) = mutation.location.line.lines().any { line ->
     line.split("""//""").let { parts ->
         parts.size == 2 && (
             parts[1].split(" ").contains("mutate-disable") ||
                 parts[1].split(" ").contains(mutation.mutationType.suppressionComment())
             )
     }
+} || contents.lines().let { lines ->
+    for (lineNumber in mutation.location.startLine - 1 downTo 1) {
+        val line = lines[lineNumber - 1].trim()
+        if (!line.startsWith("""//""")) {
+            break
+        }
+        line.split("""//""").also { parts ->
+            if (parts.size == 2 && (
+                    parts[1].split(" ").contains("mutate-disable") ||
+                        parts[1].split(" ").contains(mutation.mutationType.suppressionComment())
+                    )
+            ) {
+                return@let true
+            }
+        }
+    }
+    false
 }
 
 fun Source.allMutations(
@@ -219,7 +238,7 @@ fun Source.allMutations(
         Mutation.find<Mutation>(getParsed(name), type).map { mutation -> SourceMutation(name, mutation) }
     }.flatten()
         .filter { types.contains(it.mutation.mutationType) }
-        .filter { !suppressWithComments || !it.suppressed() }
+        .filter { !suppressWithComments || !it.suppressed(sources[it.name]!!) }
 
     return mutations.map { sourceMutation ->
         val modifiedSources = sources.copy().toMutableMap()
@@ -248,7 +267,7 @@ fun Source.mutationStream(
         Mutation.find<Mutation>(getParsed(name), type).map { mutation -> SourceMutation(name, mutation) }
     }.flatten()
         .filter { types.contains(it.mutation.mutationType) }
-        .filter { !suppressWithComments || !it.suppressed() }
+        .filter { !suppressWithComments || !it.suppressed(sources[it.name]!!) }
         .toMutableList()
 
     val seen = mutableSetOf<String>()
@@ -305,7 +324,7 @@ fun Source.allFixedMutations(
             Mutation.find<Mutation>(getParsed(it), type).map { mutation -> SourceMutation(name, mutation) }
         }.flatten()
         .filter { types.contains(it.mutation.mutationType) }
-        .filter { !suppressWithComments || !it.suppressed() }
+        .filter { !suppressWithComments || !it.suppressed(sources[it.name]!!) }
         .toMutableList()
 
     val mutatedSources = mutableListOf<MutatedSource>()
