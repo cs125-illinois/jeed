@@ -203,7 +203,8 @@ val OTHER = setOf(
     Mutation.Type.PLUS_OR_MINUS_ONE_TO_ZERO,
     Mutation.Type.ADD_BREAK,
     Mutation.Type.STRING_LITERAL_TRIM,
-    Mutation.Type.NUMBER_LITERAL_TRIM
+    Mutation.Type.NUMBER_LITERAL_TRIM,
+    Mutation.Type.MODIFY_LENGTH_AND_SIZE
 )
 val ALL = PITEST + OTHER
 

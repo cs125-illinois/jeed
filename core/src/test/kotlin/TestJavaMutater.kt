@@ -989,7 +989,7 @@ public class Example {
   }
 }"""
         ).allFixedMutations(random = Random(124)).also { mutations ->
-            mutations.size shouldBe 27
+            mutations.size shouldBe 29
         }
     }
     "it should end stream mutations when out of things to mutate" {

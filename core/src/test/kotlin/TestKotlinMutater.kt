@@ -881,7 +881,7 @@ fun testStream(): String {
 }
 """.trim()
         ).allFixedMutations(random = Random(124)).also { mutations ->
-            mutations shouldHaveSize 30
+            mutations shouldHaveSize 32
         }
     }
     "it should end stream mutations when out of things to mutate" {
