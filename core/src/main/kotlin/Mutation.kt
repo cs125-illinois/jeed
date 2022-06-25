@@ -1188,16 +1188,26 @@ class AddBreak(
 class ModifyArrayLiteral(
     location: Location,
     original: String,
-    fileType: Source.FileType
+    fileType: Source.FileType,
+    private val parts: List<String>
 ) : Mutation(Type.MODIFY_ARRAY_LITERAL, location, original, fileType) {
+    init {
+        check(parts.size > 1)
+    }
     override val preservesLength = false
-    override val estimatedCount = 1
+    override val estimatedCount = parts.size - 1
     override val mightNotCompile = false
-    override val fixedCount = true
+    override val fixedCount = false
 
-    override fun applyMutation(random: Random): String = when (fileType) {
-        Source.FileType.JAVA -> ""
-        Source.FileType.KOTLIN -> ""
+    override fun applyMutation(random: Random): String {
+        val toRemove = parts.indices.shuffled(random).first()
+        val separator = when (fileType) {
+            Source.FileType.JAVA -> ","
+            Source.FileType.KOTLIN -> ", "
+        }
+        return parts.filterIndexed { i, _ ->
+            i != toRemove
+        }.joinToString(separator).trim()
     }
 }
 

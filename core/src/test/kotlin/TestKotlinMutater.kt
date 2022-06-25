@@ -385,18 +385,6 @@ fun test(first: Int, second: Int) {
             mutations[3].check(contents, """assert(second >= 0) {"Bad second value"}""", "")
         }
     }
-    "!it should mutate array literals" {
-        Source.fromKotlin(
-            """
-fun test(first: Int, second: Int) {
-  val list = arrayOf(1, 2, 4)
-}
-""".trim()
-        ).checkMutations<ModifyArrayLiteral> { mutations, contents ->
-            mutations shouldHaveSize 1
-            mutations[0].check(contents, "1, 2, 4", "")
-        }
-    }
     "it should remove entire methods" {
         Source.fromKotlin(
             """
@@ -683,6 +671,23 @@ fun test() {
             mutations shouldHaveSize 2
             mutations[0].check(contents, "size")
             mutations[1].check(contents, "length")
+        }
+    }
+    "it should mutate array literals" {
+        Source.fromKotlin(
+            """
+fun test() {
+  val ignore = arrayOf(8)
+  val values = arrayOf(1, 2, 4)
+  val second = arrayOf(arrayOf(1, 2), arrayOf(4, 5))
+}
+""".trim()
+        ).checkMutations<ModifyArrayLiteral> { mutations, contents ->
+            mutations shouldHaveSize 4
+            mutations[0].check(contents, "1, 2, 4")
+            mutations[1].check(contents, "arrayOf(1, 2), arrayOf(4, 5)").also {
+                it shouldMatch ".*arrayOf\\(1, 2\\).*".toRegex(RegexOption.DOT_MATCHES_ALL)
+            }
         }
     }
     "it should remove blank lines correctly" {

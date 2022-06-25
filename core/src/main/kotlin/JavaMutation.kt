@@ -475,7 +475,29 @@ class JavaMutationListener(private val parsedSource: Source.ParsedSource) : Java
         }
     }
 
+    override fun enterArrayInitializer(ctx: JavaParser.ArrayInitializerContext) {
+        if ((ctx.variableInitializer()?.size ?: 0) < 2) {
+            return
+        }
+        val start = ctx.variableInitializer().first().toLocation()
+        val end = ctx.variableInitializer().last().toLocation()
+        val location = Mutation.Location(
+            start.start,
+            end.end,
+            lines.filterIndexed { index, _ -> index >= start.startLine - 1 && index <= end.endLine - 1 }
+                .joinToString("\n"),
+            start.startLine,
+            end.endLine
+        )
+        val contents = parsedSource.contents(location)
+        val parts = ctx.variableInitializer().map {
+            parsedSource.contents(it.toLocation())
+        }
+        mutations.add(ModifyArrayLiteral(location, contents, Source.FileType.JAVA, parts))
+    }
+
     init {
+        // println(parsedSource.tree.format(parsedSource.parser))
         ParseTreeWalker.DEFAULT.walk(this, parsedSource.tree)
     }
 }

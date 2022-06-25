@@ -800,6 +800,25 @@ public class Example {
             mutations[2].check(contents, "size()")
         }
     }
+    "it should mutate array literals" {
+        Source.fromJava(
+            """
+public class Example {
+  public void test() {
+    int[] ignore = new int[] {1};
+    int[] values = new int[] {1, 2, 4};
+    int[][] values = new int[][] {{1, 2}, {4, 5}};
+  }
+}
+""".trim()
+        ).checkMutations<ModifyArrayLiteral> { mutations, contents ->
+            mutations shouldHaveSize 4
+            mutations[0].check(contents, "1, 2, 4")
+            mutations[1].check(contents, "{1, 2}, {4, 5}").also {
+                it shouldMatch ".*\\{1, 2\\}.*".toRegex(RegexOption.DOT_MATCHES_ALL)
+            }
+        }
+    }
     "it should remove blank lines correctly" {
         val source = Source.fromJava(
             """

@@ -484,6 +484,30 @@ class KotlinMutationListener(private val parsedSource: Source.ParsedSource) : Ko
         }
     }
 
+    override fun enterPostfixUnaryExpression(ctx: KotlinParser.PostfixUnaryExpressionContext) {
+        val identifier = ctx.primaryExpression()?.simpleIdentifier()
+        val arguments = ctx.postfixUnarySuffix()?.firstOrNull()?.callSuffix()?.valueArguments() ?: return
+        if ((identifier?.text == "arrayOf" || identifier?.text?.endsWith("ArrayOf") == true) &&
+            arguments.valueArgument().size > 1
+        ) {
+            val start = arguments.valueArgument().first().toLocation()
+            val end = arguments.valueArgument().last().toLocation()
+            val location = Mutation.Location(
+                start.start,
+                end.end,
+                lines.filterIndexed { index, _ -> index >= start.startLine - 1 && index <= end.endLine - 1 }
+                    .joinToString("\n"),
+                start.startLine,
+                end.endLine
+            )
+            val contents = parsedSource.contents(location)
+            val parts = arguments.valueArgument().map {
+                parsedSource.contents(it.toLocation())
+            }
+            mutations.add(ModifyArrayLiteral(location, contents, Source.FileType.KOTLIN, parts))
+        }
+    }
+
     private fun <T : ParserRuleContext> locationPairHelper(
         front: T,
         back: T
@@ -528,6 +552,7 @@ class KotlinMutationListener(private val parsedSource: Source.ParsedSource) : Ko
     }
 
     init {
+        // println(parsedSource.tree.format(parsedSource.parser))
         ParseTreeWalker.DEFAULT.walk(this, parsedSource.tree)
     }
 }
