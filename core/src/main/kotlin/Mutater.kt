@@ -218,9 +218,9 @@ fun SourceMutation.suppressed(contents: String) = mutation.location.line.lines()
         }
         line.split("""//""").also { parts ->
             if (parts.size == 2 && (
-                    parts[1].split(" ").contains("mutate-disable") ||
-                        parts[1].split(" ").contains(mutation.mutationType.suppressionComment())
-                    )
+                parts[1].split(" ").contains("mutate-disable") ||
+                    parts[1].split(" ").contains(mutation.mutationType.suppressionComment())
+                )
             ) {
                 return@let true
             }

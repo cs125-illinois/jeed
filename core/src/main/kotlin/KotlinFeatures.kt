@@ -138,16 +138,32 @@ class KotlinFeatureListener(val source: Source, entry: Map.Entry<String, String>
         currentFeatures.features += lastFeatures.features
     }
 
+    private var functionBlockDepth = 0
     override fun enterFunctionDeclaration(ctx: KotlinParser.FunctionDeclarationContext) {
         enterMethodOrConstructor(
             ctx.fullName(),
             Location(ctx.start.line, ctx.start.charPositionInLine),
             Location(ctx.stop.line, ctx.stop.charPositionInLine)
         )
+        functionBlockDepth = 0
     }
 
     override fun exitFunctionDeclaration(ctx: KotlinParser.FunctionDeclarationContext) {
         exitMethodOrConstructor()
+        check(functionBlockDepth == 0)
+        functionBlockDepth = -1
+    }
+
+    override fun enterBlock(ctx: KotlinParser.BlockContext) {
+        if (functionBlockDepth != -1) {
+            functionBlockDepth++
+        }
+    }
+
+    override fun exitBlock(ctx: KotlinParser.BlockContext?) {
+        if (functionBlockDepth != -1) {
+            functionBlockDepth--
+        }
     }
 
     private enum class ParentType {
@@ -195,11 +211,17 @@ class KotlinFeatureListener(val source: Source, entry: Map.Entry<String, String>
         }
         ctx.forStatement()?.also {
             count(FeatureName.FOR_LOOPS, 1)
+            if (functionBlockDepth > 1) {
+                count(FeatureName.NESTED_FOR, 1)
+            }
         }
     }
 
     override fun enterSimpleIdentifier(ctx: KotlinParser.SimpleIdentifierContext) {
-        if (ctx.Identifier()?.text == "arrayOf") {
+        if (ctx.Identifier()?.text == "arrayOf" ||
+            ctx.Identifier()?.text == "Array" ||
+            ctx.Identifier()?.text?.endsWith("ArrayOf") == true
+        ) {
             count(FeatureName.ARRAYS, 1)
         }
     }

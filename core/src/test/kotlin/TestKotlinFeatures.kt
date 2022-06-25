@@ -28,11 +28,31 @@ for (i in 0 until 10) {
     println(i)
 }
 val first = arrayOf(1, 2, 4)
+val second = intArrayOf(2, 4, 8)
+val third = Array<Int>(8) { 0 }
+val test = "arrayOf"
+for (value in first) {
+  println(value)
+}
 """.trim()
         ).features().also {
-            it.lookup(".").features.featureMap[FeatureName.FOR_LOOPS] shouldBe 1
-            it.lookup(".").features.featureMap[FeatureName.VARIABLE_ASSIGNMENTS] shouldBe 1
-            it.lookup(".").features.featureMap[FeatureName.ARRAYS] shouldBe 1
+            it.lookup(".").features.featureMap[FeatureName.FOR_LOOPS] shouldBe 2
+            it.lookup(".").features.featureMap[FeatureName.VARIABLE_ASSIGNMENTS] shouldBe 4
+            it.lookup(".").features.featureMap[FeatureName.ARRAYS] shouldBe 3
+        }
+    }
+    "should count nested for loops in snippets" {
+        Source.fromKotlinSnippet(
+            """
+for (i in 0 until 10) {
+    for (i in 0 until 10) {
+        println(i + j)
+    }
+}
+""".trim()
+        ).features().also {
+            it.lookup(".").features.featureMap[FeatureName.FOR_LOOPS] shouldBe 2
+            it.lookup(".").features.featureMap[FeatureName.NESTED_FOR] shouldBe 1
         }
     }
 })
