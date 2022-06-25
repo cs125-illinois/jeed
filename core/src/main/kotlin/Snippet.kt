@@ -174,6 +174,21 @@ fun Source.Companion.fromSnippet(
     }
 }
 
+fun Source.Companion.fromJavaSnippet(
+    originalSource: String,
+    snippetArguments: SnippetArguments = SnippetArguments()
+): Snippet {
+    require(originalSource.isNotEmpty()) { "Snippet cannot be a blank string" }
+    return sourceFromKotlinSnippet(originalSource, snippetArguments.copy(fileType = Source.FileType.JAVA))
+}
+fun Source.Companion.fromKotlinSnippet(
+    originalSource: String,
+    snippetArguments: SnippetArguments = SnippetArguments()
+): Snippet {
+    require(originalSource.isNotEmpty()) { "Snippet cannot be a blank string" }
+    return sourceFromKotlinSnippet(originalSource, snippetArguments.copy(fileType = Source.FileType.KOTLIN))
+}
+
 @Suppress("LongMethod", "ComplexMethod", "ThrowsCount")
 private fun sourceFromKotlinSnippet(originalSource: String, snippetArguments: SnippetArguments): Snippet {
     val sourceLines = originalSource.lines()

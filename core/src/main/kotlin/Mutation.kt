@@ -66,8 +66,10 @@ sealed class Mutation(
         NEGATE_IF, NEGATE_WHILE, REMOVE_IF, REMOVE_LOOP, REMOVE_AND_OR, REMOVE_TRY, REMOVE_STATEMENT,
         REMOVE_PLUS, REMOVE_BINARY, CHANGE_EQUALS,
         SWAP_BREAK_CONTINUE, PLUS_OR_MINUS_ONE_TO_ZERO, ADD_BREAK,
-        MODIFY_ARRAY_LITERAL,
-        STRING_LITERAL_TRIM, NUMBER_LITERAL_TRIM
+        STRING_LITERAL_TRIM, NUMBER_LITERAL_TRIM,
+
+        // TODO: Finish
+        MODIFY_ARRAY_LITERAL, MODIFY_LENGTH_AND_SIZE
     }
 
     var modified: String? = null
@@ -1181,6 +1183,7 @@ class AddBreak(
     }
 }
 
+// TODO: Finish
 class ModifyArrayLiteral(
     location: Location,
     original: String,
@@ -1194,5 +1197,36 @@ class ModifyArrayLiteral(
     override fun applyMutation(random: Random): String = when (fileType) {
         Source.FileType.JAVA -> ""
         Source.FileType.KOTLIN -> ""
+    }
+}
+
+class ChangeLengthAndSize(
+    location: Location,
+    original: String,
+    fileType: Source.FileType
+) : Mutation(Type.MODIFY_LENGTH_AND_SIZE, location, original, fileType) {
+    override val preservesLength = false
+    override val estimatedCount = 2
+    override val mightNotCompile = true
+    override val fixedCount = true
+
+    init {
+        when (fileType) {
+            Source.FileType.JAVA -> check(original in javaLengthAndSize) { "Invalid length or size: $original" }
+            Source.FileType.KOTLIN -> check(original in kotlinLengthAndSize) { "Invalid length or size: $original" }
+        }
+    }
+
+    override fun applyMutation(random: Random): String = random.nextBoolean().let {
+        if (it) {
+            "$original + 1"
+        } else {
+            "$original - 1"
+        }
+    }
+
+    companion object {
+        val javaLengthAndSize = listOf("length", "length()", "size()")
+        val kotlinLengthAndSize = listOf("length", "size")
     }
 }

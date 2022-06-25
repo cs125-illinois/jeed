@@ -269,9 +269,8 @@ class JavaMutationListener(private val parsedSource: Source.ParsedSource) : Java
             }
             @Suppress("ComplexCondition")
             if (contents == "." &&
-                ctx.methodCall() != null &&
-                ctx.methodCall().identifier().text == "equals" &&
-                ctx.methodCall().expressionList().expression().size == 1
+                ctx.methodCall()?.identifier()?.text == "equals" &&
+                ctx.methodCall()?.expressionList()?.expression()?.size == 1
             ) {
                 mutations.add(
                     ChangeEquals(
@@ -281,6 +280,27 @@ class JavaMutationListener(private val parsedSource: Source.ParsedSource) : Java
                         ".equals",
                         ctx.expression(0).text,
                         ctx.methodCall().expressionList().expression(0).text
+                    )
+                )
+            }
+            if (contents == "." && ctx.identifier()?.text == "length") {
+                mutations.add(
+                    ChangeLengthAndSize(
+                        ctx.identifier().toLocation(),
+                        parsedSource.contents(ctx.identifier().toLocation()),
+                        Source.FileType.JAVA
+                    )
+                )
+            }
+            if (contents == "." &&
+                (ctx.methodCall()?.identifier()?.text == "length" || ctx.methodCall()?.identifier()?.text == "size") &&
+                ctx.methodCall()?.expressionList()?.isEmpty != false
+            ) {
+                mutations.add(
+                    ChangeLengthAndSize(
+                        ctx.methodCall().toLocation(),
+                        parsedSource.contents(ctx.methodCall().toLocation()),
+                        Source.FileType.JAVA
                     )
                 )
             }

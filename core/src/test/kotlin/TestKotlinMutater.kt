@@ -665,6 +665,26 @@ fun test() {
             mutations[3].check(contents, " + 4", "")
         }
     }
+    "it should change length and size" {
+        Source.fromKotlin(
+            """
+fun test() {
+  var array = arrayOf(1, 2, 4)
+  for (i in 0 until array.size) {
+    println(i)
+  }
+  var s = "test"
+  for (i in 0 until s.length) {
+    println(i)
+  }
+}
+""".trim()
+        ).checkMutations<ChangeLengthAndSize> { mutations, contents ->
+            mutations shouldHaveSize 2
+            mutations[0].check(contents, "size")
+            mutations[1].check(contents, "length")
+        }
+    }
     "it should remove blank lines correctly" {
         val source = Source.fromKotlin(
             """

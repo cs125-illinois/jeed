@@ -751,7 +751,6 @@ public class Example {
             mutations shouldHaveSize 20
         }
     }
-
     "it should complete the change equals mutation" {
         Source.fromJava(
             """
@@ -772,7 +771,35 @@ public class Example {
             mutations[1].check(contents, "example2.equals(example3)", "(example2 == example3)")
         }
     }
-
+    "it should change length and size" {
+        Source.fromJava(
+            """
+public class Example {
+  public void equalsTester() {
+    int[] array = new int[10];
+    for (int i = 0; i < array.length; i++) {
+      System.out.println(i);
+    }
+    String s = "test";
+    for (int i = 0; i < s.length(); i++) {
+      System.out.println(i);
+    }
+    List<String> t = Arrays.asList(1, 2, 4);
+    for (int i = 0; i < t.size(); i++) {
+      System.out.println(i);
+    }
+    int another = t.size(10); // Ignore size and length with parameters
+    int testing = s.length("foo");
+  }
+}
+""".trim()
+        ).checkMutations<ChangeLengthAndSize> { mutations, contents ->
+            mutations shouldHaveSize 3
+            mutations[0].check(contents, "length")
+            mutations[1].check(contents, "length()")
+            mutations[2].check(contents, "size()")
+        }
+    }
     "it should remove blank lines correctly" {
         val source = Source.fromJava(
             """

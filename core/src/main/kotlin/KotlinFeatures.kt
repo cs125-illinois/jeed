@@ -189,6 +189,21 @@ class KotlinFeatureListener(val source: Source, entry: Map.Entry<String, String>
         }
     }
 
+    override fun enterLoopStatement(ctx: KotlinParser.LoopStatementContext) {
+        if (ctx.parentType() != ParentType.FUNCTION) {
+            return
+        }
+        ctx.forStatement()?.also {
+            count(FeatureName.FOR_LOOPS, 1)
+        }
+    }
+
+    override fun enterSimpleIdentifier(ctx: KotlinParser.SimpleIdentifierContext) {
+        if (ctx.Identifier()?.text == "arrayOf") {
+            count(FeatureName.ARRAYS, 1)
+        }
+    }
+
     override fun enterObjectLiteral(ctx: KotlinParser.ObjectLiteralContext) {
         if (ctx.classBody() != null) {
             anonymousClassDepth++
@@ -204,7 +219,7 @@ class KotlinFeatureListener(val source: Source, entry: Map.Entry<String, String>
 
     init {
         val parsedSource = source.getParsed(filename)
-        println(parsedSource.tree.format(parsedSource.parser))
+        // println(parsedSource.tree.format(parsedSource.parser))
         ParseTreeWalker.DEFAULT.walk(this, parsedSource.tree)
     }
 }

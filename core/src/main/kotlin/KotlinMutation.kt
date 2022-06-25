@@ -469,6 +469,21 @@ class KotlinMutationListener(private val parsedSource: Source.ParsedSource) : Ko
         }
     }
 
+    override fun enterNavigationSuffix(ctx: KotlinParser.NavigationSuffixContext) {
+        if (ctx.memberAccessOperator()?.DOT() == null || ctx.simpleIdentifier() == null) {
+            return
+        }
+        if (ctx.simpleIdentifier().text == "size" || ctx.simpleIdentifier().text == "length") {
+            mutations.add(
+                ChangeLengthAndSize(
+                    ctx.simpleIdentifier().toLocation(),
+                    parsedSource.contents(ctx.simpleIdentifier().toLocation()),
+                    Source.FileType.KOTLIN
+                )
+            )
+        }
+    }
+
     private fun <T : ParserRuleContext> locationPairHelper(
         front: T,
         back: T
