@@ -26,6 +26,8 @@ tasks.test {
 }
 docker {
     name = "cs125/jeed-containerrunner"
+    @Suppress("DEPRECATION")
+    tags("latest")
     files(tasks["shadowJar"].outputs)
 }
 task("createProperties") {
