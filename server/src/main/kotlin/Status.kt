@@ -28,8 +28,10 @@ class Status(
 ) {
     @JsonClass(generateAdapter = true)
     data class Versions(val jeed: String, val server: String, val compiler: String, val kompiler: String)
+
     @JsonClass(generateAdapter = true)
     data class Counts(var submitted: Int = 0, var completed: Int = 0, var saved: Int = 0)
+
     @JsonClass(generateAdapter = true)
     data class Cache(
         val inUse: Boolean = useCompilationCache,

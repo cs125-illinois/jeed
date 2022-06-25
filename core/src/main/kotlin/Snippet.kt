@@ -716,7 +716,8 @@ private fun sourceFromJavaSnippet(originalSource: String, snippetArguments: Snip
     }
 
     // Adding public static void $snippetMainMethodName()
-    @Suppress("UNUSED_VARIABLE") val looseCodeStart = currentOutputLineNumber
+    @Suppress("UNUSED_VARIABLE")
+    val looseCodeStart = currentOutputLineNumber
     currentOutputLineNumber++
 
     val looseCode = mutableListOf<String>()

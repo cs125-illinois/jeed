@@ -530,7 +530,8 @@ letters[-1] = 'X'
     "should execute sources that use Java 14 features" {
         @Suppress("MagicNumber")
         if (systemCompilerVersion >= 14) {
-            @Suppress("SpellCheckingInspection") val executionResult = Source(
+            @Suppress("SpellCheckingInspection")
+            val executionResult = Source(
                 mapOf(
                     "Main.java" to """
 record Range(int lo, int hi) {

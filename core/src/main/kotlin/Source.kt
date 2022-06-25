@@ -35,7 +35,7 @@ open class Source(
     sourceMap: Map<String, String>,
     checkSourceNames: (Sources) -> FileType = ::defaultCheckSourceNames,
     @Transient val sourceMappingFunction: (SourceLocation) -> SourceLocation = { it },
-    @Transient val leadingIndentationFunction: (SourceLocation) -> Int = { 0 },
+    @Transient val leadingIndentationFunction: (SourceLocation) -> Int = { 0 }
 ) {
     val sources = Sources(sourceMap.mapValues { (_, value) -> value.replace("""\r\n?""".toRegex(), "\n") })
 
@@ -171,6 +171,7 @@ open class Source(
         }
 
         fun fromJava(contents: String) = Source(mapOf("Main.java" to contents))
+
         @Suppress("unused")
         fun fromKotlin(contents: String) = Source(mapOf("Main.kt" to contents))
     }

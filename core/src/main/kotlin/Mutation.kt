@@ -248,6 +248,7 @@ class CharLiteral(
 }
 
 private val ALPHANUMERIC_CHARS_AND_SPACE = (('a'..'z') + ('A'..'Z') + ('0'..'9') + (' ')).toSet()
+
 // private val PUNCTUATION = setOf('.', ',', '!', '?', ';', ':', '[', ']', '(', ')', '<', '>')
 private val LOOKALIKES =
     mapOf('0' to 'O', '0' to 'o', '1' to 'l', '.' to ',', '!' to '?', ':' to ';', '[' to '(', ']' to ')').toMutableMap()

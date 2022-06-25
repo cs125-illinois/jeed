@@ -496,13 +496,15 @@ class KotlinMutationListener(private val parsedSource: Source.ParsedSource) : Ko
 
     private fun KotlinParser.AdditiveExpressionContext.locationPair(): Pair<Mutation.Location, Mutation.Location> {
         return locationPairHelper<KotlinParser.MultiplicativeExpressionContext>(
-            multiplicativeExpression(0), multiplicativeExpression(1)
+            multiplicativeExpression(0),
+            multiplicativeExpression(1)
         )
     }
 
     private fun KotlinParser.ConjunctionContext.locationPair(): Pair<Mutation.Location, Mutation.Location> {
         return locationPairHelper<KotlinParser.EqualityContext>(
-            equality(0), equality(1)
+            equality(0),
+            equality(1)
         )
     }
 

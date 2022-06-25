@@ -153,7 +153,7 @@ sealed class FeatureValue(
     range: SourceRange,
     methods: MutableMap<String, LocatedClassOrMethod> = mutableMapOf(),
     classes: MutableMap<String, LocatedClassOrMethod> = mutableMapOf(),
-    var features: Features,
+    var features: Features
 ) : LocatedClassOrMethod(name, range, methods, classes) {
     fun lookup(name: String): FeatureValue {
         check(name.isNotEmpty())
@@ -171,7 +171,7 @@ class ClassFeatures(
     range: SourceRange,
     methods: MutableMap<String, LocatedClassOrMethod> = mutableMapOf(),
     classes: MutableMap<String, LocatedClassOrMethod> = mutableMapOf(),
-    features: Features = Features(),
+    features: Features = Features()
 ) : FeatureValue(name, range, methods, classes, features)
 
 @JsonClass(generateAdapter = true)
@@ -180,7 +180,7 @@ class MethodFeatures(
     range: SourceRange,
     methods: MutableMap<String, LocatedClassOrMethod> = mutableMapOf(),
     classes: MutableMap<String, LocatedClassOrMethod> = mutableMapOf(),
-    features: Features = Features(),
+    features: Features = Features()
 ) : FeatureValue(name, range, methods, classes, features)
 
 @JsonClass(generateAdapter = true)
@@ -189,7 +189,7 @@ class UnitFeatures(
     range: SourceRange,
     methods: MutableMap<String, LocatedClassOrMethod> = mutableMapOf(),
     classes: MutableMap<String, LocatedClassOrMethod> = mutableMapOf(),
-    features: Features = Features(),
+    features: Features = Features()
 ) : FeatureValue(name, range, methods, classes, features)
 
 class FeaturesFailed(errors: List<SourceError>) : JeedError(errors) {

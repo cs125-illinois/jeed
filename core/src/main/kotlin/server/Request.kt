@@ -53,7 +53,7 @@ data class ServerSourceExecutionArguments(
     var permissions: Set<Permission>? = null,
     var maxExtraThreads: Int? = null,
     var maxOutputLines: Int? = null,
-    var classLoaderConfiguration: ServerClassLoaderConfiguration? = null,
+    var classLoaderConfiguration: ServerClassLoaderConfiguration? = null
 ) {
     fun setDefaults(
         defaultTimeout: Long,

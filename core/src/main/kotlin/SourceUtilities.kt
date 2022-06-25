@@ -285,7 +285,6 @@ data class LineCounts(val source: Int, val comment: Int, val blank: Int) {
 
 @Suppress("NestedBlockDepth")
 fun String.countLines(type: Source.FileType): LineCounts {
-
     val source = mutableSetOf<Int>()
     val comment = mutableSetOf<Int>()
 

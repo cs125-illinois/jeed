@@ -149,7 +149,7 @@ class JavaComplexityListener(val source: Source, entry: Map.Entry<String, String
         enterMethodOrConstructor(
             "${currentClass.name}($parameters)",
             Location(ctx.start.line, ctx.start.charPositionInLine),
-            Location(ctx.stop.line, ctx.stop.charPositionInLine),
+            Location(ctx.stop.line, ctx.stop.charPositionInLine)
         )
     }
 

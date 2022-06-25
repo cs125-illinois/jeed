@@ -7,7 +7,7 @@ plugins {
     application
     `maven-publish`
     id("com.github.johnrengelman.shadow") version "7.1.2"
-    id("com.palantir.docker") version "0.33.0"
+    id("com.palantir.docker") version "0.34.0"
     id("org.jmailen.kotlinter")
     id("io.gitlab.arturbosch.detekt")
     id("com.google.devtools.ksp")
@@ -87,4 +87,7 @@ tasks.shadowJar {
         attributes["Can-Redefine-Classes"] = "true"
         attributes["Can-Retransform-Classes"] = "true"
     }
+}
+kotlinter {
+    disabledRules = arrayOf("filename", "enum-entry-name-case")
 }

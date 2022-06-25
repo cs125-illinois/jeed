@@ -126,7 +126,7 @@ suspend fun Checker.processString(name: String, source: String): List<Checkstyle
                         it.severityLevel.toString(),
                         it.key!!,
                         SourceLocation(name, it.lineNo, it.columnNo),
-                        it.violation,
+                        it.violation
                     )
                 )
             }

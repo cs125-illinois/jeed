@@ -24,7 +24,7 @@ class SourceExecutionArguments(
     @Transient
     var methodToRun: Method? = null,
     @Transient
-    internal val plugins: MutableList<ConfiguredSandboxPlugin<*, *>> = mutableListOf(),
+    internal val plugins: MutableList<ConfiguredSandboxPlugin<*, *>> = mutableListOf()
 ) : Sandbox.ExecutionArguments(
     timeout,
     permissions.union(REQUIRED_PERMISSIONS),
@@ -49,7 +49,7 @@ class SourceExecutionArguments(
             RuntimePermission("localeServiceProvider"),
             // Not sure why this is required by Date, but it seems to be
             // ClassLoader enumeration is probably not unsafe...
-            RuntimePermission("getClassLoader"),
+            RuntimePermission("getClassLoader")
         )
     }
 

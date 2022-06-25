@@ -433,7 +433,8 @@ fun test(): List<String> {
 
     "should trace a simple Kotlin snippet" {
         val source = Source.fromSnippet(
-            """println("Hi")""", SnippetArguments(fileType = Source.FileType.KOTLIN)
+            """println("Hi")""",
+            SnippetArguments(fileType = Source.FileType.KOTLIN)
         )
         val result = source.kompile().execute(SourceExecutionArguments().addPlugin(LineTrace))
         result should haveCompleted()
@@ -638,7 +639,8 @@ try {
         )
         val result = source.compile().execute(
             SourceExecutionArguments().addPlugin(
-                LineTrace, LineTraceArguments(recordedLineLimit = 0, runLineLimit = 100)
+                LineTrace,
+                LineTraceArguments(recordedLineLimit = 0, runLineLimit = 100)
             )
         )
         result should haveBeenKilled()
@@ -732,13 +734,16 @@ while (true) {
         """.trim()
         )
         val lineTraceArgs = LineTraceArguments(
-            runLineLimit = 10000, recordedLineLimit = 0, maxUnsynchronizedLines = 0
+            runLineLimit = 10000,
+            recordedLineLimit = 0,
+            maxUnsynchronizedLines = 0
         )
         val compiledSource = source.compile()
         repeat(10) {
             val result = compiledSource.execute(
                 SourceExecutionArguments(maxExtraThreads = 1).addPlugin(
-                    LineTrace, lineTraceArgs
+                    LineTrace,
+                    lineTraceArgs
                 )
             )
             result should haveBeenKilled()
@@ -770,7 +775,8 @@ public class Main {
 }""".trim()
         ).compile()
         val lineTraceArgs = LineTraceArguments(
-            recordedLineLimit = 0, runLineLimit = 25
+            recordedLineLimit = 0,
+            runLineLimit = 25
         )
         val plugins = listOf(ConfiguredSandboxPlugin(LineTrace, lineTraceArgs))
         val subtaskLinesRun = mutableListOf<Long>()

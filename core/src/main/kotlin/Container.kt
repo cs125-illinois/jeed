@@ -192,7 +192,8 @@ class StreamGobbler(
 }
 
 suspend fun <T> withTempDir(root: File? = null, f: suspend (directory: File) -> T): T {
-    @Suppress("DEPRECATION") val directory = createTempDir("containerrunner", null, root)
+    @Suppress("DEPRECATION")
+    val directory = createTempDir("containerrunner", null, root)
     return try {
         f(directory)
     } finally {

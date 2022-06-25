@@ -133,3 +133,7 @@ publishing {
 kotlin {
     kotlinDaemonJvmArgs = listOf("-Dfile.encoding=UTF-8")
 }
+kotlinter {
+    disabledRules = arrayOf("filename", "enum-entry-name-case")
+}
+

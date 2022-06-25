@@ -344,7 +344,8 @@ List list = new ArrayList();
         compiledSource should haveProvidedThisManyClasses(0)
     }
     "should compile with classes from nonstandard libraries" {
-        @Suppress("SpellCheckingInspection") val compiledSource = Source.fromSnippet(
+        @Suppress("SpellCheckingInspection")
+        val compiledSource = Source.fromSnippet(
             """
 import com.puppycrawl.tools.checkstyle.Checker;
 
@@ -354,7 +355,8 @@ System.out.println(new Checker());
         compiledSource should haveDefinedExactlyTheseClasses(setOf("Main"))
     }
     "should compile with classes from .class files" {
-        @Suppress("SpellCheckingInspection") val compiledSource = Source.fromSnippet(
+        @Suppress("SpellCheckingInspection")
+        val compiledSource = Source.fromSnippet(
             """
 import edu.illinois.cs.cs125.testingjeed.importable.*;
 
@@ -413,7 +415,8 @@ public class Test {
     }
     "should compile sources that use Java 14 features" {
         if (systemCompilerVersion >= 14) {
-            @Suppress("SpellCheckingInspection") val compiledSource = Source(
+            @Suppress("SpellCheckingInspection")
+            val compiledSource = Source(
                 mapOf(
                     "Test.java" to """
 public class Test {
