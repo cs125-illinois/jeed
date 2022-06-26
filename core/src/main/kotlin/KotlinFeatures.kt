@@ -25,7 +25,7 @@ class KotlinFeatureListener(val source: Source, entry: Map.Entry<String, String>
     private val currentFeatureMap: MutableMap<FeatureName, Int>
         get() = currentFeatures.features.featureMap
 
-    private fun count(feature: FeatureName, amount: Int) {
+    private fun count(feature: FeatureName, amount: Int = 1) {
         currentFeatureMap[feature] = (currentFeatureMap[feature] ?: 0) + amount
     }
 
@@ -98,7 +98,7 @@ class KotlinFeatureListener(val source: Source, entry: Map.Entry<String, String>
 
     override fun enterClassDeclaration(ctx: KotlinParser.ClassDeclarationContext) {
         if (!ctx.isSnippetClass()) {
-            count(FeatureName.CLASS, 1)
+            count(FeatureName.CLASS)
         }
         enterClassOrInterface(
             ctx.simpleIdentifier().text,
@@ -169,6 +169,7 @@ class KotlinFeatureListener(val source: Source, entry: Map.Entry<String, String>
     private enum class ParentType {
         FUNCTION, CLASS, NONE
     }
+
     private fun ParserRuleContext.parentType(): ParentType {
         var currentParent = parent
         while (currentParent != null) {
@@ -182,26 +183,26 @@ class KotlinFeatureListener(val source: Source, entry: Map.Entry<String, String>
 
     override fun enterVariableDeclaration(ctx: KotlinParser.VariableDeclarationContext) {
         if (ctx.parent is KotlinParser.PropertyDeclarationContext && ctx.parentType() == ParentType.FUNCTION) {
-            count(FeatureName.LOCAL_VARIABLE_DECLARATIONS, 1)
-            count(FeatureName.VARIABLE_ASSIGNMENTS, 1)
+            count(FeatureName.LOCAL_VARIABLE_DECLARATIONS)
+            count(FeatureName.VARIABLE_ASSIGNMENTS)
         }
     }
 
     override fun enterAssignment(ctx: KotlinParser.AssignmentContext) {
         if (ctx.parentType() == ParentType.FUNCTION) {
-            count(FeatureName.VARIABLE_REASSIGNMENTS, 1)
+            count(FeatureName.VARIABLE_REASSIGNMENTS)
         }
     }
 
     override fun enterPrefixUnaryOperator(ctx: KotlinParser.PrefixUnaryOperatorContext) {
         if (ctx.parentType() == ParentType.FUNCTION && (ctx.INCR() != null || ctx.DECR() != null)) {
-            count(FeatureName.VARIABLE_REASSIGNMENTS, 1)
+            count(FeatureName.VARIABLE_REASSIGNMENTS)
         }
     }
 
     override fun enterPostfixUnaryOperator(ctx: KotlinParser.PostfixUnaryOperatorContext) {
         if (ctx.parentType() == ParentType.FUNCTION && (ctx.INCR() != null || ctx.DECR() != null)) {
-            count(FeatureName.VARIABLE_REASSIGNMENTS, 1)
+            count(FeatureName.VARIABLE_REASSIGNMENTS)
         }
     }
 
@@ -210,9 +211,21 @@ class KotlinFeatureListener(val source: Source, entry: Map.Entry<String, String>
             return
         }
         ctx.forStatement()?.also {
-            count(FeatureName.FOR_LOOPS, 1)
+            count(FeatureName.FOR_LOOPS)
             if (functionBlockDepth > 1) {
-                count(FeatureName.NESTED_FOR, 1)
+                count(FeatureName.NESTED_FOR)
+            }
+        }
+        ctx.whileStatement()?.also {
+            count(FeatureName.WHILE_LOOPS)
+            if (functionBlockDepth > 1) {
+                count(FeatureName.NESTED_WHILE)
+            }
+        }
+        ctx.doWhileStatement()?.also {
+            count(FeatureName.DO_WHILE_LOOPS)
+            if (functionBlockDepth > 1) {
+                count(FeatureName.NESTED_DO_WHILE)
             }
         }
     }
@@ -222,7 +235,7 @@ class KotlinFeatureListener(val source: Source, entry: Map.Entry<String, String>
             ctx.Identifier()?.text == "Array" ||
             ctx.Identifier()?.text?.endsWith("ArrayOf") == true
         ) {
-            count(FeatureName.ARRAYS, 1)
+            count(FeatureName.ARRAYS)
         }
     }
 

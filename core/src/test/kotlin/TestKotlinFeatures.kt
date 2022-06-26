@@ -15,10 +15,10 @@ i += 1
 i++
 --j
 """.trim()
-        ).features().also {
-            it.lookup(".").features.featureMap[FeatureName.LOCAL_VARIABLE_DECLARATIONS] shouldBe 2
-            it.lookup(".").features.featureMap[FeatureName.VARIABLE_ASSIGNMENTS] shouldBe 2
-            it.lookup(".").features.featureMap[FeatureName.VARIABLE_REASSIGNMENTS] shouldBe 4
+        ).features().check {
+            featureMap[FeatureName.LOCAL_VARIABLE_DECLARATIONS] shouldBe 2
+            featureMap[FeatureName.VARIABLE_ASSIGNMENTS] shouldBe 2
+            featureMap[FeatureName.VARIABLE_REASSIGNMENTS] shouldBe 4
         }
     }
     "should count for loops in snippets" {
@@ -35,10 +35,10 @@ for (value in first) {
   println(value)
 }
 """.trim()
-        ).features().also {
-            it.lookup(".").features.featureMap[FeatureName.FOR_LOOPS] shouldBe 2
-            it.lookup(".").features.featureMap[FeatureName.VARIABLE_ASSIGNMENTS] shouldBe 4
-            it.lookup(".").features.featureMap[FeatureName.ARRAYS] shouldBe 3
+        ).features().check {
+            featureMap[FeatureName.FOR_LOOPS] shouldBe 2
+            featureMap[FeatureName.VARIABLE_ASSIGNMENTS] shouldBe 4
+            featureMap[FeatureName.ARRAYS] shouldBe 3
         }
     }
     "should count nested for loops in snippets" {
@@ -50,9 +50,50 @@ for (i in 0 until 10) {
     }
 }
 """.trim()
-        ).features().also {
-            it.lookup(".").features.featureMap[FeatureName.FOR_LOOPS] shouldBe 2
-            it.lookup(".").features.featureMap[FeatureName.NESTED_FOR] shouldBe 1
+        ).features().check {
+            featureMap[FeatureName.FOR_LOOPS] shouldBe 2
+            featureMap[FeatureName.NESTED_FOR] shouldBe 1
+        }
+    }
+    "should count while loops in snippets" {
+        Source.fromKotlinSnippet(
+            """
+var i = 0
+while (i < 32) {
+  while (i < 16) {
+    i++
+  }
+  i++
+}
+""".trim()
+        ).features().check {
+            featureMap[FeatureName.WHILE_LOOPS] shouldBe 2
+            featureMap[FeatureName.NESTED_WHILE] shouldBe 1
+            featureMap[FeatureName.DO_WHILE_LOOPS] shouldBe 0
+            featureMap[FeatureName.VARIABLE_REASSIGNMENTS] shouldBe 2
+        }
+    }
+    "should count do-while loops in snippets" {
+        Source.fromKotlinSnippet(
+            """
+var i = 0
+do {
+    println(i)
+    i++
+    var j = 0
+    do {
+        j++
+    } while (j < 10)
+} while (i < 10)
+""".trim()
+        ).features().check {
+            featureMap[FeatureName.DO_WHILE_LOOPS] shouldBe 2
+            featureMap[FeatureName.NESTED_DO_WHILE] shouldBe 1
+            featureMap[FeatureName.WHILE_LOOPS] shouldBe 0
+            featureMap[FeatureName.LOCAL_VARIABLE_DECLARATIONS] shouldBe 2
+            featureMap[FeatureName.VARIABLE_REASSIGNMENTS] shouldBe 2
         }
     }
 })
+
+fun FeaturesResults.check(path: String = ".", block: Features.() -> Any) = with(lookup(path).features, block)
