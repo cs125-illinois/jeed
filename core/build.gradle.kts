@@ -21,7 +21,7 @@ dependencies {
     implementation("org.jetbrains.kotlin:kotlin-reflect:1.7.0")
 
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-core:1.6.3")
-    implementation("com.puppycrawl.tools:checkstyle:10.3")
+    implementation("com.puppycrawl.tools:checkstyle:10.3.1")
     implementation("com.pinterest.ktlint:ktlint-core:0.46.1")
     implementation("com.pinterest.ktlint:ktlint-ruleset-standard:0.46.1")
     implementation("com.github.jknack:handlebars:4.3.0")
@@ -33,12 +33,12 @@ dependencies {
     implementation("ch.qos.logback:logback-classic:1.2.11")
     implementation("io.github.microutils:kotlin-logging:2.1.23")
     implementation("io.github.classgraph:classgraph:4.8.147")
-    implementation("net.java.dev.jna:jna:5.12.0")
+    implementation("net.java.dev.jna:jna:5.12.1")
     implementation("io.github.java-diff-utils:java-diff-utils:4.11")
     implementation("com.google.googlejavaformat:google-java-format:1.15.0")
     implementation("net.sf.extjwnl:extjwnl:2.0.5")
     implementation("net.sf.extjwnl:extjwnl-data-wn31:1.2")
-    implementation("com.beyondgrader.resource-agent:agent:2022.6.5")
+    implementation("com.beyondgrader.resource-agent:agent:2022.6.6")
 
     api("org.jacoco:org.jacoco.core:0.8.8")
     api("com.github.ben-manes.caffeine:caffeine:3.1.1")
