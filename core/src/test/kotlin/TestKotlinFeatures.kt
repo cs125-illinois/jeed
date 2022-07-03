@@ -94,6 +94,63 @@ do {
             featureMap[FeatureName.VARIABLE_REASSIGNMENTS] shouldBe 2
         }
     }
+    "should count simple if-else statements in snippets" {
+        Source.fromKotlinSnippet(
+            """
+var i = 0
+if (i < 5) {
+    i++
+} else {
+    i--
+}
+""".trim()
+        ).features().check {
+            featureMap[FeatureName.IF_STATEMENTS] shouldBe 1
+            featureMap[FeatureName.ELSE_STATEMENTS] shouldBe 1
+        }
+    }
+    "should count a chain of if-else statements in snippets" {
+        Source.fromKotlinSnippet(
+            """
+var i = 0
+if (i < 5) {
+    i++
+} else if (i < 10) {
+    i--
+} else if (i < 15) {
+    i++
+} else {
+    i--
+}
+""".trim()
+        ).features().check {
+            featureMap[FeatureName.IF_STATEMENTS] shouldBe 1
+            featureMap[FeatureName.ELSE_STATEMENTS] shouldBe 1
+            featureMap[FeatureName.ELSE_IF] shouldBe 2
+        }
+    }
+    "should count nested if statements in snippets" {
+        Source.fromKotlinSnippet(
+            """
+var i = 0
+if (i < 15) {
+    if (i < 10) {
+        i--
+        if (i < 5) {
+            i++
+        }
+    } else {
+        if (i > 10) {
+            i--
+        }
+    }
+}
+""".trim()
+        ).features().check {
+            featureMap[FeatureName.IF_STATEMENTS] shouldBe 4
+            featureMap[FeatureName.NESTED_IF] shouldBe 3
+        }
+    }
 })
 
 fun FeaturesResults.check(path: String = ".", block: Features.() -> Any) = with(lookup(path).features, block)

@@ -112,6 +112,24 @@ enum class FeatureName(val description: String) {
     DOTTED_VARIABLE_ACCESS("dotted variable access")
 }
 
+@Suppress("unused")
+val SUPPORTED_KOTLIN_FEATURES =
+    setOf(
+        FeatureName.LOCAL_VARIABLE_DECLARATIONS,
+        FeatureName.VARIABLE_ASSIGNMENTS,
+        FeatureName.VARIABLE_REASSIGNMENTS,
+        FeatureName.FOR_LOOPS,
+        FeatureName.WHILE_LOOPS,
+        FeatureName.DO_WHILE_LOOPS,
+        FeatureName.NESTED_FOR,
+        FeatureName.NESTED_WHILE,
+        FeatureName.NESTED_DO_WHILE,
+        FeatureName.ARRAYS,
+        FeatureName.IF_STATEMENTS,
+        FeatureName.ELSE_IF,
+        FeatureName.ELSE_STATEMENTS,
+        FeatureName.NESTED_IF
+    )
 val ALL_FEATURES = FeatureName.values().associate { it.name to it.description }
 
 class FeatureMap(val map: MutableMap<FeatureName, Int> = mutableMapOf()) : MutableMap<FeatureName, Int> by map {

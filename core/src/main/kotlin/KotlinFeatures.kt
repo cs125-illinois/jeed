@@ -4,6 +4,9 @@
 package edu.illinois.cs.cs125.jeed.core
 
 import edu.illinois.cs.cs125.jeed.core.antlr.KotlinParser
+import edu.illinois.cs.cs125.jeed.core.antlr.KotlinParser.ControlStructureBodyContext
+import edu.illinois.cs.cs125.jeed.core.antlr.KotlinParser.FunctionBodyContext
+import edu.illinois.cs.cs125.jeed.core.antlr.KotlinParser.StatementContext
 import edu.illinois.cs.cs125.jeed.core.antlr.KotlinParserBaseListener
 import org.antlr.v4.runtime.ParserRuleContext
 import org.antlr.v4.runtime.tree.ParseTreeWalker
@@ -174,11 +177,22 @@ class KotlinFeatureListener(val source: Source, entry: Map.Entry<String, String>
         var currentParent = parent
         while (currentParent != null) {
             when (currentParent) {
-                is KotlinParser.FunctionBodyContext -> return ParentType.FUNCTION
+                is FunctionBodyContext -> return ParentType.FUNCTION
             }
             currentParent = currentParent.parent
         }
         return ParentType.NONE
+    }
+
+    private fun ParserRuleContext.parentStatement(): StatementContext? {
+        var currentParent = parent
+        while (currentParent != null) {
+            when (currentParent) {
+                is StatementContext -> return currentParent
+            }
+            currentParent = currentParent.parent
+        }
+        return null
     }
 
     override fun enterVariableDeclaration(ctx: KotlinParser.VariableDeclarationContext) {
@@ -236,6 +250,59 @@ class KotlinFeatureListener(val source: Source, entry: Map.Entry<String, String>
             ctx.Identifier()?.text?.endsWith("ArrayOf") == true
         ) {
             count(FeatureName.ARRAYS)
+        }
+    }
+
+    // Gotta love this grammar
+    private fun ControlStructureBodyContext.isIf() = statement()
+        ?.expression()
+        ?.disjunction()
+        ?.conjunction()?.first()
+        ?.equality()?.first()
+        ?.comparison()?.first()
+        ?.genericCallLikeComparison()?.first()
+        ?.infixOperation()
+        ?.elvisExpression()?.first()
+        ?.infixFunctionCall()?.first()
+        ?.rangeExpression()?.first()
+        ?.additiveExpression()?.first()
+        ?.multiplicativeExpression()?.first()
+        ?.asExpression()?.first()
+        ?.prefixUnaryExpression()
+        ?.postfixUnaryExpression()
+        ?.primaryExpression()
+        ?.ifExpression() != null
+
+    private var ifDepth = 0
+    private val topIfs = mutableSetOf<Int>()
+    private val seenIfStarts = mutableSetOf<Int>()
+    override fun enterIfExpression(ctx: KotlinParser.IfExpressionContext) {
+        val parentStatement = ctx.parentStatement() ?: return
+        val ifStart = ctx.start.startIndex
+        if (parentStatement.assignment() == null && ifStart !in seenIfStarts) {
+            count(FeatureName.IF_STATEMENTS)
+            seenIfStarts += ifStart
+            topIfs += ifStart
+            if (ifDepth > 0) {
+                count(FeatureName.NESTED_IF)
+            }
+            ifDepth++
+        }
+        ctx.controlStructureBody().forEach {
+            if (it.isIf()) {
+                count(FeatureName.ELSE_IF)
+                seenIfStarts += it.start.startIndex
+            }
+        }
+        if (ctx.ELSE() != null && ctx.controlStructureBody()!!.last().block() != null) {
+            count(FeatureName.ELSE_STATEMENTS)
+        }
+    }
+
+    override fun exitIfExpression(ctx: KotlinParser.IfExpressionContext) {
+        if (ctx.start.startIndex in topIfs) {
+            ifDepth--
+            check(ifDepth >= 0)
         }
     }
 

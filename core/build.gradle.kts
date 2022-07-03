@@ -89,6 +89,9 @@ afterEvaluate {
     tasks.named("kspKotlin") {
         dependsOn(tasks.generateGrammarSource)
     }
+    tasks.named("kspTestKotlin") {
+        dependsOn(tasks.generateTestGrammarSource)
+    }
 }
 task("createProperties") {
     dependsOn(tasks.processResources)
