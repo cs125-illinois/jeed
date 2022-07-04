@@ -1,6 +1,7 @@
 package edu.illinois.cs.cs125.jeed.core
 
 import io.kotest.core.spec.style.StringSpec
+import io.kotest.matchers.collections.shouldContainExactly
 import io.kotest.matchers.shouldBe
 
 @Suppress("LargeClass")
@@ -151,6 +152,87 @@ if (i < 15) {
             featureMap[FeatureName.NESTED_IF] shouldBe 3
         }
     }
+    "should not fail on nested methods" {
+        Source.fromKotlinSnippet(
+            """
+fun test() {
+  var i = 0
+  if (i > 0) {
+    fun another() {
+      var j = 0
+      if (j > 0) {
+        println("Here")
+      }
+    }
+  }
+}
+            """.trim()
+        ).features().check("test()") {
+            featureMap[FeatureName.NESTED_METHOD] shouldBe 1
+            featureMap[FeatureName.IF_STATEMENTS] shouldBe 2
+            featureMap[FeatureName.LOCAL_VARIABLE_DECLARATIONS] shouldBe 2
+            featureMap[FeatureName.NESTED_IF] shouldBe 0
+            featureMap[FeatureName.METHOD] shouldBe 1
+        }.check("") {
+            featureMap[FeatureName.METHOD] shouldBe 2
+            featureMap[FeatureName.CLASS] shouldBe 0
+        }.check {
+            featureMap[FeatureName.METHOD] shouldBe 0
+        }
+    }
+    "should identify and record dotted method calls and property access" {
+        Source.fromKotlinSnippet(
+            """
+val array = arrayOf(1, 2, 4)
+println(array.size)
+array.sort()
+val sorted = array.sorted()
+array.test.me().whatever.think()
+            """.trimIndent()
+        ).features().check {
+            featureMap[FeatureName.DOTTED_METHOD_CALL] shouldBe 4
+            featureMap[FeatureName.DOTTED_VARIABLE_ACCESS] shouldBe 3
+            dottedMethodList shouldContainExactly setOf("sort", "sorted", "me", "think")
+        }
+    }
+    "should count print statements" {
+        Source.fromKotlinSnippet(
+            """
+println("Hello, world")
+print("Another")
+System.out.println("Hello, again")
+System.err.print("Whoa")
+            """.trimIndent()
+        ).features().check {
+            featureMap[FeatureName.DOTTED_METHOD_CALL] shouldBe 0
+            featureMap[FeatureName.DOTTED_VARIABLE_ACCESS] shouldBe 0
+            featureMap[FeatureName.DOT_NOTATION] shouldBe 0
+            featureMap[FeatureName.PRINT_STATEMENTS] shouldBe 4
+            featureMap[FeatureName.JAVA_PRINT_STATEMENTS] shouldBe 1
+        }
+    }
+    "should count conditional expressions and complex conditionals in snippets" {
+        Source.fromKotlinSnippet(
+            """
+val i = 0
+if (i < 5 || i > 15) {
+    if (i < 0) {
+        i--
+    }
+} else if (i > 5 && i < 15) {
+    i++
+} else {
+    i--
+}
+""".trim()
+        ).features().check {
+            featureMap[FeatureName.COMPARISON_OPERATORS] shouldBe 5
+            featureMap[FeatureName.LOGICAL_OPERATORS] shouldBe 2
+        }
+    }
 })
 
-fun FeaturesResults.check(path: String = ".", block: Features.() -> Any) = with(lookup(path).features, block)
+fun FeaturesResults.check(path: String = ".", block: Features.() -> Any): FeaturesResults {
+    with(lookup(path).features, block)
+    return this
+}

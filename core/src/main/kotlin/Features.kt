@@ -109,7 +109,11 @@ enum class FeatureName(val description: String) {
     PRINT_STATEMENTS("print statements"),
     DOT_NOTATION("dot notation"),
     DOTTED_METHOD_CALL("dotted method call"),
-    DOTTED_VARIABLE_ACCESS("dotted variable access")
+    DOTTED_VARIABLE_ACCESS("dotted variable access"),
+
+    // Kotlin only
+    NESTED_METHOD("nested method"),
+    JAVA_PRINT_STATEMENTS("java print statements")
 }
 
 @Suppress("unused")
@@ -128,7 +132,17 @@ val SUPPORTED_KOTLIN_FEATURES =
         FeatureName.IF_STATEMENTS,
         FeatureName.ELSE_IF,
         FeatureName.ELSE_STATEMENTS,
-        FeatureName.NESTED_IF
+        FeatureName.NESTED_IF,
+        FeatureName.NESTED_METHOD,
+        FeatureName.DOTTED_VARIABLE_ACCESS,
+        FeatureName.DOTTED_METHOD_CALL,
+        FeatureName.DOT_NOTATION,
+        FeatureName.PRINT_STATEMENTS,
+        FeatureName.JAVA_PRINT_STATEMENTS,
+        FeatureName.COMPARISON_OPERATORS,
+        FeatureName.LOGICAL_OPERATORS,
+        FeatureName.CLASS,
+        FeatureName.METHOD
     )
 val ALL_FEATURES = FeatureName.values().associate { it.name to it.description }
 
@@ -150,7 +164,8 @@ data class Features(
     var featureMap: FeatureMap = FeatureMap(),
     var importList: MutableSet<String> = mutableSetOf(),
     var typeList: MutableSet<String> = mutableSetOf(),
-    var identifierList: MutableSet<String> = mutableSetOf()
+    var identifierList: MutableSet<String> = mutableSetOf(),
+    var dottedMethodList: MutableSet<String> = mutableSetOf()
 ) {
     operator fun plus(other: Features): Features {
         val map = FeatureMap()
@@ -161,7 +176,8 @@ data class Features(
             map,
             (importList + other.importList).toMutableSet(),
             (typeList + other.typeList).toMutableSet(),
-            (identifierList + other.identifierList).toMutableSet()
+            (identifierList + other.identifierList).toMutableSet(),
+            (dottedMethodList + other.dottedMethodList).toMutableSet()
         )
     }
 }

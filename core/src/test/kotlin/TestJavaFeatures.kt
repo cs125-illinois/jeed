@@ -1,6 +1,7 @@
 package edu.illinois.cs.cs125.jeed.core
 
 import io.kotest.core.spec.style.StringSpec
+import io.kotest.matchers.collections.shouldContainExactly
 import io.kotest.matchers.shouldBe
 
 @Suppress("LargeClass")
@@ -887,6 +888,20 @@ public class Catcher {
             )
         ).features().also {
             it.lookup("Dog", "Dog.java").features.featureMap[FeatureName.RECURSION] shouldBe 0
+        }
+    }
+    "should identify and record dotted method calls and property access" {
+        Source.fromJavaSnippet(
+            """
+int[] array = new int[] {1, 2, 4};
+System.out.println(array.something);
+array.sort();
+int[] sorted = array.sorted();
+            """.trimIndent()
+        ).features().check {
+            featureMap[FeatureName.DOTTED_METHOD_CALL] shouldBe 2
+            featureMap[FeatureName.DOTTED_VARIABLE_ACCESS] shouldBe 1
+            dottedMethodList shouldContainExactly setOf("sort", "sorted", "println")
         }
     }
 })

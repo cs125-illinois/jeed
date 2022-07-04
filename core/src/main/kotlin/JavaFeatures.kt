@@ -131,7 +131,7 @@ class JavaFeatureListener(val source: Source, entry: Map.Entry<String, String>) 
 
     override fun enterClassDeclaration(ctx: JavaParser.ClassDeclarationContext) {
         if (!ctx.isSnippetClass()) {
-            count(FeatureName.CLASS, 1)
+            count(FeatureName.CLASS)
         }
         enterClassOrInterface(
             ctx.identifier().text,
@@ -242,13 +242,13 @@ class JavaFeatureListener(val source: Source, entry: Map.Entry<String, String>) 
             }.size
         )
         ctx.EXTENDS()?.also {
-            count(FeatureName.EXTENDS, 1)
+            count(FeatureName.EXTENDS)
         }
         ctx.IMPLEMENTS()?.also {
-            count(FeatureName.IMPLEMENTS, 1)
+            count(FeatureName.IMPLEMENTS)
         }
         ctx.typeParameters()?.also {
-            count(FeatureName.GENERIC_CLASS, 1)
+            count(FeatureName.GENERIC_CLASS)
         }
     }
 
@@ -262,7 +262,7 @@ class JavaFeatureListener(val source: Source, entry: Map.Entry<String, String>) 
             Location(ctx.start.line, ctx.start.charPositionInLine),
             Location(ctx.stop.line, ctx.stop.charPositionInLine)
         )
-        count(FeatureName.INTERFACE, 1)
+        count(FeatureName.INTERFACE)
         count(
             FeatureName.STATIC_METHOD,
             ctx.interfaceBody().interfaceBodyDeclaration().filter { declaration ->
@@ -313,7 +313,7 @@ class JavaFeatureListener(val source: Source, entry: Map.Entry<String, String>) 
             Location(ctx.start.line, ctx.start.charPositionInLine),
             Location(ctx.stop.line, ctx.stop.charPositionInLine)
         )
-        count(FeatureName.ENUM, 1)
+        count(FeatureName.ENUM)
     }
 
     override fun exitEnumDeclaration(ctx: JavaParser.EnumDeclarationContext) {
@@ -326,7 +326,7 @@ class JavaFeatureListener(val source: Source, entry: Map.Entry<String, String>) 
             Location(ctx.start.line, ctx.start.charPositionInLine),
             Location(ctx.stop.line, ctx.stop.charPositionInLine)
         )
-        count(FeatureName.RECORD, 1)
+        count(FeatureName.RECORD)
     }
 
     override fun exitRecordDeclaration(ctx: JavaParser.RecordDeclarationContext?) {
@@ -349,15 +349,15 @@ class JavaFeatureListener(val source: Source, entry: Map.Entry<String, String>) 
 
     override fun enterMethodDeclaration(ctx: JavaParser.MethodDeclarationContext) {
         if (!ctx.isSnippetMethod()) {
-            count(FeatureName.METHOD, 1)
+            count(FeatureName.METHOD)
             if (ctx.identifier().text.startsWith("get")) {
-                count(FeatureName.GETTER, 1)
+                count(FeatureName.GETTER)
             }
             if (ctx.identifier().text.startsWith("set")) {
-                count(FeatureName.SETTER, 1)
+                count(FeatureName.SETTER)
             }
             ctx.THROWS()?.also {
-                count(FeatureName.THROWS, 1)
+                count(FeatureName.THROWS)
             }
         }
         count(
@@ -396,7 +396,7 @@ class JavaFeatureListener(val source: Source, entry: Map.Entry<String, String>) 
             Location(ctx.start.line, ctx.start.charPositionInLine),
             Location(ctx.stop.line, ctx.stop.charPositionInLine)
         )
-        count(FeatureName.METHOD, 1)
+        count(FeatureName.METHOD)
     }
 
     override fun exitInterfaceMethodDeclaration(ctx: JavaParser.InterfaceMethodDeclarationContext) {
@@ -414,9 +414,9 @@ class JavaFeatureListener(val source: Source, entry: Map.Entry<String, String>) 
             Location(ctx.start.line, ctx.start.charPositionInLine),
             Location(ctx.stop.line, ctx.stop.charPositionInLine)
         )
-        count(FeatureName.CONSTRUCTOR, 1)
+        count(FeatureName.CONSTRUCTOR)
         ctx.THROWS()?.also {
-            count(FeatureName.THROWS, 1)
+            count(FeatureName.THROWS)
         }
     }
 
@@ -442,8 +442,8 @@ class JavaFeatureListener(val source: Source, entry: Map.Entry<String, String>) 
         )
         val numBrackets = ctx.typeType().text.filter { it == '[' || it == ']' }.length
         when {
-            numBrackets > 2 -> count(FeatureName.MULTIDIMENSIONAL_ARRAYS, 1)
-            numBrackets > 0 -> count(FeatureName.ARRAYS, 1)
+            numBrackets > 2 -> count(FeatureName.MULTIDIMENSIONAL_ARRAYS)
+            numBrackets > 0 -> count(FeatureName.ARRAYS)
         }
         for (declarator in ctx.variableDeclarators().variableDeclarator()) {
             currentFeatures.features.identifierList.add(declarator.variableDeclaratorId().identifier().text)
@@ -461,7 +461,7 @@ class JavaFeatureListener(val source: Source, entry: Map.Entry<String, String>) 
     private val currentFeatureMap: MutableMap<FeatureName, Int>
         get() = currentFeatures.features.featureMap
 
-    private fun count(feature: FeatureName, amount: Int) {
+    private fun count(feature: FeatureName, amount: Int = 1) {
         currentFeatureMap[feature] = (currentFeatureMap[feature] ?: 0) + amount
     }
 
@@ -511,28 +511,28 @@ class JavaFeatureListener(val source: Source, entry: Map.Entry<String, String>) 
                 it.text.startsWith("System.err.println(") ||
                 it.text.startsWith("System.err.print(")
             ) {
-                count(FeatureName.PRINT_STATEMENTS, 1)
+                count(FeatureName.PRINT_STATEMENTS)
                 count(FeatureName.DOTTED_VARIABLE_ACCESS, -1)
                 count(FeatureName.DOTTED_METHOD_CALL, -1)
                 count(FeatureName.DOT_NOTATION, -2)
             }
             if (it.bop?.text == "=") {
-                count(FeatureName.VARIABLE_REASSIGNMENTS, 1)
+                count(FeatureName.VARIABLE_REASSIGNMENTS)
             }
         }
         ctx.FOR()?.also {
-            count(FeatureName.FOR_LOOPS, 1)
+            count(FeatureName.FOR_LOOPS)
             if (ctx.forControl().enhancedForControl() != null) {
-                count(FeatureName.ENHANCED_FOR, 1)
-                count(FeatureName.LOCAL_VARIABLE_DECLARATIONS, 1)
+                count(FeatureName.ENHANCED_FOR)
+                count(FeatureName.LOCAL_VARIABLE_DECLARATIONS)
             }
         }
         ctx.WHILE()?.also {
             // Only increment whileLoopCount if it's not a do-while loop
             if (ctx.DO() != null) {
-                count(FeatureName.DO_WHILE_LOOPS, 1)
+                count(FeatureName.DO_WHILE_LOOPS)
             } else {
-                count(FeatureName.WHILE_LOOPS, 1)
+                count(FeatureName.WHILE_LOOPS)
             }
         }
         ctx.IF()?.also {
@@ -540,23 +540,23 @@ class JavaFeatureListener(val source: Source, entry: Map.Entry<String, String>) 
             val outerIfStart = ctx.start.startIndex
             if (outerIfStart !in seenIfStarts) {
                 // Count if block
-                count(FeatureName.IF_STATEMENTS, 1)
+                count(FeatureName.IF_STATEMENTS)
                 seenIfStarts += outerIfStart
                 check(ctx.statement().isNotEmpty())
 
                 if (ctx.statement().size == 2 && ctx.statement(1).block() != null) {
                     // Count else block
                     check(ctx.ELSE() != null)
-                    count(FeatureName.ELSE_STATEMENTS, 1)
+                    count(FeatureName.ELSE_STATEMENTS)
                 } else if (ctx.statement().size >= 2) {
                     var statement = ctx.statement(1)
                     while (statement != null) {
                         if (statement.IF() != null) {
                             // If statement contains an IF, it is part of a chain
                             seenIfStarts += statement.start.startIndex
-                            count(FeatureName.ELSE_IF, 1)
+                            count(FeatureName.ELSE_IF)
                         } else {
-                            count(FeatureName.ELSE_STATEMENTS, 1)
+                            count(FeatureName.ELSE_STATEMENTS)
                         }
                         statement = statement.statement(1)
                     }
@@ -564,28 +564,28 @@ class JavaFeatureListener(val source: Source, entry: Map.Entry<String, String>) 
             }
         }
         ctx.TRY()?.also {
-            count(FeatureName.TRY_BLOCK, 1)
+            count(FeatureName.TRY_BLOCK)
             ctx.finallyBlock()?.also {
-                count(FeatureName.FINALLY, 1)
+                count(FeatureName.FINALLY)
             }
         }
         ctx.ASSERT()?.also {
-            count(FeatureName.ASSERT, 1)
+            count(FeatureName.ASSERT)
         }
         ctx.SWITCH()?.also {
-            count(FeatureName.SWITCH, 1)
+            count(FeatureName.SWITCH)
         }
         ctx.THROW()?.also {
-            count(FeatureName.THROW, 1)
+            count(FeatureName.THROW)
         }
         ctx.BREAK()?.also {
-            count(FeatureName.BREAK, 1)
+            count(FeatureName.BREAK)
         }
         ctx.CONTINUE()?.also {
-            count(FeatureName.CONTINUE, 1)
+            count(FeatureName.CONTINUE)
         }
         ctx.RETURN()?.also {
-            count(FeatureName.RETURN, 1)
+            count(FeatureName.RETURN)
         }
         // Count nested statements
         for (ctxStatement in ctx.statement()) {
@@ -594,16 +594,16 @@ class JavaFeatureListener(val source: Source, entry: Map.Entry<String, String>) 
                 for (block in statement) {
                     val blockStatement = block.statement()
                     blockStatement?.FOR()?.also {
-                        count(FeatureName.NESTED_FOR, 1)
+                        count(FeatureName.NESTED_FOR)
                     }
                     blockStatement?.IF()?.also {
-                        count(FeatureName.NESTED_IF, 1)
+                        count(FeatureName.NESTED_IF)
                     }
                     blockStatement?.WHILE()?.also {
                         if (block.statement().DO() != null) {
-                            count(FeatureName.NESTED_DO_WHILE, 1)
+                            count(FeatureName.NESTED_DO_WHILE)
                         } else {
-                            count(FeatureName.NESTED_WHILE, 1)
+                            count(FeatureName.NESTED_WHILE)
                         }
                     }
                 }
@@ -613,82 +613,85 @@ class JavaFeatureListener(val source: Source, entry: Map.Entry<String, String>) 
 
     override fun enterExpression(ctx: JavaParser.ExpressionContext) {
         when (ctx.bop?.text) {
-            "<", ">", "<=", ">=", "==", "!=" -> count(FeatureName.COMPARISON_OPERATORS, 1)
-            "&&", "||" -> count(FeatureName.LOGICAL_OPERATORS, 1)
-            "+", "-", "*", "/", "%" -> count(FeatureName.ARITHMETIC_OPERATORS, 1)
-            "&", "|", "^" -> count(FeatureName.BITWISE_OPERATORS, 1)
+            "<", ">", "<=", ">=", "==", "!=" -> count(FeatureName.COMPARISON_OPERATORS)
+            "&&", "||" -> count(FeatureName.LOGICAL_OPERATORS)
+            "+", "-", "*", "/", "%" -> count(FeatureName.ARITHMETIC_OPERATORS)
+            "&", "|", "^" -> count(FeatureName.BITWISE_OPERATORS)
             "+=", "-=", "*=", "/=", "%=" -> {
-                count(FeatureName.ASSIGNMENT_OPERATORS, 1)
-                count(FeatureName.VARIABLE_REASSIGNMENTS, 1)
+                count(FeatureName.ASSIGNMENT_OPERATORS)
+                count(FeatureName.VARIABLE_REASSIGNMENTS)
             }
-            "?" -> count(FeatureName.TERNARY_OPERATOR, 1)
-            "instanceof" -> count(FeatureName.INSTANCEOF, 1)
+            "?" -> count(FeatureName.TERNARY_OPERATOR)
+            "instanceof" -> count(FeatureName.INSTANCEOF)
             "." -> {
-                count(FeatureName.DOT_NOTATION, 1)
+                count(FeatureName.DOT_NOTATION)
                 if (ctx.identifier() != null) {
                     if (ctx.identifier().text != "length") {
-                        count(FeatureName.DOTTED_VARIABLE_ACCESS, 1)
+                        count(FeatureName.DOTTED_VARIABLE_ACCESS)
                     } else {
                         count(FeatureName.DOT_NOTATION, -1)
                     }
                 }
                 if (ctx.methodCall() != null) {
-                    count(FeatureName.DOTTED_METHOD_CALL, 1)
+                    count(FeatureName.DOTTED_METHOD_CALL)
+                    if (ctx.methodCall().identifier() != null) {
+                        currentFeatures.features.dottedMethodList += ctx.methodCall().identifier().text
+                    }
                 }
             }
         }
         when (ctx.prefix?.text) {
             "++", "--" -> {
-                count(FeatureName.UNARY_OPERATORS, 1)
-                count(FeatureName.VARIABLE_REASSIGNMENTS, 1)
+                count(FeatureName.UNARY_OPERATORS)
+                count(FeatureName.VARIABLE_REASSIGNMENTS)
             }
-            "~" -> count(FeatureName.BITWISE_OPERATORS, 1)
-            "!" -> count(FeatureName.LOGICAL_OPERATORS, 1)
+            "~" -> count(FeatureName.BITWISE_OPERATORS)
+            "!" -> count(FeatureName.LOGICAL_OPERATORS)
         }
         when (ctx.postfix?.text) {
             "++", "--" -> {
-                count(FeatureName.UNARY_OPERATORS, 1)
-                count(FeatureName.VARIABLE_REASSIGNMENTS, 1)
+                count(FeatureName.UNARY_OPERATORS)
+                count(FeatureName.VARIABLE_REASSIGNMENTS)
             }
         }
         if (ctx.text == "null") {
-            count(FeatureName.NULL, 1)
+            count(FeatureName.NULL)
         }
         if (ctx.bop == null) {
             if (ctx.text.contains("<<") || ctx.text.contains(">>")) {
-                count(FeatureName.BITWISE_OPERATORS, 1)
+                count(FeatureName.BITWISE_OPERATORS)
             }
             if (ctx.expression().size != 0 && (ctx.text.contains("[") || ctx.text.contains("]"))) {
-                count(FeatureName.ARRAY_ACCESS, 1)
+                count(FeatureName.ARRAY_ACCESS)
             }
         }
         if (ctx.text.startsWith("(" + ctx.typeType()?.text + ")")) {
-            count(FeatureName.CASTING, 1)
+            count(FeatureName.CASTING)
         }
         if (ctx.bop?.text == "==" || ctx.bop?.text == "!=") {
             // Check if both expressions are objects, i.e. references are being compared
             if (seenObjectIdentifiers.contains(ctx.expression(0).text) &&
                 seenObjectIdentifiers.contains(ctx.expression(1).text)
             ) {
-                count(FeatureName.REFERENCE_EQUALITY, 1)
+                count(FeatureName.REFERENCE_EQUALITY)
             }
         }
         ctx.NEW()?.also {
             if (ctx.creator()?.arrayCreatorRest() == null && ctx.creator()?.createdName()?.text != "String") {
-                count(FeatureName.NEW_KEYWORD, 1)
+                count(FeatureName.NEW_KEYWORD)
             }
         }
         ctx.primary()?.THIS()?.also {
-            count(FeatureName.THIS, 1)
+            count(FeatureName.THIS)
         }
         ctx.methodCall()?.SUPER()?.also {
-            count(FeatureName.SUPER, 1)
+            count(FeatureName.SUPER)
         }
         ctx.creator()?.classCreatorRest()?.classBody()?.also {
-            count(FeatureName.ANONYMOUS_CLASSES, 1)
+            count(FeatureName.ANONYMOUS_CLASSES)
         }
         ctx.lambdaExpression()?.also {
-            count(FeatureName.LAMBDA_EXPRESSIONS, 1)
+            count(FeatureName.LAMBDA_EXPRESSIONS)
         }
         if (ctx.bop?.text != ".") {
             ctx.methodCall()?.also {
@@ -697,7 +700,7 @@ class JavaFeatureListener(val source: Source, entry: Map.Entry<String, String>) 
                     if (ctx.methodCall().expressionList()?.text?.filter { it == ',' }?.length
                         == featureStack[0].name.filter { it == ',' }.length
                     ) {
-                        count(FeatureName.RECURSION, 1)
+                        count(FeatureName.RECURSION)
                     }
                 }
             }
@@ -743,11 +746,13 @@ class JavaFeatureListener(val source: Source, entry: Map.Entry<String, String>) 
             ctx.classOrInterfaceType()?.typeArguments()?.size ?: 0
         )
         if (ctx.text == "var" || ctx.text == "val") {
-            count(FeatureName.TYPE_INFERENCE, 1)
+            count(FeatureName.TYPE_INFERENCE)
         }
     }
 
     init {
-        ParseTreeWalker.DEFAULT.walk(this, source.getParsed(filename).tree)
+        val parsedSource = source.getParsed(filename)
+        // println(parsedSource.tree.format(parsedSource.parser))
+        ParseTreeWalker.DEFAULT.walk(this, parsedSource.tree)
     }
 }
