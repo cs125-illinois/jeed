@@ -279,6 +279,7 @@ fun Source.getBadWords(whitelist: Set<String> = setOf()): Set<String> {
 data class LineCounts(val source: Int, val comment: Int, val blank: Int) {
     operator fun plus(other: LineCounts) =
         LineCounts(source + other.source, comment + other.comment, blank + other.blank)
+
     operator fun minus(other: LineCounts) =
         LineCounts(source - other.source, comment - other.comment, blank - other.blank)
 }
@@ -320,6 +321,7 @@ fun String.countLines(type: Source.FileType): LineCounts {
     return LineCounts(source.size, comment.size, blank.size)
 }
 
+@Suppress("unused")
 fun Source.countLines() = sources.mapValues { (_, contents) -> contents.countLines(type) }
 
 fun Tree.format(parser: Parser, indent: Int = 0): String = buildString {

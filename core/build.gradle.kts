@@ -32,7 +32,7 @@ dependencies {
     implementation("org.slf4j:slf4j-api:1.7.36")
     implementation("ch.qos.logback:logback-classic:1.2.11")
     implementation("io.github.microutils:kotlin-logging:2.1.23")
-    implementation("io.github.classgraph:classgraph:4.8.147")
+    implementation("io.github.classgraph:classgraph:4.8.149")
     implementation("net.java.dev.jna:jna:5.12.1")
     implementation("io.github.java-diff-utils:java-diff-utils:4.11")
     implementation("com.google.googlejavaformat:google-java-format:1.15.0")
@@ -48,11 +48,11 @@ dependencies {
 tasks.test {
     useJUnitPlatform()
     if (JavaVersion.current() >= JavaVersion.VERSION_15) {
-        jvmArgs("-ea", "-Xmx2G", "-Xss256k", "--enable-preview", "-XX:+UseZGC")
+        jvmArgs("-ea", "-Xmx4G", "-Xss256k", "--enable-preview", "-XX:+UseZGC")
     } else if (JavaVersion.current() >= JavaVersion.VERSION_11) {
-        jvmArgs("-ea", "-Xmx1G", "-Xss256k", "--enable-preview")
+        jvmArgs("-ea", "-Xmx4G", "-Xss256k", "--enable-preview")
     } else {
-        jvmArgs("-ea", "-Xmx1G", "-Xss256k")
+        jvmArgs("-ea", "-Xmx4G", "-Xss256k")
     }
     systemProperties["logback.configurationFile"] = File(projectDir, "src/test/resources/logback-test.xml").absolutePath
     @Suppress("MagicNumber")
