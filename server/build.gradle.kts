@@ -16,7 +16,7 @@ dependencies {
     ksp("com.squareup.moshi:moshi-kotlin-codegen:1.13.0")
 
     implementation(project(":core"))
-    implementation("org.jetbrains.kotlin:kotlin-reflect:1.7.0")
+    implementation("org.jetbrains.kotlin:kotlin-reflect:1.7.10")
 
     implementation("io.ktor:ktor-server-netty:2.0.3")
     implementation("io.ktor:ktor-server-cors:2.0.3")
