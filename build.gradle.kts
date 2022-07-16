@@ -4,7 +4,7 @@ plugins {
     kotlin("jvm") version "1.7.10" apply false
     id("org.jmailen.kotlinter") version "3.11.1" apply false
     id("com.github.ben-manes.versions") version "0.42.0"
-    id("io.gitlab.arturbosch.detekt") version "1.20.0"
+    id("io.gitlab.arturbosch.detekt") version "1.21.0"
     id("com.google.devtools.ksp") version "1.7.10-1.0.6" apply false
 }
 allprojects {
