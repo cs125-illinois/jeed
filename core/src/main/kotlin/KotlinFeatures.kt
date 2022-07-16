@@ -408,6 +408,16 @@ class KotlinFeatureListener(val source: Source, entry: Map.Entry<String, String>
         }
     }
 
+    override fun enterImportHeader(ctx: KotlinParser.ImportHeaderContext) {
+        count(FeatureName.IMPORT)
+        val importName = ctx.identifier().text + if (ctx.DOT() != null) {
+            ".*"
+        } else {
+            ""
+        }
+        currentFeatures.features.importList += importName
+    }
+
     init {
         val parsedSource = source.getParsed(filename)
         // println(parsedSource.tree.format(parsedSource.parser))

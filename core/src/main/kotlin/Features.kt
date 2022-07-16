@@ -260,7 +260,12 @@ class FeaturesResults(val source: Source, val results: Map<String, Map<String, U
                 rootFeatures
             }
         } else {
-            unitFeatures.classes[components.removeAt(0)]
+            val component = components.removeAt(0)
+            unitFeatures.classes[component].also {
+                check(it != null) {
+                    "$component was null in feature lookup path"
+                }
+            }
         } as FeatureValue
 
         for (component in components) {

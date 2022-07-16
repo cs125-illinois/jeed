@@ -230,9 +230,36 @@ if (i < 5 || i > 15) {
             featureMap[FeatureName.LOGICAL_OPERATORS] shouldBe 2
         }
     }
+    "should count and enumerate import statements" {
+        Source.fromKotlin(
+            """
+import java.util.List
+import java.util.Map
+
+fun test() {
+  println("Hello, world!")
+}
+""".trim()
+        ).features().check("", "Main.kt") {
+            featureMap[FeatureName.IMPORT] shouldBe 2
+            importList shouldContainExactly setOf("java.util.List", "java.util.Map")
+        }
+    }
+    "should lookup in top-level methods" {
+        Source.fromKotlin(
+            """
+fun test(): Int {
+  val test = 0
+  return test
+}
+""".trim()
+        ).features().check("", "Main.kt") {
+            featureMap[FeatureName.VARIABLE_ASSIGNMENTS] shouldBe 1
+        }
+    }
 })
 
-fun FeaturesResults.check(path: String = ".", block: Features.() -> Any): FeaturesResults {
-    with(lookup(path).features, block)
+fun FeaturesResults.check(path: String = ".", filename: String = "", block: Features.() -> Any): FeaturesResults {
+    with(lookup(path, filename).features, block)
     return this
 }
