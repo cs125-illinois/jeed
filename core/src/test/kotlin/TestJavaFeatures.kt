@@ -366,11 +366,13 @@ double temperature = 72.5;
 String name = "Geoff";
 if (name instanceof String) {
     int rounded = (int) temperature;
+    String test = (String) "test";
 }
 """.trim()
         ).features().also {
             it.lookup(".").features.featureMap[FeatureName.INSTANCEOF] shouldBe 1
             it.lookup(".").features.featureMap[FeatureName.CASTING] shouldBe 1
+            it.lookup(".").features.featureMap[FeatureName.PRIMITIVE_CASTING] shouldBe 1
         }
     }
     "should count override annotation and import statements" {

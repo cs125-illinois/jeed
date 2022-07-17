@@ -15,6 +15,7 @@ enum class FeatureName(val description: String) {
     TERNARY_OPERATOR("ternary operators"),
     COMPARISON_OPERATORS("comparison operators"),
     LOGICAL_OPERATORS("logical operators"),
+    PRIMITIVE_CASTING("primitive casting"),
 
     // If & Else
     IF_STATEMENTS("if statements"),
@@ -142,7 +143,11 @@ val SUPPORTED_KOTLIN_FEATURES =
         FeatureName.COMPARISON_OPERATORS,
         FeatureName.LOGICAL_OPERATORS,
         FeatureName.CLASS,
-        FeatureName.METHOD
+        FeatureName.METHOD,
+        FeatureName.IMPORT,
+        FeatureName.INSTANCEOF,
+        FeatureName.CASTING,
+        FeatureName.PRIMITIVE_CASTING
     )
 val ALL_FEATURES = FeatureName.values().associate { it.name to it.description }
 

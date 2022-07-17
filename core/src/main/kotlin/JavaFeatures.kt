@@ -666,7 +666,11 @@ class JavaFeatureListener(val source: Source, entry: Map.Entry<String, String>) 
             }
         }
         if (ctx.text.startsWith("(" + ctx.typeType()?.text + ")")) {
-            count(FeatureName.CASTING)
+            if (ctx.typeType()?.primitiveType() != null) {
+                count(FeatureName.PRIMITIVE_CASTING)
+            } else {
+                count(FeatureName.CASTING)
+            }
         }
         if (ctx.bop?.text == "==" || ctx.bop?.text == "!=") {
             // Check if both expressions are objects, i.e. references are being compared

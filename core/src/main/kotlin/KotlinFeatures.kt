@@ -7,11 +7,16 @@ import edu.illinois.cs.cs125.jeed.core.antlr.KotlinParser
 import edu.illinois.cs.cs125.jeed.core.antlr.KotlinParser.ClassBodyContext
 import edu.illinois.cs.cs125.jeed.core.antlr.KotlinParser.ControlStructureBodyContext
 import edu.illinois.cs.cs125.jeed.core.antlr.KotlinParser.FunctionBodyContext
+import edu.illinois.cs.cs125.jeed.core.antlr.KotlinParser.FunctionDeclarationContext
 import edu.illinois.cs.cs125.jeed.core.antlr.KotlinParser.StatementContext
 import edu.illinois.cs.cs125.jeed.core.antlr.KotlinParserBaseListener
 import org.antlr.v4.runtime.ParserRuleContext
+import org.antlr.v4.runtime.RuleContext
 import org.antlr.v4.runtime.tree.ParseTreeWalker
 import org.jetbrains.kotlin.backend.common.pop
+
+private val BASIC_TYPES = setOf("Byte", "Short", "Int", "Long", "Float", "Double", "Char", "Boolean")
+private val TYPE_CASTS = (BASIC_TYPES - setOf("Boolean")).map { "to$it" }.toSet()
 
 @Suppress("TooManyFunctions", "LargeClass", "MagicNumber", "LongMethod", "ComplexMethod")
 class KotlinFeatureListener(val source: Source, entry: Map.Entry<String, String>) : KotlinParserBaseListener() {
@@ -82,7 +87,10 @@ class KotlinFeatureListener(val source: Source, entry: Map.Entry<String, String>
     private fun KotlinParser.ClassDeclarationContext.isSnippetClass() = source is Snippet &&
         simpleIdentifier().text == source.wrappedClassName
 
-    private fun KotlinParser.FunctionDeclarationContext.fullName(): String {
+    private fun FunctionDeclarationContext.isSnippetMethod() = source is Snippet &&
+        fullName() == source.looseCodeMethodName
+
+    private fun FunctionDeclarationContext.fullName(): String {
         val name = simpleIdentifier().text
         val parameters = functionValueParameters().functionValueParameter()?.joinToString(",") {
             it.parameter().type().text
@@ -147,8 +155,8 @@ class KotlinFeatureListener(val source: Source, entry: Map.Entry<String, String>
     private val ifDepth
         get() = ifDepths.last()
 
-    override fun enterFunctionDeclaration(ctx: KotlinParser.FunctionDeclarationContext) {
-        if (!(source is Snippet && ctx.fullName() == source.looseCodeMethodName)) {
+    override fun enterFunctionDeclaration(ctx: FunctionDeclarationContext) {
+        if (!ctx.isSnippetMethod()) {
             count(FeatureName.METHOD)
         }
         enterMethodOrConstructor(
@@ -164,7 +172,7 @@ class KotlinFeatureListener(val source: Source, entry: Map.Entry<String, String>
         }
     }
 
-    override fun exitFunctionDeclaration(ctx: KotlinParser.FunctionDeclarationContext) {
+    override fun exitFunctionDeclaration(ctx: FunctionDeclarationContext) {
         exitMethodOrConstructor()
         val exitingBlockDepth = functionBlockDepths.pop()
         check(exitingBlockDepth == 0)
@@ -188,16 +196,33 @@ class KotlinFeatureListener(val source: Source, entry: Map.Entry<String, String>
         FUNCTION, CLASS, NONE
     }
 
-    private fun ParserRuleContext.parentType(): ParentType {
+    private fun ParserRuleContext.parentContext(): RuleContext? {
         var currentParent = parent
         while (currentParent != null) {
             when (currentParent) {
-                is FunctionBodyContext -> return ParentType.FUNCTION
-                is ClassBodyContext -> return ParentType.CLASS
+                is FunctionBodyContext -> return currentParent
+                is ClassBodyContext -> return currentParent
             }
             currentParent = currentParent.parent
         }
-        return ParentType.NONE
+        return null
+    }
+
+    private inline fun <reified T : RuleContext> ParserRuleContext.searchUp(): T? {
+        var currentParent = parent
+        while (currentParent != null) {
+            currentParent = currentParent.parent
+            if (currentParent is T) {
+                return currentParent
+            }
+        }
+        return null
+    }
+
+    private fun ParserRuleContext.parentType() = when (parentContext()) {
+        is FunctionBodyContext -> ParentType.FUNCTION
+        is ClassBodyContext -> ParentType.CLASS
+        else -> ParentType.NONE
     }
 
     private fun ParserRuleContext.parentStatement(): StatementContext? {
@@ -322,7 +347,8 @@ class KotlinFeatureListener(val source: Source, entry: Map.Entry<String, String>
     }
 
     private val printStatements = setOf("println", "print")
-    private val javaPrintStatements = setOf("System.out.println", "System.err.println", "System.out.print", "System.err.print")
+    private val javaPrintStatements =
+        setOf("System.out.println", "System.err.println", "System.out.print", "System.err.print")
     private val unnecessaryJavaPrintStatements = setOf("System.out.println", "System.out.print")
     override fun enterPostfixUnaryExpression(ctx: KotlinParser.PostfixUnaryExpressionContext) {
         for (i in 0 until ctx.postfixUnarySuffix().size) {
@@ -343,6 +369,9 @@ class KotlinFeatureListener(val source: Source, entry: Map.Entry<String, String>
                     val identifier = current.navigationSuffix().simpleIdentifier().text
                     count(FeatureName.DOTTED_METHOD_CALL)
                     currentFeatures.features.dottedMethodList += identifier
+                    if (identifier in TYPE_CASTS) {
+                        count(FeatureName.PRIMITIVE_CASTING)
+                    }
                 } else {
                     count(FeatureName.DOTTED_VARIABLE_ACCESS)
                 }
@@ -416,6 +445,24 @@ class KotlinFeatureListener(val source: Source, entry: Map.Entry<String, String>
             ""
         }
         currentFeatures.features.importList += importName
+    }
+
+    override fun enterAsExpression(ctx: KotlinParser.AsExpressionContext) {
+        ctx.type().forEach {
+            if (it.text in BASIC_TYPES) {
+                count(FeatureName.PRIMITIVE_CASTING)
+            } else {
+                count(FeatureName.CASTING)
+            }
+        }
+    }
+
+    override fun enterTypeTest(ctx: KotlinParser.TypeTestContext) {
+        count(FeatureName.INSTANCEOF)
+    }
+
+    override fun enterInfixOperation(ctx: KotlinParser.InfixOperationContext) {
+        count(FeatureName.INSTANCEOF, ctx.isOperator.size)
     }
 
     init {

@@ -257,6 +257,31 @@ fun test(): Int {
             featureMap[FeatureName.VARIABLE_ASSIGNMENTS] shouldBe 1
         }
     }
+    "should count primitive and non-primitive casts" {
+        Source.fromKotlinSnippet(
+            """
+val i = 0 as Int
+val j = 0.0.toDouble()
+val m = "test" as String
+""".trim()
+        ).features().check {
+            featureMap[FeatureName.PRIMITIVE_CASTING] shouldBe 2
+            featureMap[FeatureName.CASTING] shouldBe 1
+        }
+    }
+    "should count type checks" {
+        Source.fromKotlinSnippet(
+            """
+println("test" is String)
+println("test" is Int)
+if (1 is Int) {
+  println("Here")
+}
+""".trim()
+        ).features().check {
+            featureMap[FeatureName.INSTANCEOF] shouldBe 3
+        }
+    }
 })
 
 fun FeaturesResults.check(path: String = ".", filename: String = "", block: Features.() -> Any): FeaturesResults {
