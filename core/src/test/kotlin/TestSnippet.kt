@@ -717,6 +717,20 @@ public class Example {
             executionResult should haveOutput("ran")
         }
     }
+    "should use Example.main even with comments" {
+        Source.fromSnippet(
+            """
+// Test
+public class Example {
+  public static void main(String[] unused) {
+    System.out.println("Here");
+  }
+}""".trim()
+        ).compile().execute().also { executionResult ->
+            executionResult should haveCompleted()
+            executionResult should haveOutput("Here")
+        }
+    }
     "should not use Example.main when a top-level method exists" {
         Source.fromSnippet(
             """

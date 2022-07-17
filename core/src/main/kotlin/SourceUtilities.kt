@@ -293,17 +293,19 @@ fun String.countLines(type: Source.FileType): LineCounts {
     when (type) {
         Source.FileType.JAVA ->
             SnippetLexer(charStream).allTokens.forEach {
+                val range = it.line until(it.line + it.text.lines().size)
                 when (it.channel) {
-                    0 -> source.add(it.line)
-                    1 -> comment.addAll(it.line..(it.line + it.text.lines().size).coerceAtMost(lines().size))
+                    0 -> source.addAll(range)
+                    1 -> comment.addAll(range)
                 }
             }
         Source.FileType.KOTLIN ->
             KotlinLexer(charStream).allTokens.forEach {
+                val range = it.line until(it.line + it.text.lines().size)
                 if (it.text.isNotBlank()) {
                     when (it.channel) {
-                        0 -> source.add(it.line)
-                        1 -> comment.addAll(it.line..(it.line + it.text.lines().size).coerceAtMost(lines().size))
+                        0 -> source.addAll(range)
+                        1 -> comment.addAll(range)
                     }
                 }
             }
@@ -317,7 +319,9 @@ fun String.countLines(type: Source.FileType): LineCounts {
 
     // Remove end-of-line comments
     comment.removeAll(source)
-    check(source.size + comment.size + blank.size == lines().size)
+    check(source.size + comment.size + blank.size == lines().size) {
+        "${source.size} ${comment.size} ${blank.size} ${lines().size}\n$this"
+    }
     return LineCounts(source.size, comment.size, blank.size)
 }
 

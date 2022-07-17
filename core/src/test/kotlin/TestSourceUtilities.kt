@@ -281,11 +281,15 @@ fun holdOn(): String {
           |     /* Multi-line comment with blank
           |
           |     */
+          |     String t = ${"\"\"\""}
+          |       testing
+          |     ${"\"\"\""};
           |  }
           |}
         """.trimMargin().countLines(Source.FileType.JAVA).also {
             it.blank shouldBe 1
             it.comment shouldBe 8
+            it.source shouldBe 9
         }
     }
     "should count lines in Kotlin" {
@@ -302,6 +306,9 @@ fun holdOn(): String {
           |     /* Multi-line comment with blank
           |
           |     */
+          |     val t = ${"\"\"\""}test
+          |       me
+          |     ${"\"\"\""}
           |  }
           |}
         """.trimMargin().countLines(Source.FileType.KOTLIN).also {

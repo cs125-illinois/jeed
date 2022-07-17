@@ -747,7 +747,7 @@ private fun sourceFromJavaSnippet(originalSource: String, snippetArguments: Snip
         }
     }
 
-    val hasLooseCode = looseCode.any { it.isNotBlank() } || methodDeclarations.isNotEmpty()
+    val hasLooseCode = methodDeclarations.isNotEmpty() || looseCode.joinToString("\n").countLines(Source.FileType.JAVA).source > 0
     assert(originalSource.lines().size == remappedLineMapping.keys.size)
 
     var rewrittenSource = ""
