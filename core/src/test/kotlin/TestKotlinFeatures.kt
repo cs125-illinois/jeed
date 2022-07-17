@@ -282,6 +282,21 @@ if (1 is Int) {
             featureMap[FeatureName.INSTANCEOF] shouldBe 3
         }
     }
+    "should count if in init" {
+        Source.fromKotlinSnippet(
+            """
+class Test {
+  init {
+    if (test < 10) {
+      println("Here")
+    }
+  }
+}
+""".trim()
+        ).features().check("") {
+            featureMap[FeatureName.IF_STATEMENTS] shouldBe 1
+        }
+    }
 })
 
 fun FeaturesResults.check(path: String = ".", filename: String = "", block: Features.() -> Any): FeaturesResults {

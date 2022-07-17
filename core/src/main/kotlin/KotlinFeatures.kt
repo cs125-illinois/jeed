@@ -180,6 +180,24 @@ class KotlinFeatureListener(val source: Source, entry: Map.Entry<String, String>
         check(exitingIfDepth == 0)
     }
 
+    override fun enterAnonymousInitializer(ctx: KotlinParser.AnonymousInitializerContext) {
+        ifDepths += 0
+        functionBlockDepths += 0
+        enterMethodOrConstructor(
+            "init",
+            Location(ctx.start.line, ctx.start.charPositionInLine),
+            Location(ctx.stop.line, ctx.stop.charPositionInLine)
+        )
+    }
+
+    override fun exitAnonymousInitializer(ctx: KotlinParser.AnonymousInitializerContext?) {
+        exitMethodOrConstructor()
+        val exitingBlockDepth = functionBlockDepths.pop()
+        check(exitingBlockDepth == 0)
+        val exitingIfDepth = ifDepths.pop()
+        check(exitingIfDepth == 0)
+    }
+
     override fun enterBlock(ctx: KotlinParser.BlockContext) {
         if (functionBlockDepths.isNotEmpty()) {
             functionBlockDepths[functionBlockDepths.size - 1]++
@@ -317,7 +335,7 @@ class KotlinFeatureListener(val source: Source, entry: Map.Entry<String, String>
     private val topIfs = mutableSetOf<Int>()
     private val seenIfStarts = mutableSetOf<Int>()
     override fun enterIfExpression(ctx: KotlinParser.IfExpressionContext) {
-        val parentStatement = ctx.parentStatement() ?: return
+        val parentStatement = ctx.searchUp<StatementContext>() ?: return // FIXME: Top-level if expressions
         val ifStart = ctx.start.startIndex
         if (parentStatement.assignment() == null && ifStart !in seenIfStarts) {
             count(FeatureName.IF_STATEMENTS)
