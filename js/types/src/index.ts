@@ -277,59 +277,72 @@ export const FlatComplexityResults = Record({
 export type FlatComplexityResults = Static<typeof FlatComplexityResults>
 
 export const Feature = Union(
-  Literal("PRINT_STATEMENTS"),
   Literal("LOCAL_VARIABLE_DECLARATIONS"),
   Literal("VARIABLE_ASSIGNMENTS"),
   Literal("VARIABLE_REASSIGNMENTS"),
+  //
   Literal("UNARY_OPERATORS"),
-  Literal("ASSIGNMENT_OPERATORS"),
   Literal("ARITHMETIC_OPERATORS"),
+  Literal("BITWISE_OPERATORS"),
+  Literal("ASSIGNMENT_OPERATORS"),
+  Literal("TERNARY_OPERATOR"),
   Literal("COMPARISON_OPERATORS"),
   Literal("LOGICAL_OPERATORS"),
+  Literal("PRIMITIVE_CASTING"),
+  //
   Literal("IF_STATEMENTS"),
   Literal("ELSE_STATEMENTS"),
   Literal("ELSE_IF"),
+  //
   Literal("ARRAYS"),
   Literal("ARRAY_ACCESS"),
   Literal("ARRAY_LITERAL"),
+  Literal("MULTIDIMENSIONAL_ARRAYS"),
+  //
   Literal("FOR_LOOPS"),
+  Literal("ENHANCED_FOR"),
   Literal("WHILE_LOOPS"),
+  Literal("DO_WHILE_LOOPS"),
   Literal("BREAK"),
   Literal("CONTINUE"),
-  Literal("RETURN"),
-  Literal("METHOD"),
-  Literal("ASSERT"),
+  //
   Literal("NESTED_IF"),
   Literal("NESTED_FOR"),
   Literal("NESTED_WHILE"),
-  Literal("ENHANCED_FOR"),
-  Literal("STRING"),
-  Literal("DOT_NOTATION"),
-  Literal("DOTTED_METHOD_CALL"),
-  Literal("NULL"),
-  Literal("MULTIDIMENSIONAL_ARRAYS"),
-  Literal("IMPORT"),
-  // CS 124 stopped
+  Literal("NESTED_DO_WHILE"),
   Literal("NESTED_CLASS"),
+  //
+  Literal("METHOD"),
+  Literal("RETURN"),
   Literal("CONSTRUCTOR"),
   Literal("GETTER"),
   Literal("SETTER"),
+  //
+  Literal("NULL"),
+  Literal("STRING"),
+  //
   Literal("CASTING"),
   Literal("TYPE_INFERENCE"),
   Literal("INSTANCEOF"),
+  //
   Literal("CLASS"),
   Literal("IMPLEMENTS"),
   Literal("INTERFACE"),
+  //
   Literal("EXTENDS"),
   Literal("SUPER"),
   Literal("OVERRIDE"),
+  //
   Literal("TRY_BLOCK"),
   Literal("FINALLY"),
+  Literal("ASSERT"),
   Literal("THROW"),
   Literal("THROWS"),
+  //
   Literal("NEW_KEYWORD"),
   Literal("THIS"),
   Literal("REFERENCE_EQUALITY"),
+  //
   Literal("VISIBILITY_MODIFIERS"),
   Literal("STATIC_METHOD"),
   Literal("FINAL_METHOD"),
@@ -339,6 +352,9 @@ export const Feature = Union(
   Literal("ABSTRACT_FIELD"),
   Literal("FINAL_CLASS"),
   Literal("ABSTRACT_CLASS"),
+  //
+  Literal("IMPORT"),
+  //
   Literal("ANONYMOUS_CLASSES"),
   Literal("LAMBDA_EXPRESSIONS"),
   Literal("GENERIC_CLASS"),
@@ -350,12 +366,14 @@ export const Feature = Union(
   Literal("RECORD"),
   Literal("BOXING_CLASSES"),
   Literal("TYPE_PARAMETERS"),
+  Literal("PRINT_STATEMENTS"),
+  //
+  Literal("DOT_NOTATION"),
+  Literal("DOTTED_METHOD_CALL"),
   Literal("DOTTED_VARIABLE_ACCESS"),
-  // CS 124 unused
-  Literal("BITWISE_OPERATORS"),
-  Literal("TERNARY_OPERATOR"),
-  Literal("DO_WHILE_LOOPS"),
-  Literal("NESTED_DO_WHILE")
+  //
+  Literal("NESTED_METHOD"),
+  Literal("JAVA_PRINT_STATEMENTS")
 )
 export type Feature = Static<typeof Feature>
 

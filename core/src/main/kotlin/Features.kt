@@ -108,6 +108,8 @@ enum class FeatureName(val description: String) {
     BOXING_CLASSES("boxing classes"),
     TYPE_PARAMETERS("type parameters"),
     PRINT_STATEMENTS("print statements"),
+
+    // Dot
     DOT_NOTATION("dot notation"),
     DOTTED_METHOD_CALL("dotted method call"),
     DOTTED_VARIABLE_ACCESS("dotted variable access"),
