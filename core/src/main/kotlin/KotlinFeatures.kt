@@ -4,6 +4,7 @@
 package edu.illinois.cs.cs125.jeed.core
 
 import edu.illinois.cs.cs125.jeed.core.antlr.KotlinParser
+import edu.illinois.cs.cs125.jeed.core.antlr.KotlinParser.AnonymousInitializerContext
 import edu.illinois.cs.cs125.jeed.core.antlr.KotlinParser.ClassBodyContext
 import edu.illinois.cs.cs125.jeed.core.antlr.KotlinParser.ControlStructureBodyContext
 import edu.illinois.cs.cs125.jeed.core.antlr.KotlinParser.FunctionBodyContext
@@ -72,13 +73,30 @@ class KotlinFeatureListener(val source: Source, entry: Map.Entry<String, String>
             assert(!currentFeatures.classes.containsKey(locatedClass.name))
             currentFeatures.classes[locatedClass.name] = locatedClass
         }
+        initCounter = 0
         featureStack.add(0, locatedClass)
     }
 
-    private fun exitClassOrInterface() {
+    private fun exitClassOrInterface(name: String, start: Location, end: Location) {
         assert(featureStack.isNotEmpty())
         val lastFeatures = featureStack.removeAt(0)
         assert(lastFeatures is ClassFeatures)
+        lastFeatures.methods["init0"]?.also {
+            require(!currentFeatures.methods.containsKey("init"))
+            lastFeatures.methods["init"] = lastFeatures.methods
+                .filterKeys { it.startsWith("init") }
+                .values.map { (it as MethodFeatures).features }
+                .reduce { first, second ->
+                    first + second
+                }.let { features ->
+                    println(features.featureMap.map)
+                    MethodFeatures(
+                        name,
+                        SourceRange(filename, source.mapLocation(filename, start), source.mapLocation(filename, end)),
+                        features = features
+                    )
+                }
+        }
         if (featureStack.isNotEmpty()) {
             currentFeatures.features += lastFeatures.features
         }
@@ -117,7 +135,11 @@ class KotlinFeatureListener(val source: Source, entry: Map.Entry<String, String>
     }
 
     override fun exitClassDeclaration(ctx: KotlinParser.ClassDeclarationContext) {
-        exitClassOrInterface()
+        exitClassOrInterface(
+            ctx.simpleIdentifier().text,
+            Location(ctx.start.line, ctx.start.charPositionInLine),
+            Location(ctx.stop.line, ctx.stop.charPositionInLine)
+        )
     }
 
     private fun enterMethodOrConstructor(name: String, start: Location, end: Location) {
@@ -180,11 +202,12 @@ class KotlinFeatureListener(val source: Source, entry: Map.Entry<String, String>
         check(exitingIfDepth == 0)
     }
 
+    private var initCounter = 0
     override fun enterAnonymousInitializer(ctx: KotlinParser.AnonymousInitializerContext) {
         ifDepths += 0
         functionBlockDepths += 0
         enterMethodOrConstructor(
-            "init",
+            "init${initCounter++}",
             Location(ctx.start.line, ctx.start.charPositionInLine),
             Location(ctx.stop.line, ctx.stop.charPositionInLine)
         )
@@ -220,6 +243,7 @@ class KotlinFeatureListener(val source: Source, entry: Map.Entry<String, String>
             when (currentParent) {
                 is FunctionBodyContext -> return currentParent
                 is ClassBodyContext -> return currentParent
+                is AnonymousInitializerContext -> return currentParent
             }
             currentParent = currentParent.parent
         }
@@ -239,6 +263,7 @@ class KotlinFeatureListener(val source: Source, entry: Map.Entry<String, String>
 
     private fun ParserRuleContext.parentType() = when (parentContext()) {
         is FunctionBodyContext -> ParentType.FUNCTION
+        is AnonymousInitializerContext -> ParentType.FUNCTION
         is ClassBodyContext -> ParentType.CLASS
         else -> ParentType.NONE
     }

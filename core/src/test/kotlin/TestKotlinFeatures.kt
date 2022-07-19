@@ -295,6 +295,27 @@ class Test {
 """.trim()
         ).features().check("") {
             featureMap[FeatureName.IF_STATEMENTS] shouldBe 1
+        }.check("Test.init") {
+            featureMap[FeatureName.IF_STATEMENTS] shouldBe 1
+        }
+    }
+    "should handle multiple init blocks" {
+        Source.fromKotlinSnippet(
+            """
+class Test {
+  init {
+    if (test < 10) {
+      println("Here")
+    }
+  }
+  init {
+    val test = 20
+  }
+}
+""".trim()
+        ).features().check("Test.init") {
+            featureMap[FeatureName.IF_STATEMENTS] shouldBe 1
+            featureMap[FeatureName.LOCAL_VARIABLE_DECLARATIONS] shouldBe 1
         }
     }
 })
