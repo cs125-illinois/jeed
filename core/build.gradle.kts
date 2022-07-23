@@ -34,7 +34,7 @@ dependencies {
     implementation("io.github.microutils:kotlin-logging:2.1.23")
     implementation("io.github.classgraph:classgraph:4.8.149")
     implementation("net.java.dev.jna:jna:5.12.1")
-    implementation("io.github.java-diff-utils:java-diff-utils:4.11")
+    implementation("io.github.java-diff-utils:java-diff-utils:4.12")
     implementation("com.google.googlejavaformat:google-java-format:1.15.0")
     implementation("net.sf.extjwnl:extjwnl:2.0.5")
     implementation("net.sf.extjwnl:extjwnl-data-wn31:1.2")
