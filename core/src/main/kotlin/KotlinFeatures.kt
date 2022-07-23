@@ -89,7 +89,6 @@ class KotlinFeatureListener(val source: Source, entry: Map.Entry<String, String>
                 .reduce { first, second ->
                     first + second
                 }.let { features ->
-                    println(features.featureMap.map)
                     MethodFeatures(
                         name,
                         SourceRange(filename, source.mapLocation(filename, start), source.mapLocation(filename, end)),
