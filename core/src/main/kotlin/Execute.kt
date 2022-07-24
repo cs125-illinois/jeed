@@ -24,7 +24,8 @@ class SourceExecutionArguments(
     @Transient
     var methodToRun: Method? = null,
     @Transient
-    internal val plugins: MutableList<ConfiguredSandboxPlugin<*, *>> = mutableListOf()
+    internal val plugins: MutableList<ConfiguredSandboxPlugin<*, *>> = mutableListOf(),
+    stdin: String = ""
 ) : Sandbox.ExecutionArguments(
     timeout,
     permissions.union(REQUIRED_PERMISSIONS),
@@ -32,7 +33,8 @@ class SourceExecutionArguments(
     maxOutputLines,
     classLoaderConfiguration,
     waitForShutdown,
-    returnTimeout
+    returnTimeout,
+    stdin = stdin
 ) {
     companion object {
         const val DEFAULT_KLASS = "Main"

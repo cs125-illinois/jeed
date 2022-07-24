@@ -19,7 +19,9 @@ import org.objectweb.asm.MethodVisitor
 import org.objectweb.asm.Opcodes
 import org.objectweb.asm.Type
 import sun.management.ManagementFactoryHelper
+import java.io.ByteArrayInputStream
 import java.io.FilePermission
+import java.io.InputStream
 import java.io.OutputStream
 import java.io.PrintStream
 import java.lang.reflect.InvocationTargetException
@@ -142,7 +144,8 @@ object Sandbox {
         val maxOutputLines: Int = DEFAULT_MAX_OUTPUT_LINES,
         val classLoaderConfiguration: ClassLoaderConfiguration = ClassLoaderConfiguration(),
         val waitForShutdown: Boolean = DEFAULT_WAIT_FOR_SHUTDOWN,
-        val returnTimeout: Int = DEFAULT_RETURN_TIMEOUT
+        val returnTimeout: Int = DEFAULT_RETURN_TIMEOUT,
+        val stdin: String = ""
     ) {
         companion object {
             const val DEFAULT_TIMEOUT = 100L
@@ -502,6 +505,8 @@ object Sandbox {
             TaskResults.OutputLine.Console.STDOUT to PrintStream(ourStdout),
             TaskResults.OutputLine.Console.STDERR to PrintStream(ourStderr)
         )
+
+        val stdinStream = ByteArrayInputStream(executionArguments.stdin.toByteArray())
 
         private fun redirectedWrite(int: Int, console: TaskResults.OutputLine.Console) {
             if (shuttingDown) {
@@ -1878,6 +1883,15 @@ object Sandbox {
         }
     }
 
+    private class RedirectingInputStream : InputStream() {
+        private val taskInputStream: InputStream
+            get() {
+                val confinedTask = confinedTaskByThreadGroup() ?: error("Non-confined tasks should not use System.in")
+                return confinedTask.stdinStream
+            }
+        override fun read() = taskInputStream.read()
+    }
+
     // Save a bit of time by not filling in the stack trace
     private class SandboxDeath : ThreadDeath() {
         override fun fillInStackTrace() = this
@@ -1892,6 +1906,7 @@ object Sandbox {
 
     private lateinit var originalStdout: PrintStream
     private lateinit var originalStderr: PrintStream
+    private lateinit var originalStdin: InputStream
 
     private var originalSecurityManager: SecurityManager? = null
     private lateinit var originalProperties: Properties
@@ -1920,11 +1935,14 @@ object Sandbox {
         if (running) {
             return
         }
+
         originalStdout = System.out
         originalStderr = System.err
+        originalStdin = System.`in`
 
         System.setOut(RedirectingPrintStream(TaskResults.OutputLine.Console.STDOUT))
         System.setErr(RedirectingPrintStream(TaskResults.OutputLine.Console.STDERR))
+        System.setIn(RedirectingInputStream())
 
         threadPool = Executors.newFixedThreadPool(size)
 
