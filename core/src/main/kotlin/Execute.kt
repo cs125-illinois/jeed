@@ -1,6 +1,8 @@
 package edu.illinois.cs.cs125.jeed.core
 
 import com.squareup.moshi.JsonClass
+import java.io.ByteArrayInputStream
+import java.io.InputStream
 import java.lang.reflect.InvocationTargetException
 import java.lang.reflect.Method
 import java.lang.reflect.Modifier
@@ -25,7 +27,7 @@ class SourceExecutionArguments(
     var methodToRun: Method? = null,
     @Transient
     internal val plugins: MutableList<ConfiguredSandboxPlugin<*, *>> = mutableListOf(),
-    stdin: String = ""
+    systemInStream: InputStream? = null
 ) : Sandbox.ExecutionArguments(
     timeout,
     permissions.union(REQUIRED_PERMISSIONS),
@@ -34,7 +36,7 @@ class SourceExecutionArguments(
     classLoaderConfiguration,
     waitForShutdown,
     returnTimeout,
-    stdin = stdin
+    systemInStream = systemInStream
 ) {
     companion object {
         const val DEFAULT_KLASS = "Main"
@@ -213,3 +215,5 @@ fun ClassLoader.findClassMethod(
         throw ExecutionFailed(ExecutionFailed.ClassMissingException(klassToLoad, classNotFoundException.message))
     }
 }
+
+fun String.toSystemIn() = ByteArrayInputStream(toByteArray())

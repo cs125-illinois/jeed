@@ -145,7 +145,7 @@ object Sandbox {
         val classLoaderConfiguration: ClassLoaderConfiguration = ClassLoaderConfiguration(),
         val waitForShutdown: Boolean = DEFAULT_WAIT_FOR_SHUTDOWN,
         val returnTimeout: Int = DEFAULT_RETURN_TIMEOUT,
-        val stdin: String = ""
+        val systemInStream: InputStream? = null
     ) {
         companion object {
             const val DEFAULT_TIMEOUT = 100L
@@ -399,6 +399,8 @@ object Sandbox {
                 val executionEnded = Instant.now()
                 release(confinedTask)
 
+                // confinedTask.systemInStream?.close()
+
                 val executionResult = TaskResults(
                     taskResult.returned, taskResult.threw, taskResult.timeout,
                     confinedTask.outputLines,
@@ -506,7 +508,7 @@ object Sandbox {
             TaskResults.OutputLine.Console.STDERR to PrintStream(ourStderr)
         )
 
-        val stdinStream = ByteArrayInputStream(executionArguments.stdin.toByteArray())
+        val systemInStream = executionArguments.systemInStream ?: ByteArrayInputStream(byteArrayOf())
 
         private fun redirectedWrite(int: Int, console: TaskResults.OutputLine.Console) {
             if (shuttingDown) {
@@ -1887,7 +1889,7 @@ object Sandbox {
         private val taskInputStream: InputStream
             get() {
                 val confinedTask = confinedTaskByThreadGroup() ?: error("Non-confined tasks should not use System.in")
-                return confinedTask.stdinStream
+                return confinedTask.systemInStream
             }
         override fun read() = taskInputStream.read()
     }
