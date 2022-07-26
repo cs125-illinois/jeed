@@ -31,7 +31,7 @@ dependencies {
     implementation("com.github.cs125-illinois:libcs1:2022.6.2")
     implementation("com.beyondgrader.resource-agent:jeedplugin:2022.6.6")
 
-    testImplementation("io.kotest:kotest-runner-junit5:5.3.2")
+    testImplementation("io.kotest:kotest-runner-junit5:5.4.0")
     testImplementation("io.kotest:kotest-assertions-ktor:4.4.3")
     testImplementation("io.ktor:ktor-server-test-host:2.0.3")
 }
