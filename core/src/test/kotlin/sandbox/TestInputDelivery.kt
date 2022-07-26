@@ -14,7 +14,7 @@ import io.kotest.core.spec.style.StringSpec
 import io.kotest.matchers.should
 import io.kotest.matchers.shouldNot
 
-class TestInputDelivery: StringSpec({
+class TestInputDelivery : StringSpec({
     "should deliver stdin" {
         val executionResult = Source.fromSnippet(
             """
