@@ -28,6 +28,7 @@ object Limits : ConfigSpec() {
         )
         val maxExtraThreads by optional(Sandbox.ExecutionArguments.DEFAULT_MAX_EXTRA_THREADS)
         val maxOutputLines by optional(Sandbox.ExecutionArguments.DEFAULT_MAX_OUTPUT_LINES)
+        val maxIOBytes by optional(Sandbox.ExecutionArguments.DEFAULT_MAX_IO_BYTES)
 
         object ClassLoaderConfiguration : ConfigSpec() {
             val whitelistedClasses by optional(Sandbox.ClassLoaderConfiguration.DEFAULT_WHITELISTED_CLASSES)

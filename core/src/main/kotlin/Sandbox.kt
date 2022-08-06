@@ -142,6 +142,7 @@ object Sandbox {
         // var because may be increased in the presence of coroutines
         var maxExtraThreads: Int = DEFAULT_MAX_EXTRA_THREADS,
         val maxOutputLines: Int = DEFAULT_MAX_OUTPUT_LINES,
+        val maxIOBytes: Int = DEFAULT_MAX_IO_BYTES,
         val classLoaderConfiguration: ClassLoaderConfiguration = ClassLoaderConfiguration(),
         val waitForShutdown: Boolean = DEFAULT_WAIT_FOR_SHUTDOWN,
         val returnTimeout: Int = DEFAULT_RETURN_TIMEOUT,
@@ -151,6 +152,7 @@ object Sandbox {
             const val DEFAULT_TIMEOUT = 100L
             const val DEFAULT_MAX_EXTRA_THREADS = 0
             const val DEFAULT_MAX_OUTPUT_LINES = 1024
+            const val DEFAULT_MAX_IO_BYTES = 4 * 1024
             const val DEFAULT_WAIT_FOR_SHUTDOWN = false
             const val DEFAULT_RETURN_TIMEOUT = 1
         }
@@ -165,6 +167,8 @@ object Sandbox {
         val threw: Throwable?,
         val timeout: Boolean,
         val outputLines: MutableList<OutputLine> = mutableListOf(),
+        val inputLines: MutableList<InputLine> = mutableListOf(),
+        val combinedInputOutput: String = "",
         val permissionRequests: MutableList<PermissionRequest> = mutableListOf(),
         val interval: Interval,
         val executionInterval: Interval,
@@ -189,6 +193,12 @@ object Sandbox {
         ) {
             enum class Console { STDOUT, STDERR }
         }
+
+        @JsonClass(generateAdapter = true)
+        data class InputLine(
+            val line: String,
+            val timestamp: Instant
+        )
 
         @JsonClass(generateAdapter = true)
         data class PermissionRequest(val permission: Permission, val granted: Boolean)
@@ -220,6 +230,10 @@ object Sandbox {
         val stderr: String
             get() {
                 return stderrLines.joinToString(separator = "\n") { it.line }
+            }
+        val stdin: String
+            get() {
+                return inputLines.joinToString(separator = "\n") { it.line }
             }
         val output: String
             get() {
@@ -404,6 +418,8 @@ object Sandbox {
                 val executionResult = TaskResults(
                     taskResult.returned, taskResult.threw, taskResult.timeout,
                     confinedTask.outputLines,
+                    confinedTask.inputLines,
+                    confinedTask.ioBytes.toByteArray().decodeToString(),
                     confinedTask.permissionRequests,
                     Interval(confinedTask.started, Instant.now()),
                     Interval(executionStarted, executionEnded),
@@ -444,6 +460,7 @@ object Sandbox {
 
         val maxExtraThreads: Int = executionArguments.maxExtraThreads
         val maxOutputLines: Int = executionArguments.maxOutputLines
+        val maxIOBytes: Int = executionArguments.maxIOBytes
 
         @Volatile
         var shuttingDown: Boolean = false
@@ -456,6 +473,11 @@ object Sandbox {
         var truncatedLines: Int = 0
         val currentLines: MutableMap<TaskResults.OutputLine.Console, CurrentLine> = mutableMapOf()
         val outputLines: MutableList<TaskResults.OutputLine> = mutableListOf()
+
+        var currentInputLine: CurrentLine? = null
+        val inputLines: MutableList<TaskResults.InputLine> = mutableListOf()
+
+        val ioBytes = mutableListOf<Byte>()
 
         var currentRedirectedLines: MutableMap<TaskResults.OutputLine.Console, CurrentLine>? = null
         val redirectedOutputLines: MutableMap<TaskResults.OutputLine.Console, StringBuilder> = mutableMapOf(
@@ -517,6 +539,9 @@ object Sandbox {
 
             val currentLine = currentLines.getOrPut(console) { CurrentLine() }
             val currentRedirectingLine = currentRedirectedLines?.getOrPut(console) { CurrentLine() }
+            if (ioBytes.size <= maxIOBytes) {
+                ioBytes += int.toByte()
+            }
             when (int.toChar()) {
                 '\n' -> {
                     if (outputLines.size < maxOutputLines) {
@@ -670,6 +695,15 @@ object Sandbox {
                     )
                 }
             }
+        }
+
+        if (confinedTask.currentInputLine?.bytes?.isNotEmpty() == true) {
+            confinedTask.inputLines.add(
+                TaskResults.InputLine(
+                    confinedTask.currentInputLine!!.toString(),
+                    confinedTask.currentInputLine!!.started
+                )
+            )
         }
 
         confinedTask.pluginData.forEach { (plugin, data) ->
@@ -1886,12 +1920,36 @@ object Sandbox {
     }
 
     private class RedirectingInputStream : InputStream() {
-        private val taskInputStream: InputStream
-            get() {
-                val confinedTask = confinedTaskByThreadGroup() ?: error("Non-confined tasks should not use System.in")
-                return confinedTask.systemInStream
+        override fun read(): Int {
+            val confinedTask = confinedTaskByThreadGroup() ?: error("Non-confined tasks should not use System.in")
+            val int = confinedTask.systemInStream.read()
+            if (int != -1) {
+                confinedTask.apply {
+                    if (ioBytes.size <= maxIOBytes) {
+                        ioBytes += int.toByte()
+                    }
+                    if (currentInputLine == null) {
+                        currentInputLine = ConfinedTask.CurrentLine()
+                    }
+                    when (int.toChar()) {
+                        '\n' -> {
+                            inputLines.add(
+                                TaskResults.InputLine(
+                                    currentInputLine!!.toString(),
+                                    currentInputLine!!.started
+                                )
+                            )
+                            currentInputLine = null
+                        }
+                        '\r' -> {
+                            // Ignore - input will contain Unix line endings only
+                        }
+                        else -> currentInputLine!!.bytes.add(int.toByte())
+                    }
+                }
             }
-        override fun read() = taskInputStream.read()
+            return int
+        }
     }
 
     // Save a bit of time by not filling in the stack trace

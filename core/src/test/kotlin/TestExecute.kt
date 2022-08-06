@@ -695,3 +695,25 @@ fun haveStderr(output: String) = object : Matcher<Sandbox.TaskResults<out Any?>>
         )
     }
 }
+
+fun haveStdin(input: String) = object : Matcher<Sandbox.TaskResults<out Any?>> {
+    override fun test(value: Sandbox.TaskResults<out Any?>): MatcherResult {
+        val actualInput = value.stdin.trim()
+        return MatcherResult(
+            actualInput == input,
+            { "Expected stdin $input, found $actualInput" },
+            { "Expected to not find stdin $actualInput" }
+        )
+    }
+}
+
+fun haveCombinedInputOutput(io: String) = object : Matcher<Sandbox.TaskResults<out Any?>> {
+    override fun test(value: Sandbox.TaskResults<out Any?>): MatcherResult {
+        val actualInputOutput = value.combinedInputOutput.trim()
+        return MatcherResult(
+            actualInputOutput == io,
+            { "Expected combined input/output $io, found $actualInputOutput" },
+            { "Expected to not find combined input/output $actualInputOutput" }
+        )
+    }
+}

@@ -53,6 +53,7 @@ data class ServerSourceExecutionArguments(
     var permissions: Set<Permission>? = null,
     var maxExtraThreads: Int? = null,
     var maxOutputLines: Int? = null,
+    var maxIOBytes: Int? = null,
     var classLoaderConfiguration: ServerClassLoaderConfiguration? = null
 ) {
     fun setDefaults(
@@ -60,6 +61,7 @@ data class ServerSourceExecutionArguments(
         defaultPermissions: Set<Permission>,
         defaultMaxExtraThreads: Int,
         defaultMaxOutputLines: Int,
+        defaultMaxIOBytes: Int,
         defaultWhitelistedClasses: Set<String>,
         defaultBlacklistedClasses: Set<String>,
         defaultUnsafeExceptions: Set<String>,
@@ -69,6 +71,7 @@ data class ServerSourceExecutionArguments(
         permissions = permissions ?: defaultPermissions
         maxExtraThreads = maxExtraThreads ?: defaultMaxExtraThreads
         maxOutputLines = maxOutputLines ?: defaultMaxOutputLines
+        maxIOBytes = maxIOBytes ?: defaultMaxIOBytes
         classLoaderConfiguration = classLoaderConfiguration ?: ServerClassLoaderConfiguration()
         classLoaderConfiguration!!.setDefaults(
             defaultWhitelistedClasses,
@@ -86,6 +89,7 @@ data class ServerSourceExecutionArguments(
             permissions!!,
             maxExtraThreads!!,
             maxOutputLines!!,
+            maxIOBytes!!,
             classLoaderConfiguration!!.toClassloaderConfiguration()
         )
 }

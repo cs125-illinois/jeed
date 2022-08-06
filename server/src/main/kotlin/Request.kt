@@ -144,6 +144,7 @@ class Request(
                 defaultPermissions,
                 configuration[Limits.Execution.maxExtraThreads],
                 configuration[Limits.Execution.maxOutputLines],
+                configuration[Limits.Execution.maxIOBytes],
                 configuration[Limits.Execution.ClassLoaderConfiguration.whitelistedClasses],
                 configuration[Limits.Execution.ClassLoaderConfiguration.blacklistedClasses],
                 configuration[Limits.Execution.ClassLoaderConfiguration.unsafeExceptions],

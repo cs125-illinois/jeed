@@ -21,7 +21,7 @@ dependencies {
     implementation("org.jetbrains.kotlin:kotlin-reflect:1.7.10")
 
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-core:1.6.4")
-    implementation("com.puppycrawl.tools:checkstyle:10.3.1")
+    implementation("com.puppycrawl.tools:checkstyle:10.3.2")
     implementation("com.pinterest.ktlint:ktlint-core:0.46.1")
     implementation("com.pinterest.ktlint:ktlint-ruleset-standard:0.46.1")
     implementation("com.github.jknack:handlebars:4.3.0")
@@ -43,7 +43,7 @@ dependencies {
     api("org.jacoco:org.jacoco.core:0.8.8")
     api("com.github.ben-manes.caffeine:caffeine:3.1.1")
 
-    testImplementation("io.kotest:kotest-runner-junit5:5.4.0")
+    testImplementation("io.kotest:kotest-runner-junit5:5.4.1")
 }
 tasks.test {
     useJUnitPlatform()
