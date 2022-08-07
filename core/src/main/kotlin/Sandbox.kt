@@ -475,9 +475,13 @@ object Sandbox {
         val outputLines: MutableList<TaskResults.OutputLine> = mutableListOf()
 
         var currentInputLine: CurrentLine? = null
+        var currentRedirectingInputLine: CurrentLine? = null
+        var redirectedInput = StringBuilder()
+
         val inputLines: MutableList<TaskResults.InputLine> = mutableListOf()
 
         val ioBytes = mutableListOf<Byte>()
+        var redirectingIOBytes = mutableListOf<Byte>()
 
         var currentRedirectedLines: MutableMap<TaskResults.OutputLine.Console, CurrentLine>? = null
         val redirectedOutputLines: MutableMap<TaskResults.OutputLine.Console, StringBuilder> = mutableMapOf(
@@ -485,6 +489,7 @@ object Sandbox {
             TaskResults.OutputLine.Console.STDERR to StringBuilder()
         )
         var redirectingOutput: Boolean = false
+        var outputListener: OutputListener? = null
 
         val permissionRequests: MutableList<TaskResults.PermissionRequest> = mutableListOf()
 
@@ -539,9 +544,21 @@ object Sandbox {
 
             val currentLine = currentLines.getOrPut(console) { CurrentLine() }
             val currentRedirectingLine = currentRedirectedLines?.getOrPut(console) { CurrentLine() }
+
             if (ioBytes.size <= maxIOBytes) {
                 ioBytes += int.toByte()
             }
+            if (redirectingOutput) {
+                redirectingIOBytes += int.toByte()
+            }
+
+            outputListener?.also {
+                when (console) {
+                    TaskResults.OutputLine.Console.STDOUT -> it.stdout(int)
+                    TaskResults.OutputLine.Console.STDERR -> it.stderr(int)
+                }
+            }
+
             when (int.toChar()) {
                 '\n' -> {
                     if (outputLines.size < maxOutputLines) {
@@ -563,9 +580,11 @@ object Sandbox {
                         currentRedirectedLines?.remove(console)
                     }
                 }
+
                 '\r' -> {
                     // Ignore - results will contain Unix line endings only
                 }
+
                 else -> {
                     if (truncatedLines == 0) {
                         currentLine.bytes.add(int.toByte())
@@ -1158,6 +1177,7 @@ object Sandbox {
                         Opcodes.H_INVOKESPECIAL, Opcodes.H_INVOKEVIRTUAL, Opcodes.H_INVOKEINTERFACE -> {
                             actualParameters.add(0, Type.getObjectType(handle.owner))
                         }
+
                         Opcodes.H_NEWINVOKESPECIAL -> {
                             actualReturn = Type.getObjectType(handle.owner)
                         }
@@ -1284,6 +1304,7 @@ object Sandbox {
                             false
                         )
                     }
+
                     Opcodes.MONITOREXIT -> {
                         super.visitMethodInsn(
                             Opcodes.INVOKESTATIC,
@@ -1293,6 +1314,7 @@ object Sandbox {
                             false
                         )
                     }
+
                     else -> super.visitInsn(opcode)
                 }
             }
@@ -1715,13 +1737,23 @@ object Sandbox {
         }
     }
 
+    interface OutputListener {
+        fun stdout(int: Int)
+        fun stderr(int: Int)
+    }
+
     @JvmStatic
-    fun redirectOutput(block: () -> Any?): JeedOutputCapture {
+    fun redirectOutput(block: () -> Any?) = redirectOutput(null, block)
+
+    @JvmStatic
+    fun redirectOutput(outputListener: OutputListener? = null, block: () -> Any?): JeedOutputCapture {
         val confinedTask = confinedTaskByThreadGroup() ?: error("should only be used from a confined task")
         check(!confinedTask.redirectingOutput) { "can't nest calls to redirectOutput" }
 
         confinedTask.redirectingOutput = true
         confinedTask.currentRedirectedLines = mutableMapOf()
+        confinedTask.outputListener = outputListener
+
         @Suppress("TooGenericExceptionCaught")
         val result = try {
             Pair(block(), null)
@@ -1739,16 +1771,24 @@ object Sandbox {
             confinedTask.currentRedirectedLines!![TaskResults.OutputLine.Console.STDOUT]?.toString() ?: ""
         val flushedStderr =
             confinedTask.currentRedirectedLines!![TaskResults.OutputLine.Console.STDERR]?.toString() ?: ""
+        val flushedStdin =
+            confinedTask.currentRedirectingInputLine?.toString() ?: ""
+
         confinedTask.currentRedirectedLines = null
+        confinedTask.outputListener = null
 
         return JeedOutputCapture(
             result.first,
             result.second,
             confinedTask.redirectedOutputLines[TaskResults.OutputLine.Console.STDOUT].toString() + flushedStdout,
-            confinedTask.redirectedOutputLines[TaskResults.OutputLine.Console.STDERR].toString() + flushedStderr
+            confinedTask.redirectedOutputLines[TaskResults.OutputLine.Console.STDERR].toString() + flushedStderr,
+            confinedTask.redirectedInput.toString() + flushedStdin,
+            confinedTask.redirectingIOBytes.toByteArray().decodeToString()
         ).also {
             confinedTask.redirectedOutputLines[TaskResults.OutputLine.Console.STDOUT] = StringBuilder()
             confinedTask.redirectedOutputLines[TaskResults.OutputLine.Console.STDERR] = StringBuilder()
+            confinedTask.redirectedInput = StringBuilder()
+            confinedTask.redirectingIOBytes = mutableListOf()
         }
     }
 
@@ -1925,12 +1965,20 @@ object Sandbox {
             val int = confinedTask.systemInStream.read()
             if (int != -1) {
                 confinedTask.apply {
-                    if (ioBytes.size <= maxIOBytes) {
-                        ioBytes += int.toByte()
-                    }
                     if (currentInputLine == null) {
                         currentInputLine = ConfinedTask.CurrentLine()
                     }
+                    if (redirectingOutput && currentRedirectingInputLine == null) {
+                        currentRedirectingInputLine = ConfinedTask.CurrentLine()
+                    }
+
+                    if (ioBytes.size <= maxIOBytes) {
+                        ioBytes += int.toByte()
+                    }
+                    if (redirectingOutput) {
+                        redirectingIOBytes += int.toByte()
+                    }
+
                     when (int.toChar()) {
                         '\n' -> {
                             inputLines.add(
@@ -1940,11 +1988,20 @@ object Sandbox {
                                 )
                             )
                             currentInputLine = null
+                            if (redirectingOutput && currentRedirectingInputLine!!.bytes.size > 0) {
+                                redirectedInput.append(currentRedirectingInputLine.toString() + "\n")
+                                currentRedirectingInputLine = null
+                            }
                         }
+
                         '\r' -> {
                             // Ignore - input will contain Unix line endings only
                         }
-                        else -> currentInputLine!!.bytes.add(int.toByte())
+
+                        else -> {
+                            currentInputLine!!.bytes.add(int.toByte())
+                            currentRedirectingInputLine?.bytes?.add(int.toByte())
+                        }
                     }
                 }
             }
@@ -2064,7 +2121,14 @@ fun Sandbox.SandboxableClassLoader.sandbox(
     return Sandbox.SandboxedClassLoader(this, classLoaderConfiguration, configuredPlugins)
 }
 
-data class JeedOutputCapture(val returned: Any?, val threw: Throwable?, val stdout: String, val stderr: String)
+data class JeedOutputCapture(
+    val returned: Any?,
+    val threw: Throwable?,
+    val stdout: String,
+    val stderr: String,
+    val stdin: String,
+    val interleavedInputOutput: String
+)
 
 interface SandboxPlugin<A : Any, V : Any> {
     val id: String
