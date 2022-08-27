@@ -37,6 +37,7 @@ import java.util.Collections
 import java.util.IdentityHashMap
 import java.util.Locale
 import java.util.Properties
+import java.util.PropertyPermission
 import java.util.concurrent.Callable
 import java.util.concurrent.CancellationException
 import java.util.concurrent.ConcurrentHashMap
@@ -146,7 +147,7 @@ object Sandbox {
         val classLoaderConfiguration: ClassLoaderConfiguration = ClassLoaderConfiguration(),
         val waitForShutdown: Boolean = DEFAULT_WAIT_FOR_SHUTDOWN,
         val returnTimeout: Int = DEFAULT_RETURN_TIMEOUT,
-        val systemInStream: InputStream? = null
+        @Transient val systemInStream: InputStream? = null
     ) {
         companion object {
             const val DEFAULT_TIMEOUT = 100L
@@ -1730,13 +1731,23 @@ object Sandbox {
             } ?: return systemSecurityManager?.checkPermission(permission) ?: return
 
             try {
-                confinedTask.accessControlContext.checkPermission(permission)
+                checkTaskPermission(confinedTask, permission)
                 confinedTask.addPermissionRequest(permission, true)
             } catch (e: SecurityException) {
                 confinedTask.addPermissionRequest(permission, granted = false, throwException = false)
                 throw e
             }
             systemSecurityManager?.checkPermission(permission)
+        }
+
+        private fun checkTaskPermission(confinedTask: ConfinedTask<*>, permission: Permission) {
+            if (permission is PropertyPermission &&
+                permission.actions == "read" &&
+                confinedTask.pluginData.any { it.key.getSystemProperty(permission.name) != null }
+            ) {
+                return
+            }
+            confinedTask.accessControlContext.checkPermission(permission)
         }
     }
 
@@ -1748,6 +1759,10 @@ object Sandbox {
                 return confinedTask.maxExtraThreads.toString()
             } else if (key == "kotlinx.coroutines.scheduler.core.pool.size") {
                 return (confinedTask.maxExtraThreads - 1).toString()
+            } else if (key != null) {
+                confinedTask.pluginData.keys.forEach {
+                    return it.getSystemProperty(key) ?: return@forEach
+                }
             }
             return super.getProperty(key)
         }
@@ -2175,6 +2190,7 @@ interface SandboxPlugin<A : Any, V : Any> {
 
     fun createInitialData(instrumentationData: Any?, executionArguments: Sandbox.ExecutionArguments): Any?
     fun executionStartedInSandbox() {}
+    fun getSystemProperty(property: String): String? = null
     fun executionFinished(workingData: Any?) {}
     fun createFinalData(workingData: Any?): V
     val requiredClasses: Set<Class<*>>
