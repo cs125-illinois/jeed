@@ -1621,6 +1621,10 @@ object Sandbox {
     val systemSecurityManager: SecurityManager? = System.getSecurityManager()
 
     private object SandboxSecurityManager : SecurityManager() {
+        private val SET_IO_PERMISSION = RuntimePermission("setIO")
+        private val GET_CLASSLOADER_PERMISSION = RuntimePermission("getClassLoader")
+        private val inReentrantPermissionCheck = ThreadLocal.withInitial { false }
+
         @Suppress("ReturnCount")
         private fun confinedTaskByClassLoader(): ConfinedTask<*>? {
             val confinedTask = confinedTaskByThreadGroup() ?: return null
@@ -1637,6 +1641,19 @@ object Sandbox {
                 confinedTask
             } else {
                 null
+            }
+        }
+
+        private fun confinedTaskByClassLoaderReentrant(): ConfinedTask<*>? {
+            return if (inReentrantPermissionCheck.get()) {
+                null
+            } else {
+                try {
+                    inReentrantPermissionCheck.set(true)
+                    confinedTaskByClassLoader()
+                } finally {
+                    inReentrantPermissionCheck.set(false)
+                }
             }
         }
 
@@ -1706,11 +1723,10 @@ object Sandbox {
         }
 
         override fun checkPermission(permission: Permission) {
-            // Special case to prevent even trusted task code from calling System.setOut
-            val confinedTask = if (permission == RuntimePermission("setIO")) {
-                confinedTaskByThreadGroup()
-            } else {
-                confinedTaskByClassLoader()
+            val confinedTask = when (permission) {
+                SET_IO_PERMISSION -> confinedTaskByThreadGroup() // Even trusted tasks shouldn't call System.setOut
+                GET_CLASSLOADER_PERMISSION -> confinedTaskByClassLoaderReentrant() // Avoid StackOverflowError
+                else -> confinedTaskByClassLoader()
             } ?: return systemSecurityManager?.checkPermission(permission) ?: return
 
             try {
