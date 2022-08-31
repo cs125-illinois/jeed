@@ -24,6 +24,7 @@ import java.io.FilePermission
 import java.io.InputStream
 import java.io.OutputStream
 import java.io.PrintStream
+import java.lang.invoke.LambdaMetafactory
 import java.lang.reflect.InvocationTargetException
 import java.lang.reflect.Modifier
 import java.security.AccessControlContext
@@ -1500,7 +1501,7 @@ object Sandbox {
 
             override fun visitInvokeDynamicInsn(
                 name: String?,
-                descriptor: String?,
+                descriptor: String,
                 bootstrapMethodHandle: Handle,
                 vararg bootstrapMethodArguments: Any?
             ) {
@@ -1514,9 +1515,37 @@ object Sandbox {
                 } else {
                     bootstrapMethodArguments
                 }
+                val newDesc = if (bootstrapMethodHandle.owner == Type.getInternalName(LambdaMetafactory::class.java)) {
+                    /*
+                     * LambdaMetafactory requires all bound parameter types to match exactly between the implementation
+                     * handle type and the factory type... except for the receiver type in the case of an instance
+                     * method being the implementation. The Java compiler takes advantage of this special case and
+                     * uses the specific receiver type for the factory type even when the method is inherited.
+                     * Unfortunately, enclosing the implementation handle in an H_INVOKESTATIC-kind handle disables the
+                     * special handling in LMF. The factory type must therefore be adjusted when an instance method
+                     * handle has been enclosed (adding 1 to the argument list as seen by ASM) and its receiver will be
+                     * bound (factory argument list is nonempty).
+                     */
+                    val originalHandle = bootstrapMethodArguments[1] as Handle
+                    val originalHandleType = Type.getType(originalHandle.desc)
+                    val sandboxedHandle = arguments[1] as Handle
+                    val sandboxedHandleType = Type.getType(sandboxedHandle.desc)
+                    val factoryType = Type.getType(descriptor)
+                    val factoryArgTypes = factoryType.argumentTypes
+                    if (originalHandleType.argumentTypes.size != sandboxedHandleType.argumentTypes.size && // instance
+                        factoryArgTypes.isNotEmpty() // bound
+                    ) {
+                        factoryArgTypes[0] = sandboxedHandleType.argumentTypes[0]
+                        Type.getMethodDescriptor(factoryType.returnType, *factoryArgTypes)
+                    } else {
+                        descriptor
+                    }
+                } else {
+                    descriptor
+                }
                 super.visitInvokeDynamicInsn(
                     name,
-                    descriptor,
+                    newDesc,
                     bootstrapMethodHandle,
                     *arguments
                 )
