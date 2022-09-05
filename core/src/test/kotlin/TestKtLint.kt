@@ -10,12 +10,13 @@ import io.kotest.matchers.string.shouldContain
 
 class TestKtLint : StringSpec({
     "it should check simple kotlin sources" {
-        val results = Source.fromSnippet(
-            """println("Hello, world!")""",
-            SnippetArguments(fileType = Source.FileType.KOTLIN)
-        ).ktLint()
-
-        results.errors.isEmpty() shouldBe true
+        repeat(8) {
+            val results = Source.fromSnippet(
+                """println("Hello, world!")""",
+                SnippetArguments(fileType = Source.FileType.KOTLIN)
+            ).ktLint()
+            results.errors.isEmpty() shouldBe true
+        }
     }
     "it should check kotlin sources with too long lines" {
         @Suppress("MaxLineLength")

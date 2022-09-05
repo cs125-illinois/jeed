@@ -92,9 +92,38 @@ val jeedRuleSet = RuleSet(
     StringTemplateRule()
 )
 
+/*
+@Suppress("SpellCheckingInspection")
+val jeedRuleProviders = setOf(
+    RuleProvider { ChainWrappingRule() },
+    RuleProvider { CommentSpacingRule() },
+    RuleProvider { IndentationRule() },
+    RuleProvider { MaxLineLengthRule() },
+    RuleProvider { ModifierOrderRule() },
+    // RuleProvider { NoBlankLineBeforeRbraceRule() },
+    // RuleProvider { NoConsecutiveBlankLinesRule() },
+    RuleProvider { NoEmptyClassBodyRule() },
+    RuleProvider { NoLineBreakAfterElseRule() },
+    RuleProvider { NoLineBreakBeforeAssignmentRule() },
+    RuleProvider { NoMultipleSpacesRule() },
+    RuleProvider { NoSemicolonsRule() },
+    RuleProvider { NoTrailingSpacesRule() },
+    RuleProvider { NoUnitReturnRule() },
+    RuleProvider { ParameterListWrappingRule() },
+    RuleProvider { SpacingAroundColonRule() },
+    RuleProvider { SpacingAroundCommaRule() },
+    RuleProvider { SpacingAroundCurlyRule() },
+    RuleProvider { SpacingAroundDotRule() },
+    RuleProvider { SpacingAroundKeywordRule() },
+    RuleProvider { SpacingAroundOperatorsRule() },
+    RuleProvider { SpacingAroundParensRule() },
+    RuleProvider { SpacingAroundRangeOperatorRule() },
+    RuleProvider { StringTemplateRule() }
+)
+ */
+
 private val limiter = Semaphore(1)
 
-@Suppress("DEPRECATION")
 suspend fun Source.ktFormat(ktLintArguments: KtLintArguments = KtLintArguments()): Source {
     require(type == Source.FileType.KOTLIN) { "Can't run ktlint on non-Kotlin sources" }
 
@@ -149,73 +178,81 @@ suspend fun Source.ktFormat(ktLintArguments: KtLintArguments = KtLintArguments()
 private val unexpectedRegex = """Unexpected indentation \((\d+)\)""".toRegex()
 private val shouldBeRegex = """should be (\d+)""".toRegex()
 
-@Suppress("LongMethod", "DEPRECATION")
+@Suppress("LongMethod")
 suspend fun Source.ktLint(ktLintArguments: KtLintArguments = KtLintArguments()): KtLintResults {
     require(type == Source.FileType.KOTLIN) { "Can't run ktlint on non-Kotlin sources" }
 
     val names = ktLintArguments.sources ?: sources.keys
     val source = this
 
-    val errors: MutableList<KtLintError> = mutableListOf<KtLintError>().apply {
-        sources.filter { (filename, _) ->
-            filename in names
-        }.forEach { (filename, contents) ->
-            limiter.withPermit {
-                KtLint.lint(
-                    KtLint.ExperimentalParams(
-                        if (source is Snippet) {
-                            "MainKt.kt"
-                        } else {
-                            filename
-                        },
-                        contents,
-                        listOf(jeedRuleSet),
-                        cb = { e, _ ->
-                            @Suppress("EmptyCatchBlock")
-                            try {
-                                val originalLocation = SourceLocation(filename, e.line, e.col)
-                                val mappedLocation = mapLocation(originalLocation)
+    val errors: MutableList<KtLintError> = try {
+        mutableListOf<KtLintError>().apply {
+            sources.filter { (filename, _) ->
+                filename in names
+            }.forEach { (filename, contents) ->
+                limiter.withPermit {
+                    KtLint.lint(
+                        KtLint.ExperimentalParams(
+                            if (source is Snippet) {
+                                "MainKt.kt"
+                            } else {
+                                filename
+                            },
+                            contents,
+                            listOf(jeedRuleSet),
+                            cb = { e, _ ->
+                                @Suppress("EmptyCatchBlock")
+                                try {
+                                    val originalLocation = SourceLocation(filename, e.line, e.col)
+                                    val mappedLocation = mapLocation(originalLocation)
 
-                                val detail = if (e.ruleId == "indent") {
-                                    @Suppress("TooGenericExceptionCaught")
-                                    try {
-                                        val addedIndent = leadingIndentation(originalLocation)
-                                        val (incorrectMessage, incorrectAmount) =
-                                            unexpectedRegex.find(e.detail)?.groups?.let { match ->
-                                                Pair(match[0]?.value, match[1]?.value?.toInt())
-                                            } ?: error("Couldn't parse indentation error")
-                                        val (expectedMessage, expectedAmount) =
-                                            shouldBeRegex.find(e.detail)?.groups?.let { match ->
-                                                Pair(match[0]?.value, match[1]?.value?.toInt())
-                                            } ?: error("Couldn't parse indentation error")
+                                    val detail = if (e.ruleId == "indent") {
+                                        @Suppress("TooGenericExceptionCaught")
+                                        try {
+                                            val addedIndent = leadingIndentation(originalLocation)
+                                            val (incorrectMessage, incorrectAmount) =
+                                                unexpectedRegex.find(e.detail)?.groups?.let { match ->
+                                                    Pair(match[0]?.value, match[1]?.value?.toInt())
+                                                } ?: error("Couldn't parse indentation error")
+                                            val (expectedMessage, expectedAmount) =
+                                                shouldBeRegex.find(e.detail)?.groups?.let { match ->
+                                                    Pair(match[0]?.value, match[1]?.value?.toInt())
+                                                } ?: error("Couldn't parse indentation error")
 
-                                        e.detail
-                                            .replace(
-                                                incorrectMessage!!,
-                                                "Unexpected indentation (${incorrectAmount!! - addedIndent})"
-                                            )
-                                            .replace(expectedMessage!!, "should be ${expectedAmount!! - addedIndent}")
-                                    } catch (_: Exception) {
+                                            e.detail
+                                                .replace(
+                                                    incorrectMessage!!,
+                                                    "Unexpected indentation (${incorrectAmount!! - addedIndent})"
+                                                )
+                                                .replace(
+                                                    expectedMessage!!,
+                                                    "should be ${expectedAmount!! - addedIndent}"
+                                                )
+                                        } catch (_: Exception) {
+                                            e.detail
+                                        }
+                                    } else {
                                         e.detail
                                     }
-                                } else {
-                                    e.detail
-                                }
-                                add(
-                                    KtLintError(
-                                        e.ruleId,
-                                        detail,
-                                        mappedLocation
+                                    add(
+                                        KtLintError(
+                                            e.ruleId,
+                                            detail,
+                                            mappedLocation
+                                        )
                                     )
-                                )
-                            } catch (_: Exception) {
-                            }
-                        },
-                        editorConfigPath = editorConfigPath
+                                } catch (_: Exception) {
+                                }
+                            },
+                            editorConfigPath = editorConfigPath
+                        )
                     )
-                )
+                }
             }
         }
+    } catch (e: Exception) {
+        e.printStackTrace()
+        throw e
     }
 
     if (errors.isNotEmpty() && ktLintArguments.failOnError) {

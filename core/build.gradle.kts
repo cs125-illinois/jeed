@@ -15,13 +15,13 @@ plugins {
 dependencies {
     ksp("com.squareup.moshi:moshi-kotlin-codegen:1.13.0")
 
-    antlr("org.antlr:antlr4:4.10.1")
+    antlr("org.antlr:antlr4:4.11.1")
 
     implementation("org.jetbrains.kotlin:kotlin-compiler-embeddable:1.7.10")
     implementation("org.jetbrains.kotlin:kotlin-reflect:1.7.10")
 
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-core:1.6.4")
-    implementation("com.puppycrawl.tools:checkstyle:10.3.2")
+    implementation("com.puppycrawl.tools:checkstyle:10.3.3")
     implementation("com.pinterest.ktlint:ktlint-core:0.46.1")
     implementation("com.pinterest.ktlint:ktlint-ruleset-standard:0.46.1")
     implementation("com.github.jknack:handlebars:4.3.0")
@@ -29,8 +29,8 @@ dependencies {
     implementation("org.ow2.asm:asm:9.3")
     implementation("org.ow2.asm:asm-tree:9.3")
     implementation("org.ow2.asm:asm-util:9.3")
-    implementation("org.slf4j:slf4j-api:1.7.36")
-    implementation("ch.qos.logback:logback-classic:1.2.11")
+    implementation("org.slf4j:slf4j-api:2.0.0")
+    implementation("ch.qos.logback:logback-classic:1.4.0")
     implementation("io.github.microutils:kotlin-logging:2.1.23")
     implementation("io.github.classgraph:classgraph:4.8.149")
     implementation("net.java.dev.jna:jna:5.12.1")
@@ -43,7 +43,7 @@ dependencies {
     api("org.jacoco:org.jacoco.core:0.8.8")
     api("com.github.ben-manes.caffeine:caffeine:3.1.1")
 
-    testImplementation("io.kotest:kotest-runner-junit5:5.4.1")
+    testImplementation("io.kotest:kotest-runner-junit5:5.4.2")
 }
 tasks.test {
     useJUnitPlatform()
