@@ -311,6 +311,7 @@ export const Feature = Union(
   Literal("NESTED_WHILE"),
   Literal("NESTED_DO_WHILE"),
   Literal("NESTED_CLASS"),
+  Literal("NESTED_LOOP"),
   //
   Literal("METHOD"),
   Literal("RETURN"),
