@@ -42,6 +42,7 @@ enum class FeatureName(val description: String) {
     NESTED_WHILE("nested while"),
     NESTED_DO_WHILE("nested do-while"),
     NESTED_CLASS("nested class declaration"),
+    NESTED_LOOP("nested loop"),
 
     // Methods
     METHOD("method declarations"),

@@ -59,6 +59,7 @@ for (int i = 0; i < 10; i++) {
         ).features().also {
             it.lookup(".").features.featureMap[FeatureName.FOR_LOOPS] shouldBe 2
             it.lookup(".").features.featureMap[FeatureName.NESTED_FOR] shouldBe 1
+            it.lookup(".").features.featureMap[FeatureName.NESTED_LOOP] shouldBe 1
         }
     }
     "should count while loops in snippets" {
@@ -76,6 +77,22 @@ while (i < 10) {
             it.lookup(".").features.featureMap[FeatureName.WHILE_LOOPS] shouldBe 2
             it.lookup(".").features.featureMap[FeatureName.NESTED_WHILE] shouldBe 1
             it.lookup(".").features.featureMap[FeatureName.DO_WHILE_LOOPS] shouldBe 0
+        }
+    }
+    "should not count while loops under if " {
+        Source.fromSnippet(
+            """
+int i = 0;
+if (i < 10) {
+    while (j < 10) {
+        j++;
+    }
+    i++;
+}
+""".trim()
+        ).features().also {
+            it.lookup(".").features.featureMap[FeatureName.WHILE_LOOPS] shouldBe 1
+            it.lookup(".").features.featureMap[FeatureName.NESTED_WHILE] shouldBe 0
         }
     }
     "should count do-while loops in snippets" {

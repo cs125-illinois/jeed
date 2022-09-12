@@ -587,23 +587,37 @@ class JavaFeatureListener(val source: Source, entry: Map.Entry<String, String>) 
         ctx.RETURN()?.also {
             count(FeatureName.RETURN)
         }
-        // Count nested statements
-        for (ctxStatement in ctx.statement()) {
-            ctxStatement?.block()?.also {
-                val statement = ctxStatement.block().blockStatement()
-                for (block in statement) {
-                    val blockStatement = block.statement()
-                    blockStatement?.FOR()?.also {
-                        count(FeatureName.NESTED_FOR)
+        // Count nested loops
+        if (ctx.WHILE() != null || ctx.FOR() != null) {
+            for (ctxStatement in ctx.statement()) {
+                ctxStatement?.block()?.also {
+                    val statement = ctxStatement.block().blockStatement()
+                    for (block in statement) {
+                        val blockStatement = block.statement()
+                        blockStatement?.FOR()?.also {
+                            count(FeatureName.NESTED_FOR)
+                            count(FeatureName.NESTED_LOOP)
+                        }
+                        blockStatement?.WHILE()?.also {
+                            count(FeatureName.NESTED_LOOP)
+                            if (block.statement().DO() != null) {
+                                count(FeatureName.NESTED_DO_WHILE)
+                            } else {
+                                count(FeatureName.NESTED_WHILE)
+                            }
+                        }
                     }
-                    blockStatement?.IF()?.also {
-                        count(FeatureName.NESTED_IF)
-                    }
-                    blockStatement?.WHILE()?.also {
-                        if (block.statement().DO() != null) {
-                            count(FeatureName.NESTED_DO_WHILE)
-                        } else {
-                            count(FeatureName.NESTED_WHILE)
+                }
+            }
+        }
+        if (ctx.IF() != null) {
+            for (ctxStatement in ctx.statement()) {
+                ctxStatement?.block()?.also {
+                    val statement = ctxStatement.block().blockStatement()
+                    for (block in statement) {
+                        val blockStatement = block.statement()
+                        blockStatement?.IF()?.also {
+                            count(FeatureName.NESTED_IF)
                         }
                     }
                 }

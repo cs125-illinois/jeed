@@ -56,6 +56,37 @@ for (i in 0 until 10) {
             featureMap[FeatureName.NESTED_FOR] shouldBe 1
         }
     }
+    "should not count nested for loops under if" {
+        Source.fromKotlinSnippet(
+            """
+if (true) {
+    for (i in 0 until 10) {
+        println(i + j)
+    }
+}
+""".trim()
+        ).features().check {
+            featureMap[FeatureName.FOR_LOOPS] shouldBe 1
+            featureMap[FeatureName.NESTED_FOR] shouldBe 0
+        }
+    }
+    "should count nested for loops under if under loop" {
+        Source.fromKotlinSnippet(
+            """
+for (i in 0 until 10) {
+    if (true) {
+        for (i in 0 until 10) {
+            println(i + j)
+        }
+    }
+}
+""".trim()
+        ).features().check {
+            featureMap[FeatureName.FOR_LOOPS] shouldBe 2
+            featureMap[FeatureName.NESTED_FOR] shouldBe 1
+            featureMap[FeatureName.NESTED_LOOP] shouldBe 1
+        }
+    }
     "should count while loops in snippets" {
         Source.fromKotlinSnippet(
             """

@@ -176,6 +176,10 @@ class KotlinFeatureListener(val source: Source, entry: Map.Entry<String, String>
     private val ifDepth
         get() = ifDepths.last()
 
+    private var loopDepths = mutableListOf<Int>()
+    private val loopDepth
+        get() = loopDepths.last()
+
     override fun enterFunctionDeclaration(ctx: FunctionDeclarationContext) {
         if (!ctx.isSnippetMethod()) {
             count(FeatureName.METHOD)
@@ -187,6 +191,7 @@ class KotlinFeatureListener(val source: Source, entry: Map.Entry<String, String>
         )
         functionBlockDepths += 0
         ifDepths += 0
+        loopDepths += 0
 
         if (ctx.parentType() == ParentType.FUNCTION) {
             count(FeatureName.NESTED_METHOD)
@@ -199,12 +204,15 @@ class KotlinFeatureListener(val source: Source, entry: Map.Entry<String, String>
         check(exitingBlockDepth == 0)
         val exitingIfDepth = ifDepths.pop()
         check(exitingIfDepth == 0)
+        val exitingLoopDepth = loopDepths.pop()
+        check(exitingLoopDepth == 0)
     }
 
     private var initCounter = 0
-    override fun enterAnonymousInitializer(ctx: KotlinParser.AnonymousInitializerContext) {
+    override fun enterAnonymousInitializer(ctx: AnonymousInitializerContext) {
         ifDepths += 0
         functionBlockDepths += 0
+        loopDepths += 0
         enterMethodOrConstructor(
             "init${initCounter++}",
             Location(ctx.start.line, ctx.start.charPositionInLine),
@@ -212,12 +220,14 @@ class KotlinFeatureListener(val source: Source, entry: Map.Entry<String, String>
         )
     }
 
-    override fun exitAnonymousInitializer(ctx: KotlinParser.AnonymousInitializerContext?) {
+    override fun exitAnonymousInitializer(ctx: AnonymousInitializerContext?) {
         exitMethodOrConstructor()
         val exitingBlockDepth = functionBlockDepths.pop()
         check(exitingBlockDepth == 0)
         val exitingIfDepth = ifDepths.pop()
         check(exitingIfDepth == 0)
+        val exitingLoopDepth = loopDepths.pop()
+        check(exitingLoopDepth == 0)
     }
 
     override fun enterBlock(ctx: KotlinParser.BlockContext) {
@@ -309,22 +319,31 @@ class KotlinFeatureListener(val source: Source, entry: Map.Entry<String, String>
         }
         ctx.forStatement()?.also {
             count(FeatureName.FOR_LOOPS)
-            if (currentBlockDepth > 1) {
+            if (loopDepth > 0) {
                 count(FeatureName.NESTED_FOR)
+                count(FeatureName.NESTED_LOOP)
             }
         }
         ctx.whileStatement()?.also {
             count(FeatureName.WHILE_LOOPS)
-            if (currentBlockDepth > 1) {
+            if (loopDepth > 0) {
                 count(FeatureName.NESTED_WHILE)
+                count(FeatureName.NESTED_LOOP)
             }
         }
         ctx.doWhileStatement()?.also {
             count(FeatureName.DO_WHILE_LOOPS)
-            if (currentBlockDepth > 1) {
+            if (loopDepth > 0) {
                 count(FeatureName.NESTED_DO_WHILE)
+                count(FeatureName.NESTED_LOOP)
             }
         }
+        loopDepths[loopDepths.size - 1]++
+    }
+
+    override fun exitLoopStatement(ctx: KotlinParser.LoopStatementContext?) {
+        loopDepths[loopDepths.size - 1]--
+        check(loopDepth >= 0)
     }
 
     override fun enterSimpleIdentifier(ctx: KotlinParser.SimpleIdentifierContext) {
