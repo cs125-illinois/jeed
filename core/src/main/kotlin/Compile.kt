@@ -28,7 +28,8 @@ private val systemCompiler = ToolProvider.getSystemJavaCompiler() ?: error(
 const val DEFAULT_JAVA_VERSION = 10
 val systemCompilerName = systemCompiler.sourceVersions.maxOrNull().toString()
 val systemCompilerVersion = systemCompilerName.let {
-    @Suppress("TooGenericExceptionCaught") try {
+    @Suppress("TooGenericExceptionCaught")
+    try {
         it.split("_")[1].toInt()
     } catch (e: Exception) {
         DEFAULT_JAVA_VERSION

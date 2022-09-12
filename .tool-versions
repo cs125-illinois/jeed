@@ -1,4 +1,3 @@
-nodejs 16.15.1
+nodejs 16.16.0
 yarn 1.22.19
-mongodb 4.4.8
 java openjdk-17.0.2

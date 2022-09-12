@@ -679,7 +679,8 @@ object Sandbox {
                     }
                 }
                 stoppedThreads.add(it)
-                @Suppress("DEPRECATION") it.stop()
+                @Suppress("DEPRECATION")
+                it.stop()
             }
             threadGroup.maxPriority = Thread.NORM_PRIORITY
             stoppedThreads.filter { it.isAlive }.forEach {
