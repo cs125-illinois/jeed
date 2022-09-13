@@ -24,6 +24,7 @@ import java.io.FilePermission
 import java.io.InputStream
 import java.io.OutputStream
 import java.io.PrintStream
+import java.lang.invoke.LambdaMetafactory
 import java.lang.reflect.InvocationTargetException
 import java.lang.reflect.Modifier
 import java.security.AccessControlContext
@@ -37,6 +38,7 @@ import java.util.Collections
 import java.util.IdentityHashMap
 import java.util.Locale
 import java.util.Properties
+import java.util.PropertyPermission
 import java.util.concurrent.Callable
 import java.util.concurrent.CancellationException
 import java.util.concurrent.ConcurrentHashMap
@@ -146,7 +148,7 @@ object Sandbox {
         val classLoaderConfiguration: ClassLoaderConfiguration = ClassLoaderConfiguration(),
         val waitForShutdown: Boolean = DEFAULT_WAIT_FOR_SHUTDOWN,
         val returnTimeout: Int = DEFAULT_RETURN_TIMEOUT,
-        val systemInStream: InputStream? = null
+        @Transient val systemInStream: InputStream? = null
     ) {
         companion object {
             const val DEFAULT_TIMEOUT = 100L
@@ -1500,7 +1502,7 @@ object Sandbox {
 
             override fun visitInvokeDynamicInsn(
                 name: String?,
-                descriptor: String?,
+                descriptor: String,
                 bootstrapMethodHandle: Handle,
                 vararg bootstrapMethodArguments: Any?
             ) {
@@ -1514,9 +1516,37 @@ object Sandbox {
                 } else {
                     bootstrapMethodArguments
                 }
+                val newDesc = if (bootstrapMethodHandle.owner == Type.getInternalName(LambdaMetafactory::class.java)) {
+                    /*
+                     * LambdaMetafactory requires all bound parameter types to match exactly between the implementation
+                     * handle type and the factory type... except for the receiver type in the case of an instance
+                     * method being the implementation. The Java compiler takes advantage of this special case and
+                     * uses the specific receiver type for the factory type even when the method is inherited.
+                     * Unfortunately, enclosing the implementation handle in an H_INVOKESTATIC-kind handle disables the
+                     * special handling in LMF. The factory type must therefore be adjusted when an instance method
+                     * handle has been enclosed (adding 1 to the argument list as seen by ASM) and its receiver will be
+                     * bound (factory argument list is nonempty).
+                     */
+                    val originalHandle = bootstrapMethodArguments[1] as Handle
+                    val originalHandleType = Type.getType(originalHandle.desc)
+                    val sandboxedHandle = arguments[1] as Handle
+                    val sandboxedHandleType = Type.getType(sandboxedHandle.desc)
+                    val factoryType = Type.getType(descriptor)
+                    val factoryArgTypes = factoryType.argumentTypes
+                    if (originalHandleType.argumentTypes.size != sandboxedHandleType.argumentTypes.size && // instance
+                        factoryArgTypes.isNotEmpty() // bound
+                    ) {
+                        factoryArgTypes[0] = sandboxedHandleType.argumentTypes[0]
+                        Type.getMethodDescriptor(factoryType.returnType, *factoryArgTypes)
+                    } else {
+                        descriptor
+                    }
+                } else {
+                    descriptor
+                }
                 super.visitInvokeDynamicInsn(
                     name,
-                    descriptor,
+                    newDesc,
                     bootstrapMethodHandle,
                     *arguments
                 )
@@ -1622,6 +1652,10 @@ object Sandbox {
     val systemSecurityManager: SecurityManager? = System.getSecurityManager()
 
     private object SandboxSecurityManager : SecurityManager() {
+        private val SET_IO_PERMISSION = RuntimePermission("setIO")
+        private val GET_CLASSLOADER_PERMISSION = RuntimePermission("getClassLoader")
+        private val inReentrantPermissionCheck = ThreadLocal.withInitial { false }
+
         @Suppress("ReturnCount")
         private fun confinedTaskByClassLoader(): ConfinedTask<*>? {
             val confinedTask = confinedTaskByThreadGroup() ?: return null
@@ -1638,6 +1672,19 @@ object Sandbox {
                 confinedTask
             } else {
                 null
+            }
+        }
+
+        private fun confinedTaskByClassLoaderReentrant(): ConfinedTask<*>? {
+            return if (inReentrantPermissionCheck.get()) {
+                null
+            } else {
+                try {
+                    inReentrantPermissionCheck.set(true)
+                    confinedTaskByClassLoader()
+                } finally {
+                    inReentrantPermissionCheck.set(false)
+                }
             }
         }
 
@@ -1707,21 +1754,30 @@ object Sandbox {
         }
 
         override fun checkPermission(permission: Permission) {
-            // Special case to prevent even trusted task code from calling System.setOut
-            val confinedTask = if (permission == RuntimePermission("setIO")) {
-                confinedTaskByThreadGroup()
-            } else {
-                confinedTaskByClassLoader()
+            val confinedTask = when (permission) {
+                SET_IO_PERMISSION -> confinedTaskByThreadGroup() // Even trusted tasks shouldn't call System.setOut
+                GET_CLASSLOADER_PERMISSION -> confinedTaskByClassLoaderReentrant() // Avoid StackOverflowError
+                else -> confinedTaskByClassLoader()
             } ?: return systemSecurityManager?.checkPermission(permission) ?: return
 
             try {
-                confinedTask.accessControlContext.checkPermission(permission)
+                checkTaskPermission(confinedTask, permission)
                 confinedTask.addPermissionRequest(permission, true)
             } catch (e: SecurityException) {
                 confinedTask.addPermissionRequest(permission, granted = false, throwException = false)
                 throw e
             }
             systemSecurityManager?.checkPermission(permission)
+        }
+
+        private fun checkTaskPermission(confinedTask: ConfinedTask<*>, permission: Permission) {
+            if (permission is PropertyPermission &&
+                permission.actions == "read" &&
+                confinedTask.pluginData.any { it.key.getSystemProperty(permission.name) != null }
+            ) {
+                return
+            }
+            confinedTask.accessControlContext.checkPermission(permission)
         }
     }
 
@@ -1733,6 +1789,10 @@ object Sandbox {
                 return confinedTask.maxExtraThreads.toString()
             } else if (key == "kotlinx.coroutines.scheduler.core.pool.size") {
                 return (confinedTask.maxExtraThreads - 1).toString()
+            } else if (key != null) {
+                confinedTask.pluginData.keys.forEach {
+                    return it.getSystemProperty(key) ?: return@forEach
+                }
             }
             return super.getProperty(key)
         }
@@ -2160,6 +2220,7 @@ interface SandboxPlugin<A : Any, V : Any> {
 
     fun createInitialData(instrumentationData: Any?, executionArguments: Sandbox.ExecutionArguments): Any?
     fun executionStartedInSandbox() {}
+    fun getSystemProperty(property: String): String? = null
     fun executionFinished(workingData: Any?) {}
     fun createFinalData(workingData: Any?): V
     val requiredClasses: Set<Class<*>>

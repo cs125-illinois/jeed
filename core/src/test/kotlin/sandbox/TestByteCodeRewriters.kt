@@ -1062,4 +1062,33 @@ try {
         executionResult should haveCompleted()
         executionResult should haveOutput("hi\n2")
     }
+
+    "should support references to inherited methods" {
+        val executionResult = Source.fromSnippet(
+            """
+                import java.util.function.*;
+                import java.util.ArrayList;
+                var list = new ArrayList<String>();
+                Supplier<String> s = list::toString;
+                System.out.println(s.get());
+            """.trimIndent()
+        ).compile().execute()
+        executionResult should haveCompleted()
+        executionResult should haveOutput("[]")
+    }
+
+    "should support references to inherited interface methods" {
+        val executionResult = Source.fromSnippet(
+            """
+                import java.util.stream.*;
+                import java.util.Arrays;
+                var stream = Arrays.stream(new String[] {"hello", "world"});
+                for (String s : (Iterable<String>) stream::iterator) {
+                  System.out.println(s);
+                }
+            """.trimIndent()
+        ).compile().execute()
+        executionResult should haveCompleted()
+        executionResult should haveOutput("hello\nworld")
+    }
 })

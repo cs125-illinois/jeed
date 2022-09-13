@@ -26,8 +26,11 @@ import io.kotest.matchers.types.instanceOf
 import kotlinx.coroutines.delay
 import java.io.ByteArrayOutputStream
 import java.io.File
+import java.io.IOException
 import java.io.PrintStream
 import java.lang.IllegalArgumentException
+import java.net.URI
+import java.nio.file.FileSystems
 import java.util.PropertyPermission
 
 class TestPermissions : StringSpec({
@@ -748,5 +751,12 @@ MappedByteBuffer.allocateDirect(1000);
         ).compile().execute()
         executionResult shouldNot haveCompleted()
         executionResult.permissionDenied shouldBe true
+    }
+    "should not choke on security checks from other classloaders" {
+        val executionResult = Sandbox.execute(executionArguments = Sandbox.ExecutionArguments(timeout = 1000)) {
+            FileSystems.newFileSystem(URI.create("jar:file:/nonexistent"), mapOf("create" to false))
+        }
+        executionResult.timeout shouldBe false
+        executionResult.threw should beInstanceOf<IOException>() // Not StackOverflowError
     }
 })
