@@ -485,6 +485,9 @@ object Sandbox {
         val ioBytes = mutableListOf<Byte>()
         var redirectingIOBytes = mutableListOf<Byte>()
 
+        var outputCurrentBytes = 0
+        var outputHardLimitBytes: Int? = null
+
         var currentRedirectedLines: MutableMap<TaskResults.OutputLine.Console, CurrentLine>? = null
         val redirectedOutputLines: MutableMap<TaskResults.OutputLine.Console, StringBuilder> = mutableMapOf(
             TaskResults.OutputLine.Console.STDOUT to StringBuilder(),
@@ -552,6 +555,13 @@ object Sandbox {
             }
             if (redirectingOutput) {
                 redirectingIOBytes += int.toByte()
+            }
+            val currentLimit = outputHardLimitBytes
+            if (currentLimit != null) {
+                outputCurrentBytes += 1
+                if (outputCurrentBytes >= currentLimit) {
+                    throw OutputHardLimitExceeded(currentLimit)
+                }
             }
 
             outputListener?.also {
@@ -1804,6 +1814,20 @@ object Sandbox {
     }
 
     @JvmStatic
+    fun hardLimitOutput(hardLimit: Int, block: () -> Any?): Any? {
+        val confinedTask = confinedTaskByThreadGroup() ?: error("should only be used from a confined task")
+        check(confinedTask.outputHardLimitBytes == null) { "can't nest calls to hardLimitOutput" }
+
+        confinedTask.outputCurrentBytes = 0
+        confinedTask.outputHardLimitBytes = hardLimit
+        return try {
+            block()
+        } finally {
+            confinedTask.outputHardLimitBytes = null
+        }
+    }
+
+    @JvmStatic
     fun redirectOutput(block: () -> Any?) = redirectOutput(null, block)
 
     @JvmStatic
@@ -2075,6 +2099,7 @@ object Sandbox {
         override fun fillInStackTrace() = this
     }
 
+
     class UnexpectedExtraThreadError : Error(
         "An extra thread was detected by a feature not configured to support multiple threads"
     )
@@ -2239,3 +2264,5 @@ data class ConfiguredSandboxPlugin<A : Any, V : Any>(
 enum class RewritingContext {
     UNTRUSTED, RELOADED
 }
+
+class OutputHardLimitExceeded(limit: Int) : Error("Output limit $limit exceeded")

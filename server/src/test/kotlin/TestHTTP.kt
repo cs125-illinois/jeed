@@ -39,7 +39,7 @@ class TestHTTP : StringSpec() {
                     response.shouldHaveStatus(HttpStatusCode.OK.value)
 
                     val jeedResponse = Response.from(response.content)
-                    jeedResponse.completed.execution ?.klass shouldBe "Main"
+                    jeedResponse.completed.execution?.klass shouldBe "Main"
                     jeedResponse.completedTasks.size shouldBe 3
                     jeedResponse.failedTasks.size shouldBe 0
                 }

@@ -38,9 +38,6 @@ fun main() {
         executionResult should haveOutput("1")
     }
     "should capture output from coroutines" {
-        // Dummy task to force GlobalScope to be initialized before the test runs
-        var i = 0
-        GlobalScope.launch { i = 1 }
         val executionResult = Source(
             mapOf(
                 "Main.kt" to """
@@ -56,9 +53,27 @@ fun main() {
                 """.trimIndent()
             )
         ).kompile().execute()
-        i shouldBe 1
         executionResult shouldNot haveTimedOut()
         executionResult should haveOutput("Hello\nWorld!")
+    }
+    "should wait on coroutines" {
+        val executionResult = Source(
+            mapOf(
+                "Main.kt" to """
+import kotlinx.coroutines.*
+fun main() {
+  val job = GlobalScope.launch {
+    println("Here")
+  }
+  runBlocking {
+    job.join()
+  }
+}
+                """.trimIndent()
+            )
+        ).kompile().execute()
+        executionResult shouldNot haveTimedOut()
+        executionResult should haveOutput("Here")
     }
     "should support multiple unscoped coroutines" {
         val executionResult = Source(

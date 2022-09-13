@@ -1,5 +1,6 @@
 package edu.illinois.cs.cs125.jeed.core.sandbox
 
+import edu.illinois.cs.cs125.jeed.core.OutputHardLimitExceeded
 import edu.illinois.cs.cs125.jeed.core.Sandbox
 import edu.illinois.cs.cs125.jeed.core.Source
 import edu.illinois.cs.cs125.jeed.core.SourceExecutionArguments
@@ -17,6 +18,7 @@ import io.kotest.matchers.collections.shouldNotContain
 import io.kotest.matchers.should
 import io.kotest.matchers.shouldBe
 import io.kotest.matchers.shouldNot
+import io.kotest.matchers.types.beInstanceOf
 import kotlinx.coroutines.async
 import kotlinx.coroutines.delay
 import java.io.ByteArrayOutputStream
@@ -157,6 +159,28 @@ System.err.print("There");
         executionResult shouldNot haveTimedOut()
         executionResult should haveStdout("Here\nThereHere\nThere")
         executionResult should haveStderr("ThereThere")
+    }
+    "should hard limit output when requested" {
+        val compiledSource = Source.fromSnippet(
+            """
+for (int i = 0; i < 1024; i++) {
+  System.out.println("Here");
+}
+            """.trim()
+        ).compile()
+
+        compiledSource.execute().also { executionResult ->
+            executionResult should haveCompleted()
+            executionResult shouldNot haveTimedOut()
+        }
+        Sandbox.execute(compiledSource.classLoader) { (classLoader) ->
+            Sandbox.hardLimitOutput(1024) {
+                classLoader.findClassMethod().invoke(null)
+            }
+        }.also { executionResult ->
+            executionResult shouldNot haveCompleted()
+            executionResult.threw?.cause should beInstanceOf<OutputHardLimitExceeded>()
+        }
     }
     "should handle null print arguments" {
         val executionResult = Source.fromSnippet(
