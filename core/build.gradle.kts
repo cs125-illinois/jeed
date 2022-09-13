@@ -38,7 +38,7 @@ dependencies {
     implementation("com.google.googlejavaformat:google-java-format:1.15.0")
     implementation("net.sf.extjwnl:extjwnl:2.0.5")
     implementation("net.sf.extjwnl:extjwnl-data-wn31:1.2")
-    implementation("com.beyondgrader.resource-agent:agent:2022.6.6")
+    implementation("com.beyondgrader.resource-agent:agent:2022.9.0")
 
     api("org.jacoco:org.jacoco.core:0.8.8")
     api("com.github.ben-manes.caffeine:caffeine:3.1.1")

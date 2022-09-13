@@ -1,8 +1,5 @@
 package edu.illinois.cs.cs125.jeed.core
 
-import kotlinx.coroutines.DelicateCoroutinesApi
-import kotlinx.coroutines.GlobalScope
-import kotlinx.coroutines.launch
 import java.util.concurrent.TimeUnit
 
 private const val COROUTINE_INIT_TIMEOUT = 10000L

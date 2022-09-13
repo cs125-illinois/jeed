@@ -73,7 +73,6 @@ class SourceExecutionArguments(
     fun <A : Any> addPlugin(plugin: SandboxPluginWithDefaultArguments<A, *>): SourceExecutionArguments {
         return addPlugin(plugin, plugin.createDefaultArguments())
     }
-
 }
 
 class ExecutionFailed(

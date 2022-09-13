@@ -2099,7 +2099,6 @@ object Sandbox {
         override fun fillInStackTrace() = this
     }
 
-
     class UnexpectedExtraThreadError : Error(
         "An extra thread was detected by a feature not configured to support multiple threads"
     )
