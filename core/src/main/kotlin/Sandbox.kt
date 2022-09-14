@@ -474,7 +474,7 @@ object Sandbox {
 
         var truncatedLines: Int = 0
         val currentLines: MutableMap<TaskResults.OutputLine.Console, CurrentLine> = mutableMapOf()
-        val outputLines: MutableList<TaskResults.OutputLine> = mutableListOf()
+        val outputLines = mutableListOf<TaskResults.OutputLine>()
 
         var currentInputLine: CurrentLine? = null
         var currentRedirectingInputLine: CurrentLine? = null
@@ -489,11 +489,10 @@ object Sandbox {
         var outputHardLimitBytes: Int? = null
 
         var currentRedirectedLines: MutableMap<TaskResults.OutputLine.Console, CurrentLine>? = null
-        val redirectedOutputLines: MutableMap<TaskResults.OutputLine.Console, StringBuilder> = mutableMapOf(
-            TaskResults.OutputLine.Console.STDOUT to StringBuilder(),
-            TaskResults.OutputLine.Console.STDERR to StringBuilder()
-        )
+        var redirectedOutputLines = mutableListOf<TaskResults.OutputLine>()
+
         var redirectingOutput: Boolean = false
+        var redirectingOutputLimit: Int? = null
         var outputListener: OutputListener? = null
 
         val permissionRequests: MutableList<TaskResults.PermissionRequest> = mutableListOf()
@@ -588,7 +587,16 @@ object Sandbox {
                     currentLines.remove(console)
 
                     if (redirectingOutput && currentRedirectingLine!!.bytes.size > 0) {
-                        redirectedOutputLines[console]?.append(currentRedirectingLine.toString() + "\n")
+                        if (redirectedOutputLines.size < (redirectingOutputLimit ?: Int.MAX_VALUE)) {
+                            redirectedOutputLines.add(
+                                TaskResults.OutputLine(
+                                    console,
+                                    currentRedirectingLine.toString() + "\n",
+                                    currentRedirectingLine.started,
+                                    currentRedirectingLine.startedThread
+                                )
+                            )
+                        }
                         currentRedirectedLines?.remove(console)
                     }
                 }
@@ -1828,19 +1836,23 @@ object Sandbox {
     }
 
     @JvmStatic
-    fun redirectOutput(block: () -> Any?) = redirectOutput(null, block)
+    fun redirectOutput(block: () -> Any?) = redirectOutput(null, null, block)
 
     @JvmStatic
-    fun redirectOutput(outputListener: OutputListener? = null, block: () -> Any?): JeedOutputCapture {
+    fun redirectOutput(
+        outputListener: OutputListener? = null,
+        redirectingOutputLimit: Int? = null,
+        block: () -> Any?
+    ): JeedOutputCapture {
         val confinedTask = confinedTaskByThreadGroup() ?: error("should only be used from a confined task")
         check(!confinedTask.redirectingOutput) { "can't nest calls to redirectOutput" }
 
         confinedTask.redirectingOutput = true
         confinedTask.currentRedirectedLines = mutableMapOf()
         confinedTask.outputListener = outputListener
+        confinedTask.redirectingOutputLimit = redirectingOutputLimit
 
-        @Suppress("TooGenericExceptionCaught")
-        val result = try {
+        val (returned, threw) = try {
             Pair(block(), null)
         } catch (e: Throwable) {
             if (e is ThreadDeath || e is LineLimitExceeded) {
@@ -1861,17 +1873,21 @@ object Sandbox {
 
         confinedTask.currentRedirectedLines = null
         confinedTask.outputListener = null
+        confinedTask.redirectingOutputLimit = null
 
         return JeedOutputCapture(
-            result.first,
-            result.second,
-            confinedTask.redirectedOutputLines[TaskResults.OutputLine.Console.STDOUT].toString() + flushedStdout,
-            confinedTask.redirectedOutputLines[TaskResults.OutputLine.Console.STDERR].toString() + flushedStderr,
+            returned,
+            threw,
+            confinedTask.redirectedOutputLines
+                .filter { it.console == TaskResults.OutputLine.Console.STDOUT }
+                .joinToString("") { it.line } + flushedStdout,
+            confinedTask.redirectedOutputLines
+                .filter { it.console == TaskResults.OutputLine.Console.STDERR }
+                .joinToString("") { it.line } + flushedStderr,
             confinedTask.redirectedInput.toString() + flushedStdin,
             confinedTask.redirectingIOBytes.toByteArray().decodeToString()
         ).also {
-            confinedTask.redirectedOutputLines[TaskResults.OutputLine.Console.STDOUT] = StringBuilder()
-            confinedTask.redirectedOutputLines[TaskResults.OutputLine.Console.STDERR] = StringBuilder()
+            confinedTask.redirectedOutputLines = mutableListOf()
             confinedTask.redirectedInput = StringBuilder()
             confinedTask.redirectingIOBytes = mutableListOf()
         }

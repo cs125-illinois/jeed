@@ -133,6 +133,26 @@ System.err.println("There");
         executionResult should haveStdout("Here\nThere")
         executionResult should haveStderr("There")
     }
+    "should limit redirected output to trusted task properly" {
+        val compiledSource = Source.fromSnippet(
+            """
+for (int i = 0; i < 1024; i++) {
+  System.out.println("Here");
+  System.err.println("There");
+}
+            """.trim()
+        ).compile()
+        val executionResult = Sandbox.execute(compiledSource.classLoader) { (classLoader) ->
+            Sandbox.redirectOutput(redirectingOutputLimit = 32) {
+                classLoader.findClassMethod().invoke(null)
+            }.also {
+                assert(it.stdout.trim().lines().size == 16) { it.stdout.trim().lines().size }
+                assert(it.stderr.trim().lines().size == 16)
+            }
+        }
+        executionResult should haveCompleted()
+        executionResult shouldNot haveTimedOut()
+    }
     "should redirect output to trusted task properly with print" {
         val compiledSource = Source.fromSnippet(
             """
