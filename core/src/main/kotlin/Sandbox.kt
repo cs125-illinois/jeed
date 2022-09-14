@@ -493,6 +493,7 @@ object Sandbox {
 
         var redirectingOutput: Boolean = false
         var redirectingOutputLimit: Int? = null
+        var redirectingTruncatedLines: Int = 0
         var outputListener: OutputListener? = null
 
         val permissionRequests: MutableList<TaskResults.PermissionRequest> = mutableListOf()
@@ -596,6 +597,8 @@ object Sandbox {
                                     currentRedirectingLine.startedThread
                                 )
                             )
+                        } else {
+                            redirectingTruncatedLines += 1
                         }
                         currentRedirectedLines?.remove(console)
                     }
@@ -1871,10 +1874,6 @@ object Sandbox {
         val flushedStdin =
             confinedTask.currentRedirectingInputLine?.toString() ?: ""
 
-        confinedTask.currentRedirectedLines = null
-        confinedTask.outputListener = null
-        confinedTask.redirectingOutputLimit = null
-
         return JeedOutputCapture(
             returned,
             threw,
@@ -1885,8 +1884,14 @@ object Sandbox {
                 .filter { it.console == TaskResults.OutputLine.Console.STDERR }
                 .joinToString("") { it.line } + flushedStderr,
             confinedTask.redirectedInput.toString() + flushedStdin,
-            confinedTask.redirectingIOBytes.toByteArray().decodeToString()
+            confinedTask.redirectingIOBytes.toByteArray().decodeToString(),
+            confinedTask.redirectingTruncatedLines
         ).also {
+            confinedTask.currentRedirectedLines = null
+            confinedTask.outputListener = null
+            confinedTask.redirectingOutputLimit = null
+            confinedTask.redirectingTruncatedLines = 0
+
             confinedTask.redirectedOutputLines = mutableListOf()
             confinedTask.redirectedInput = StringBuilder()
             confinedTask.redirectingIOBytes = mutableListOf()
@@ -2228,7 +2233,8 @@ data class JeedOutputCapture(
     val stdout: String,
     val stderr: String,
     val stdin: String,
-    val interleavedInputOutput: String
+    val interleavedInputOutput: String,
+    val truncatedLines: Int
 )
 
 interface SandboxPlugin<A : Any, V : Any> {

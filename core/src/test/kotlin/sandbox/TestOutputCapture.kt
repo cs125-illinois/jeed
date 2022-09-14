@@ -146,7 +146,8 @@ for (int i = 0; i < 1024; i++) {
             Sandbox.redirectOutput(redirectingOutputLimit = 32) {
                 classLoader.findClassMethod().invoke(null)
             }.also {
-                assert(it.stdout.trim().lines().size == 16) { it.stdout.trim().lines().size }
+                assert(it.stdout.trim().lines().size == 16)
+                assert(it.truncatedLines > 0)
                 assert(it.stderr.trim().lines().size == 16)
             }
         }
