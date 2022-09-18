@@ -13,6 +13,7 @@ import io.kotest.matchers.nulls.beNull
 import io.kotest.matchers.shouldBe
 import io.kotest.matchers.shouldNot
 import io.kotest.matchers.shouldNotBe
+import io.kotest.matchers.string.shouldEndWith
 import io.ktor.http.HttpMethod
 import io.ktor.http.HttpStatusCode
 import io.ktor.server.application.Application
@@ -128,6 +129,41 @@ values[0] = 0;
                     jeedResponse.failedTasks.size shouldBe 0
                     jeedResponse.completed.execution?.timeout shouldBe false
                     jeedResponse.completed.execution?.killReason shouldBe MemoryLimit.INDIVIDUAL_LIMIT_KILL_REASON
+                }
+            }
+        }
+        "should prevent counterfeiting initialization failures" {
+            withTestApplication(Application::jeed) {
+                handleRequest(HttpMethod.Post, "/") {
+                    addHeader("content-type", "application/json")
+                    setBody(
+                        """
+{
+"label": "test",
+"sources": [
+  {
+    "path": "Main.java",
+    "contents": " 
+public class Main {
+  public static void main() {
+    throw new NoClassDefFoundError(\"Could not initialize class java.lang.invoke.MethodHandles\");
+  }
+}"
+  }
+],
+"tasks": [ "compile", "execute" ]
+}""".trim()
+                    )
+                }.apply {
+                    response.shouldHaveStatus(HttpStatusCode.OK.value)
+
+                    val jeedResponse = Response.from(response.content)
+                    jeedResponse.completedTasks.size shouldBe 2
+                    jeedResponse.failedTasks.size shouldBe 0
+                    jeedResponse.completed.execution?.threw?.klass shouldEndWith "SecurityException"
+                    jeedResponse.completed.execution?.permissionRequests?.find {
+                        it.permission.name == "useForbiddenMethod"
+                    } shouldNot beNull()
                 }
             }
         }

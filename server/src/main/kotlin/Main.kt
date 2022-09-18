@@ -2,6 +2,8 @@
 
 package edu.illinois.cs.cs125.jeed.server
 
+import com.beyondgrader.resourceagent.Agent
+import com.beyondgrader.resourceagent.StaticFailureDetection
 import com.ryanharter.ktor.moshi.moshi
 import com.squareup.moshi.Moshi
 import com.uchuhimo.konf.source.json.toJson
@@ -52,6 +54,9 @@ val runtime: Runtime = Runtime.getRuntime()
 
 @Suppress("ComplexMethod", "LongMethod")
 fun Application.jeed() {
+    Agent.activate(countLines = false)
+    StaticFailureDetection.recordingFailedClasses = true
+
     install(CORS) {
         anyHost()
         allowNonSimpleContentTypes = true
@@ -81,13 +86,13 @@ fun Application.jeed() {
                     currentStatus.lastRequest = Instant.now()
                     call.respond(result)
 
-                    result.completed.execution?.taskResults?.killedClassInitializers?.also {
-                        if (it.isNotEmpty()) {
-                            logger.warn("Execution killed class initializers: $it")
-                            if (System.getenv("SHUTDOWN_ON_CACHE_POISONING") != null) {
-                                logger.error("Terminating due to cache poisoning")
-                                exitProcess(-1)
-                            }
+                    val staticInitFailures = StaticFailureDetection.pollStaticInitializationFailures()
+                    if (staticInitFailures.isNotEmpty()) {
+                        val failedClasses = staticInitFailures.map { it.clazz }
+                        logger.warn("Execution detected failed static initializations: $failedClasses")
+                        if (System.getenv("SHUTDOWN_ON_CACHE_POISONING") != null) {
+                            logger.error("Terminating due to cache poisoning")
+                            exitProcess(-1)
                         }
                     }
                 } catch (e: Exception) {
@@ -118,5 +123,6 @@ fun main() = runBlocking<Unit> {
             exitProcess(-1)
         }
     }
+
     embeddedServer(Netty, port = configuration[TopLevel.port], module = Application::jeed).start(true)
 }

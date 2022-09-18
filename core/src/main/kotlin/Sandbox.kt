@@ -121,6 +121,7 @@ object Sandbox {
                 MethodFilter("java.lang.Class", "getClassLoader", allowInReload = true),
                 MethodFilter("java.lang.ClassLoader", "", allowInReload = true),
                 MethodFilter("java.lang.ModuleLayer", "", allowInReload = true),
+                MethodFilter("java.lang.NoClassDefFoundError", "<init>", allowInReload = true),
                 MethodFilter("kotlin.reflect.", "", allowInReload = true)
             )
             val PERMANENTLY_BLACKLISTED_CLASSES = setOf(
@@ -181,7 +182,7 @@ object Sandbox {
         val killReason: String? = null,
         @Suppress("MemberVisibilityCanBePrivate") // For serialization
         val pluginResults: Map<String, Any>,
-        @Suppress("unused") // TEMP: Report any platform class initializers interrupted by sandbox death
+        @Deprecated("no-op, to be removed")
         val killedClassInitializers: List<String>,
         @Suppress("unused")
         val totalSafetime: Long?
@@ -432,7 +433,7 @@ object Sandbox {
                     confinedTask.pluginData.map { (plugin, workingData) ->
                         plugin.id to plugin.createFinalData(workingData)
                     }.toMap(),
-                    confinedTask.killedClassInitializers,
+                    listOf(),
                     totalSafetime
                 )
                 @Suppress("ThrowingExceptionsWithoutMessageOrCause")
@@ -503,8 +504,6 @@ object Sandbox {
         val pluginData = classLoader.pluginInstrumentationData.associate { (plugin, instrumentationData) ->
             plugin to plugin.createInitialData(instrumentationData, executionArguments)
         }
-
-        val killedClassInitializers: MutableList<String> = mutableListOf()
 
         private val isolatedLocksSyncRoot = Object()
         private val isolatedLocks = IdentityHashMap<Any, ReentrantLock>()
@@ -690,17 +689,6 @@ object Sandbox {
             threadGroup.enumerate(activeThreads)
             val existingActiveThreads = activeThreads.filterNotNull()
             existingActiveThreads.filter { !stoppedThreads.contains(it) }.forEach {
-                // TEMP: Report any platform classes the thread is currently initializing
-                if (existingActiveThreads.size == 1) { // Slow!
-                    runCatching {
-                        it.stackTrace.filterNotNull().filter { frame ->
-                            (frame.classLoaderName != null || frame.className.contains(".")) &&
-                                frame.methodName == "<clinit>"
-                        }.forEach { frame ->
-                            confinedTask.killedClassInitializers.add(frame.className)
-                        }
-                    }
-                }
                 stoppedThreads.add(it)
                 @Suppress("DEPRECATION")
                 it.stop()
