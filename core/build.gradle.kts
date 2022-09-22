@@ -29,7 +29,7 @@ dependencies {
     implementation("org.ow2.asm:asm:9.3")
     implementation("org.ow2.asm:asm-tree:9.3")
     implementation("org.ow2.asm:asm-util:9.3")
-    implementation("org.slf4j:slf4j-api:2.0.1")
+    implementation("org.slf4j:slf4j-api:2.0.2")
     implementation("ch.qos.logback:logback-classic:1.4.1")
     implementation("io.github.microutils:kotlin-logging:3.0.0")
     implementation("io.github.classgraph:classgraph:4.8.149")
@@ -38,7 +38,7 @@ dependencies {
     implementation("com.google.googlejavaformat:google-java-format:1.15.0")
     implementation("net.sf.extjwnl:extjwnl:2.0.5")
     implementation("net.sf.extjwnl:extjwnl-data-wn31:1.2")
-    implementation("com.beyondgrader.resource-agent:agent:2022.9.2")
+    implementation("com.beyondgrader.resource-agent:agent:2022.9.3")
 
     api("org.jacoco:org.jacoco.core:0.8.8")
     api("com.github.ben-manes.caffeine:caffeine:3.1.1")
