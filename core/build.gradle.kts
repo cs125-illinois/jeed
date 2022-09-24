@@ -15,7 +15,7 @@ plugins {
 dependencies {
     ksp("com.squareup.moshi:moshi-kotlin-codegen:1.14.0")
 
-    antlr("org.antlr:antlr4:4.11.1")
+    antlr("org.antlr:antlr4:4.10.1")
 
     implementation("org.jetbrains.kotlin:kotlin-compiler-embeddable:1.7.10")
     implementation("org.jetbrains.kotlin:kotlin-reflect:1.7.10")
