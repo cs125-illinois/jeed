@@ -1,7 +1,7 @@
 package edu.illinois.cs.cs125.jeed.core
 
 import com.pinterest.ktlint.core.KtLint
-import com.pinterest.ktlint.core.RuleSet
+import com.pinterest.ktlint.core.RuleProvider
 import com.pinterest.ktlint.ruleset.standard.ChainWrappingRule
 import com.pinterest.ktlint.ruleset.standard.CommentSpacingRule
 import com.pinterest.ktlint.ruleset.standard.IndentationRule
@@ -63,6 +63,7 @@ val editorConfigPath: String = run {
     tempFile.path
 }
 
+/*
 @Suppress("SpellCheckingInspection")
 val jeedRuleSet = RuleSet(
     "standard",
@@ -91,8 +92,8 @@ val jeedRuleSet = RuleSet(
     SpacingAroundRangeOperatorRule(),
     StringTemplateRule()
 )
+*/
 
-/*
 @Suppress("SpellCheckingInspection")
 val jeedRuleProviders = setOf(
     RuleProvider { ChainWrappingRule() },
@@ -120,7 +121,6 @@ val jeedRuleProviders = setOf(
     RuleProvider { SpacingAroundRangeOperatorRule() },
     RuleProvider { StringTemplateRule() }
 )
- */
 
 private val limiter = Semaphore(1)
 
@@ -152,7 +152,8 @@ suspend fun Source.ktFormat(ktLintArguments: KtLintArguments = KtLintArguments()
                         filename
                     },
                     contents,
-                    listOf(jeedRuleSet),
+                    // ruleSets = listOf(jeedRuleSet),
+                    ruleProviders = jeedRuleProviders,
                     cb = { e, corrected ->
                         if (!corrected && ktLintArguments.failOnError) {
                             throw KtLintFailed(
@@ -199,7 +200,8 @@ suspend fun Source.ktLint(ktLintArguments: KtLintArguments = KtLintArguments()):
                                 filename
                             },
                             contents,
-                            listOf(jeedRuleSet),
+                            // ruleSets = listOf(jeedRuleSet),
+                            ruleProviders = jeedRuleProviders,
                             cb = { e, _ ->
                                 @Suppress("EmptyCatchBlock")
                                 try {
