@@ -431,6 +431,16 @@ class KotlinMutationListener(private val parsedSource: Source.ParsedSource) : Ko
         }
     }
 
+    override fun enterExpression(ctx: KotlinParser.ExpressionContext) {
+        ctx.DISJ()?.also {
+            if (SwapAndOr.matches(ctx.DISJ().text)) {
+                mutations.add(SwapAndOr(ctx.DISJ().toLocation(), ctx.DISJ().joinToString(), Source.FileType.KOTLIN))
+                val (frontLocation, backLocation) = ctx.locationPair()
+                mutations.add(RemoveAndOr(frontLocation, parsedSource.contents(frontLocation), Source.FileType.KOTLIN))
+                mutations.add(RemoveAndOr(backLocation, parsedSource.contents(backLocation), Source.FileType.KOTLIN))
+            }
+        }
+    }
     override fun enterDisjunction(ctx: KotlinParser.DisjunctionContext) {
         if (SwapAndOr.matches(ctx.DISJ().joinToString())) {
             require(ctx.DISJ().size == 1) { "Disjunction list has an invalid size" }
@@ -537,6 +547,9 @@ class KotlinMutationListener(private val parsedSource: Source.ParsedSource) : Ko
         return Pair(frontLocation, backLocation)
     }
 
+    private fun KotlinParser.ExpressionContext.locationPair(): Pair<Mutation.Location, Mutation.Location> {
+
+    }
     private fun KotlinParser.AdditiveExpressionContext.locationPair(): Pair<Mutation.Location, Mutation.Location> {
         return locationPairHelper<KotlinParser.MultiplicativeExpressionContext>(
             multiplicativeExpression(0),

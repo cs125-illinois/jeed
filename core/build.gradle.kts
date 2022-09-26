@@ -15,13 +15,13 @@ plugins {
 dependencies {
     ksp("com.squareup.moshi:moshi-kotlin-codegen:1.14.0")
 
-    antlr("org.antlr:antlr4:4.10.1")
+    antlr("org.antlr:antlr4:4.11.1")
 
     implementation("org.jetbrains.kotlin:kotlin-compiler-embeddable:1.7.10")
     implementation("org.jetbrains.kotlin:kotlin-reflect:1.7.10")
 
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-core:1.6.4")
-    implementation("com.puppycrawl.tools:checkstyle:10.3.3")
+    implementation("com.puppycrawl.tools:checkstyle:10.3.4")
     implementation("com.pinterest.ktlint:ktlint-core:0.46.1")
     implementation("com.pinterest.ktlint:ktlint-ruleset-standard:0.46.1")
     implementation("com.github.jknack:handlebars:4.3.0")

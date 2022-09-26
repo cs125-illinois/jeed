@@ -358,20 +358,6 @@ class KotlinFeatureListener(val source: Source, entry: Map.Entry<String, String>
     // Gotta love this grammar
     private fun ControlStructureBodyContext.isIf() = statement()
         ?.expression()
-        ?.disjunction()
-        ?.conjunction()?.first()
-        ?.equality()?.first()
-        ?.comparison()?.first()
-        ?.genericCallLikeComparison()?.first()
-        ?.infixOperation()
-        ?.elvisExpression()?.first()
-        ?.infixFunctionCall()?.first()
-        ?.rangeExpression()?.first()
-        ?.additiveExpression()?.first()
-        ?.multiplicativeExpression()?.first()
-        ?.asExpression()?.first()
-        ?.prefixUnaryExpression()
-        ?.postfixUnaryExpression()
         ?.primaryExpression()
         ?.ifExpression() != null
 
@@ -477,12 +463,96 @@ class KotlinFeatureListener(val source: Source, entry: Map.Entry<String, String>
         count(FeatureName.COMPARISON_OPERATORS)
     }
 
+    /*
     override fun enterConjunction(ctx: KotlinParser.ConjunctionContext) {
         count(FeatureName.LOGICAL_OPERATORS, ctx.CONJ().size)
     }
 
     override fun enterDisjunction(ctx: KotlinParser.DisjunctionContext) {
         count(FeatureName.LOGICAL_OPERATORS, ctx.DISJ().size)
+    }
+    */
+
+    override fun enterExpression(ctx: KotlinParser.ExpressionContext) {
+        ctx.DISJ()?.also {
+            count(FeatureName.LOGICAL_OPERATORS)
+        }
+        ctx.CONJ()?.also {
+            count(FeatureName.LOGICAL_OPERATORS)
+        }
+        ctx.isOperator?.also {
+            count(FeatureName.INSTANCEOF)
+        }
+        ctx.asOperator()?.also {
+            ctx.type().also {
+                if (it.text in BASIC_TYPES) {
+                    count(FeatureName.PRIMITIVE_CASTING)
+                } else {
+                    count(FeatureName.CASTING)
+                }
+            }
+        }
+        if (ctx.postfixUnarySuffix().isNotEmpty()) {
+            for (i in 0 until ctx.postfixUnarySuffix().size) {
+                val current = ctx.postfixUnarySuffix(i)
+                if (current.navigationSuffix() == null) {
+                    continue
+                }
+                val next = if (i == ctx.postfixUnarySuffix().size - 1) {
+                    null
+                } else {
+                    ctx.postfixUnarySuffix(i + 1)
+                }
+                if (current.navigationSuffix().memberAccessOperator()?.DOT() != null &&
+                    current.navigationSuffix().simpleIdentifier() != null
+                ) {
+                    count(FeatureName.DOT_NOTATION)
+                    if (next?.callSuffix() != null) {
+                        val identifier = current.navigationSuffix().simpleIdentifier().text
+                        count(FeatureName.DOTTED_METHOD_CALL)
+                        currentFeatures.features.dottedMethodList += identifier
+                        if (identifier in TYPE_CASTS) {
+                            count(FeatureName.PRIMITIVE_CASTING)
+                        }
+                    } else {
+                        count(FeatureName.DOTTED_VARIABLE_ACCESS)
+                    }
+                }
+            }
+            if (printStatements.contains(ctx.primaryExpression()?.simpleIdentifier()?.text) &&
+                ctx.postfixUnarySuffix().size == 1 &&
+                ctx.postfixUnarySuffix(0).callSuffix() != null
+            ) {
+                count(FeatureName.PRINT_STATEMENTS)
+            }
+            if (ctx.primaryExpression()?.simpleIdentifier() != null &&
+                ctx.postfixUnarySuffix().isNotEmpty() &&
+                ctx.postfixUnarySuffix().last().callSuffix() != null &&
+                ctx.postfixUnarySuffix().dropLast(1).all { it.navigationSuffix() != null }
+            ) {
+                val fullMethodCall = ctx.primaryExpression().simpleIdentifier().text +
+                    ctx.postfixUnarySuffix()
+                        .dropLast(1)
+                        .joinToString(".") {
+                            it.navigationSuffix().simpleIdentifier().text
+                        }.let {
+                            if (it.isNotBlank()) {
+                                ".$it"
+                            } else {
+                                ""
+                            }
+                        }
+                if (javaPrintStatements.contains(fullMethodCall)) {
+                    count(FeatureName.PRINT_STATEMENTS)
+                    if (unnecessaryJavaPrintStatements.contains(fullMethodCall)) {
+                        count(FeatureName.JAVA_PRINT_STATEMENTS)
+                    }
+                    count(FeatureName.DOTTED_VARIABLE_ACCESS, -1)
+                    count(FeatureName.DOTTED_METHOD_CALL, -1)
+                    count(FeatureName.DOT_NOTATION, -2)
+                }
+            }
+        }
     }
 
     override fun enterObjectLiteral(ctx: KotlinParser.ObjectLiteralContext) {
@@ -508,6 +578,7 @@ class KotlinFeatureListener(val source: Source, entry: Map.Entry<String, String>
         currentFeatures.features.importList += importName
     }
 
+    /*
     override fun enterAsExpression(ctx: KotlinParser.AsExpressionContext) {
         ctx.type().forEach {
             if (it.text in BASIC_TYPES) {
@@ -517,14 +588,17 @@ class KotlinFeatureListener(val source: Source, entry: Map.Entry<String, String>
             }
         }
     }
+    */
 
     override fun enterTypeTest(ctx: KotlinParser.TypeTestContext) {
         count(FeatureName.INSTANCEOF)
     }
 
+    /*
     override fun enterInfixOperation(ctx: KotlinParser.InfixOperationContext) {
         count(FeatureName.INSTANCEOF, ctx.isOperator.size)
     }
+    */
 
     init {
         val parsedSource = source.getParsed(filename)
