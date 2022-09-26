@@ -616,7 +616,7 @@ val addEight = object : Adder {
 }""".trim()
         ).complexity()
     }
-    "should not overflow on deep nesting" {
+    "f: should not overflow on deep nesting" {
         Source.fromKotlin(
             """fun mystery(a: Int): Int {
   if (a == -1) {
