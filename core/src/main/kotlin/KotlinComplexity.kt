@@ -170,17 +170,18 @@ class KotlinComplexityListener(val source: Source, entry: Map.Entry<String, Stri
     private var requireDepth = 0
 
     override fun enterExpression(ctx: KotlinParser.ExpressionContext) {
-        ctx.DISJ()?.also {
-            val conjunction = ctx.expression()[0].text
-            if (conjunction.startsWith("require(") ||
-                conjunction.startsWith("check(") ||
-                conjunction.startsWith("assert(")
-            ) {
-                if (requireDepth == 0) {
-                    currentComplexity.complexity++
-                }
-                requireDepth++
+        val conjunction = ctx.text
+        if (conjunction.startsWith("require(") ||
+            conjunction.startsWith("check(") ||
+            conjunction.startsWith("assert(")
+        ) {
+            if (requireDepth == 0) {
+                currentComplexity.complexity++
             }
+            requireDepth++
+        }
+
+        ctx.DISJ()?.also {
             require(complexityStack.isNotEmpty())
             currentComplexity.complexity += 1
         }
@@ -195,40 +196,7 @@ class KotlinComplexityListener(val source: Source, entry: Map.Entry<String, Stri
     }
 
     override fun exitExpression(ctx: KotlinParser.ExpressionContext) {
-        ctx.DISJ()?.also {
-            val conjunction = ctx.expression()[0].text
-            if (conjunction.startsWith("require(") ||
-                conjunction.startsWith("check(") ||
-                conjunction.startsWith("assert(")
-            ) {
-                requireDepth--
-            }
-        }
-    }
-
-    /*
-    override fun enterDisjunction(ctx: KotlinParser.DisjunctionContext) {
-        val conjunction = ctx.conjunction()[0].text
-        if (conjunction.startsWith("require(") ||
-            conjunction.startsWith("check(") ||
-            conjunction.startsWith("assert(")
-        ) {
-            if (requireDepth == 0) {
-                currentComplexity.complexity++
-            }
-            requireDepth++
-        }
-        if (ctx.DISJ().isEmpty()) {
-            return
-        }
-        require(complexityStack.isNotEmpty())
-        currentComplexity.complexity += 1
-    }
-    */
-
-    /*
-    override fun exitDisjunction(ctx: KotlinParser.DisjunctionContext) {
-        val conjunction = ctx.conjunction()[0].text
+        val conjunction = ctx.text
         if (conjunction.startsWith("require(") ||
             conjunction.startsWith("check(") ||
             conjunction.startsWith("assert(")
@@ -236,26 +204,6 @@ class KotlinComplexityListener(val source: Source, entry: Map.Entry<String, Stri
             requireDepth--
         }
     }
-    // &&
-    override fun enterConjunction(ctx: KotlinParser.ConjunctionContext) {
-        if (ctx.CONJ().isEmpty()) {
-            return
-        }
-        require(complexityStack.isNotEmpty())
-        currentComplexity.complexity += 1
-    }
-    */
-
-    /*
-    // ?:
-    override fun enterElvisExpression(ctx: KotlinParser.ElvisExpressionContext) {
-        if (ctx.elvis().isEmpty()) {
-            return
-        }
-        require(complexityStack.isNotEmpty())
-        currentComplexity.complexity++
-    }
-    */
 
     // lambdas and throws
     override fun enterFunctionLiteral(ctx: KotlinParser.FunctionLiteralContext) {

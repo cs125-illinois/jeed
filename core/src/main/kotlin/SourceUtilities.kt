@@ -108,7 +108,7 @@ fun Source.ParsedSource.stripAssertionMessages(type: Source.FileType): String {
             object : KotlinParserBaseListener() {
                 var currentStart = 0
                 val keep = mutableListOf<Any>()
-                override fun enterPostfixUnaryExpression(ctx: KotlinParser.PostfixUnaryExpressionContext) {
+                override fun enterExpression(ctx: KotlinParser.ExpressionContext) {
                     val identifier = ctx.primaryExpression()?.simpleIdentifier()?.text
                     if (identifier != null && listOf("assert", "check", "require").contains(identifier)) {
                         ctx.postfixUnarySuffix(0)?.callSuffix()?.annotatedLambda()?.also {

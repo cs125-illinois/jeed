@@ -169,6 +169,8 @@ class KotlinFeatureListener(val source: Source, entry: Map.Entry<String, String>
     }
 
     private var functionBlockDepths = mutableListOf<Int>()
+
+    @Suppress("unused")
     private val currentBlockDepth
         get() = functionBlockDepths.last()
 
@@ -275,17 +277,6 @@ class KotlinFeatureListener(val source: Source, entry: Map.Entry<String, String>
         is AnonymousInitializerContext -> ParentType.FUNCTION
         is ClassBodyContext -> ParentType.CLASS
         else -> ParentType.NONE
-    }
-
-    private fun ParserRuleContext.parentStatement(): StatementContext? {
-        var currentParent = parent
-        while (currentParent != null) {
-            when (currentParent) {
-                is StatementContext -> return currentParent
-            }
-            currentParent = currentParent.parent
-        }
-        return null
     }
 
     override fun enterVariableDeclaration(ctx: KotlinParser.VariableDeclarationContext) {
@@ -463,16 +454,6 @@ class KotlinFeatureListener(val source: Source, entry: Map.Entry<String, String>
         count(FeatureName.COMPARISON_OPERATORS)
     }
 
-    /*
-    override fun enterConjunction(ctx: KotlinParser.ConjunctionContext) {
-        count(FeatureName.LOGICAL_OPERATORS, ctx.CONJ().size)
-    }
-
-    override fun enterDisjunction(ctx: KotlinParser.DisjunctionContext) {
-        count(FeatureName.LOGICAL_OPERATORS, ctx.DISJ().size)
-    }
-    */
-
     override fun enterExpression(ctx: KotlinParser.ExpressionContext) {
         ctx.DISJ()?.also {
             count(FeatureName.LOGICAL_OPERATORS)
@@ -578,27 +559,9 @@ class KotlinFeatureListener(val source: Source, entry: Map.Entry<String, String>
         currentFeatures.features.importList += importName
     }
 
-    /*
-    override fun enterAsExpression(ctx: KotlinParser.AsExpressionContext) {
-        ctx.type().forEach {
-            if (it.text in BASIC_TYPES) {
-                count(FeatureName.PRIMITIVE_CASTING)
-            } else {
-                count(FeatureName.CASTING)
-            }
-        }
-    }
-    */
-
     override fun enterTypeTest(ctx: KotlinParser.TypeTestContext) {
         count(FeatureName.INSTANCEOF)
     }
-
-    /*
-    override fun enterInfixOperation(ctx: KotlinParser.InfixOperationContext) {
-        count(FeatureName.INSTANCEOF, ctx.isOperator.size)
-    }
-    */
 
     init {
         val parsedSource = source.getParsed(filename)

@@ -4,6 +4,7 @@
 package edu.illinois.cs.cs125.jeed.core
 
 import edu.illinois.cs.cs125.jeed.core.antlr.KotlinParser
+import edu.illinois.cs.cs125.jeed.core.antlr.KotlinParser.ExpressionContext
 import edu.illinois.cs.cs125.jeed.core.antlr.KotlinParserBaseListener
 import org.antlr.v4.runtime.ParserRuleContext
 import org.antlr.v4.runtime.tree.ParseTreeWalker
@@ -431,50 +432,63 @@ class KotlinMutationListener(private val parsedSource: Source.ParsedSource) : Ko
         }
     }
 
-    override fun enterExpression(ctx: KotlinParser.ExpressionContext) {
+    override fun enterExpression(ctx: ExpressionContext) {
         ctx.DISJ()?.also {
             if (SwapAndOr.matches(ctx.DISJ().text)) {
-                mutations.add(SwapAndOr(ctx.DISJ().toLocation(), ctx.DISJ().joinToString(), Source.FileType.KOTLIN))
+                mutations.add(SwapAndOr(ctx.DISJ().toLocation(), ctx.DISJ().text, Source.FileType.KOTLIN))
                 val (frontLocation, backLocation) = ctx.locationPair()
                 mutations.add(RemoveAndOr(frontLocation, parsedSource.contents(frontLocation), Source.FileType.KOTLIN))
                 mutations.add(RemoveAndOr(backLocation, parsedSource.contents(backLocation), Source.FileType.KOTLIN))
             }
         }
-    }
-    override fun enterDisjunction(ctx: KotlinParser.DisjunctionContext) {
-        if (SwapAndOr.matches(ctx.DISJ().joinToString())) {
-            require(ctx.DISJ().size == 1) { "Disjunction list has an invalid size" }
-            mutations.add(SwapAndOr(ctx.DISJ().toLocation(), ctx.DISJ().joinToString(), Source.FileType.KOTLIN))
-            val (frontLocation, backLocation) = ctx.locationPair()
-            mutations.add(RemoveAndOr(frontLocation, parsedSource.contents(frontLocation), Source.FileType.KOTLIN))
-            mutations.add(RemoveAndOr(backLocation, parsedSource.contents(backLocation), Source.FileType.KOTLIN))
+        ctx.CONJ()?.also {
+            if (SwapAndOr.matches(ctx.CONJ().text)) {
+                mutations.add(SwapAndOr(ctx.CONJ().toLocation(), ctx.CONJ().text, Source.FileType.KOTLIN))
+                val (frontLocation, backLocation) = ctx.locationPair()
+                mutations.add(RemoveAndOr(frontLocation, parsedSource.contents(frontLocation), Source.FileType.KOTLIN))
+                mutations.add(RemoveAndOr(backLocation, parsedSource.contents(backLocation), Source.FileType.KOTLIN))
+            }
         }
-    }
-
-    override fun enterConjunction(ctx: KotlinParser.ConjunctionContext) {
-        if (SwapAndOr.matches(ctx.CONJ().joinToString())) {
-            require(ctx.CONJ().size == 1) { "Conjunction list has an invalid size" }
-            mutations.add(SwapAndOr(ctx.CONJ().toLocation(), ctx.CONJ().joinToString(), Source.FileType.KOTLIN))
-            val (frontLocation, backLocation) = ctx.locationPair()
-            mutations.add(RemoveAndOr(frontLocation, parsedSource.contents(frontLocation), Source.FileType.KOTLIN))
-            mutations.add(RemoveAndOr(backLocation, parsedSource.contents(backLocation), Source.FileType.KOTLIN))
-        }
-    }
-
-    override fun enterAdditiveExpression(ctx: KotlinParser.AdditiveExpressionContext) {
-        if (ctx.additiveOperator().size != 0) {
+        ctx.additiveOperator()?.also {
             val (frontLocation, backLocation) = ctx.locationPair()
             mutations.add(RemovePlus(frontLocation, parsedSource.contents(frontLocation), Source.FileType.KOTLIN))
             mutations.add(RemovePlus(backLocation, parsedSource.contents(backLocation), Source.FileType.KOTLIN))
-            val text = parsedSource.contents(ctx.multiplicativeExpression()[1].toLocation())
+            val text = parsedSource.contents(ctx.expression(1).toLocation())
             if (text == "1") {
                 mutations.add(
                     PlusOrMinusOneToZero(
-                        ctx.multiplicativeExpression()[1].toLocation(),
-                        parsedSource.contents(ctx.multiplicativeExpression()[1].toLocation()),
+                        ctx.expression(1).toLocation(),
+                        parsedSource.contents(ctx.expression(1).toLocation()),
                         Source.FileType.KOTLIN
                     )
                 )
+            }
+        }
+        if (ctx.postfixUnarySuffix().isNotEmpty()) {
+            val identifier = ctx.primaryExpression()?.simpleIdentifier()
+            val arguments = ctx.postfixUnarySuffix()?.firstOrNull()?.callSuffix()?.valueArguments() ?: return
+            if ((
+                identifier?.text == "arrayOf" ||
+                    identifier?.text == "listOf" ||
+                    identifier?.text?.endsWith("ArrayOf") == true
+                ) &&
+                arguments.valueArgument().size > 1
+            ) {
+                val start = arguments.valueArgument().first().toLocation()
+                val end = arguments.valueArgument().last().toLocation()
+                val location = Mutation.Location(
+                    start.start,
+                    end.end,
+                    lines.filterIndexed { index, _ -> index >= start.startLine - 1 && index <= end.endLine - 1 }
+                        .joinToString("\n"),
+                    start.startLine,
+                    end.endLine
+                )
+                val contents = parsedSource.contents(location)
+                val parts = arguments.valueArgument().map {
+                    parsedSource.contents(it.toLocation())
+                }
+                mutations.add(ModifyArrayLiteral(location, contents, Source.FileType.KOTLIN, parts))
             }
         }
     }
@@ -494,38 +508,9 @@ class KotlinMutationListener(private val parsedSource: Source.ParsedSource) : Ko
         }
     }
 
-    override fun enterPostfixUnaryExpression(ctx: KotlinParser.PostfixUnaryExpressionContext) {
-        val identifier = ctx.primaryExpression()?.simpleIdentifier()
-        val arguments = ctx.postfixUnarySuffix()?.firstOrNull()?.callSuffix()?.valueArguments() ?: return
-        if ((
-            identifier?.text == "arrayOf" ||
-                identifier?.text == "listOf" ||
-                identifier?.text?.endsWith("ArrayOf") == true
-            ) &&
-            arguments.valueArgument().size > 1
-        ) {
-            val start = arguments.valueArgument().first().toLocation()
-            val end = arguments.valueArgument().last().toLocation()
-            val location = Mutation.Location(
-                start.start,
-                end.end,
-                lines.filterIndexed { index, _ -> index >= start.startLine - 1 && index <= end.endLine - 1 }
-                    .joinToString("\n"),
-                start.startLine,
-                end.endLine
-            )
-            val contents = parsedSource.contents(location)
-            val parts = arguments.valueArgument().map {
-                parsedSource.contents(it.toLocation())
-            }
-            mutations.add(ModifyArrayLiteral(location, contents, Source.FileType.KOTLIN, parts))
-        }
-    }
-
-    private fun <T : ParserRuleContext> locationPairHelper(
-        front: T,
-        back: T
-    ): Pair<Mutation.Location, Mutation.Location> {
+    private fun ExpressionContext.locationPair(): Pair<Mutation.Location, Mutation.Location> {
+        val front = expression(0)
+        val back = expression(1)
         val frontLocation = Mutation.Location(
             front.start.startIndex,
             back.start.startIndex - 1,
@@ -547,26 +532,8 @@ class KotlinMutationListener(private val parsedSource: Source.ParsedSource) : Ko
         return Pair(frontLocation, backLocation)
     }
 
-    private fun KotlinParser.ExpressionContext.locationPair(): Pair<Mutation.Location, Mutation.Location> {
-
-    }
-    private fun KotlinParser.AdditiveExpressionContext.locationPair(): Pair<Mutation.Location, Mutation.Location> {
-        return locationPairHelper<KotlinParser.MultiplicativeExpressionContext>(
-            multiplicativeExpression(0),
-            multiplicativeExpression(1)
-        )
-    }
-
-    private fun KotlinParser.ConjunctionContext.locationPair(): Pair<Mutation.Location, Mutation.Location> {
-        return locationPairHelper<KotlinParser.EqualityContext>(
-            equality(0),
-            equality(1)
-        )
-    }
-
-    private fun KotlinParser.DisjunctionContext.locationPair(): Pair<Mutation.Location, Mutation.Location> {
-        return locationPairHelper<KotlinParser.ConjunctionContext>(conjunction(0), conjunction(1))
-    }
+    private fun TerminalNode.toLocation() =
+        Mutation.Location(symbol.startIndex, symbol.stopIndex, lines[symbol.line - 1], symbol.line, symbol.line)
 
     init {
         // println(parsedSource.tree.format(parsedSource.parser))
