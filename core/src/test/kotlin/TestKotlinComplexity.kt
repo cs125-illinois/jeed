@@ -616,10 +616,9 @@ val addEight = object : Adder {
 }""".trim()
         ).complexity()
     }
-    "!should not overflow on deep nesting" {
-        shouldThrow<ComplexityFailed> {
-            Source.fromKotlin(
-                """fun mystery(a: Int): Int {
+    "should not overflow on deep nesting" {
+        Source.fromKotlin(
+            """fun mystery(a: Int): Int {
   if (a == -1) {
     return 0
   } else if (a == 0) {
@@ -646,18 +645,11 @@ val addEight = object : Adder {
     return 3
   } else if (a == 888447) {
     return 3
-  } else if (a == 985087) {
-    return 2
-  } else if (a == 547149) {
-    return 0
-  } else if (a == 438786) {
-    return 2
-  } else if (a == 838822) {
-    return 3
   }
   return 1
 }"""
-            ).complexity()
+        ).complexity().also {
+            it.lookupFile("Main.kt") shouldBe 14
         }
     }
     "should measure when and if equivalently" {

@@ -92,12 +92,15 @@ fun Source.parseKotlinFile(entry: Map.Entry<String, String>): Source.ParsedSourc
         parser.interpreter.decisionToDFA.also { dfa ->
             parser.interpreter = ParserATNSimulator(parser, parser.atn, dfa, PredictionContextCache())
         }
+
         parser.removeErrorListeners()
         parser.addErrorListener(errorListener)
         try {
             Pair(parser.kotlinFile(), parser)
         } catch (e: StackOverflowError) {
             throw JeedParsingException(listOf(SourceError(null, "Code is too complicated to determine complexity")))
+        } finally {
+            parser.interpreter.clearDFA()
         }
     }.also {
         errorListener.check()

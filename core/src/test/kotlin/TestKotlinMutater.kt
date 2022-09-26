@@ -30,7 +30,7 @@ fun example() {
 class Example() {
   fun example() {
     val first: Boolean = true
-    val second: BOolean = false
+    val second: Boolean = false
   }
 }"""
         ).checkMutations<BooleanLiteral> { mutations, contents ->

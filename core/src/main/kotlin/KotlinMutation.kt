@@ -465,7 +465,7 @@ class KotlinMutationListener(private val parsedSource: Source.ParsedSource) : Ko
             }
         }
         if (ctx.postfixUnarySuffix().isNotEmpty()) {
-            val identifier = ctx.primaryExpression()?.simpleIdentifier()
+            val identifier = ctx.expression().getOrNull(0)?.primaryExpression()?.simpleIdentifier()
             val arguments = ctx.postfixUnarySuffix()?.firstOrNull()?.callSuffix()?.valueArguments() ?: return
             if ((
                 identifier?.text == "arrayOf" ||

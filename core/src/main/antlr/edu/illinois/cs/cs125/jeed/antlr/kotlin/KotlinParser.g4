@@ -313,7 +313,7 @@ statements
     ;
 
 statement
-    : (label | annotation)* ( declaration | assignment | loopStatement | expression)
+    : (label | annotation)* (declaration | assignment | loopStatement | expression)
     ;
 
 label
@@ -428,20 +428,14 @@ elvis
 
 expression
     : primaryExpression
-    | primaryExpression postfixUnarySuffix+
+    | expression postfixUnarySuffix+
     | unaryPrefix+ expression
     | expression NL* asOperator NL* type
-    | expression multiplicativeOperator NL* expression
-    | expression additiveOperator NL* expression
-    | expression RANGE NL* expression
+    | expression NL* (multiplicativeOperator | additiveOperator | RANGE) NL* expression
     | expression simpleIdentifier NL* expression
     | expression NL* elvis NL* expression
     | expression isOperator NL* type
-    | expression inOperator NL* expression
-    | expression comparisonOperator NL* expression
-    | expression equalityOperator NL* expression
-    | expression NL* CONJ NL* expression
-    | expression NL* DISJ NL* expression
+    | expression NL* (inOperator | comparisonOperator | equalityOperator | CONJ | DISJ) NL* expression
     ;
 
 unaryPrefix

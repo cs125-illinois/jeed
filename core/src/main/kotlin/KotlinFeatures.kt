@@ -500,18 +500,18 @@ class KotlinFeatureListener(val source: Source, entry: Map.Entry<String, String>
                     }
                 }
             }
-            if (printStatements.contains(ctx.primaryExpression()?.simpleIdentifier()?.text) &&
+            if (printStatements.contains(ctx.expression().getOrNull(0)?.primaryExpression()?.simpleIdentifier()?.text) &&
                 ctx.postfixUnarySuffix().size == 1 &&
                 ctx.postfixUnarySuffix(0).callSuffix() != null
             ) {
                 count(FeatureName.PRINT_STATEMENTS)
             }
-            if (ctx.primaryExpression()?.simpleIdentifier() != null &&
+            if (ctx.expression().getOrNull(0)?.primaryExpression()?.simpleIdentifier() != null &&
                 ctx.postfixUnarySuffix().isNotEmpty() &&
                 ctx.postfixUnarySuffix().last().callSuffix() != null &&
                 ctx.postfixUnarySuffix().dropLast(1).all { it.navigationSuffix() != null }
             ) {
-                val fullMethodCall = ctx.primaryExpression().simpleIdentifier().text +
+                val fullMethodCall = ctx.expression().getOrNull(0)?.primaryExpression()?.simpleIdentifier()?.text +
                     ctx.postfixUnarySuffix()
                         .dropLast(1)
                         .joinToString(".") {
