@@ -137,6 +137,8 @@ ${originalLine ? originalLine + "\n" + new Array(column).join(" ") + "^" : ""}${
       const output = completed?.outputLines
         ? completed.outputLines.length > 0
           ? completed.outputLines.map(({ line }) => line)
+          : response.completed.execution?.threw
+          ? []
           : [`(Completed without output)`]
         : []
       if (response.completed.execution?.killReason) {
@@ -148,7 +150,7 @@ ${originalLine ? originalLine + "\n" + new Array(column).join(" ") + "^" : ""}${
         )
       } else if (response.completed.execution?.threw) {
         level = "error"
-        output.push(response.completed.execution?.threw.stacktrace)
+        output.push(`Threw an exception: ${response.completed.execution?.threw.stacktrace}`)
       } else if (completed?.timeout) {
         level = "error"
         output.push("(Program timed out)")

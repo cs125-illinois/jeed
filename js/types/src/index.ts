@@ -130,6 +130,8 @@ export type CheckstyleArguments = Static<typeof CheckstyleArguments>
 export const KtLintArguments = Partial({
   sources: Array(String),
   failOnError: Boolean,
+  indent: Number,
+  maxLineLength: Number,
 })
 export type KtLintArguments = Static<typeof KtLintArguments>
 
