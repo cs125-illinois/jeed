@@ -70,7 +70,12 @@ fun Source.parseJavaFile(entry: Map.Entry<String, String>): Source.ParsedSource 
         }
         parser.removeErrorListeners()
         parser.addErrorListener(errorListener)
-        Pair(parser.compilationUnit(), parser)
+        parser.trimParseTree = true
+        try {
+            Pair(parser.compilationUnit(), parser)
+        } finally {
+            parser.interpreter.clearDFA()
+        }
     }.also {
         errorListener.check()
     }
@@ -93,6 +98,8 @@ fun Source.parseKotlinFile(entry: Map.Entry<String, String>): Source.ParsedSourc
         parser.interpreter.decisionToDFA.also { dfa ->
             parser.interpreter = ParserATNSimulator(parser, parser.atn, dfa, PredictionContextCache())
         }
+
+        parser.trimParseTree = true
 
         parser.removeErrorListeners()
         parser.addErrorListener(errorListener)

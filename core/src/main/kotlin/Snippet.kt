@@ -185,6 +185,7 @@ fun Source.Companion.fromJavaSnippet(
     require(originalSource.isNotEmpty()) { "Snippet cannot be a blank string" }
     return sourceFromJavaSnippet(originalSource, snippetArguments.copy(fileType = Source.FileType.JAVA))
 }
+
 fun Source.Companion.fromKotlinSnippet(
     originalSource: String,
     snippetArguments: SnippetArguments = SnippetArguments()
@@ -209,11 +210,16 @@ private fun sourceFromKotlinSnippet(originalSource: String, snippetArguments: Sn
         parser.interpreter.decisionToDFA.also { dfa ->
             parser.interpreter = ParserATNSimulator(parser, parser.atn, dfa, PredictionContextCache())
         }
+        parser.trimParseTree = true
         parser
-    }.let {
-        it.removeErrorListeners()
-        it.addErrorListener(errorListener)
-        it.script()
+    }.let { parser ->
+        parser.removeErrorListeners()
+        parser.addErrorListener(errorListener)
+        try {
+            parser.script()
+        } finally {
+            parser.interpreter.clearDFA()
+        }
     }.also {
         errorListener.check()
     }
@@ -386,6 +392,7 @@ ${" ".repeat(snippetArguments.indent * 2)}@JvmStatic fun main() {""".lines().let
                 anonymousObjectLines += lineNumber
             }
         }
+
         override fun enterObjectLiteral(ctx: KotlinParser.ObjectLiteralContext) {
             val objectStart = ctx.start!!.line
             val objectEnd = ctx.stop!!.line
@@ -393,6 +400,7 @@ ${" ".repeat(snippetArguments.indent * 2)}@JvmStatic fun main() {""".lines().let
                 anonymousObjectLines += lineNumber
             }
         }
+
         init {
             ParseTreeWalker.DEFAULT.walk(this, parseTree)
         }
@@ -475,12 +483,13 @@ private fun sourceFromJavaSnippet(originalSource: String, snippetArguments: Snip
         parser.interpreter.decisionToDFA.also { dfa ->
             parser.interpreter = ParserATNSimulator(parser, parser.atn, dfa, PredictionContextCache())
         }
+        parser.trimParseTree = true
         parser
-    }.let {
-        it.removeErrorListeners()
-        it.addErrorListener(errorListener)
+    }.let { parser ->
+        parser.removeErrorListeners()
+        parser.addErrorListener(errorListener)
         try {
-            it.snippet()
+            parser.snippet()
         } catch (e: StackOverflowError) {
             throw SnippetTransformationFailed(
                 listOf(
@@ -491,6 +500,8 @@ private fun sourceFromJavaSnippet(originalSource: String, snippetArguments: Snip
                     )
                 )
             )
+        } finally {
+            parser.interpreter.clearDFA()
         }
     }.also {
         errorListener.check()
@@ -751,7 +762,8 @@ private fun sourceFromJavaSnippet(originalSource: String, snippetArguments: Snip
         }
     }
 
-    val hasLooseCode = methodDeclarations.isNotEmpty() || looseCode.joinToString("\n").countLines(Source.FileType.JAVA).source > 0
+    val hasLooseCode =
+        methodDeclarations.isNotEmpty() || looseCode.joinToString("\n").countLines(Source.FileType.JAVA).source > 0
     assert(originalSource.lines().size == remappedLineMapping.keys.size)
 
     var rewrittenSource = ""
