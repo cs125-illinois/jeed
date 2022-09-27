@@ -50,8 +50,10 @@ typeAlias
 
 declaration
     : classDeclaration
+    | interfaceDeclaration
     | objectDeclaration
     | functionDeclaration
+    | abstractFunctionDeclaration
     | propertyDeclaration
     | typeAlias
     ;
@@ -59,11 +61,19 @@ declaration
 // SECTION: classes
 
 classDeclaration
-    : modifiers? (CLASS | (FUN NL*)? INTERFACE) NL* simpleIdentifier
+    : modifiers? CLASS NL* simpleIdentifier
       (NL* typeParameters)? (NL* primaryConstructor)?
       (NL* COLON NL* delegationSpecifiers)?
       (NL* typeConstraints)?
       (NL* classBody | NL* enumClassBody)?
+    ;
+
+interfaceDeclaration
+    : modifiers? (FUN NL*)? INTERFACE NL* simpleIdentifier
+      (NL* typeParameters)? (NL* primaryConstructor)?
+      (NL* COLON NL* delegationSpecifiers)?
+      (NL* typeConstraints)?
+      (NL* interfaceBody | NL* enumClassBody)?
     ;
 
 primaryConstructor
@@ -72,6 +82,10 @@ primaryConstructor
 
 classBody
     : LCURL NL* classMemberDeclarations NL* RCURL
+    ;
+
+interfaceBody
+    : LCURL NL* interfaceMemberDeclarations NL* RCURL
     ;
 
 classParameters
@@ -135,6 +149,18 @@ classMemberDeclaration
     | secondaryConstructor
     ;
 
+interfaceMemberDeclarations
+    : (interfaceMemberDeclaration semis?)*
+    ;
+
+interfaceMemberDeclaration
+    : declaration
+    | emptyFunctionDeclaration
+    | companionObject
+    | anonymousInitializer
+    | secondaryConstructor
+    ;
+
 anonymousInitializer
     : INIT NL* block
     ;
@@ -160,7 +186,23 @@ functionDeclaration
       NL* functionValueParameters
       (NL* COLON NL* type)?
       (NL* typeConstraints)?
-      (NL* functionBody)?
+      NL* functionBody
+    ;
+
+emptyFunctionDeclaration
+    : modifiers?
+      FUN (NL* typeParameters)? (NL* receiverType NL* DOT)? NL* simpleIdentifier
+      NL* functionValueParameters
+      (NL* COLON NL* type)?
+      (NL* typeConstraints)?
+    ;
+
+abstractFunctionDeclaration
+    : modifiers? ABSTRACT modifiers?
+      FUN (NL* typeParameters)? (NL* receiverType NL* DOT)? NL* simpleIdentifier
+      NL* functionValueParameters
+      (NL* COLON NL* type)?
+      (NL* typeConstraints)?
     ;
 
 functionBody

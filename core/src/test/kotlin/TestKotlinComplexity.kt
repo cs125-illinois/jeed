@@ -616,40 +616,53 @@ val addEight = object : Adder {
 }""".trim()
         ).complexity()
     }
-    "f: should not overflow on deep nesting" {
+    "should not overflow on deep nesting" {
         Source.fromKotlin(
             """fun mystery(a: Int): Int {
-  if (a == -1) {
-    return 0
-  } else if (a == 0) {
-    return 0
-  } else if (a == 1) {
-    return 0
-  } else if (a == -2147483648) {
-    return 2
-  } else if (a == 889510) {
-    return 2
-  } else if (a == 598806) {
-    return 2
-  } else if (a == 974889) {
-    return 2
-  } else if (a == 485818) {
-    return 3
-  } else if (a == 858845) {
-    return 3
-  } else if (a == 887182) {
-    return 3
-  } else if (a == 668881) {
-    return 3
-  } else if (a == 88180) {
-    return 3
-  } else if (a == 888447) {
-    return 3
-  }
-  return 1
-}"""
+    if (a == -1) {
+      return 0
+    } else if (a == 0) {
+      return 0
+    } else if (a == 1) {
+      return 0
+    } else if (a == -2147483648) {
+      return 2
+    } else if (a == 889510) {
+      return 2
+    } else if (a == 598806) {
+      return 2
+    } else if (a == 974889) {
+      return 2
+    } else if (a == 485818) {
+      return 3
+    } else if (a == 858845) {
+      return 3
+    } else if (a == 887182) {
+      return 3
+    } else if (a == 668881) {
+      return 3
+    } else if (a == 668881) {
+      return 3
+    } else if (a == 668881) {
+      return 3
+    } else if (a == 668881) {
+      return 3
+    } else if (a == 668881) {
+      return 3
+    } else if (a == 668881) {
+      return 3
+    } else if (a == 668881) {
+      return 3
+    } else if (a == 668881) {
+      return 3
+    } else if (a == 668881) {
+      return 3
+    }
+    return 1
+}
+"""
         ).complexity().also {
-            it.lookupFile("Main.kt") shouldBe 14
+            it.lookupFile("Main.kt") shouldBe 20
         }
     }
     "should measure when and if equivalently" {

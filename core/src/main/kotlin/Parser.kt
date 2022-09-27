@@ -11,6 +11,7 @@ import edu.illinois.cs.cs125.jeed.core.antlr.SnippetParser
 import org.antlr.v4.runtime.BaseErrorListener
 import org.antlr.v4.runtime.CharStreams
 import org.antlr.v4.runtime.CommonTokenStream
+import org.antlr.v4.runtime.Parser
 import org.antlr.v4.runtime.RecognitionException
 import org.antlr.v4.runtime.Recognizer
 import org.antlr.v4.runtime.atn.ParserATNSimulator
@@ -107,6 +108,26 @@ fun Source.parseKotlinFile(entry: Map.Entry<String, String>): Source.ParsedSourc
     }
 
     return Source.ParsedSource(parseTree, charStream, entry.value, parser)
+}
+
+fun Parser.profile() {
+    print(String.format("%-" + 35 + "s", "rule"))
+    print(String.format("%-" + 15 + "s", "time"))
+    print(String.format("%-" + 15 + "s", "invocations"))
+    print(String.format("%-" + 15 + "s", "---"))
+    println()
+    parseInfo.decisionInfo
+        .filter { it.timeInPrediction > 0 }
+        .sortedBy { it.timeInPrediction }.reversed()
+        .forEach { info ->
+            val ds = atn.getDecisionState(info.decision)
+            val rule: String = ruleNames[ds.ruleIndex]
+            print(String.format("%-" + 35 + "s", rule))
+            print(String.format("%-" + 15 + "s", info.timeInPrediction))
+            print(String.format("%-" + 15 + "s", info.invocations))
+            print(String.format("%-" + 15 + "s", info.SLL_TotalLook))
+            println()
+        }
 }
 
 class DistinguishErrorListener : BaseErrorListener() {

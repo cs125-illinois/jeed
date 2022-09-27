@@ -97,6 +97,9 @@ open class Source(
         }
     }
 
+    fun parse() {
+        parsedSources
+    }
     fun getParsed(filename: String): ParsedSource = parsedSources[filename] ?: error("$filename not in sources")
 
     fun sourceFilenameToFileType(filename: String): FileType {
