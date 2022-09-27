@@ -272,12 +272,12 @@ fun Throwable.getStackTraceForSource(
             break
         }
         if (!(source is Snippet || source is TemplatedSource)) {
-            betterStackTrace.add(line)
+            betterStackTrace.add("  $l")
             continue
         }
         val parsedLine = stackTraceLineRegex.find(l)
         if (parsedLine == null) {
-            betterStackTrace.add(line)
+            betterStackTrace.add("  $l")
             continue
         }
         val (klass, method, name, correctLine) = parsedLine.destructured
