@@ -271,7 +271,8 @@ class Request(
                 response.completedTasks.add(Task.checkstyle)
             } else if (tasks.contains(Task.ktlint)) {
                 check(actualSource.type == Source.FileType.KOTLIN) { "can't run ktlint on non-Kotlin sources" }
-                response.completed.ktlint = actualSource.ktLint(arguments.ktlint)
+                val arguments = arguments.ktlint.copy(indent = 2)
+                response.completed.ktlint = actualSource.ktLint(arguments)
                 response.completedTasks.add(Task.ktlint)
             }
 
