@@ -2,6 +2,8 @@ package edu.illinois.cs.cs125.jeed.core
 
 import com.pinterest.ktlint.core.KtLint
 import com.pinterest.ktlint.core.RuleProvider
+import com.pinterest.ktlint.core.api.DefaultEditorConfigProperties
+import com.pinterest.ktlint.core.api.EditorConfigOverride
 import com.pinterest.ktlint.ruleset.standard.ChainWrappingRule
 import com.pinterest.ktlint.ruleset.standard.CommentSpacingRule
 import com.pinterest.ktlint.ruleset.standard.IndentationRule
@@ -27,14 +29,18 @@ import com.pinterest.ktlint.ruleset.standard.StringTemplateRule
 import com.squareup.moshi.JsonClass
 import kotlinx.coroutines.sync.Semaphore
 import kotlinx.coroutines.sync.withPermit
-import java.io.File
-import java.io.FileOutputStream
 
 @JsonClass(generateAdapter = true)
 data class KtLintArguments(
     val sources: Set<String>? = null,
-    val failOnError: Boolean = false
-)
+    val failOnError: Boolean = false,
+    val indent: Int = SnippetArguments.DEFAULT_SNIPPET_INDENT,
+    val maxLineLength: Int = DEFAULT_MAX_LINE_LENGTH
+) {
+    companion object {
+        const val DEFAULT_MAX_LINE_LENGTH = 100
+    }
+}
 
 @JsonClass(generateAdapter = true)
 class KtLintError(
@@ -51,48 +57,6 @@ class KtLintFailed(errors: List<KtLintError>) : AlwaysLocatedJeedError(errors) {
 
 @JsonClass(generateAdapter = true)
 data class KtLintResults(val errors: List<KtLintError>)
-
-@Suppress("Deprecation")
-val editorConfigPath: String = run {
-    val tempFile = File(createTempDir("ktlint"), ".editorconfig")
-    object {}::class.java.getResourceAsStream("/ktlint/.editorconfig").let { input ->
-        FileOutputStream(tempFile).also { output ->
-            input!!.copyTo(output)
-        }.close()
-    }
-    tempFile.path
-}
-
-/*
-@Suppress("SpellCheckingInspection")
-val jeedRuleSet = RuleSet(
-    "standard",
-    ChainWrappingRule(),
-    CommentSpacingRule(),
-    IndentationRule(),
-    MaxLineLengthRule(),
-    ModifierOrderRule(),
-    // NoBlankLineBeforeRbraceRule(),
-    // NoConsecutiveBlankLinesRule(),
-    NoEmptyClassBodyRule(),
-    NoLineBreakAfterElseRule(),
-    NoLineBreakBeforeAssignmentRule(),
-    NoMultipleSpacesRule(),
-    NoSemicolonsRule(),
-    NoTrailingSpacesRule(),
-    NoUnitReturnRule(),
-    ParameterListWrappingRule(),
-    SpacingAroundColonRule(),
-    SpacingAroundCommaRule(),
-    SpacingAroundCurlyRule(),
-    SpacingAroundDotRule(),
-    SpacingAroundKeywordRule(),
-    SpacingAroundOperatorsRule(),
-    SpacingAroundParensRule(),
-    SpacingAroundRangeOperatorRule(),
-    StringTemplateRule()
-)
-*/
 
 @Suppress("SpellCheckingInspection")
 val jeedRuleProviders = setOf(
@@ -167,7 +131,11 @@ suspend fun Source.ktFormat(ktLintArguments: KtLintArguments = KtLintArguments()
                             )
                         }
                     },
-                    editorConfigPath = editorConfigPath
+                    editorConfigOverride = EditorConfigOverride.from(
+                        DefaultEditorConfigProperties.maxLineLengthProperty to ktLintArguments.maxLineLength,
+                        DefaultEditorConfigProperties.indentStyleProperty to "space",
+                        DefaultEditorConfigProperties.indentSizeProperty to ktLintArguments.indent
+                    )
                 )
             )
         }
@@ -246,7 +214,11 @@ suspend fun Source.ktLint(ktLintArguments: KtLintArguments = KtLintArguments()):
                                 } catch (_: Exception) {
                                 }
                             },
-                            editorConfigPath = editorConfigPath
+                            editorConfigOverride = EditorConfigOverride.from(
+                                DefaultEditorConfigProperties.maxLineLengthProperty to ktLintArguments.maxLineLength,
+                                DefaultEditorConfigProperties.indentStyleProperty to "space",
+                                DefaultEditorConfigProperties.indentSizeProperty to ktLintArguments.indent
+                            )
                         )
                     )
                 }

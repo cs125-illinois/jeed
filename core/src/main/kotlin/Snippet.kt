@@ -156,10 +156,14 @@ class SnippetErrorListener(
 
 @JsonClass(generateAdapter = true)
 data class SnippetArguments(
-    val indent: Int = 4,
+    val indent: Int = DEFAULT_SNIPPET_INDENT,
     var fileType: Source.FileType = Source.FileType.JAVA,
     val noEmptyMain: Boolean = false
-)
+) {
+    companion object {
+        const val DEFAULT_SNIPPET_INDENT = 4
+    }
+}
 
 @Suppress("LongMethod", "ComplexMethod")
 @Throws(SnippetTransformationFailed::class)
