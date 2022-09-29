@@ -909,6 +909,29 @@ public class Catcher {
             it.lookup("Dog", "Dog.java").features.featureMap[FeatureName.RECURSION] shouldBe 0
         }
     }
+    "should not die on empty constructor" {
+        Source(
+            mapOf(
+                "Simple.java" to """
+public class Simple {
+  private double val;
+
+  public Simple() {
+    val = 0;
+  }
+
+  public void setValue(double value) {
+    val = value;
+  }
+
+  public double squared() {
+    return val * val;
+  }
+}
+                """.trimMargin()
+            )
+        ).features()
+    }
     "should identify and record dotted method calls and property access" {
         Source.fromJavaSnippet(
             """

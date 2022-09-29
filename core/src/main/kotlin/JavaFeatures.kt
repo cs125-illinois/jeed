@@ -406,9 +406,9 @@ class JavaFeatureListener(val source: Source, entry: Map.Entry<String, String>) 
     override fun enterConstructorDeclaration(ctx: JavaParser.ConstructorDeclarationContext) {
         assert(featureStack.isNotEmpty())
         val currentClass = currentFeatures as ClassFeatures
-        val parameters = ctx.formalParameters().formalParameterList().formalParameter().joinToString(",") {
+        val parameters = ctx.formalParameters().formalParameterList()?.formalParameter()?.joinToString(",") {
             it.typeType().text
-        }
+        } ?: ""
         enterMethodOrConstructor(
             "${currentClass.name}($parameters)",
             Location(ctx.start.line, ctx.start.charPositionInLine),
