@@ -17,13 +17,13 @@ dependencies {
 
     implementation(project(":core"))
 
-    implementation("io.ktor:ktor-server-netty:2.1.1")
-    implementation("io.ktor:ktor-server-cors:2.1.1")
-    implementation("io.ktor:ktor-server-content-negotiation:2.1.1")
+    implementation("io.ktor:ktor-server-netty:2.1.2")
+    implementation("io.ktor:ktor-server-cors:2.1.2")
+    implementation("io.ktor:ktor-server-content-negotiation:2.1.2")
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-core:1.6.4")
     implementation("com.squareup.moshi:moshi-kotlin:1.14.0")
     implementation("com.github.cs125-illinois:ktor-moshi:2022.9.0")
-    implementation("ch.qos.logback:logback-classic:1.4.1")
+    implementation("ch.qos.logback:logback-classic:1.4.3")
     implementation("com.uchuhimo:konf-core:1.1.2")
     implementation("com.uchuhimo:konf-yaml:1.1.2")
     implementation("io.github.microutils:kotlin-logging:3.0.0")
@@ -33,7 +33,7 @@ dependencies {
 
     testImplementation("io.kotest:kotest-runner-junit5:5.4.2")
     testImplementation("io.kotest:kotest-assertions-ktor:4.4.3")
-    testImplementation("io.ktor:ktor-server-test-host:2.1.1")
+    testImplementation("io.ktor:ktor-server-test-host:2.1.2")
 }
 application {
     @Suppress("DEPRECATION")

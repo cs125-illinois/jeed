@@ -307,6 +307,7 @@ public class Example {
         ).complexity()
     }
     "!should not overflow on deep nesting" {
+        // Flaky test
         shouldThrow<SnippetTransformationFailed> {
             Source.fromSnippet(
                 """
