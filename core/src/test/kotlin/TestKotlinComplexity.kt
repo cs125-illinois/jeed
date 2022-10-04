@@ -343,7 +343,7 @@ public class Test(var first: Int, var second: Int) {
                 """.trim()
             )
         ).complexity().also {
-            it.lookup("Test.init", "Test.kt").complexity shouldBe 6
+            it.lookup("Test.init0", "Test.kt").complexity shouldBe 6
         }
     }
 
@@ -722,6 +722,24 @@ class Main {
         ).complexity().also {
             it.lookup("Main", "Main.kt").complexity shouldBe 1
             it.lookupFile("Main.kt") shouldBe 1
+        }
+    }
+    "should handle multiple init blocks" {
+        Source.fromKotlin(
+            """
+class Main {
+  init {
+    if (test < 10) {
+      println("Here")
+    }
+  }
+  init {
+    val test = 20
+  }
+}
+""".trim()
+        ).complexity().also {
+            it.lookupFile("Main.kt") shouldBe 2
         }
     }
 })

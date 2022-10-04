@@ -36,10 +36,11 @@ class KotlinComplexityListener(val source: Source, entry: Map.Entry<String, Stri
             require(!currentComplexity.classes.containsKey(locatedClass.name))
             currentComplexity.classes[locatedClass.name] = locatedClass
         }
+        initCounter = 0
         complexityStack.add(0, locatedClass)
     }
 
-    private fun enterMethodOrConstructor(name: String, start: Location, end: Location) {
+    private fun enterMethodOrConstructor(name: String, start: Location, end: Location, initialComplexity: Int = 1) {
         val locatedMethod =
             if (source is Snippet &&
                 source.looseCodeMethodName == name
@@ -48,7 +49,8 @@ class KotlinComplexityListener(val source: Source, entry: Map.Entry<String, Stri
             } else {
                 MethodComplexity(
                     name,
-                    SourceRange(filename, source.mapLocation(filename, start), source.mapLocation(filename, end))
+                    SourceRange(filename, source.mapLocation(filename, start), source.mapLocation(filename, end)),
+                    complexity = initialComplexity
                 )
             }
         if (complexityStack.isNotEmpty()) {
@@ -149,6 +151,25 @@ class KotlinComplexityListener(val source: Source, entry: Map.Entry<String, Stri
         exitMethodOrConstructor()
     }
 
+    private var initCounter: Int = 0
+    override fun enterAnonymousInitializer(ctx: KotlinParser.AnonymousInitializerContext) {
+        initCounter++
+        enterMethodOrConstructor(
+            "init${initCounter - 1}",
+            Location(ctx.start.line, ctx.start.charPositionInLine),
+            Location(ctx.stop.line, ctx.stop.charPositionInLine),
+            initialComplexity = if (initCounter == 1) {
+                1
+            } else {
+                0
+            }
+        )
+    }
+
+    override fun exitAnonymousInitializer(ctx: KotlinParser.AnonymousInitializerContext) {
+        exitMethodOrConstructor()
+    }
+    /*
     // init
     override fun enterClassMemberDeclaration(ctx: KotlinParser.ClassMemberDeclarationContext) {
         if (ctx.start.text == "init") {
@@ -165,6 +186,7 @@ class KotlinComplexityListener(val source: Source, entry: Map.Entry<String, Stri
             exitMethodOrConstructor()
         }
     }
+    */
 
     // ||, &&, ?:
     private var requireDepth = 0
