@@ -9,6 +9,7 @@ import edu.illinois.cs.cs125.jeed.core.antlr.KotlinParser.ClassBodyContext
 import edu.illinois.cs.cs125.jeed.core.antlr.KotlinParser.ControlStructureBodyContext
 import edu.illinois.cs.cs125.jeed.core.antlr.KotlinParser.FunctionBodyContext
 import edu.illinois.cs.cs125.jeed.core.antlr.KotlinParser.FunctionDeclarationContext
+import edu.illinois.cs.cs125.jeed.core.antlr.KotlinParser.SecondaryConstructorContext
 import edu.illinois.cs.cs125.jeed.core.antlr.KotlinParser.StatementContext
 import edu.illinois.cs.cs125.jeed.core.antlr.KotlinParserBaseListener
 import org.antlr.v4.runtime.ParserRuleContext
@@ -232,6 +233,28 @@ class KotlinFeatureListener(val source: Source, entry: Map.Entry<String, String>
         check(exitingLoopDepth == 0)
     }
 
+    private var constructorCounter = 0
+    override fun enterSecondaryConstructor(ctx: SecondaryConstructorContext) {
+        ifDepths += 0
+        functionBlockDepths += 0
+        loopDepths += 0
+        enterMethodOrConstructor(
+            "constructor${constructorCounter++}",
+            Location(ctx.start.line, ctx.start.charPositionInLine),
+            Location(ctx.stop.line, ctx.stop.charPositionInLine)
+        )
+    }
+
+    override fun exitSecondaryConstructor(ctx: SecondaryConstructorContext) {
+        exitMethodOrConstructor()
+        val exitingBlockDepth = functionBlockDepths.pop()
+        check(exitingBlockDepth == 0)
+        val exitingIfDepth = ifDepths.pop()
+        check(exitingIfDepth == 0)
+        val exitingLoopDepth = loopDepths.pop()
+        check(exitingLoopDepth == 0)
+    }
+
     override fun enterBlock(ctx: KotlinParser.BlockContext) {
         if (functionBlockDepths.isNotEmpty()) {
             functionBlockDepths[functionBlockDepths.size - 1]++
@@ -255,6 +278,7 @@ class KotlinFeatureListener(val source: Source, entry: Map.Entry<String, String>
                 is FunctionBodyContext -> return currentParent
                 is ClassBodyContext -> return currentParent
                 is AnonymousInitializerContext -> return currentParent
+                is SecondaryConstructorContext -> return currentParent
             }
             currentParent = currentParent.parent
         }
@@ -275,6 +299,7 @@ class KotlinFeatureListener(val source: Source, entry: Map.Entry<String, String>
     private fun ParserRuleContext.parentType() = when (parentContext()) {
         is FunctionBodyContext -> ParentType.FUNCTION
         is AnonymousInitializerContext -> ParentType.FUNCTION
+        is SecondaryConstructorContext -> ParentType.FUNCTION
         is ClassBodyContext -> ParentType.CLASS
         else -> ParentType.NONE
     }

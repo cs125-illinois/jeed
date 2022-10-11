@@ -169,6 +169,7 @@ class KotlinComplexityListener(val source: Source, entry: Map.Entry<String, Stri
     override fun exitAnonymousInitializer(ctx: KotlinParser.AnonymousInitializerContext) {
         exitMethodOrConstructor()
     }
+
     /*
     // init
     override fun enterClassMemberDeclaration(ctx: KotlinParser.ClassMemberDeclarationContext) {

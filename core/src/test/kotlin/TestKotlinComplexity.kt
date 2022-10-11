@@ -742,4 +742,21 @@ class Main {
             it.lookupFile("Main.kt") shouldBe 2
         }
     }
+    "should handle secondary constructors" {
+        Source.fromKotlin(
+            """
+class Main {
+  private val map = mutableMapOf<String, Int>()
+  constructor(list: List<String>) {
+    require(!list.isEmpty())
+    for (place in list) {
+      map[place] = 0
+    }
+  }
+}
+""".trim()
+        ).complexity().also {
+            it.lookupFile("Main.kt") shouldBe 3
+        }
+    }
 })

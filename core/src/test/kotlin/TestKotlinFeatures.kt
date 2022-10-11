@@ -349,6 +349,21 @@ class Test {
             featureMap[FeatureName.LOCAL_VARIABLE_DECLARATIONS] shouldBe 1
         }
     }
+    "should handle secondary constructors" {
+        Source.fromKotlinSnippet(
+            """
+class Test {
+  private val map = mutableMapOf<String, Int>()
+  constructor(list: List<String>) {
+    require(!list.isEmpty())
+    for (place in list) {
+      map[place] = 0
+    }
+  }
+}
+""".trim()
+        ).features()
+    }
 })
 
 fun FeaturesResults.check(path: String = ".", filename: String = "", block: Features.() -> Any): FeaturesResults {
