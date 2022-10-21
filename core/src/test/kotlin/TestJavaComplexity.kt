@@ -646,4 +646,41 @@ public class Mystery {
             ).complexity()
         }
     }
+    "should not fail on repeated nested anonmyous classes" {
+        Source.fromJavaSnippet(
+            """
+public static IWhichHemisphere create(Position p) {
+  double a = p.getLatitude();
+  if (a == 0) {
+    return new IWhichHemisphere() {
+      public boolean isNorthern() {
+        return false;
+      }
+      public boolean isSouthern() {
+        return true;
+      }
+    };
+  }
+  if (a > 0) {
+    return new IWhichHemisphere() {
+      public boolean isNorthern() {
+        return true;
+      }
+      public boolean isSouthern() {
+        return false;
+      }
+    };
+  } else {
+    return new IWhichHemisphere() {
+      public boolean isNorthern() {
+        return false;
+      }
+      public boolean isSouthern() {
+        return true;
+      }
+    };
+  }
+}""".trim()
+        ).complexity()
+    }
 })

@@ -4,6 +4,7 @@
 package edu.illinois.cs.cs125.jeed.core
 
 import edu.illinois.cs.cs125.jeed.core.antlr.JavaParser
+import edu.illinois.cs.cs125.jeed.core.antlr.JavaParser.CreatorContext
 import edu.illinois.cs.cs125.jeed.core.antlr.JavaParserBaseListener
 import org.antlr.v4.runtime.tree.ParseTreeWalker
 
@@ -17,8 +18,9 @@ class JavaFeatureListener(val source: Source, entry: Map.Entry<String, String>) 
     private val currentFeatures: FeatureValue
         get() = featureStack[0]
     var results: MutableMap<String, UnitFeatures> = mutableMapOf()
+    private var anonymousClassCount = 0
 
-    private fun enterClassOrInterface(name: String, start: Location, end: Location) {
+    private fun enterClassOrInterface(name: String, start: Location, end: Location, anonymous: Boolean = false) {
         val locatedClass = if (source is Snippet && name == source.wrappedClassName) {
             ClassFeatures("", source.snippetRange)
         } else {
@@ -28,10 +30,15 @@ class JavaFeatureListener(val source: Source, entry: Map.Entry<String, String>) 
             )
         }
         if (featureStack.isNotEmpty()) {
-            assert(!currentFeatures.classes.containsKey(locatedClass.name))
+            assert(!currentFeatures.classes.containsKey(locatedClass.name)) {
+                "Duplicate class ${locatedClass.name}"
+            }
             currentFeatures.classes[locatedClass.name] = locatedClass
         }
         featureStack.add(0, locatedClass)
+        if (!anonymous) {
+            anonymousClassCount = 0
+        }
     }
 
     private fun enterMethodOrConstructor(name: String, start: Location, end: Location) {
@@ -48,7 +55,9 @@ class JavaFeatureListener(val source: Source, entry: Map.Entry<String, String>) 
                 )
             }
         if (featureStack.isNotEmpty()) {
-            assert(!currentFeatures.methods.containsKey(locatedMethod.name))
+            assert(!currentFeatures.methods.containsKey(locatedMethod.name)) {
+                "Duplicate method ${locatedMethod.name} in ${currentFeatures.name}"
+            }
             currentFeatures.methods[locatedMethod.name] = locatedMethod
         }
         featureStack.add(0, locatedMethod)
@@ -467,43 +476,6 @@ class JavaFeatureListener(val source: Source, entry: Map.Entry<String, String>) 
 
     @Suppress("LongMethod", "ComplexMethod", "NestedBlockDepth")
     override fun enterStatement(ctx: JavaParser.StatementContext) {
-        /*
-        if (currentFeatures.features.skeleton.isEmpty()) {
-            val skeleton = ctx.text
-            for (i in skeleton.indices) {
-                if (skeleton[i] == '{') {
-                    currentFeatures.features.skeleton += "{ "
-                } else if (skeleton[i] == '}') {
-                    currentFeatures.features.skeleton += "} "
-                }
-
-                if (i + 5 < skeleton.length) {
-                    if (skeleton.subSequence(i, i + 5) == "while") {
-                        currentFeatures.features.skeleton += "while "
-                    }
-                }
-                if (i + 4 < skeleton.length) {
-                    if (skeleton.subSequence(i, i + 4) == "else") {
-                        currentFeatures.features.skeleton += "else "
-                    }
-                }
-                if (i + 3 < skeleton.length) {
-                    if (skeleton.subSequence(i, i + 3) == "for") {
-                        currentFeatures.features.skeleton += "for "
-                    }
-                }
-                if (i + 2 < skeleton.length) {
-                    when (skeleton.subSequence(i, i + 2)) {
-                        "if" -> currentFeatures.features.skeleton += "if "
-                        "do" -> currentFeatures.features.skeleton += "do "
-                    }
-                }
-            }
-            while (currentFeatures.features.skeleton.contains("{ } ")) {
-                currentFeatures.features.skeleton = currentFeatures.features.skeleton.replace("{ } ", "")
-            }
-        }
-         */
         ctx.statementExpression?.also {
             @Suppress("ComplexCondition")
             if (it.text.startsWith("System.out.println(") ||
@@ -765,6 +737,28 @@ class JavaFeatureListener(val source: Source, entry: Map.Entry<String, String>) 
         )
         if (ctx.text == "var" || ctx.text == "val") {
             count(FeatureName.TYPE_INFERENCE)
+        }
+    }
+
+    override fun enterClassCreatorRest(ctx: JavaParser.ClassCreatorRestContext) {
+        if (ctx.classBody() != null) {
+            val creator = ctx.parent as CreatorContext
+            val name = "${creator.createdName().text}_${anonymousClassCount++}"
+            enterClassOrInterface(
+                name,
+                Location(creator.start.line, creator.start.charPositionInLine),
+                Location(creator.stop.line, creator.stop.charPositionInLine),
+                true
+            )
+        }
+    }
+
+    override fun exitClassCreatorRest(ctx: JavaParser.ClassCreatorRestContext) {
+        if (ctx.classBody() != null) {
+            val creator = ctx.parent as CreatorContext
+            val name = "${creator.createdName().text}_${anonymousClassCount - 1}"
+            assert(currentFeatures.name == name)
+            exitClassOrInterface()
         }
     }
 
