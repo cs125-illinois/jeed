@@ -864,6 +864,23 @@ comment
             it.errors.first().message shouldBe "mismatched input '/'"
         }
     }
+    "should allow Kotlin interfaces to work" {
+        Source.fromKotlinSnippet(
+            """
+fun interface Modify {
+  fun modify(value: Int): Int
+}
+val first = Modify { value -> value + 1 }
+val second = Modify { value -> value - 10 }
+
+println(first.modify(10))
+println(second.modify(3))
+            """.trim()
+        ).kompile().execute().also { executionResult ->
+            executionResult should haveCompleted()
+            executionResult should haveOutput("11\n-7")
+        }
+    }
 })
 
 fun haveParseErrorOnLine(line: Int) = object : Matcher<SnippetTransformationFailed> {

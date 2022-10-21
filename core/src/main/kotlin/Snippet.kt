@@ -297,6 +297,9 @@ ${" ".repeat(snippetArguments.indent * 2)}@JvmStatic fun main() {""".lines().let
     parseTree.statement().mapNotNull { it.declaration()?.classDeclaration() }.forEach {
         klassLines.add(it.start.line..it.stop.line)
     }
+    parseTree.statement().mapNotNull { it.declaration()?.interfaceDeclaration() }.forEach {
+        klassLines.add(it.start.line..it.stop.line)
+    }
 
     var sawMainLines = false
     val topLevelStart = parseTree.statement()?.firstOrNull()?.start?.line ?: 0
