@@ -683,4 +683,16 @@ public static IWhichHemisphere create(Position p) {
 }""".trim()
         ).complexity()
     }
+    "should allow top-level lambda methods" {
+        Source.fromJavaSnippet(
+            """
+public interface Modify {
+  int modify(int value);
+}
+public class Modifier {
+  Modify modify = value -> value + 1;
+}
+""".trim()
+        ).complexity()
+    }
 })

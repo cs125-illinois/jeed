@@ -759,4 +759,16 @@ class Main {
             it.lookupFile("Main.kt") shouldBe 3
         }
     }
+    "should allow top-level lambda methods" {
+        Source.fromKotlinSnippet(
+            """
+fun interface Modify {
+  fun modify(value: Int): Int
+}
+class Modifier {
+  val modify = Modify { value -> value + 1 }
+}
+""".trim()
+        ).complexity()
+    }
 })

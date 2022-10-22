@@ -985,4 +985,18 @@ public static IWhichHemisphere create(Position p) {
             featureMap[FeatureName.ANONYMOUS_CLASSES] shouldBe 3
         }
     }
+    "should allow top-level lambda methods" {
+        Source.fromJavaSnippet(
+            """
+public interface Modify {
+  int modify(int value);
+}
+public class Modifier {
+  Modify modify = value -> value + 1;
+}
+""".trim()
+        ).features().check("") {
+            featureMap[FeatureName.LAMBDA_EXPRESSIONS] shouldBe 1
+        }
+    }
 })

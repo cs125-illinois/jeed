@@ -159,7 +159,7 @@ class JavaComplexityListener(val source: Source, entry: Map.Entry<String, String
 
     override fun enterLambdaExpression(ctx: JavaParser.LambdaExpressionContext) {
         assert(complexityStack.isNotEmpty())
-        (currentComplexity as MethodComplexity).complexity++
+        currentComplexity.complexity++
     }
 
     override fun enterStatement(ctx: JavaParser.StatementContext) {
