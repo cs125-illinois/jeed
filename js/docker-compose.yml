@@ -22,9 +22,8 @@ services:
       - LIMITS_PLUGINS_LINECOUNTLIMIT=32768
       - LIMITS_EXECUTION_MAXEXTRATHREADS=8
   mongodb:
-    image: bitnami/mongodb:4.4.4
+    image: mongo:4.4.8
     volumes:
-      - mongodb_data:/bitnami
+      - mongodb_data:/data/db
 volumes:
   mongodb_data:
-    driver: local
