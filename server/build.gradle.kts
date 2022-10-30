@@ -27,7 +27,7 @@ dependencies {
     implementation("com.uchuhimo:konf-core:1.1.2")
     implementation("com.uchuhimo:konf-yaml:1.1.2")
     implementation("io.github.microutils:kotlin-logging:3.0.3")
-    implementation("com.github.cs125-illinois:libcs1:2022.9.1")
+    implementation("com.github.cs125-illinois:libcs1:2022.10.0")
     implementation("com.beyondgrader.resource-agent:agent:2022.9.3")
     implementation("com.beyondgrader.resource-agent:jeedplugin:2022.9.3")
 
