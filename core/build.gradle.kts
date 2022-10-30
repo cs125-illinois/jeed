@@ -18,7 +18,6 @@ dependencies {
     antlr("org.antlr:antlr4:4.11.1")
 
     implementation("org.jetbrains.kotlin:kotlin-compiler-embeddable:1.7.20")
-    implementation("org.jetbrains.kotlin:kotlin-reflect:1.7.20")
 
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-core:1.6.4")
     implementation("com.puppycrawl.tools:checkstyle:10.3.4")
@@ -31,7 +30,7 @@ dependencies {
     implementation("org.ow2.asm:asm-util:9.4")
     implementation("org.slf4j:slf4j-api:2.0.3")
     implementation("ch.qos.logback:logback-classic:1.4.4")
-    implementation("io.github.microutils:kotlin-logging:3.0.2")
+    implementation("io.github.microutils:kotlin-logging:3.0.3")
     implementation("io.github.classgraph:classgraph:4.8.149")
     implementation("net.java.dev.jna:jna:5.12.1")
     implementation("io.github.java-diff-utils:java-diff-utils:4.12")
@@ -43,7 +42,7 @@ dependencies {
     api("org.jacoco:org.jacoco.core:0.8.8")
     api("com.github.ben-manes.caffeine:caffeine:3.1.1")
 
-    testImplementation("io.kotest:kotest-runner-junit5:5.5.2")
+    testImplementation("io.kotest:kotest-runner-junit5:5.5.3")
 }
 tasks.test {
     useJUnitPlatform()
