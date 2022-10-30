@@ -284,6 +284,15 @@ public int add(int a, int b) {
             it shouldNot haveCheckstyleErrors()
         }
     }
+    "should allow suppressions" {
+        Source.fromSnippet(
+            """
+for (int i = 0; i < 10; i++);
+""".trim()
+        ).checkstyle(CheckstyleArguments(suppressions = setOf("empty.statement"))).also {
+            it shouldNot haveCheckstyleErrors()
+        }
+    }
 })
 
 fun haveCheckstyleErrors() = object : Matcher<CheckstyleResults> {

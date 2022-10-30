@@ -23,7 +23,8 @@ import javax.xml.xpath.XPathFactory
 data class CheckstyleArguments(
     val sources: Set<String>? = null,
     val failOnError: Boolean = false,
-    val skipUnmapped: Boolean = true
+    val skipUnmapped: Boolean = true,
+    val suppressions: Set<String> = setOf()
 )
 
 @JsonClass(generateAdapter = true)
@@ -164,38 +165,38 @@ suspend fun Source.checkstyle(
         sources.filter {
             names.contains(it.key)
         }
-    ).values.flatten().mapNotNull {
+    ).values.flatten().mapNotNull { error ->
         val mappedLocation = try {
-            mapLocation(it.location)
+            mapLocation(error.location)
         } catch (e: SourceMappingException) {
             if (!checkstyleArguments.skipUnmapped) {
                 throw e
             }
             null
         }
-        if (mappedLocation != null) {
-            val message = if (it.key?.startsWith("indentation") == true) {
+        if (mappedLocation != null && error.key !in checkstyleArguments.suppressions) {
+            val message = if (error.key?.startsWith("indentation") == true) {
                 @Suppress("TooGenericExceptionCaught")
                 try {
-                    val addedIndent = leadingIndentation(it.location)
+                    val addedIndent = leadingIndentation(error.location)
                     val (incorrectMessage, incorrectAmount) =
-                        incorrectLevelRegex.find(it.message)?.groups?.let { match ->
+                        incorrectLevelRegex.find(error.message)?.groups?.let { match ->
                             Pair(match[0]?.value, match[1]?.value?.toInt())
                         } ?: error("Couldn't parse indentation error")
                     val (expectedMessage, expectedAmount) =
-                        expectedLevelRegex.find(it.message)?.groups?.let { match ->
+                        expectedLevelRegex.find(error.message)?.groups?.let { match ->
                             Pair(match[0]?.value, match[1]?.value?.toInt())
                         } ?: error("Couldn't parse indentation error")
-                    it.message
+                    error.message
                         .replace(incorrectMessage!!, "incorrect indentation level ${incorrectAmount!! - addedIndent}")
                         .replace(expectedMessage!!, "expected level should be ${expectedAmount!! - addedIndent}")
                 } catch (_: Exception) {
-                    it.message
+                    error.message
                 }
             } else {
-                it.message
+                error.message
             }
-            CheckstyleError(it.severity, it.key, mappedLocation, message)
+            CheckstyleError(error.severity, error.key, mappedLocation, message)
         } else {
             null
         }
