@@ -7,7 +7,6 @@ plugins {
     application
     `maven-publish`
     id("com.github.johnrengelman.shadow") version "7.1.2"
-    id("com.palantir.docker") version "0.34.0"
     id("org.jmailen.kotlinter")
     id("io.gitlab.arturbosch.detekt")
     id("com.google.devtools.ksp")
@@ -26,12 +25,12 @@ dependencies {
     implementation("ch.qos.logback:logback-classic:1.4.4")
     implementation("com.uchuhimo:konf-core:1.1.2")
     implementation("com.uchuhimo:konf-yaml:1.1.2")
-    implementation("io.github.microutils:kotlin-logging:3.0.3")
+    implementation("io.github.microutils:kotlin-logging:3.0.4")
     implementation("com.github.cs125-illinois:libcs1:2022.10.0")
     implementation("com.beyondgrader.resource-agent:agent:2022.9.3")
     implementation("com.beyondgrader.resource-agent:jeedplugin:2022.9.3")
 
-    testImplementation("io.kotest:kotest-runner-junit5:5.5.3")
+    testImplementation("io.kotest:kotest-runner-junit5:5.5.4")
     testImplementation("io.kotest:kotest-assertions-ktor:4.4.3")
     testImplementation("io.ktor:ktor-server-test-host:2.1.3")
 }
@@ -39,11 +38,26 @@ application {
     @Suppress("DEPRECATION")
     mainClassName = "edu.illinois.cs.cs125.jeed.server.MainKt"
 }
-docker {
-    name = "cs125/jeed"
-    @Suppress("DEPRECATION")
-    tags("latest")
-    files(tasks["shadowJar"].outputs)
+val dockerName = "cs125/jeed"
+tasks.processResources {
+    dependsOn("createProperties")
+}
+tasks.register<Copy>("dockerCopyJar") {
+    from(tasks["shadowJar"].outputs)
+    into("${buildDir}/docker")
+}
+tasks.register<Copy>("dockerCopyDockerfile") {
+    from("${projectDir}/Dockerfile")
+    into("${buildDir}/docker")
+}
+tasks.register<Exec>("dockerBuild") {
+    dependsOn("dockerCopyJar", "dockerCopyDockerfile")
+    workingDir("${buildDir}/docker")
+    commandLine(
+        ("docker build . " +
+            "-t ${dockerName}:latest " +
+            "-t ${dockerName}:${project.version}").split(" ")
+    )
 }
 tasks.test {
     useJUnitPlatform()

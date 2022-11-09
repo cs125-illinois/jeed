@@ -16,7 +16,7 @@
       <option name="taskNames">
         <list>
           <option value=":core:cleanTest" />
-          <option value=":containerrunner:dockerTag" />
+          <option value=":containerrunner:dockerBuild" />
           <option value=":core:test" />
         </list>
       </option>
