@@ -66,6 +66,7 @@ tasks.register<Exec>("dockerPush") {
     workingDir("${buildDir}/docker")
     commandLine(
         ("docker buildx build . --platform=linux/amd64,linux/arm64/v8 " +
+            "--builder multiplatform " +
             "--tag ${dockerName}:latest " +
             "--tag ${dockerName}:${project.version} --push").split(" ")
     )

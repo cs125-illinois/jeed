@@ -59,6 +59,16 @@ tasks.register<Exec>("dockerBuild") {
             "-t ${dockerName}:${project.version}").split(" ")
     )
 }
+tasks.register<Exec>("dockerPush") {
+    dependsOn("dockerCopyJar", "dockerCopyDockerfile")
+    workingDir("${buildDir}/docker")
+    commandLine(
+        ("docker buildx build . --platform=linux/amd64,linux/arm64/v8 " +
+            "--builder multiplatform " +
+            "--tag ${dockerName}:latest " +
+            "--tag ${dockerName}:${project.version} --push").split(" ")
+    )
+}
 tasks.test {
     useJUnitPlatform()
     val agentJarPath = configurations["runtimeClasspath"].resolvedConfiguration.resolvedArtifacts.find {
