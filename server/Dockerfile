@@ -20,6 +20,7 @@ CMD java -ea --enable-preview -Dfile.encoding=UTF-8 \
     -Xms1G -Xmx1G -Xss256k \
     -XX:+UseZGC -XX:ZCollectionInterval=8 -XX:-OmitStackTraceInFastThrow \
     --add-opens java.base/java.lang=ALL-UNNAMED \
+    --add-opens java.base/java.util=ALL-UNNAMED \
     --add-exports jdk.compiler/com.sun.tools.javac.api=ALL-UNNAMED \
     --add-exports jdk.compiler/com.sun.tools.javac.file=ALL-UNNAMED \
     --add-exports jdk.compiler/com.sun.tools.javac.parser=ALL-UNNAMED \

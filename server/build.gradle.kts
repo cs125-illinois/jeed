@@ -38,10 +38,11 @@ application {
     @Suppress("DEPRECATION")
     mainClassName = "edu.illinois.cs.cs125.jeed.server.MainKt"
 }
-val dockerName = "cs125/jeed"
 tasks.processResources {
     dependsOn("createProperties")
 }
+
+val dockerName = "cs125/jeed"
 tasks.register<Copy>("dockerCopyJar") {
     from(tasks["shadowJar"].outputs)
     into("${buildDir}/docker")
