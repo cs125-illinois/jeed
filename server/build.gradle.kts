@@ -54,6 +54,7 @@ tasks.register<Copy>("dockerCopyDockerfile") {
 tasks.register<Exec>("dockerBuild") {
     dependsOn("dockerCopyJar", "dockerCopyDockerfile")
     workingDir("${buildDir}/docker")
+    environment("DOCKER_BUILDKIT", "1")
     commandLine(
         ("docker build . " +
             "-t ${dockerName}:latest " +
