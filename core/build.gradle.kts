@@ -17,10 +17,10 @@ dependencies {
 
     antlr("org.antlr:antlr4:4.11.1")
 
-    implementation("org.jetbrains.kotlin:kotlin-compiler-embeddable:1.7.20")
+    implementation("org.jetbrains.kotlin:kotlin-compiler-embeddable:1.7.22")
 
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-core:1.6.4")
-    implementation("com.puppycrawl.tools:checkstyle:10.4")
+    implementation("com.puppycrawl.tools:checkstyle:10.5.0")
     implementation("com.pinterest.ktlint:ktlint-core:0.47.1")
     implementation("com.pinterest.ktlint:ktlint-ruleset-standard:0.47.1")
     implementation("com.github.jknack:handlebars:4.3.1")
@@ -28,10 +28,10 @@ dependencies {
     implementation("org.ow2.asm:asm:9.4")
     implementation("org.ow2.asm:asm-tree:9.4")
     implementation("org.ow2.asm:asm-util:9.4")
-    implementation("org.slf4j:slf4j-api:2.0.3")
-    implementation("ch.qos.logback:logback-classic:1.4.4")
+    implementation("org.slf4j:slf4j-api:2.0.6")
+    implementation("ch.qos.logback:logback-classic:1.4.5")
     implementation("io.github.microutils:kotlin-logging:3.0.4")
-    implementation("io.github.classgraph:classgraph:4.8.149")
+    implementation("io.github.classgraph:classgraph:4.8.152")
     implementation("net.java.dev.jna:jna:5.12.1")
     implementation("io.github.java-diff-utils:java-diff-utils:4.12")
     implementation("com.google.googlejavaformat:google-java-format:1.15.0")
@@ -40,7 +40,7 @@ dependencies {
     implementation("com.beyondgrader.resource-agent:agent:2022.9.3")
 
     api("org.jacoco:org.jacoco.core:0.8.8")
-    api("com.github.ben-manes.caffeine:caffeine:3.1.1")
+    api("com.github.ben-manes.caffeine:caffeine:3.1.2")
 
     testImplementation("io.kotest:kotest-runner-junit5:5.5.4")
 }
