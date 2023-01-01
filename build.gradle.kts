@@ -1,11 +1,11 @@
 import org.jetbrains.kotlin.gradle.tasks.KotlinCompile
 
 plugins {
-    kotlin("jvm") version "1.7.22" apply false
-    id("org.jmailen.kotlinter") version "3.12.0" apply false
+    kotlin("jvm") version "1.8.0" apply false
+    id("org.jmailen.kotlinter") version "3.13.0" apply false
     id("com.github.ben-manes.versions") version "0.44.0"
     id("io.gitlab.arturbosch.detekt") version "1.22.0"
-    id("com.google.devtools.ksp") version "1.7.22-1.0.8" apply false
+    id("com.google.devtools.ksp") version "1.8.0-1.0.8" apply false
 }
 allprojects {
     repositories {
@@ -18,7 +18,7 @@ allprojects {
 }
 subprojects {
     group = "com.github.cs125-illinois.jeed"
-    version = "2022.12.0"
+    version = "2023.1.0"
     tasks.withType<Test> {
         useJUnitPlatform()
         enableAssertions = true
